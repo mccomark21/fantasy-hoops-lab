@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: planned. This guide records the agreed design. The code will be in `src/fantasyhoops/adds/`.
+Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Step 1 works: the planner reads your team and prints the open starting slots of each day in the planning window. The plans, the page and the publish step are not built yet.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -109,14 +109,14 @@ The planner does not keep an add back for contingency plans. The page shows the 
 | Data | Source |
 |---|---|
 | Your roster, the statuses, the adds that you used | Your team page (`/nba/<league>/<team>`) |
-| The dates of the fantasy week, the matchup | Your league pages |
+| The dates of the fantasy week, the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
 | Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`), all pages, and the same list filtered by NBA team |
 | Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex`) |
 | NBA schedule | `data/schedule.csv` (`fetch/espn.py`) |
 
 Only players with status FA are free agents. Players on waivers (W) are not.
 
-Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. See [ADR 1](../adr/0001-playwright-for-league-data.md).
+Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. See [ADR 1](../adr/0001-playwright-for-league-data.md).
 
 Yahoo and ESPN use different team codes, for example SAS and SA. The planner maps the Yahoo codes to the ESPN codes of the schedule.
 

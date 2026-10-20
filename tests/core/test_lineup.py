@@ -1,4 +1,4 @@
-from fantasyhoops.core.lineup import best_lineup, open_slots
+from fantasyhoops.core.lineup import best_lineup, open_slots, starting_slots
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 
@@ -31,3 +31,12 @@ def test_no_players():
 def test_open_slots_counts_the_slots_that_no_player_fills():
     # The SF/PF player moves to PF so that the SF player gets SF. PG and C stay open.
     assert open_slots([["SF", "PF"], ["SF"], ["SG"]], SLOTS) == 2
+
+
+def test_starting_slots_names_the_slot_of_each_starter():
+    # 0 moves to SG so that 1 gets PG. 2 is the second PG and takes Util. 3 sits.
+    assert starting_slots([{"PG", "SG"}, {"PG"}, {"PG"}, {"SG"}], SLOTS) == {0: "SG", 1: "PG", 2: "Util"}
+
+
+def test_starting_slots_with_no_players():
+    assert starting_slots([], SLOTS) == {}
