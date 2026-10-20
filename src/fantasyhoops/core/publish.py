@@ -2,8 +2,10 @@
 
 The site has a home page at / and one folder for each tool: /draft/, /adds/.
 A publish of one tool replaces its own folder and the home page. It keeps the folders of the other tools.
+Each page of a tool gets a bar at the top with links to the home page and to the other tools.
 """
 import html
+import re
 import subprocess
 
 BRANCH = "gh-pages"
@@ -51,26 +53,56 @@ def home_page(tools):
     return HOME.replace("__TOOLS__", items)
 
 
+def nav_bar(tool, tools):
+    """The bar at the top of each page of a tool: a link to the home page and to each tool on the site."""
+    current = ' aria-current="page"'
+    links = ['<a href="../">Home</a>'] + [
+        f'<a href="../{t}/"{current if t == tool else ""}>{html.escape(TOOLS[t][0])}</a>'
+        for t in TOOLS if t in tools]
+    return f'{NAV_STYLE}<nav class="site-nav">{" · ".join(links)}</nav>'
+
+
+def with_nav_bar(data, tool, tools):
+    """The page with the nav bar after its <body> tag. A page with no <body> tag does not change."""
+    text = data.decode("utf-8")
+    return re.sub(r"<body[^>]*>", lambda m: m.group(0) + nav_bar(tool, tools), text, count=1).encode("utf-8")
+
+
 def publish(repo, tool, index, others=()):
     """Push the pages of one tool to gh-pages in origin, in the folder /<tool>/. The working tree and the current branch do not change.
 
     index: the main page of the tool. It goes to /<tool>/index.html.
     others: more pages of the tool. Each one goes to /<tool>/ with its own file name.
     The folders of the other tools on gh-pages stay. The home page links to each tool folder on the site.
+    Each page gets the nav bar. The pages of the other tools keep the nav bar of their last publish.
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
     """
     if tool not in TOOLS:
         raise ValueError(f"{tool} is not a tool of the site. The tools are: {', '.join(TOOLS)}.")
     if not index.exists():
         raise FileNotFoundError(f"{index} does not exist.")
-    pages = {"index.html": index.read_bytes(), **{o.name: o.read_bytes() for o in others}}
     folders = published_folders(repo)
+    tools = {*folders, tool}
+    pages = {"index.html": index.read_bytes(), **{o.name: o.read_bytes() for o in others}}
+    pages = {n: with_nav_bar(d, tool, tools) if n.endswith(".html") else d for n, d in pages.items()}
     folders[tool] = ("040000", "tree", make_tree(repo, {n: ("100644", "blob", write_blob(repo, d)) for n, d in pages.items()}))
     root = {name: ("100644", "blob", write_blob(repo, data))
             for name, data in {".nojekyll": b"", "index.html": home_page(folders).encode()}.items()}
     commit = git(repo, "commit-tree", make_tree(repo, {**root, **folders}), "-m", f"Publish the {tool} pages")
     git(repo, "push", "--force", "origin", f"{commit}:refs/heads/{BRANCH}")
 
+
+NAV_STYLE = """<style>
+.site-nav { padding: 8px 16px; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+            background: #fafaf9; color: #78716c; border-bottom: 1px solid #e7e5e4; overflow-wrap: anywhere; }
+.site-nav a { color: #7c3aed; font-weight: 600; text-decoration: none; }
+.site-nav a[aria-current] { color: #1c1917; }
+@media (prefers-color-scheme: dark) {
+  .site-nav { background: #1c1917; color: #a8a29e; border-color: #44403c; }
+  .site-nav a { color: #a78bfa; }
+  .site-nav a[aria-current] { color: #f5f5f4; }
+}
+</style>"""
 
 HOME = """<!doctype html>
 <html lang="en">

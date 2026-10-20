@@ -61,3 +61,18 @@ def test_old_board_at_the_root_goes_away(repo, remote_pages):
 def test_unknown_tool_stops_with_an_error(repo):
     with pytest.raises(ValueError, match="draft, adds"):
         publish(repo, "trades", page(repo, "trades/x.html", ""))
+
+
+def test_each_page_gets_a_nav_bar_with_the_tools_on_the_site(repo, remote_pages):
+    publish(repo, "draft", page(repo, "draft/board.html", "<html><body class='x'><p>board</p></body></html>"))
+    publish(repo, "adds", page(repo, "adds/plan.html", "<body><p>plan</p></body>"),
+            [page(repo, "adds/notes.html", "<body><p>notes</p></body>")])
+    pages = remote_pages(repo)
+    plan = pages["adds/index.html"]
+    assert plan.index("<body>") < plan.index('<nav class="site-nav">') < plan.index("<p>plan</p>")
+    assert 'href="../">Home</a>' in plan and 'href="../draft/">Draft board</a>' in plan
+    assert 'href="../adds/" aria-current="page">Weekly adds plan</a>' in plan
+    assert 'class="site-nav"' in pages["adds/notes.html"]
+    # The draft board had its publish before the adds plan was on the site: it has no adds link yet.
+    board = pages["draft/index.html"]
+    assert "<body class='x'><style>" in board and 'href="../adds/"' not in board
