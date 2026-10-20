@@ -3,7 +3,7 @@ import math
 import pandas as pd
 import pytest
 
-from fantasyhoops.core.valuation import value_players
+from fantasyhoops.core.valuation import category_scale, pg_value, value_players
 
 # Pool = 2 teams x 5 roster spots = 10 players. The waiver tier is the next 2 players.
 CFG = {
@@ -112,3 +112,24 @@ def test_tied_players_at_the_cutoff_get_the_min_bid():
     # Players 9 and 10 have the same value. One is bought for $1, the other gets $0.
     assert sorted(out.dollars[[9, 10]]) == [0, 1]
     assert out.dollars.sum() == pytest.approx(400)
+
+
+def test_category_scale_is_the_mean_and_std_of_the_pool():
+    scale = category_scale(players(), CFG)
+
+    # The pool is pts 30..21: mean 25.5, sample std sqrt(55 / 6)
+    assert list(scale.index) == ["mean", "std"]
+    assert scale.loc["mean"].to_numpy() == pytest.approx([25.5, 25.5])
+    assert scale.loc["std"].to_numpy() == pytest.approx([math.sqrt(55 / 6)] * 2)
+
+
+def test_pg_value_of_a_stat_line_is_the_pg_value_of_the_draft_rankings():
+    df = players()
+    df["reb"] = df.reb[::-1].to_numpy()  # pts and reb differ, so the weights count
+    out, scale = value_players(df, CFG), category_scale(df, CFG)
+
+    # One line (a Series) gives a float. Many lines (a DataFrame) give a Series.
+    assert pg_value(df.loc[3], scale, CFG) == pytest.approx(out.pg_value[3])
+    assert pg_value(pd.Series({"pts": 20.0, "reb": 9.0}), scale, CFG) == pytest.approx(
+        (20 - scale.pts["mean"]) / scale.pts["std"] + 0.5 * (9 - scale.reb["mean"]) / scale.reb["std"])
+    assert pg_value(df, scale, CFG).to_numpy() == pytest.approx(out.pg_value.to_numpy())
