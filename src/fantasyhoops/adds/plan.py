@@ -8,11 +8,13 @@ One planning run:
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
 5. schedule_plan(): choose the team windows for the stream spots.
 6. Print the open slots, the team ranking and the schedule plan.
+7. contingency_plans(): print a contingency plan for each game day of each flagged player.
 Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
 """
 from dataclasses import dataclass
 from datetime import date
 
+from fantasyhoops.adds.contingency import contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
 from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
@@ -184,7 +186,7 @@ def main(today=None):
     cfg = load_config()
     today = today or date.today()
     slots, sched = cfg["league"]["slots"], read_schedule()
-    plan, read = None, []
+    plan, read, options = None, [], []
     with open_league(cfg["adds"]["league"]) as yahoo:
         data = read_league(yahoo, cfg, today)
         window = planning_window(data.week, today)
@@ -196,10 +198,13 @@ def main(today=None):
             read = teams_to_read(ranking)
             free_agents = read_team_free_agents(yahoo, read)
     if read:
-        plan = schedule_plan(days, games, spots, value_options(free_agents, cfg), data.adds.left, slots)
+        options = value_options(free_agents, cfg)
+        plan = schedule_plan(days, games, spots, options, data.adds.left, slots)
     print_open_slots(data, days, cfg)
     print_ranking(ranking, read)
     print_plan(plan, spots, data.adds, today)
+    print_contingencies(contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots,
+                                          game_times(sched)))
 
 
 if __name__ == "__main__":

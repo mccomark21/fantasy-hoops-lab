@@ -3,13 +3,14 @@
 Run this script again when rosters change (trades, signings).
 Output:
   data/rosters.csv   - one row for each player on an NBA roster
-  data/schedule.csv  - one row for each team in each regular-season game
+  data/schedule.csv  - one row for each team in each regular-season game, with the start time (US Eastern)
 """
 import csv
 import json
 import time
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from fantasyhoops.core.common import DATA, load_config
 
@@ -34,6 +35,12 @@ def local_date(utc_text):
     return (utc - timedelta(hours=6)).date().isoformat()
 
 
+def local_time(utc_text):
+    """The start time of the game in US Eastern time, for example "19:30"."""
+    utc = datetime.strptime(utc_text, "%Y-%m-%dT%H:%MZ").replace(tzinfo=timezone.utc)
+    return utc.astimezone(ZoneInfo("America/New_York")).strftime("%H:%M")
+
+
 def main():
     season = load_config()["league"]["espn_season"]
     DATA.mkdir(exist_ok=True)
@@ -52,7 +59,8 @@ def main():
         for event in schedule["events"]:
             sides = event["competitions"][0]["competitors"]
             opponent = next(s["team"]["abbreviation"] for s in sides if s["team"]["id"] != team["id"])
-            games.append({"date": local_date(event["date"]), "team": abbr, "opponent": opponent})
+            games.append({"date": local_date(event["date"]), "team": abbr, "opponent": opponent,
+                          "time": local_time(event["date"])})
         print(f"{abbr}: {len(roster['athletes'])} players, {len(schedule['events'])} games")
 
     for name, rows in (("rosters.csv", rosters), ("schedule.csv", games)):

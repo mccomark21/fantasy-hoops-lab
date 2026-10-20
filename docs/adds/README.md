@@ -40,7 +40,7 @@ You can run the planner on any day. Run it before the week starts for the full p
 
 On the last day of a fantasy week, the planner plans the next week. The planning window is the whole next week, and all the adds of the weekly limit are left (5).
 
-The planning window starts today. The schedule has no game times. An add for today helps only if his game has not started.
+The planning window starts today. The main plan does not use the game times. An add for today helps only if his game has not started.
 
 ## The plans
 
@@ -105,10 +105,14 @@ Yahoo uses the official NBA designations: O (out), Q (questionable), D (doubtful
 
 A contingency plan fills the slot of a flagged player who is ruled out just before his game:
 
-1. First, it tries a lineup move: a bench player who plays that day.
-2. If no move works, it gives an add: a free agent whose game starts later that day, and the streamer to drop. It shows the cost: the adds that it uses and the team window that it ends early.
+1. First, it tries a lineup move: a bench player who plays that day. The planner makes the lineup of that day again without the flagged player, with the players of the main plan in the stream spots. A move works if the number of starters stays the same.
+2. If no move works, it gives an add: a free agent whose game starts later that day, and the streamer to drop. The add goes to an empty stream spot if there is one. Otherwise it replaces the streamer who loses the fewest started games, and that streamer must not start that day. It shows the cost: the add that it uses, the adds left after the main plan and the team window that it ends early.
 
-The planner does not keep an add back for contingency plans. The page shows the cost, and you decide.
+A flagged player gets a plan only for the days on which he starts. On a day when he sits on the bench, his status changes nothing.
+
+The game times come from the `time` column of `data/schedule.csv` (US Eastern). A schedule file without this column still works. The plan then lists each free agent who plays that day and fits, and tells you to check that his game starts after the game of the flagged player.
+
+The planner does not keep an add back for contingency plans. The page shows the cost, and you decide. The terminal prints the contingency plans after the main plan.
 
 ## Data
 
@@ -118,7 +122,7 @@ The planner does not keep an add back for contingency plans. The page shows the 
 | The dates of the fantasy week, the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
 | Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`), all pages, and the same list filtered by NBA team |
 | Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex`) |
-| NBA schedule | `data/schedule.csv` (`fetch/espn.py`) |
+| NBA schedule and game times | `data/schedule.csv` (`fetch/espn.py`) |
 
 Only players with status FA are free agents. Players on waivers (W) are not.
 
