@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The aggressive plan is not built yet.
+Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the aggressive plan and the comparison of the two plans. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -19,7 +19,9 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 
 ## Goal
 
-Each plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins.
+The schedule plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins.
+
+The aggressive plan gets the most value from your stream spots: the sum of the value above an empty slot of its started games. It can give up started games for better players.
 
 The two plans give you a real choice: few adds and a good schedule, or more adds and better players.
 
@@ -65,12 +67,27 @@ The search is exact. It looks at each open day in order. On each day, each strea
 
 ### Aggressive plan
 
-1. Start from the top free agents by blended value.
-2. Use more adds, up to the adds that are left, when a better player gains started games.
+Decision (2026-10-20): the score of the aggressive plan is the sum of the blended value of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left.
+
+The aggressive plan uses the same free agents and the same exact search as the schedule plan, with a different plan score:
+
+1. Each started game counts its value above an empty slot: the blended value of the player minus the value of an empty slot.
+2. The plan with the highest sum of these values wins. Ties go to the plan with fewer adds, then to the plan with more started games.
+3. The plan uses more adds, up to the adds that are left, when the better players give a higher sum.
+
+The value of an empty slot is the value of a stat line of zeros on the category scale of the season projections file. It is about -11.8 with the projections file of 2026-10-12.
+
+Why the planner does not add the blended values as they are: a free agent usually has a value below 0, because the scale comes from the drafted players. In the free-agent lists of 2026-10-20, the 47 free agents had blended values from -1.6 to -9.2. With a plain sum, each started game of a free agent lowers the sum, so the plan adds nobody. A check with the pages of 2026-10-20 gave a plan with 0 adds. With the value above an empty slot, each started game counts more than 0 (a free agent at -1.6 counts +10.3, at -4.5 counts +7.4). The value is a weighted sum of the counting stats, so the sum is the value of all the stats that the started games add. One game of a player at -1.6 (+10.3) then beats one game of a player at -4.5 (+7.4). But two games of the player at -4.5 (+14.8) beat one game of the player at -1.6.
+
+Two other reference values were checked and not used. Replacement level (rank 140, about -2.7) makes most streamers count below 0, so the plan leaves open slots empty. The lowest value of the free agents that the run read changes with the teams that the run read.
+
+A holder who is not in the projections file counts as an empty slot in the aggressive plan. The schedule plan counts him as 0.
+
+The planner shows no drop trade-offs for the aggressive plan, because the gain of a drop counts started games. The windows of the aggressive plan show which players it drops.
 
 ### Comparison
 
-The page shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games.
+The terminal and the page show the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot, the score of the aggressive plan. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
 
 ## Value
 
@@ -165,9 +182,10 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 |---|---|
 | Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. |
 | Open day | A day of the planning window with at least one open starting slot. |
-| Plan score | First the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games. |
+| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games. Aggressive plan: the sum of the value above an empty slot of the started games. Ties go to the plan with fewer adds, then to the plan with more started games. |
+| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). |
 | Schedule plan | The plan that chooses NBA teams by the open days that they cover, then free agents on those teams, with the fewest adds. |
-| Aggressive plan | The plan that starts from the top free agents by blended value and uses more adds. |
+| Aggressive plan | The plan with the highest sum of the value above an empty slot of its started games. It can use more adds and give up started games for better players. |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team, for example "CHA Mon–Wed". |

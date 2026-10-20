@@ -4,7 +4,8 @@ from itertools import product
 
 import pytest
 
-from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
+from fantasyhoops.adds.planner import (Option, StreamSpot, aggressive_plan, aggressive_score, plan_score, rank_teams,
+                                       schedule_plan, teams_to_read, value_above_empty)
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
 from fantasyhoops.core.lineup import best_lineup
@@ -142,8 +143,8 @@ def test_a_large_search():
     assert plan([], games, fas, spots=2).score[:2] == (12, -4)
 
 
-def brute_force(roster, games, free_agents, spots, adds):
-    """The best (started games, -adds, value) of all plans, by a plain search over the timelines of the spots.
+def brute_force(roster, games, free_agents, spots, adds, score=plan_score):
+    """The best score(started games, adds, value) of all plans, by a plain search over the timelines of the spots.
 
     value: the total value of the started games. Of the players who play, the lineup takes the best value first.
     """
@@ -173,12 +174,12 @@ def brute_force(roster, games, free_agents, spots, adds):
         now = [[o for o, first in t if first <= i][-1:] for t in combo]
         return len({o for t in now for o in t}) == sum(len(t) for t in now)
 
-    best = (0, 0, 0.0)
+    best = score(0, 0, 0.0)
     for combo in product(*[list(timelines(adds, 0))] * spots):
         n = sum(len(t) for t in combo)
         if n <= adds and all(distinct(combo, i) for i in range(len(days))):
             count, value = started(combo)
-            best = max(best, (count, -n, value))
+            best = max(best, score(count, n, value))
     return best
 
 
@@ -204,6 +205,73 @@ def test_the_search_finds_the_best_plan_with_teammates(seed):
     fas = [fa(f"{t}{n}", t, rnd.choice([("C",), ("PF", "C")]), value=rnd.random() - 0.5)
            for n, t in enumerate(teams)]
     assert plan(roster, games, fas, spots=2, adds=2).score == pytest.approx(brute_force(roster, games, fas, 2, 2))
+
+
+EMPTY_VALUE = -10.0  # the value of an empty slot in the aggressive tests. The real value is about -11.8.
+
+
+def aggressive(roster, games, free_agents, spots=1, adds=5, holders=()):
+    days = open_slots_by_day(roster, games, SLOTS)
+    spots = [StreamSpot(h) for h in holders] + [StreamSpot()] * (spots - len(holders))
+    return aggressive_plan(days, games, spots, free_agents, adds, SLOTS, EMPTY_VALUE)
+
+
+def test_the_aggressive_plan_gives_up_started_games_for_a_better_player():
+    # Mon and Tue are open days. Bad (ATL) plays both, Good (CHI) plays Mon only.
+    # Schedule plan: 2 games of Bad. Aggressive plan: 1 game of Good is worth 9 above an empty slot, more than
+    # 2 games of Bad (2 x 4).
+    games = {WEEK[0]: {"ATL", "CHI"}, WEEK[1]: {"ATL"}}
+    fas = [fa("Bad", "ATL", value=-6), fa("Good", "CHI", value=-1)]
+    p = plan(FULL, games, fas, adds=1)
+    a = aggressive(FULL, games, fas, adds=1)
+    assert (p.started_games, p.adds, p.value) == (2, 1, -12)
+    assert (a.started_games, a.adds, a.value) == (1, 1, -1)
+    assert windows(a) == [(0, "CHI", WEEK[0], (WEEK[0],))]
+    assert value_above_empty(p, EMPTY_VALUE) == 8 and value_above_empty(a, EMPTY_VALUE) == 9
+
+
+def test_the_aggressive_plan_uses_more_adds_for_better_players_up_to_the_adds_left():
+    # Mon to Wed are open. A streamer of PHI plays all three days (1 add). A better player of ATL, CHI and DAL
+    # plays one day each.
+    games = {WEEK[0]: {"PHI", "ATL"}, WEEK[1]: {"PHI", "CHI"}, WEEK[2]: {"PHI", "DAL"}}
+    fas = [fa("Phi", "PHI", value=-5), fa("Atl", "ATL", value=-1), fa("Chi", "CHI", value=-1),
+           fa("Dal", "DAL", value=-1)]
+    assert (plan(FULL, games, fas, adds=3).started_games, plan(FULL, games, fas, adds=3).adds) == (3, 1)
+    found = {adds: aggressive(FULL, games, fas, adds=adds) for adds in range(4)}
+    assert [(a.started_games, a.adds) for a in found.values()] == [(0, 0), (3, 1), (3, 2), (3, 3)]
+    assert [w.team for w in found[2].windows] == ["ATL", "PHI"]  # 9 + 2 x 5 = 19 is more than 3 x 5 = 15
+    assert [w.team for w in found[3].windows] == ["ATL", "CHI", "DAL"]
+    assert found[3].value == -3
+
+
+def test_the_aggressive_plan_counts_a_holder_with_no_season_value_as_an_empty_slot():
+    # The holder is not in the projections file (value -inf). He plays Mon and Tue. A free agent plays Mon only.
+    # As an empty slot, the holder is worth 0, so the plan drops him on Mon for 1 game of the free agent.
+    games = {WEEK[0]: {"DEN", "PHI"}, WEEK[1]: {"DEN"}}
+    a = aggressive([], games, [fa("Phi", "PHI", value=-5)], holders=[fa("Holder", "DEN", value=float("-inf"))])
+    assert [(w.team, w.add_day, w.last_day) for w in a.windows] == [("PHI", WEEK[0], WEEK[1])]
+
+
+def test_a_holder_dropped_on_the_first_day_has_no_window():
+    # The holder plays Tue only. PHI plays Mon to Wed, so the plan drops him on Mon.
+    games = {WEEK[0]: {"PHI"}, WEEK[1]: {"DEN", "PHI"}, WEEK[2]: {"PHI"}}
+    days = open_slots_by_day([], games, SLOTS)
+    p = schedule_plan(days, games, [StreamSpot(fa("Holder", "DEN"))], [fa("Phi", "PHI")], 5, SLOTS)
+    assert windows(p) == [(0, "PHI", WEEK[0], tuple(WEEK[:3]))]
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_the_search_finds_the_best_aggressive_plan(seed):
+    # Small random weeks, as in test_the_search_finds_the_best_plan, with values below 0 and the aggressive score.
+    rnd = random.Random(seed)
+    teams = ["ATL", "CHI", "DAL", "DEN"]
+    games = {d: {t for t in teams + ["BOS"] if rnd.random() < 0.5} for d in WEEK[:4]}
+    roster = [Player(f"P{i}", "BOS", (rnd.choice(SLOTS),)) for i in range(rnd.randint(2, 6))]
+    fas = [fa(t, t, rnd.sample(SLOTS, rnd.randint(1, 2)), value=-9 * rnd.random()) for t in teams]
+    score = aggressive_score(EMPTY_VALUE)
+    a = aggressive(roster, games, fas, spots=2, adds=3)
+    assert a.adds <= 3
+    assert score(a.started_games, a.adds, a.value) == pytest.approx(brute_force(roster, games, fas, 2, 3, score))
 
 
 def test_rank_teams_by_open_days_covered():

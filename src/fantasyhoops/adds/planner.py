@@ -1,5 +1,8 @@
 """The schedule plan: the team windows that give your stream spots the most started games with the fewest adds.
 
+The aggressive plan uses the same search with another score: aggressive_score(), the value of the started games
+above an empty slot. The design of both plans is in docs/adds/README.md, "The plans".
+
 The inputs are plain data, so the tests need no Yahoo pages:
 - days: the Days of the planning window from slots.open_slots_by_day(), made from the roster WITHOUT the players
   in the stream spots. games: {day: set of NBA teams that play}, from slots.team_games().
@@ -16,7 +19,7 @@ the player (see _Search). The search does not know which players were dropped ea
 week, so a plan can use the same key twice. The plan then takes a different player with that key when one exists.
 """
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from functools import cache
 from itertools import combinations
@@ -114,6 +117,35 @@ def plan_score(started_games, adds, value=0.0):
     return started_games, -adds, value
 
 
+def aggressive_score(empty_value):
+    """The score of the aggressive plan, as a function for schedule_plan(score=...).
+
+    The score is the sum of the value above an empty slot of each started game: the total blended value minus
+    empty_value for each started game. empty_value is the value of a stat line of zeros (value.empty_slot_value()),
+    so each started game counts more than 0, and a better player counts more. Ties go to the plan with fewer
+    adds, then to the plan with more started games.
+    """
+    def score(started_games, adds, value=0.0):
+        return value - empty_value * started_games, -adds, started_games
+    return score
+
+
+def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_value):
+    """The best Plan by aggressive_score(empty_value). It uses adds_left adds or fewer.
+
+    The arguments are the arguments of schedule_plan(). A holder with no season value (not in the projections
+    file) gets empty_value, the lowest value, so that the plan does not keep him as an average player.
+    """
+    spots = [StreamSpot(replace(s.holder, projected_value=empty_value, blended_value=None))
+             if s.holder and not _finite(s.holder.value) else s for s in spots]
+    return schedule_plan(days, games, spots, free_agents, adds_left, slots, score=aggressive_score(empty_value))
+
+
+def value_above_empty(plan, empty_value):
+    """The aggressive score of a Plan: the total value of its started games above an empty slot."""
+    return plan.value - empty_value * plan.started_games
+
+
 @dataclass(frozen=True)
 class TeamRank:
     """One NBA team in the ranking: the open days that it plays on and the open slots of those days."""
@@ -157,9 +189,13 @@ def schedule_plan(days, games, spots, free_agents, adds_left, slots, score=plan_
     return _Search(days, games, spots, free_agents, slots, score).plan(adds_left)
 
 
+def _finite(value):
+    return value is not None and math.isfinite(value)
+
+
 def _value(option):
     """The value of an Option for the plan score. 0 for a holder with no value or with no season value (-inf)."""
-    return option.value if option.value is not None and math.isfinite(option.value) else 0.0
+    return option.value if _finite(option.value) else 0.0
 
 
 class _Search:
@@ -325,6 +361,8 @@ class _Search:
             for n, (o, first) in enumerate(timeline):
                 holder = n == 0 and o is self.holders[s]
                 last = timeline[n + 1][1] - 1 if n + 1 < len(timeline) else len(self.days) - 1
+                if last < first:
+                    continue  # a holder whom the plan drops on the first day has no window
                 windows.append(TeamWindow(
                     spot=s, team=o.player.team,
                     add_day=None if holder else self.days[first].date,
