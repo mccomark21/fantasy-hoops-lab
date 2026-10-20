@@ -23,14 +23,9 @@ The project started as custom draft rankings. Now it holds one tool for each par
 | Tool | Package | Status | Documentation |
 |---|---|---|---|
 | Draft tools: rankings, draft board, auction simulator, keeper report | `fantasyhoops.draft` | Used for the 2026-27 draft | [docs/draft/](docs/draft/README.md) |
-| Weekly adds planner | `fantasyhoops.adds` | Planned | See below |
+| Weekly adds planner | `fantasyhoops.adds` | Planned | [docs/adds/](docs/adds/README.md) |
 
-### Weekly adds planner (planned)
-
-Before each fantasy week starts, the planner shows how to use the 5 weekly adds:
-
-1. Find the NBA teams whose games fill the open slots in your lineup.
-2. Find the players on those teams who are likely to be free agents.
+The terms that more than one tool uses are in the [glossary](docs/glossary.md). Each important decision has an ADR in [docs/adr/](docs/adr/).
 
 ## Repo layout
 
@@ -48,7 +43,10 @@ tests/
 data/                     Inputs that all tools share (not tracked by Git)
 output/                   Generated files, one folder for each tool (not tracked by Git)
 docs/
+  glossary.md             Terms that more than one tool uses
+  adr/                    Architecture decision records
   draft/                  Draft tools guide and the category weights
+  adds/                   Weekly adds planner guide
 ```
 
 ## Getting started
@@ -97,7 +95,8 @@ All settings are in [`config.toml`](config.toml). The `[league]` section applies
 3. Write the files of the tool in `output/<tool>/`. See `OUT` in `src/fantasyhoops/draft/__init__.py`.
 4. Put the settings in a new section of `config.toml`.
 5. Put the tests in `tests/<tool>/`.
-6. Add a row to the [Tools](#tools) table and a guide in `docs/<tool>/`.
+6. Add a row to the [Tools](#tools) table and a guide in `docs/<tool>/README.md`.
+7. Put the terms that more than one tool uses in [docs/glossary.md](docs/glossary.md).
 
 ## Testing
 
