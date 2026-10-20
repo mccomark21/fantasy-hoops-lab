@@ -24,6 +24,24 @@ def best_lineup(players, slots):
 
 def open_slots(roster, slots):
     """Number of slots that the roster cannot fill. Each player fills one slot (bipartite matching)."""
+    return len(slots) - len(_match(roster, slots))
+
+
+def starting_slots(players, slots):
+    """The slot of each player who starts, as {index in players: slot}. The slot is a position slot or "Util".
+
+    players and slots are the same as in best_lineup(). The players who sit are not in the result.
+    """
+    lineup = best_lineup(players, slots)
+    holder = _match([players[i] for i in lineup], slots)
+    out = {lineup[j]: slot for slot, j in holder.items()}
+    # best_lineup() lets at most one starter go without a position slot. He takes Util.
+    out.update({i: "Util" for i in lineup if i not in out})
+    return out
+
+
+def _match(roster, slots):
+    """A largest matching of players to position slots, as {slot: index in roster}."""
     holder = {}
 
     def place(player, tried):
@@ -37,4 +55,4 @@ def open_slots(roster, slots):
 
     for player in range(len(roster)):
         place(player, set())
-    return len(slots) - len(holder)
+    return holder
