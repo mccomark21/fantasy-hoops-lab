@@ -27,13 +27,14 @@ import numpy as np
 import pandas as pd
 
 from fantasyhoops.core.common import load_config
+from fantasyhoops.core.lineup import open_slots
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
 from fantasyhoops.draft import OUT
 from fantasyhoops.draft.benchmark import CATS, has_z, run_benchmark
 from fantasyhoops.draft.matchups import face_offs
 from fantasyhoops.draft.rankings import build_rankings
 from fantasyhoops.draft.sim_results import group_table, player_table
-from fantasyhoops.draft.team_score import make_playoffs, open_slots
+from fantasyhoops.draft.team_score import make_playoffs
 
 CHUNKS = 64  # parts of the auctions for the parallel run
 NO_KEEPER = "No keeper"  # a keeper option in config.toml: you keep no one and start the auction with all your spots
