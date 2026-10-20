@@ -1,4 +1,5 @@
-# Settings for the scripts in scripts/. Change a value, then run: python scripts/rankings.py
+# Settings for all tools in src/fantasyhoops/. Change a value, then run the tool again.
+# [league] applies to all tools. The other sections are for the draft tools (src/fantasyhoops/draft/).
 
 [league]
 teams = 14
@@ -17,11 +18,11 @@ budget = 200
 min_bid = 1
 spots = 10                 # bought roster spots for each team
 
-# League price: Yahoo's order of players, with the prices of this league's past drafts. See scripts/market.py.
+# League price: Yahoo's order of players, with the prices of this league's past drafts. See draft/market.py.
 [market]
 drafts = "data/draft_results.csv"
 
-# Auction simulator: python scripts/auction.py. See the docstring of scripts/auction.py.
+# Auction simulator: python -m fantasyhoops.draft.auction. See the docstring of draft/auction.py.
 [simulation]
 runs = 2000                # auctions for each keeper (about 5 minutes on 16 CPU cores)
 noise = 0.20               # spread of the random noise on each bot bid and on the nomination order (lognormal sigma)
@@ -36,7 +37,7 @@ other_keepers = []
 # Your strategy: buy core players, then pay min_bid for each other spot and use those spots for streamers.
 core = 7
 # Your bid for a core player = dollars x (1 - playoff_weight + playoff_weight x fit). fit = what the player
-# adds to your playoff score / what a player with an average playoff schedule adds. See scripts/team_score.py.
+# adds to your playoff score / what a player with an average playoff schedule adds. See draft/team_score.py.
 playoff_weight = 1.0
 fit_limits = [0.5, 1.5]    # the lowest and the highest fit
 
@@ -57,7 +58,7 @@ missing_tier = "med"       # tier for a player who is not in the file (med is th
 # of the projected games, and a rest on a known date is the risk that this setting shows.
 rest_chance = 1.0
 
-# Weight for each category z-score. See docs/category_weights.md.
+# Weight for each category z-score. See docs/draft/category_weights.md.
 # Punted categories (FG%, FT%, TO) are not in this list.
 [weights]
 pts = 1.00
@@ -68,11 +69,11 @@ blk = 0.65
 stl = 0.50
 
 # Category balance: the benchmark is the weighted z-score of the strong teams in the simulator.
-# See scripts/benchmark.py.
+# See draft/benchmark.py.
 [category_balance]
 top_teams = 4              # teams averaged for the benchmark
 band_pct = 0.05            # the "even" band: this share of the weekly benchmark of each category
-games_per_week = 3.5       # games of one player in one week (docs/category_weights.md). Weekly totals only
+games_per_week = 3.5       # games of one player in one week (docs/draft/category_weights.md). Weekly totals only
 # Last season (2025-26, 19 weeks, 14 teams): the mean of the 4 best teams / the mean of all teams, minus 1.
 # The best teams are the top 4 by weighted z-score of the team totals. Your own team is one of them.
 # The benchmark in each category is the higher of the simulator value and the value that this lift gives.
@@ -101,7 +102,7 @@ weeks = [
   { name = "wk20", start = 2027-03-15, end = 2027-03-21 },
   { name = "wk21", start = 2027-03-22, end = 2027-03-28 },
 ]
-# Other playoff windows, for public leagues. draft_board.py writes one more page for each window:
+# Other playoff windows, for public leagues. draft/board.py writes one more page for each window:
 # draft_board_<first week>-<last week>.html. The page has no simulator columns and keeps its own team.
 # A list on the board switches between the pages. The weeks above stay the default.
 other_windows = [
@@ -131,13 +132,13 @@ max_games_per_day = 6      # a day with this number of NBA games or fewer is a l
 # For comparison, a 4-game week adds 0.40 over a 3-game week.
 bonus = 0.10
 
-# Settings for draft_board.py (writes draft_board.md and draft_board.html)
+# Settings for draft/board.py (writes draft_board.md and draft_board.html)
 [board]
 low_games = 60             # mark players projected for fewer games than this
 tiers = [20, 40, 60]       # last rank in each tier (Markdown only). The last tier holds all other players.
 
 # Team builder on the draft board: started games, lost games and holes of your core in the playoffs.
-# See Playoffs.game_counts() in scripts/team_score.py.
+# See Playoffs.game_counts() in draft/team_score.py.
 [team_builder]
 core_max_rank = 75         # a player with rank <= this number is core by default
 # A week with fewer started games than this gets a red cell.
