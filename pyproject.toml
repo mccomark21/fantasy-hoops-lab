@@ -1,0 +1,28 @@
+[project]
+name = "fantasy-hoops-lab"
+version = "0.1.0"
+description = "Analysis tools for one Yahoo fantasy basketball league"
+requires-python = ">=3.11"  # tomllib
+dependencies = [
+  "numpy>=2.4",
+  "pandas>=3.0",
+  "playwright>=1.63",  # fetch/yahoo.py. Also run: python -m playwright install chromium
+]
+
+[project.optional-dependencies]
+test = ["pytest>=9.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"fantasyhoops.draft" = ["*.js"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--import-mode=importlib"
