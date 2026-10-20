@@ -38,13 +38,18 @@ def _count(text):
     return int(text.replace(",", "")) if text.replace(",", "").isdigit() else 0
 
 
+def _column(header, name):
+    """The index of the first column whose header starts with name. The sorted column also has a sort icon."""
+    return next(i for i, text in enumerate(header) if text.split()[:1] == [name])
+
+
 def read_trends(html):
     """{player name: (adds, drops)} from one page of Transaction Trends."""
     table = BeautifulSoup(html, "html.parser").select_one("table.Tst-table")
     if table is None:
         raise ValueError("The Transaction Trends page has no player table (table.Tst-table).")
     header = [th.get_text(" ", strip=True) for th in table.select("thead tr")[-1].find_all("th")]
-    adds, drops = header.index("Adds"), header.index("Drops")
+    adds, drops = _column(header, "Adds"), _column(header, "Drops")
     out = {}
     for row in table.select("tbody tr"):
         block = row.select_one(".ysf-player-name")

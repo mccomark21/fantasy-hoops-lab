@@ -38,6 +38,12 @@ def test_read_trends_gives_the_adds_and_drops_of_each_player():
     assert trends["Yanic Konan Niederhäuser"] == (402, 55)
 
 
+def test_read_trends_finds_the_sorted_column_with_its_sort_icon():
+    # With sort=BI_A, the Adds header also has a sort icon, and the last header is "Adds Drops".
+    html = fixture("trends.html").replace(">Adds<", ">Adds <", 1)
+    assert read_trends(html)["Kevin Porter Jr."] == (228, 4315)
+
+
 def test_read_trends_needs_the_table():
     with pytest.raises(ValueError):
         read_trends("<html></html>")
