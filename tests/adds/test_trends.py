@@ -63,7 +63,7 @@ def test_trend_days_are_the_days_of_this_week_up_to_today():
 
 
 def option(name, value, trend=None, team="PHI"):
-    return Option(Player(name, team, ("C",)), value, trend)
+    return Option(Player(name, team, ("C",)), value, trend=trend)
 
 
 def test_with_more_adds_an_option_with_the_same_value_comes_first():

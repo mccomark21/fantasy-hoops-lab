@@ -6,6 +6,7 @@ One planning run:
 2. open_slots_by_day(): find the open starting slots on each day of the planning window.
 3. rank_teams(): rank the NBA teams by the open days that they cover.
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
+   It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
 6. schedule_plan(): choose the team windows for the stream spots.
 7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings.
@@ -18,17 +19,18 @@ from dataclasses import dataclass, replace
 from datetime import date
 
 from fantasyhoops.adds import page
+from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
                                      season_values, value_warnings)
-from fantasyhoops.adds.planner import Option, rank_teams, schedule_plan, teams_to_read
+from fantasyhoops.adds.planner import rank_teams, schedule_plan, teams_to_read
 from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
                                      team_games)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
-from fantasyhoops.adds.value import line_value, projection_scale
+from fantasyhoops.adds.value import projection_scale
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.schedule import read_schedule
@@ -36,6 +38,7 @@ from fantasyhoops.core.schedule import read_schedule
 RANKING_ROWS = 12  # the teams that the ranking prints
 MAX_PAGES = 10  # pages of 25 free agents for each team. The planner stops after this number.
 URL = site.URL + "adds/"
+PROJECTED, RECENT = "S_PS7", "S_AL14"  # the views of the free-agent list: next 7 days (totals), last 14 days (averages)
 
 
 @dataclass(frozen=True)
@@ -65,19 +68,22 @@ def read_league(yahoo, cfg, today):
     return LeagueData(roster=read_roster(team_page), adds=adds, week=week, next_week=next_week)
 
 
-def free_agent_path(team, offset=0):
-    """The path of one page of the free-agent list of one NBA team (ESPN code), with Yahoo's 7-day projection."""
-    return (f"players?status=FA&pos=P&cut_type=33&myteam=0&sort=OR&sdir=1&stat1=S_PS7"
+def free_agent_path(team, offset=0, view=PROJECTED):
+    """The path of one page of the free-agent list of one NBA team (ESPN code), with the stats of the view."""
+    return (f"players?status=FA&pos=P&cut_type=33&myteam=0&sort=OR&sdir=1&stat1={view}"
             f"&eteam=ET_{yahoo_id(team)}&count={offset}")
 
 
-def read_team_free_agents(yahoo, teams):
-    """The FreeAgents of the NBA teams (ESPN codes), from all pages of the free-agent list of each team."""
+def read_team_free_agents(yahoo, teams, view=PROJECTED):
+    """The FreeAgents of the NBA teams (ESPN codes), from all pages of the free-agent list of each team.
+
+    view: PROJECTED (Yahoo's projection for the next 7 days) or RECENT (the averages of the last 14 days).
+    """
     out = []
     for team in teams:
         for page in range(MAX_PAGES):
-            html = yahoo.get(free_agent_path(team, 25 * page))
-            out += read_free_agents(html)
+            html = yahoo.get(free_agent_path(team, 25 * page, view))
+            out += read_free_agents(html, totals=view == PROJECTED)
             if not has_next_page(html):
                 break
     return out
@@ -91,10 +97,12 @@ def stream_spots(roster, cfg, values=None):
     return choose_stream_spots(roster, cfg, season_values(cfg) if values is None else values)
 
 
-def value_options(free_agents, cfg):
-    """An Option for each FreeAgent, with the projected value of his per-game line."""
-    scale = projection_scale(cfg)
-    return [Option(f.player, line_value(f.line, scale, cfg)) for f in free_agents]
+def value_options(free_agents, cfg, recent=()):
+    """An Option for each FreeAgent, with his projected, recent and blended values (adds/blend.py).
+
+    recent: the FreeAgents of the recent view of the same lists.
+    """
+    return blended_options(free_agents, recent, projection_scale(cfg), cfg)
 
 
 def with_trends(options, trends):
@@ -113,6 +121,11 @@ def _days(dates):
 def _count(n, word):
     """For example "1 add" and "2 adds"."""
     return f"{n} {word}" + ("" if n == 1 else "s")
+
+
+def _signed(value):
+    """A value with its sign, for example "+0.42". "-" for no value."""
+    return "-" if value is None else f"{value:+.2f}"
 
 
 def _player(p):
@@ -188,7 +201,8 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=()):
         print(f"Schedule plan: {len(spots)} stream spots, but no open day. There are no adds to plan.")
         return
     print(f"Schedule plan: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')} "
-          f"({_count(len(spots), 'stream spot')}, {_count(adds.left, 'add')} left).")
+          f"({_count(len(spots), 'stream spot')}, {_count(adds.left, 'add')} left). "
+          f"Blended value of the started games: {_signed(plan.value)}.")
     if not plan.windows:
         print("  No free agent of the teams read gives a started game.")
     for w in plan.windows:
@@ -205,7 +219,8 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=()):
         for n, o in enumerate(w.options, 1):
             p = o.player
             print(f"      {n}. {_player(p):<{width}}  {','.join(p.positions):<9}  "
-                  f"projected value {o.projected_value:+.2f}  {_trend(o.trend)}")
+                  f"value: projected {_signed(o.projected_value)}, recent {_signed(o.recent_value)}, "
+                  f"blended {_signed(o.value)}  {_trend(o.trend)}")
     if any(w.add_day == today for w in plan.windows):
         print("  Note: an add for today helps only if his game has not started. The schedule has no game times.")
     if plan.windows:
@@ -249,9 +264,10 @@ def main(today=None, publish=True):
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
             free_agents = read_team_free_agents(yahoo, read)
+            recent = read_team_free_agents(yahoo, read, RECENT)
             trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
     if read:
-        options = with_trends(value_options(free_agents, cfg), trends)
+        options = with_trends(value_options(free_agents, cfg, recent), trends)
         plan = schedule_plan(days, games, spots, options, data.adds.left, slots)
         drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
         warnings = value_warnings(plan, data.roster, spots, cfg, values)
