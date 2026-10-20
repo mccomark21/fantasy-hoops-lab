@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Steps 1 and 2 work: the planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the empty stream spots. The schedule plan uses the projected value, not the blended value yet. The aggressive plan, the drops, the page and the publish step are not built yet.
+Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Steps 1 and 2 work: the planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the empty stream spots. The schedule plan uses the projected value, not the blended value yet. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The aggressive plan and the drops are not built yet.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -35,6 +35,12 @@ One planning run does these steps:
 2. It makes the two plans for the planning window.
 3. It writes the page in `output/adds/`.
 4. It publishes the site to GitHub Pages, at `/adds/`.
+
+To write the page with no publish, add `--no-publish`:
+
+```
+python -m fantasyhoops.adds.plan --no-publish
+```
 
 You can run the planner on any day. Run it before the week starts for the full plans. Run it again during the week after an injury or a new free agent. Each run plans only the days that are left, with the adds that are left.
 

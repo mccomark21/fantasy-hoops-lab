@@ -8,11 +8,14 @@ One planning run:
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
 5. schedule_plan(): choose the team windows for the stream spots.
 6. Print the open slots, the team ranking and the schedule plan.
+7. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
 """
+import argparse
 from dataclasses import dataclass
 from datetime import date
 
+from fantasyhoops.adds import page
 from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
 from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
@@ -20,11 +23,13 @@ from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_n
                                      team_games)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.value import line_value, projection_scale
-from fantasyhoops.core.common import load_config
+from fantasyhoops.core import publish as site
+from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.schedule import read_schedule
 
 RANKING_ROWS = 12  # the teams that the ranking prints
 MAX_PAGES = 10  # pages of 25 free agents for each team. The planner stops after this number.
+URL = site.URL + "adds/"
 
 
 @dataclass(frozen=True)
@@ -180,7 +185,20 @@ def print_plan(plan, spots, adds, today):
               "You can wait until then for injury news.")
 
 
-def main(today=None):
+def publish_page(path, plan, publish=True):
+    """Print the path and the main numbers of the plan page, then publish the site with the page at /adds/."""
+    print()
+    print(f"Wrote the plan page: {path}")
+    if plan is not None:
+        print(f"Plan page: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')}.")
+    if not publish:
+        print("The run did not publish the page (--no-publish).")
+        return
+    site.publish(ROOT, "adds", path)
+    print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
+
+
+def main(today=None, publish=True):
     cfg = load_config()
     today = today or date.today()
     slots, sched = cfg["league"]["slots"], read_schedule()
@@ -200,7 +218,10 @@ def main(today=None):
     print_open_slots(data, days, cfg)
     print_ranking(ranking, read)
     print_plan(plan, spots, data.adds, today)
+    publish_page(page.write(page.render(data, days, spots, plan, ranking, read, today)), plan, publish)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Plan the adds of the current fantasy week.")
+    parser.add_argument("--no-publish", action="store_true", help="Write the plan page, but do not publish it.")
+    main(publish=not parser.parse_args().no_publish)
