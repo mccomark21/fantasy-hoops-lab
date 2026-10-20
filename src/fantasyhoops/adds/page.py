@@ -4,9 +4,8 @@ render() makes the page from the data of one planning run. Each section of the p
 A section shows only the parts that exist. The fields that later tickets add are optional:
 - Option: recent_value, blended_value and trend. The options table gets a column for each field that one option
   or more has (not None).
-- TeamWindow: drop, the text of the drop trade-off.
 - Plan: blended_value, the blended value of the started games.
-- render(): aggressive (a second Plan), warnings (text lines, for example the core warning) and contingencies
+- render(): drops (the Drops of the plan), aggressive (a second Plan), warnings (text lines, for example the core warning) and contingencies
   (text lines, one for each contingency plan).
 The page has inline CSS and no scripts. The colours and the font are the colours and the font of the draft board.
 """
@@ -120,8 +119,13 @@ def _columns(options):
     """The value columns that one option or more has: (attribute, header, title)."""
     cols = [c for c in OPTION_VALUES if any(getattr(o, c[0], None) is not None for o in options)]
     if any(getattr(o, "trend", None) is not None for o in options):
-        cols.append(("trend", "Trend", "Adds across all Yahoo leagues, from Transaction Trends"))
+        cols.append(("trend", "Trend", "Adds today / this week across all Yahoo leagues, from Transaction Trends"))
     return cols
+
+
+def _trend(trend):
+    """Adds today / this week, or a dash when the player is not on the Transaction Trends pages."""
+    return "–" if trend is None else f"{trend.adds_today} / {trend.adds_week}"
 
 
 def options_table(window):
@@ -132,7 +136,7 @@ def options_table(window):
     head = "".join(f'<th title="{_e(title)}">{_e(name)}</th>' for _, name, title in cols)
     rows = []
     for n, o in enumerate(window.options, 1):
-        values = "".join(f"<td>{_value(getattr(o, a)) if a != 'trend' else _e(o.trend)}</td>"
+        values = "".join(f"<td>{_value(getattr(o, a)) if a != 'trend' else _trend(o.trend)}</td>"
                          for a, _, _ in cols)
         pick = ' class="pick"' if o == window.player else ""
         rows.append(f'<tr{pick}><td>{n}</td><td class="name">{_player(o.player)}</td>'
@@ -141,8 +145,9 @@ def options_table(window):
             f'</tr></thead><tbody>{"".join(rows)}</tbody></table>')
 
 
-def window_card(window, days):
-    """One team window: its spot, its team and days, its add day, its started games and its options."""
+def window_card(window, days, drop=None):
+    """One team window: its spot, its team and days, its add day, its started games, the drop trade-off text (or
+    None) and its options."""
     first = _first_day(window, days)
     span = _day(first) if first == window.last_day else f"{_day(first)} – {_day(window.last_day)}"
     add = (f"Latest add day: <b>{_day(window.add_day)}</b>." if window.add_day
@@ -151,7 +156,6 @@ def window_card(window, days):
     lines = [f'<article class="window"><h3>Spot {window.spot + 1} · {_e(window.team)} '
              f'<span class="span">{span}</span></h3>',
              f"<p>{add} {_count(len(window.started), 'started game')} ({started}).</p>"]
-    drop = getattr(window, "drop", None)
     if drop:
         lines.append(f'<p class="drop">{_e(drop)}</p>')
     lines.append(options_table(window))
@@ -159,10 +163,11 @@ def window_card(window, days):
     return "\n".join(lines)
 
 
-def plan_section(plan, days, spots, adds, today, title="Schedule plan"):
-    """A plan: one card for each team window. A short message if there is no plan."""
+def plan_section(plan, days, spots, adds, today, title="Schedule plan", drops=()):
+    """A plan: one card for each team window, with the text of its Drop. A short message if there is no plan."""
+    drops = {id(d.window): d.text() for d in drops}
     if not spots:
-        body = ("<p>No stream spots. All roster spots hold a player, and the planner does not drop players yet. "
+        body = ("<p>No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
                 "There are no adds to plan.</p>")
     elif not adds.left:
         body = f"<p>No adds left this week ({adds.used} of {adds.limit} used). There are no adds to plan.</p>"
@@ -172,10 +177,9 @@ def plan_section(plan, days, spots, adds, today, title="Schedule plan"):
         body = "<p>No free agent of the teams that the planner read gives a started game.</p>"
     else:
         body = (f"<p>{_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')}.</p>\n"
-                + "\n".join(window_card(w, days) for w in plan.windows))
+                + "\n".join(window_card(w, days, drops.get(id(w))) for w in plan.windows))
         if any(w.add_day == today for w in plan.windows):
-            body += ("\n<p class=\"muted\">An add for today helps only if his game has not started. "
-                     "The schedule has no game times.</p>")
+            body += ("\n<p class=\"muted\">An add for today helps only if his game has not started.</p>")
     return f"<section><h2>{_e(title)}</h2>\n{body}</section>"
 
 
@@ -230,13 +234,13 @@ def method_note():
             "A value below 0 is normal for a free agent.</p></details>")
 
 
-def render(data, days, spots, plan, ranking=(), read=(), today=None, *, aggressive=None, warnings=(),
+def render(data, days, spots, plan, ranking=(), read=(), today=None, *, drops=(), aggressive=None, warnings=(),
            contingencies=()):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
     spots: the StreamSpots. plan: the schedule Plan, or None. ranking: the TeamRanks. read: the teams whose
-    free agents the run read. aggressive: the aggressive Plan, or None. warnings and contingencies: text lines.
+    free agents the run read. drops: the Drops of the schedule plan. aggressive: the aggressive Plan, or None. warnings and contingencies: text lines.
     """
     today = today or date.today()
     sections = [
@@ -244,7 +248,7 @@ def render(data, days, spots, plan, ranking=(), read=(), today=None, *, aggressi
         warnings_section(warnings),
         grid(plan, days, spots),
         comparison([("Schedule", plan), ("Aggressive", aggressive)]),
-        plan_section(plan, days, spots, data.adds, today),
+        plan_section(plan, days, spots, data.adds, today, drops=drops),
         plan_section(aggressive, days, spots, data.adds, today, "Aggressive plan") if aggressive is not None else "",
         contingency_section(contingencies),
         ranking_section(ranking, read),

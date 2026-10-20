@@ -91,15 +91,16 @@ def test_the_page_has_no_scripts_and_no_parts_of_later_tickets_without_data():
 
 def test_the_page_shows_the_optional_fields_when_they_exist():
     o = SimpleNamespace(player=PHI[0].player, projected_value=0.31, recent_value=0.75, blended_value=0.52,
-                        trend="+1,204 today")
-    w = SimpleNamespace(**{**vars(PLAN.windows[0]), "options": (o,), "player": o}, drop="Drop Quickley: +2 games")
+                        trend=SimpleNamespace(adds_today=1204, adds_week=3410))
+    w = SimpleNamespace(**{**vars(PLAN.windows[0]), "options": (o,), "player": o})
     plan = SimpleNamespace(windows=(w,), started_games=3, adds=1, blended_value=1.5)
     aggressive = Plan(windows=PLAN.windows[2:], started_games=2, adds=2)
-    html = page.render(DATA, DAYS, SPOTS, plan, today=WEEK[0], aggressive=aggressive,
+    drop = SimpleNamespace(window=w, text=lambda: "Drop Quickley: +2 games")
+    html = page.render(DATA, DAYS, SPOTS, plan, today=WEEK[0], drops=[drop], aggressive=aggressive,
                        warnings=["Dal One has a higher value than a core player."],
                        contingencies=["Phi & Two out on Tue: move Bench Guy to PG."])
     shown = text(html)
-    for part in ("Recent", "+0.75", "Blend", "+0.52", "+1,204 today", "Drop Quickley: +2 games", "+1.5",
+    for part in ("Recent", "+0.75", "Blend", "+0.52", "1204 / 3410", "Drop Quickley: +2 games", "+1.5",
                  "Aggressive plan", "Comparison", "Dal One has a higher value", "Contingency plans", "move Bench Guy"):
         assert part in shown
 

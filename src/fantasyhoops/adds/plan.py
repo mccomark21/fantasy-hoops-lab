@@ -261,7 +261,7 @@ def main(today=None, publish=True):
     print_plan(plan, spots, data.adds, today, drops, warnings)
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
     print_contingencies(contingencies)
-    text = page.render(data, days, spots, plan, ranking, read, today, warnings=warnings,
+    text = page.render(data, days, spots, plan, ranking, read, today, drops=drops, warnings=warnings,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
     publish_page(page.write(text), plan, publish)
 
