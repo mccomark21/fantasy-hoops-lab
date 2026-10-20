@@ -164,10 +164,15 @@ class _Search:
             self.groups.append(list(group.items()))
 
     def plays(self, option, i):
-        return option.player.team in self.games[self.days[i].date]
+        return not option.player.out and option.player.team in self.games[self.days[i].date]
 
     def key(self, option, k):
-        """The key of a player on open day k: (the open days from k on which his team plays, his positions)."""
+        """The key of a player on open day k: (the open days from k on which his team plays, his positions).
+
+        An Out player has no games. Only a holder can be Out, because the search skips Out free agents.
+        """
+        if option.player.out:
+            return EMPTY
         return self._key(option.player.team, tuple(sorted(option.player.positions)), k)
 
     @cache

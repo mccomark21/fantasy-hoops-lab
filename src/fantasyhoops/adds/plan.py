@@ -8,7 +8,7 @@ One planning run:
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
 6. schedule_plan(): choose the team windows for the stream spots.
-7. Print the open slots, the team ranking and the schedule plan.
+7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings.
 8. contingency_plans(): print a contingency plan for each game day of each flagged player.
 9. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
@@ -19,7 +19,9 @@ from datetime import date
 
 from fantasyhoops.adds import page
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
-from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
+from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
+                                     season_values, value_warnings)
+from fantasyhoops.adds.planner import Option, rank_teams, schedule_plan, teams_to_read
 from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
@@ -81,9 +83,12 @@ def read_team_free_agents(yahoo, teams):
     return out
 
 
-def stream_spots(roster, cfg):
-    """The stream spots: one empty StreamSpot for each roster spot with no player. The plan drops no player yet."""
-    return [StreamSpot()] * (cfg["league"]["roster_spots"] - roster_spots_used(roster))
+def stream_spots(roster, cfg, values=None):
+    """The stream spots: the empty spots, then the lowest non-core players up to [adds] stream_spots.
+
+    values: from drops.season_values(). If None, the function reads the projections file. See drops.py.
+    """
+    return choose_stream_spots(roster, cfg, season_values(cfg) if values is None else values)
 
 
 def value_options(free_agents, cfg):
@@ -166,12 +171,15 @@ def print_ranking(ranking, read):
         print(f"  ... {len(ranking) - RANKING_ROWS} more teams play on an open day.")
 
 
-def print_plan(plan, spots, adds, today):
-    """Print the schedule plan: each team window with its add day, its started games and its options."""
+def print_plan(plan, spots, adds, today, drops=(), warnings=()):
+    """Print the schedule plan: each team window with its add day, its started games and its options.
+
+    drops: the Drops of drops.drop_trade_offs(). Each one prints below its window. warnings: lines to print last.
+    """
     print()
     if not spots:
-        print("Schedule plan: no stream spots. All roster spots hold a player, and the planner does not drop "
-              "players yet. There are no adds to plan.")
+        print("Schedule plan: no stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
+              "There are no adds to plan.")
         return
     if not adds.left:
         print(f"Schedule plan: no adds left this week ({adds.used} of {adds.limit} used). There are no adds to plan.")
@@ -184,9 +192,15 @@ def print_plan(plan, spots, adds, today):
     if not plan.windows:
         print("  No free agent of the teams read gives a started game.")
     for w in plan.windows:
-        add = f"latest add day {_day(w.add_day)}" if w.add_day else "the player holds the spot now"
-        print(f"  Spot {w.spot + 1}: {w.team} {_day(w.add_day or w.last_day)} to {_day(w.last_day)}, {add}. "
-              f"Started games: {len(w.started)} ({_days(w.started)}).")
+        if w.add_day:
+            print(f"  Spot {w.spot + 1}: {w.team} {_day(w.add_day)} to {_day(w.last_day)}, "
+                  f"latest add day {_day(w.add_day)}. Started games: {len(w.started)} ({_days(w.started)}).")
+        else:
+            print(f"  Spot {w.spot + 1}: {w.player.player.name} ({w.team}) holds the spot to {_day(w.last_day)}. "
+                  f"Started games: {len(w.started)} ({_days(w.started)}).")
+        for d in drops:
+            if d.window == w:
+                print(f"      {d.text()}")
         width = max(len(_player(o.player)) for o in w.options) if w.options else 0
         for n, o in enumerate(w.options, 1):
             p = o.player
@@ -199,6 +213,11 @@ def print_plan(plan, spots, adds, today):
               "You can wait until then for injury news.")
         print("  Adds: the adds across all Yahoo leagues, from Transaction Trends. Each day shows the 50 most added "
               "players. A dash: not on the pages of this week.")
+    if drops:
+        print("  A drop is a suggestion. The plan score counts only the started games of this week. "
+              "The rank and the season value show the season cost.")
+    for line in warnings:
+        print(f"  {line}")
 
 
 def publish_page(path, plan, publish=True):
@@ -218,13 +237,14 @@ def main(today=None, publish=True):
     cfg = load_config()
     today = today or date.today()
     slots, sched = cfg["league"]["slots"], read_schedule()
-    plan, read, options = None, [], []
+    plan, read, options, drops, warnings = None, [], [], [], []
+    values = season_values(cfg)
     with open_league(cfg["adds"]["league"]) as yahoo:
         data = read_league(yahoo, cfg, today)
         window = planning_window(data.week, today)
         games = team_games(sched, window)
-        days = open_slots_by_day(data.roster, games, slots)
-        spots = stream_spots(data.roster, cfg)
+        spots = stream_spots(data.roster, cfg, values)
+        days = open_slots_by_day(kept_roster(data.roster, spots), games, slots)
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
@@ -233,12 +253,15 @@ def main(today=None, publish=True):
     if read:
         options = with_trends(value_options(free_agents, cfg), trends)
         plan = schedule_plan(days, games, spots, options, data.adds.left, slots)
+        drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
+        warnings = value_warnings(plan, data.roster, spots, cfg, values)
     print_open_slots(data, days, cfg)
+    print_stream_spots(spots, values)
     print_ranking(ranking, read)
-    print_plan(plan, spots, data.adds, today)
+    print_plan(plan, spots, data.adds, today, drops, warnings)
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
     print_contingencies(contingencies)
-    text = page.render(data, days, spots, plan, ranking, read, today,
+    text = page.render(data, days, spots, plan, ranking, read, today, warnings=warnings,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
     publish_page(page.write(text), plan, publish)
 

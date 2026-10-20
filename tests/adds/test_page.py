@@ -146,7 +146,8 @@ def run_command(monkeypatch, tmp_path, published, publish):
     monkeypatch.setattr(command, "open_league", no_yahoo)
     monkeypatch.setattr(command, "read_league", lambda yahoo, cfg, today: command.LeagueData(
         roster=[], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2]))))
-    monkeypatch.setattr(command, "stream_spots", lambda roster, cfg: [StreamSpot()])
+    monkeypatch.setattr(command, "season_values", lambda cfg: {})
+    monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
     monkeypatch.setattr(command, "read_team_free_agents", lambda yahoo, teams: [])
     monkeypatch.setattr(command, "read_week_trends", lambda yahoo, days: {})
     monkeypatch.setattr(command, "value_options", lambda fas, cfg: [option("Phi One", "PHI", 0.3)])

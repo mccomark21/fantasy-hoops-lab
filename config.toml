@@ -65,6 +65,7 @@ rest_chance = 1.0
 league = 22820             # Yahoo league ID
 team = 10                  # your team ID in the league
 core = []                  # names of your core players: the planner never suggests to drop them
+stream_spots = 3           # stream spots: the empty spots, then the lowest non-core players up to this number
 add_delay_days = 0         # days between an add and the first day that the player can start
 
 # Weight for each category z-score. See docs/draft/category_weights.md.

@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Steps 1 and 2 work: the planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the empty stream spots. The schedule plan uses the projected value, not the blended value yet. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The aggressive plan and the drops are not built yet.
+Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. It writes the plan page in `output/adds/` and publishes it at `/adds/`. The blended value and the aggressive plan are not built yet.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -92,12 +92,16 @@ The stat lines come from Yahoo. The season projections file of the draft tools g
 
 ## Core and drops
 
-- The core list in `config.toml` holds the players that the planner never suggests to drop.
-- The other players are in stream spots. A plan can drop one of them, but the page shows the trade-off, for example "Drop Quickley (rank 90) → PHX Thu–Sun: +2 started games this week".
-- The plan score counts only this week's started games. The season cost of a drop is shown, not scored. You decide.
+- The core list in `config.toml` holds the players that the planner never suggests to drop. The rule also holds for a core player who is Out.
+- The stream spots are the empty roster spots first, also the spots that IL frees. Then, up to `stream_spots` (3), the rostered players with the lowest season value who are not core and not on IL hold a stream spot. The planner keeps all other players, as it keeps the core players.
+- A player in a stream spot plays until the first add to his spot. That add drops him. A drop is a suggestion, never an order. The output shows the trade-off, for example "Drop Quickley (rank 90, season value -0.52) -> PHX Thu 01/07 to Sun 01/10: +2 started games this week".
+- The gain of a drop is the started games of the plan minus the started games of the best plan that keeps him. Both counts include the started games of the kept players.
+- The plan score counts only this week's started games. The started games of a player in a stream spot count. The season cost of a drop is shown, not scored. You decide.
 - A dropped player who is still a free agent next week can come back in a later plan.
 
-The page also warns you when a streamer has a higher blended value than your lowest core player. You can then make him core.
+Rostered players are not on the free-agent list. So their rank and season value come from the season projections file of the draft tools: the per-game value (`pg_value` of `core/valuation.py`) and the rank by that value (`pg_rank` on the draft board). The free-agent values use the same category scale, so the numbers compare. A player who is not in the projections file has the lowest value, and the output says so.
+
+The page also warns you when a streamer (a window option) has a higher blended value than the season value of your lowest core player. If no core player is on your roster, the warning uses your lowest kept player. You can then make the streamer core.
 
 ## Status rules
 
@@ -146,6 +150,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `league` | The Yahoo league ID: 22820. |
 | `team` | Your team ID in the league: 10 (TradeMark™). |
 | `core` | The names of your core players. |
+| `stream_spots` | The number of stream spots: 3. The empty spots count first. |
 | `add_delay_days` | The add delay. 0 for this league. |
 
 ## Terms
