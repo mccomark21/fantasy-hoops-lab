@@ -80,6 +80,7 @@ Next to each free agent, the page also shows:
 
 - The recent value: the value of the last-14-day line alone.
 - The trend: his adds today and this week across all Yahoo leagues, from Transaction Trends. Many of these adds come from leagues that score all 9 categories. So the trend is evidence and a tiebreak, not a plan of its own.
+  Transaction Trends shows one day and the 50 most added players of that day. The planner reads one page for each day of this week up to today and adds them. A player who is not on the page of a day counts 0 adds that day. A player who is on no page shows a dash. Between two options with the same blended value, the option with more adds this week comes first, then more adds today. The trend never changes the plan score.
 
 The stat lines come from Yahoo. The season projections file of the draft tools gives only the category scale: the mean and the standard deviation of each category in the player pool. So the values are on the same scale as the per-game value on the draft board. A streamer usually has a value below 0, because the pool holds the drafted players.
 
@@ -121,7 +122,7 @@ The planner does not keep an add back for contingency plans. The page shows the 
 | Your roster, the statuses, the adds that you used | Your team page (`/nba/<league>/<team>`) |
 | The dates of the fantasy week, the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
 | Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`), all pages, and the same list filtered by NBA team |
-| Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex`) |
+| Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex?date=<day>&bimtab=A&sort=BI_A`), one page for each day of this week up to today |
 | NBA schedule and game times | `data/schedule.csv` (`fetch/espn.py`) |
 
 Only players with status FA are free agents. Players on waivers (W) are not.
