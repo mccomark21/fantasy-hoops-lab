@@ -1,17 +1,18 @@
 """The plan page: one HTML file in output/adds/ for use on a phone. The design is in docs/adds/README.md.
 
 render() makes the page from the data of one planning run. Each section of the page comes from one small function.
-A section shows only the parts that exist. The fields that later tickets add are optional:
+A section shows only the parts that exist. Some fields are optional:
 - Option: recent_value, blended_value and trend. The options table gets a column for each field that one option
   or more has (not None).
-- Plan: blended_value, the blended value of the started games.
-- render(): drops (the Drops of the plan), aggressive (a second Plan), warnings (text lines, for example the core warning) and contingencies
-  (text lines, one for each contingency plan).
+- render(): drops (the Drops of the plan), aggressive (the aggressive Plan), empty_value (the value of an empty
+  slot, for the comparison), warnings (text lines, for example the core warning) and contingencies (text lines,
+  one for each contingency plan).
 The page has inline CSS and no scripts. The colours and the font are the colours and the font of the draft board.
 """
 import html
 from datetime import date
 
+from fantasyhoops.adds.planner import value_above_empty
 from fantasyhoops.core.common import OUT as _OUT
 
 OUT = _OUT / "adds"
@@ -70,9 +71,7 @@ def header(data, days, spots, plan, today):
     stats = [_stat(f"{adds.left} of {adds.limit}", "adds left"), _stat(len(spots), "stream spots")]
     if plan is not None:
         stats = [_stat(plan.started_games, "started games", key=True), _stat(plan.adds, "adds used"), *stats]
-        blended = getattr(plan, "blended_value", None)
-        if blended is not None:
-            stats.append(_stat(f"{blended:+.1f}", "blended value"))
+        stats.append(_stat(f"{plan.value:+.1f}", "blended value"))
     lines.append(f'<div class="stats">{"".join(stats)}</div>')
     out = [p.name + (f" ({p.status})" if p.status else "") for p in data.roster if p.out]
     if out:
@@ -183,20 +182,36 @@ def plan_section(plan, days, spots, adds, today, title="Schedule plan", drops=()
     return f"<section><h2>{_e(title)}</h2>\n{body}</section>"
 
 
-def comparison(plans):
-    """The plans side by side: adds, started games and blended value. plans: (name, Plan). Needs two plans or more."""
+def aggressive_section(plan, aggressive, days, spots, adds, today):
+    """The aggressive plan, or one line if it is the same as the schedule plan. Nothing if there is no plan."""
+    if aggressive is None:
+        return ""
+    if plan is not None and aggressive.windows == plan.windows:
+        return "<section><h2>Aggressive plan</h2>\n<p>The same as the schedule plan.</p></section>"
+    return plan_section(aggressive, days, spots, adds, today, "Aggressive plan")
+
+
+def comparison(plans, empty_value=None):
+    """The plans side by side: adds, started games and blended value. plans: (name, Plan). Needs two plans or more.
+
+    empty_value: the value of an empty slot. If it is not None, the table also shows the value above an empty slot,
+    the score of the aggressive plan.
+    """
     plans = [(name, p) for name, p in plans if p is not None]
     if len(plans) < 2:
         return ""
-    rows = [("Adds", [p.adds for _, p in plans]), ("Started games", [p.started_games for _, p in plans])]
-    blended = [getattr(p, "blended_value", None) for _, p in plans]
-    if any(b is not None for b in blended):
-        rows.append(("Blended value", [_value(b) for b in blended]))
+    rows = [("Adds", [p.adds for _, p in plans]), ("Started games", [p.started_games for _, p in plans]),
+            ("Blended value", [_value(p.value) for _, p in plans])]
+    if empty_value is not None:
+        rows.append(("Value above an empty slot", [_value(value_above_empty(p, empty_value)) for _, p in plans]))
     head = "".join(f"<th>{_e(name)}</th>" for name, _ in plans)
     body = "".join(f'<tr><th class="name">{label}</th>{"".join(f"<td>{_e(v)}</td>" for v in values)}</tr>'
                    for label, values in rows)
     return (f'<section><h2>Comparison</h2>\n<table class="compare"><thead><tr><th></th>{head}</tr></thead>'
-            f"<tbody>{body}</tbody></table></section>")
+            f"<tbody>{body}</tbody></table>\n"
+            '<p class="muted">Blended value: the sum of the blended values of the started games. '
+            "The aggressive plan gets the most value above an empty slot. It can give up started games "
+            "for better players.</p></section>")
 
 
 def contingency_section(contingencies):
@@ -229,27 +244,29 @@ def method_note():
             "The league gives 5 adds each week, so the team can change the players in the stream spots.</p>\n"
             "<p>The planner finds the days with open starting slots. It ranks the NBA teams by the open days that "
             "they play on. Then it chooses free agents on those teams. The plan gets the most started games with "
-            "the fewest adds.</p>\n"
+            "the fewest adds. The aggressive plan can use more adds and give up started games for better "
+            "players.</p>\n"
             "<p>The value of a player is his value per game in the 6 categories that this league counts. "
             "A value below 0 is normal for a free agent.</p></details>")
 
 
-def render(data, days, spots, plan, ranking=(), read=(), today=None, *, drops=(), aggressive=None, warnings=(),
-           contingencies=()):
+def render(data, days, spots, plan, ranking=(), read=(), today=None, *, drops=(), aggressive=None, empty_value=None,
+           warnings=(), contingencies=()):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
     spots: the StreamSpots. plan: the schedule Plan, or None. ranking: the TeamRanks. read: the teams whose
-    free agents the run read. drops: the Drops of the schedule plan. aggressive: the aggressive Plan, or None. warnings and contingencies: text lines.
+    free agents the run read. drops: the Drops of the schedule plan. aggressive: the aggressive Plan, or None.
+    empty_value: the value of an empty slot, or None. warnings and contingencies: text lines.
     """
     today = today or date.today()
     sections = [
         header(data, days, spots, plan, today),
         warnings_section(warnings),
         grid(plan, days, spots),
-        comparison([("Schedule", plan), ("Aggressive", aggressive)]),
+        comparison([("Schedule", plan), ("Aggressive", aggressive)], empty_value),
         plan_section(plan, days, spots, data.adds, today, drops=drops),
-        plan_section(aggressive, days, spots, data.adds, today, "Aggressive plan") if aggressive is not None else "",
+        aggressive_section(plan, aggressive, days, spots, data.adds, today),
         contingency_section(contingencies),
         ranking_section(ranking, read),
         method_note(),

@@ -8,8 +8,10 @@ One planning run:
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
-6. schedule_plan(): choose the team windows for the stream spots.
-7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings.
+6. schedule_plan(): choose the team windows for the stream spots. aggressive_plan(): the same search with the
+   aggressive score.
+7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings,
+   the aggressive plan and the comparison of the two plans.
 8. contingency_plans(): print a contingency plan for each game day of each flagged player.
 9. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
@@ -23,14 +25,14 @@ from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
                                      season_values, value_warnings)
-from fantasyhoops.adds.planner import rank_teams, schedule_plan, teams_to_read
+from fantasyhoops.adds.planner import aggressive_plan, rank_teams, schedule_plan, teams_to_read, value_above_empty
 from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
                                      team_games)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
-from fantasyhoops.adds.value import projection_scale
+from fantasyhoops.adds.value import empty_slot_value, projection_scale
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.schedule import read_schedule
@@ -184,10 +186,11 @@ def print_ranking(ranking, read):
         print(f"  ... {len(ranking) - RANKING_ROWS} more teams play on an open day.")
 
 
-def print_plan(plan, spots, adds, today, drops=(), warnings=()):
-    """Print the schedule plan: each team window with its add day, its started games and its options.
+def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule plan", notes=True):
+    """Print a plan: each team window with its add day, its started games and its options.
 
     drops: the Drops of drops.drop_trade_offs(). Each one prints below its window. warnings: lines to print last.
+    title: the name of the plan. notes: print the notes on the add day and the trend below the plan.
     """
     print()
     if not spots:
@@ -200,7 +203,7 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=()):
     if plan is None:
         print(f"Schedule plan: {len(spots)} stream spots, but no open day. There are no adds to plan.")
         return
-    print(f"Schedule plan: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')} "
+    print(f"{title}: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')} "
           f"({_count(len(spots), 'stream spot')}, {_count(adds.left, 'add')} left). "
           f"Blended value of the started games: {_signed(plan.value)}.")
     if not plan.windows:
@@ -221,6 +224,8 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=()):
             print(f"      {n}. {_player(p):<{width}}  {','.join(p.positions):<9}  "
                   f"value: projected {_signed(o.projected_value)}, recent {_signed(o.recent_value)}, "
                   f"blended {_signed(o.value)}  {_trend(o.trend)}")
+    if not notes:
+        return
     if any(w.add_day == today for w in plan.windows):
         print("  Note: an add for today helps only if his game has not started. The schedule has no game times.")
     if plan.windows:
@@ -233,6 +238,29 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=()):
               "The rank and the season value show the season cost.")
     for line in warnings:
         print(f"  {line}")
+
+
+def print_comparison(plan, aggressive, empty_value):
+    """Print the schedule plan and the aggressive plan side by side: adds, started games and blended value.
+
+    The last row is the value above an empty slot, the score of the aggressive plan. empty_value: the value of an
+    empty slot (value.empty_slot_value()).
+    """
+    if plan is None or aggressive is None:
+        return
+    rows = [("Adds", plan.adds, aggressive.adds), ("Started games", plan.started_games, aggressive.started_games),
+            ("Blended value", _signed(plan.value), _signed(aggressive.value)),
+            ("Value above an empty slot", _signed(value_above_empty(plan, empty_value)),
+             _signed(value_above_empty(aggressive, empty_value)))]
+    print()
+    print("Comparison:")
+    print(f"  {'':<26}{'Schedule':>10}{'Aggressive':>12}")
+    for label, a, b in rows:
+        print(f"  {label:<26}{a:>10}{b:>12}")
+    print("  Blended value: the sum of the blended values of the started games. A free agent usually has a value "
+          "below 0, so more started games can give a lower sum.")
+    print(f"  Value above an empty slot: the score of the aggressive plan. An empty slot has a value of "
+          f"{empty_value:+.2f}.")
 
 
 def publish_page(path, plan, publish=True):
@@ -252,7 +280,7 @@ def main(today=None, publish=True):
     cfg = load_config()
     today = today or date.today()
     slots, sched = cfg["league"]["slots"], read_schedule()
-    plan, read, options, drops, warnings = None, [], [], [], []
+    plan, aggressive, empty, read, options, drops, warnings = None, None, None, [], [], [], []
     values = season_values(cfg)
     with open_league(cfg["adds"]["league"]) as yahoo:
         data = read_league(yahoo, cfg, today)
@@ -271,13 +299,22 @@ def main(today=None, publish=True):
         plan = schedule_plan(days, games, spots, options, data.adds.left, slots)
         drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
         warnings = value_warnings(plan, data.roster, spots, cfg, values)
+        empty = empty_slot_value(cfg)
+        aggressive = aggressive_plan(days, games, spots, options, data.adds.left, slots, empty)
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
     print_plan(plan, spots, data.adds, today, drops, warnings)
+    if aggressive is not None and aggressive.windows == plan.windows:
+        print()
+        print("Aggressive plan: the same as the schedule plan.")
+    elif aggressive is not None:
+        print_plan(aggressive, spots, data.adds, today, title="Aggressive plan", notes=False)
+    print_comparison(plan, aggressive, empty)
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
     print_contingencies(contingencies)
-    text = page.render(data, days, spots, plan, ranking, read, today, drops=drops, warnings=warnings,
+    text = page.render(data, days, spots, plan, ranking, read, today, drops=drops, aggressive=aggressive,
+                       empty_value=empty, warnings=warnings,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
     publish_page(page.write(text), plan, publish)
 
