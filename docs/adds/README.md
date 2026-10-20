@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Step 1 works: the planner reads your team and prints the open starting slots of each day in the planning window. The plans, the page and the publish step are not built yet.
+Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Steps 1 and 2 work: the planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the empty stream spots. The schedule plan uses the projected value, not the blended value yet. The aggressive plan, the drops, the page and the publish step are not built yet.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -38,6 +38,10 @@ One planning run does these steps:
 
 You can run the planner on any day. Run it before the week starts for the full plans. Run it again during the week after an injury or a new free agent. Each run plans only the days that are left, with the adds that are left.
 
+On the last day of a fantasy week, the planner plans the next week. The planning window is the whole next week, and all the adds of the weekly limit are left (5).
+
+The planning window starts today. The schedule has no game times. An add for today helps only if his game has not started.
+
 ## The plans
 
 Both plans are a series of team windows for each stream spot, for example "Spot 1: CHA Mon–Wed, then PHX Thu–Sun". A window counts only the games that fill an open starting slot. An add takes effect on the same day (add delay 0). The page shows the latest day for each add, so that you can wait for injury news.
@@ -46,10 +50,12 @@ Both plans are a series of team windows for each stream spot, for example "Spot 
 
 1. Find the open starting slots on each day of the planning window.
 2. Rank the NBA teams by the open days that they cover. A team that plays on several open days covers them with one add.
-3. Search the free agents of the best teams. The planner reads the free-agent list filtered by team, so it finds players far down the overall list.
-4. Choose the team windows that fill the open days with the fewest adds.
+3. Search the free agents of the best teams. The planner reads the free-agent list filtered by team, so it finds players far down the overall list. It reads the 8 teams with the most open days, and the best team for each open day that those 8 teams do not cover.
+4. Choose the team windows that give the most started games. If two plans have the same started games, the plan with fewer adds wins. A free agent must fit an open position on that day, with the other added players.
 
-Each window shows its window options: the best 3 free agents on that team who fit an open position, in order of blended value.
+Each window shows its window options: the best 3 free agents on that team who fit the window, in order of blended value. A free agent fits the window if the plan keeps all its started games with him. Until the blended value is built, the options are in order of projected value.
+
+The search is exact. It looks at each open day in order. On each day, each stream spot keeps its player or gets a free agent who starts that day. The search does not know which players the plan dropped earlier in the week. A dropped player goes on waivers, so the plan then takes a different free agent with the same team and positions, if one exists.
 
 ### Aggressive plan
 
@@ -75,7 +81,7 @@ Next to each free agent, the page also shows:
 - The recent value: the value of the last-14-day line alone.
 - The trend: his adds today and this week across all Yahoo leagues, from Transaction Trends. Many of these adds come from leagues that score all 9 categories. So the trend is evidence and a tiebreak, not a plan of its own.
 
-The draft tools keep the season projections file. This tool does not use it for value.
+The stat lines come from Yahoo. The season projections file of the draft tools gives only the category scale: the mean and the standard deviation of each category in the player pool. So the values are on the same scale as the per-game value on the draft board. A streamer usually has a value below 0, because the pool holds the drafted players.
 
 ## Core and drops
 
@@ -93,7 +99,7 @@ Yahoo uses the official NBA designations: O (out), Q (questionable), D (doubtful
 | Player | Main plan | Contingency plan |
 |---|---|---|
 | Healthy | Plays every game of his team. | None. |
-| Out player (Out or Out for Season) | Does not play in the planning window. His slot is open. If he is on IL, his roster spot is a stream spot. | None. |
+| Out player (Out, Out for Season, NA (Not Active) or suspended) | Does not play in the planning window. His slot is open. If he is on IL, his roster spot is a stream spot. A free agent with one of these statuses is not in the plan. | None. |
 | Flagged player (Q, D, P or another status) | Plays every game of his team. | One for each of his game days. |
 | Core player on the bench, not on IL | Takes a roster spot. Fills no slot while he is out. Never dropped. | None. |
 
@@ -146,8 +152,8 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team, for example "CHA Mon–Wed". |
 | Window options | The best 3 free agents on the team of a team window who fit an open position. |
-| Out player | A core player who is Out or Out for Season. |
-| Flagged player | A core player with a status other than blank or Out, for example Q, D or P. |
+| Out player | A core player who is Out, Out for Season, NA (Not Active) or suspended. |
+| Flagged player | A core player with a status that is not blank and does not make him an Out player, for example Q, D or P. |
 | Contingency plan | How to fill the slot of a flagged player who is ruled out just before his game. |
 | Trend | The adds and drops of a player across all Yahoo leagues, from Transaction Trends. |
 

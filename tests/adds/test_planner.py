@@ -1,0 +1,171 @@
+import random
+from datetime import date, timedelta
+from itertools import product
+
+import pytest
+
+from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
+from fantasyhoops.adds.readers import Player
+from fantasyhoops.adds.slots import open_slots_by_day
+from fantasyhoops.core.lineup import best_lineup
+
+SLOTS = ["PG", "SG", "SF", "PF", "C"]
+MON = date(2027, 1, 4)
+WEEK = [MON + timedelta(days=i) for i in range(7)]
+
+
+def fa(name, team, positions=("SF",), value=1.0, status=""):
+    return Option(Player(name, team, tuple(positions), status=status), value)
+
+
+def plan(roster, games, free_agents, spots=1, adds=5):
+    days = open_slots_by_day(roster, games, SLOTS)
+    return schedule_plan(days, games, [StreamSpot()] * spots, free_agents, adds, SLOTS)
+
+
+def windows(p):
+    return [(w.spot, w.team, w.add_day, w.started) for w in p.windows]
+
+
+# A full roster on each day: 6 players of BOS fill all 6 starting slots. On a day when BOS does not play,
+# all slots are open.
+FULL = [Player(f"P{i}", "BOS", (pos,)) for i, pos in enumerate(["PG", "SG", "SF", "PF", "C", "C"])]
+
+
+def test_one_player_on_several_open_days_beats_a_chain_of_adds():
+    # Mon, Tue and Wed are open days (BOS does not play). PHI plays all three. Each chain team plays one day.
+    games = {WEEK[0]: {"PHI", "ATL"}, WEEK[1]: {"PHI", "CHI"}, WEEK[2]: {"PHI", "DAL"}, WEEK[3]: {"BOS", "NY"}}
+    # The chain players have a higher value. The plan score does not use value.
+    fas = [fa("Multi", "PHI", value=0.1), fa("A", "ATL", value=2), fa("C", "CHI", value=2), fa("D", "DAL", value=2)]
+    p = plan(FULL, games, fas)
+    assert (p.started_games, p.adds) == (3, 1)
+    assert windows(p) == [(0, "PHI", WEEK[0], tuple(WEEK[:3]))]
+    assert [o.player.name for o in p.windows[0].options] == ["Multi"]
+
+
+def test_the_plan_uses_no_more_than_the_adds_that_are_left():
+    # Each day only one team plays, so each started game needs a new add.
+    teams = ["ATL", "CHI", "DAL", "DEN", "DET"]
+    games = {d: {t} for d, t in zip(WEEK, teams)}
+    fas = [fa(t, t) for t in teams]
+    for adds in range(6):
+        p = plan([], games, fas, adds=adds)
+        assert (p.started_games, p.adds) == (adds, adds)
+    assert plan([], games, fas, adds=0).windows == ()
+
+
+def test_the_add_day_is_the_first_started_game_of_the_window():
+    # Two empty spots, two adds. MIA plays Mon and Wed, MIL plays Tue and Thu: one add for each.
+    games = {WEEK[0]: {"MIA"}, WEEK[1]: {"MIL"}, WEEK[2]: {"MIA"}, WEEK[3]: {"MIL"}}
+    p = plan([], games, [fa("Mia", "MIA"), fa("Mil", "MIL")], spots=2, adds=2)
+    assert (p.started_games, p.adds) == (4, 2)
+    assert sorted((w.team, w.add_day, w.started, w.last_day) for w in p.windows) == [
+        ("MIA", WEEK[0], (WEEK[0], WEEK[2]), WEEK[3]), ("MIL", WEEK[1], (WEEK[1], WEEK[3]), WEEK[3])]
+
+
+def test_a_free_agent_must_fit_an_open_position():
+    # Mon: BOS plays and only C is open (a third BOS guard takes Util). A PG cannot start, a C can.
+    roster = [Player(f"P{i}", "BOS", (pos,)) for i, pos in enumerate(["PG", "SG", "SF", "PF", "PG"])]
+    games = {WEEK[0]: {"BOS", "PHI", "ATL"}}
+    fas = [fa("Guard", "PHI", ("PG",), value=5), fa("Big", "ATL", ("C",), value=1)]
+    p = plan(roster, games, fas)
+    assert windows(p) == [(0, "ATL", WEEK[0], (WEEK[0],))]
+
+
+def test_two_added_players_cannot_fill_the_same_slot():
+    # Mon: only C is open. Two spots and two centers: only one center starts, so the plan uses one add.
+    roster = [Player(f"P{i}", "BOS", (pos,)) for i, pos in enumerate(["PG", "SG", "SF", "PF", "PG"])]
+    games = {WEEK[0]: {"BOS", "PHI"}}
+    p = plan(roster, games, [fa("Big 1", "PHI", ("C",)), fa("Big 2", "PHI", ("C",))], spots=2)
+    assert (p.started_games, p.adds) == (1, 1)
+
+
+def test_options_are_the_best_three_who_fit_in_order_of_value():
+    # BOS and PHI play on Mon and Tue. The roster leaves only C open.
+    roster = [Player(f"P{i}", "BOS", (pos,)) for i, pos in enumerate(["PG", "SG", "SF", "PF", "PG"])]
+    games = {WEEK[0]: {"PHI", "BOS"}, WEEK[1]: {"PHI", "BOS"}}
+    fas = [fa("C1", "PHI", ("C",), 1), fa("C2", "PHI", ("PF", "C"), 3), fa("C3", "PHI", ("C",), 2),
+           fa("C4", "PHI", ("C",), 0.5), fa("Guard", "PHI", ("PG",), 9), fa("Hurt", "PHI", ("C",), 9, status="O"),
+           fa("No line", "PHI", ("C",), None)]
+    p = plan(roster, games, fas)
+    assert [o.player.name for o in p.windows[0].options] == ["C2", "C3", "C1"]
+
+
+def test_a_holder_plays_until_the_add_that_drops_him():
+    # The spot holds a DEN player. DEN plays Mon. PHI plays Tue to Thu. The plan keeps him for Mon, then adds PHI.
+    games = {WEEK[0]: {"DEN"}, WEEK[1]: {"PHI"}, WEEK[2]: {"PHI"}, WEEK[3]: {"PHI"}}
+    days = open_slots_by_day([], games, SLOTS)
+    holder = fa("Holder", "DEN")
+    p = schedule_plan(days, games, [StreamSpot(holder)], [fa("Phi", "PHI")], 5, SLOTS)
+    assert (p.started_games, p.adds) == (4, 1)
+    assert windows(p) == [(0, "DEN", None, (WEEK[0],)), (0, "PHI", WEEK[1], tuple(WEEK[1:4]))]
+
+
+def test_a_large_search():
+    # 2 empty spots, 5 adds, 7 open days with 6 open slots and 8 teams with 6 free agents each.
+    # Each team plays 2 days, then rests 1 day. One spot needs 4 adds for 7 games (2 + 2 + 2 + 1).
+    # With 5 adds, two spots get 12 games. 3 spots take about 5 seconds.
+    teams = ["ATL", "CHI", "DAL", "DEN", "DET", "MIA", "MIL", "PHI"]
+    games = {d: {t for j, t in enumerate(teams) if (i + j) % 3 != 0} for i, d in enumerate(WEEK)}
+    pos = [("PG",), ("SG", "SF"), ("SF", "PF"), ("PF", "C"), ("C",), ("PG", "SG")]
+    fas = [fa(f"{t}{k}", t, pos[k], value=k + j / 10) for j, t in enumerate(teams) for k in range(6)]
+    assert plan([], games, fas, spots=1).score == (7, -4)
+    assert plan([], games, fas, spots=2).score == (12, -4)
+
+
+def brute_force(roster, games, free_agents, spots, adds):
+    """The best (started games, -adds) of all plans, by a plain search over the timelines of the spots."""
+    days = open_slots_by_day(roster, games, SLOTS)
+    base = [[set(p.positions) for _, p in d.starters] + [set(p.positions) for p in d.bench] for d in days]
+
+    def started(timelines):
+        total = 0
+        for i, d in enumerate(days):
+            now = [[o for o, first in t if first <= i][-1:] for t in timelines]
+            playing = [o for t in now for o in t if o.player.team in games[d.date]]
+            total += len(best_lineup(base[i] + [set(o.player.positions) for o in playing], SLOTS)) - len(d.starters)
+        return total
+
+    def timelines(adds_left, first):
+        yield []
+        for i in range(first, len(days)):
+            for o in free_agents:
+                for rest in timelines(adds_left - 1, i + 1) if adds_left else []:
+                    yield [(o, i), *rest]
+
+    def distinct(combo, i):
+        """True if no player is in two spots on day i."""
+        now = [[o for o, first in t if first <= i][-1:] for t in combo]
+        return len({o for t in now for o in t}) == sum(len(t) for t in now)
+
+    best = (0, 0)
+    for combo in product(*[list(timelines(adds, 0))] * spots):
+        n = sum(len(t) for t in combo)
+        if n <= adds and all(distinct(combo, i) for i in range(len(days))):
+            best = max(best, (started(combo), -n))
+    return best
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_the_search_finds_the_best_plan(seed):
+    # Small random weeks: 4 days, 2 spots, 3 adds, 4 free agents. Compare with a plain search of all plans.
+    rnd = random.Random(seed)
+    teams = ["ATL", "CHI", "DAL", "DEN"]
+    games = {d: {t for t in teams + ["BOS"] if rnd.random() < 0.5} for d in WEEK[:4]}
+    roster = [Player(f"P{i}", "BOS", (rnd.choice(SLOTS),)) for i in range(rnd.randint(2, 6))]
+    fas = [fa(t, t, rnd.sample(SLOTS, rnd.randint(1, 2)), value=rnd.random()) for t in teams]
+    assert plan(roster, games, fas, spots=2, adds=3).score == brute_force(roster, games, fas, 2, 3)
+
+
+def test_rank_teams_by_open_days_covered():
+    games = {WEEK[0]: {"PHI", "ATL", "BOS"}, WEEK[1]: {"PHI", "BOS"}, WEEK[2]: {"PHI", "CHI"}}
+    days = open_slots_by_day(FULL, games, SLOTS)  # Mon and Tue: BOS plays, no open slot. Wed is open.
+    ranking = rank_teams(days, games)
+    assert [(r.team, r.open_days) for r in ranking] == [("CHI", (WEEK[2],)), ("PHI", (WEEK[2],))]
+
+
+def test_teams_to_read_cover_each_open_day():
+    games = {WEEK[0]: {"PHI", "ATL"}, WEEK[1]: {"PHI", "ATL"}, WEEK[2]: {"CHI"}}
+    ranking = rank_teams(open_slots_by_day([], games, SLOTS), games)
+    assert [r.team for r in ranking] == ["ATL", "PHI", "CHI"]
+    assert teams_to_read(ranking, count=1) == ["ATL", "CHI"]

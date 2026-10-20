@@ -1,7 +1,7 @@
 """Open starting slots: the slots that your roster cannot fill on each day of the planning window.
 
 Status rules (docs/adds/README.md):
-- An Out player (Out or Out for Season) does not play.
+- An Out player (Out, Out for Season, Not Active or suspended) does not play.
 - A player on IL cannot start and takes no roster spot. So his spot is a stream spot.
 - Each other player plays every game of his NBA team.
 """
@@ -34,6 +34,14 @@ def planning_window(week, today):
     """The days from today to the last day of the fantasy week. No days if the week is over."""
     first = max(today, week.start)
     return [first + timedelta(days=i) for i in range((week.end - first).days + 1)]
+
+
+def plans_next_week(week, today):
+    """True on the last day of the fantasy week (or later). The planner then plans the whole next week.
+
+    The adds of the next week are the full weekly limit, because the count resets at the start of each week.
+    """
+    return today >= week.end
 
 
 def team_games(sched, days):

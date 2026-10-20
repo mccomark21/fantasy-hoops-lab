@@ -2,40 +2,98 @@
 
 One planning run:
 1. read_league(): open Edge with the saved Yahoo session and read your team page and the matchup page.
+   On the last day of a fantasy week, it reads the next week and plans that whole week with all its adds.
 2. open_slots_by_day(): find the open starting slots on each day of the planning window.
-3. print_open_slots(): print a table of the days.
-The schedule plan and the other later steps come after step 2.
-Settings: [adds] and [league] slots in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
+3. rank_teams(): rank the NBA teams by the open days that they cover.
+4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
+5. schedule_plan(): choose the team windows for the stream spots.
+6. Print the open slots, the team ranking and the schedule plan.
+Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
 """
 from dataclasses import dataclass
 from datetime import date
 
-from fantasyhoops.adds.readers import read_adds, read_roster, read_week
+from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
+from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
-from fantasyhoops.adds.slots import open_slots_by_day, planning_window, roster_spots_used, team_games
+from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
+                                     team_games)
+from fantasyhoops.adds.teams import yahoo_id
+from fantasyhoops.adds.value import line_value, projection_scale
 from fantasyhoops.core.common import load_config
 from fantasyhoops.core.schedule import read_schedule
+
+RANKING_ROWS = 12  # the teams that the ranking prints
+MAX_PAGES = 10  # pages of 25 free agents for each team. The planner stops after this number.
 
 
 @dataclass(frozen=True)
 class LeagueData:
-    """What one planning run reads from Yahoo: your roster (a list of Player), your Adds and the current Week."""
+    """What one planning run reads from Yahoo: your roster (a list of Player), your Adds and the Week to plan.
+
+    next_week: True if today is the last day of the current week, so that the run plans the next week.
+    """
     roster: list
     adds: object
     week: object
+    next_week: bool = False
 
 
-def read_league(cfg):
-    """Read your team page and the matchup page of the current week from Yahoo."""
-    league, team = cfg["adds"]["league"], cfg["adds"]["team"]
-    with open_league(league) as yahoo:
-        team_page = yahoo.get(str(team))
-        matchup_page = yahoo.get(f"matchup?mid1={team}")
-    return LeagueData(roster=read_roster(team_page), adds=read_adds(team_page), week=read_week(matchup_page))
+def read_league(yahoo, cfg, today):
+    """Read your team page and the matchup page of the week to plan from Yahoo.
+
+    On the last day of a week, the week to plan is the next week, and all the adds of the weekly limit are left.
+    """
+    team = cfg["adds"]["team"]
+    team_page = yahoo.get(str(team))
+    week, adds = read_week(yahoo.get(f"matchup?mid1={team}")), read_adds(team_page)
+    next_week = plans_next_week(week, today)
+    if next_week:
+        week = read_week(yahoo.get(f"matchup?week={week.number + 1}&mid1={team}"))
+        adds = Adds(used=0, limit=adds.limit)
+    return LeagueData(roster=read_roster(team_page), adds=adds, week=week, next_week=next_week)
+
+
+def free_agent_path(team, offset=0):
+    """The path of one page of the free-agent list of one NBA team (ESPN code), with Yahoo's 7-day projection."""
+    return (f"players?status=FA&pos=P&cut_type=33&myteam=0&sort=OR&sdir=1&stat1=S_PS7"
+            f"&eteam=ET_{yahoo_id(team)}&count={offset}")
+
+
+def read_team_free_agents(yahoo, teams):
+    """The FreeAgents of the NBA teams (ESPN codes), from all pages of the free-agent list of each team."""
+    out = []
+    for team in teams:
+        for page in range(MAX_PAGES):
+            html = yahoo.get(free_agent_path(team, 25 * page))
+            out += read_free_agents(html)
+            if not has_next_page(html):
+                break
+    return out
+
+
+def stream_spots(roster, cfg):
+    """The stream spots: one empty StreamSpot for each roster spot with no player. The plan drops no player yet."""
+    return [StreamSpot()] * (cfg["league"]["roster_spots"] - roster_spots_used(roster))
+
+
+def value_options(free_agents, cfg):
+    """An Option for each FreeAgent, with the projected value of his per-game line."""
+    scale = projection_scale(cfg)
+    return [Option(f.player, line_value(f.line, scale, cfg)) for f in free_agents]
 
 
 def _day(d):
     return f"{d:%a %m/%d}"
+
+
+def _days(dates):
+    return ", ".join(_day(d) for d in dates) or "none"
+
+
+def _count(n, word):
+    """For example "1 add" and "2 adds"."""
+    return f"{n} {word}" + ("" if n == 1 else "s")
 
 
 def _player(p):
@@ -47,6 +105,8 @@ def print_open_slots(data, days, cfg):
     """Print the header and the table: each day, your players with a game, their slots and the open slots."""
     week, adds, roster = data.week, data.adds, data.roster
     il = sum(p.on_il for p in roster)
+    if data.next_week:
+        print(f"Today is the last day of week {week.number - 1}. The planner plans the next week.")
     print(f"Yahoo league {cfg['adds']['league']}, team {cfg['adds']['team']}. "
           f"Week {week.number}: {_day(week.start)} to {_day(week.end)}.")
     print(f"Adds: {adds.used} of {adds.limit} used, {adds.left} left. "
@@ -72,12 +132,74 @@ def print_open_slots(data, days, cfg):
     print(f"Open slots in the planning window: {total}, on {sum(bool(d.open) for d in days)} of {len(days)} days.")
 
 
+def print_ranking(ranking, read):
+    """Print the NBA teams by the open days that they cover. A * marks the teams whose free agents the run read."""
+    print()
+    if not ranking:
+        print("NBA teams by open days covered: none, because there are no open days.")
+        return
+    print("NBA teams by open days covered" + (" (* = free agents read):" if read else ":"))
+    for r in ranking[:RANKING_ROWS]:
+        mark = "*" if r.team in read else " "
+        print(f"  {mark} {r.team:<4}  {_count(len(r.open_days), 'open day') + ',':<12} "
+              f"{_count(r.open_slots, 'open slot'):<13} ({_days(r.open_days)})")
+    if len(ranking) > RANKING_ROWS:
+        print(f"  ... {len(ranking) - RANKING_ROWS} more teams play on an open day.")
+
+
+def print_plan(plan, spots, adds, today):
+    """Print the schedule plan: each team window with its add day, its started games and its options."""
+    print()
+    if not spots:
+        print("Schedule plan: no stream spots. All roster spots hold a player, and the planner does not drop "
+              "players yet. There are no adds to plan.")
+        return
+    if not adds.left:
+        print(f"Schedule plan: no adds left this week ({adds.used} of {adds.limit} used). There are no adds to plan.")
+        return
+    if plan is None:
+        print(f"Schedule plan: {len(spots)} stream spots, but no open day. There are no adds to plan.")
+        return
+    print(f"Schedule plan: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')} "
+          f"({_count(len(spots), 'stream spot')}, {_count(adds.left, 'add')} left).")
+    if not plan.windows:
+        print("  No free agent of the teams read gives a started game.")
+    for w in plan.windows:
+        add = f"latest add day {_day(w.add_day)}" if w.add_day else "the player holds the spot now"
+        print(f"  Spot {w.spot + 1}: {w.team} {_day(w.add_day or w.last_day)} to {_day(w.last_day)}, {add}. "
+              f"Started games: {len(w.started)} ({_days(w.started)}).")
+        width = max(len(_player(o.player)) for o in w.options) if w.options else 0
+        for n, o in enumerate(w.options, 1):
+            p = o.player
+            print(f"      {n}. {_player(p):<{width}}  {','.join(p.positions):<9}  "
+                  f"projected value {o.projected_value:+.2f}")
+    if any(w.add_day == today for w in plan.windows):
+        print("  Note: an add for today helps only if his game has not started. The schedule has no game times.")
+    if plan.windows:
+        print("  The add day is the latest day that keeps all the started games of the window. "
+              "You can wait until then for injury news.")
+
+
 def main(today=None):
     cfg = load_config()
-    data = read_league(cfg)
-    window = planning_window(data.week, today or date.today())
-    days = open_slots_by_day(data.roster, team_games(read_schedule(), window), cfg["league"]["slots"])
+    today = today or date.today()
+    slots, sched = cfg["league"]["slots"], read_schedule()
+    plan, read = None, []
+    with open_league(cfg["adds"]["league"]) as yahoo:
+        data = read_league(yahoo, cfg, today)
+        window = planning_window(data.week, today)
+        games = team_games(sched, window)
+        days = open_slots_by_day(data.roster, games, slots)
+        spots = stream_spots(data.roster, cfg)
+        ranking = rank_teams(days, games)
+        if spots and data.adds.left and ranking:
+            read = teams_to_read(ranking)
+            free_agents = read_team_free_agents(yahoo, read)
+    if read:
+        plan = schedule_plan(days, games, spots, value_options(free_agents, cfg), data.adds.left, slots)
     print_open_slots(data, days, cfg)
+    print_ranking(ranking, read)
+    print_plan(plan, spots, data.adds, today)
 
 
 if __name__ == "__main__":

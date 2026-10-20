@@ -1,9 +1,10 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 
 from fantasyhoops.adds.readers import Player, Week
-from fantasyhoops.adds.slots import open_slots_by_day, planning_window, roster_spots_used, team_games
+from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
+                                     team_games)
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON, TUE, WED = date(2027, 1, 4), date(2027, 1, 5), date(2027, 1, 6)
@@ -67,6 +68,16 @@ def test_planning_window_runs_from_today_to_the_end_of_the_week():
     assert planning_window(week, TUE) == [TUE, WED]
     assert planning_window(week, date(2027, 1, 1)) == [MON, TUE, WED]
     assert planning_window(week, date(2027, 1, 7)) == []
+
+
+def test_on_the_last_day_of_the_week_the_planner_plans_the_next_week():
+    week = Week(number=1, days=(MON, TUE, WED))
+    following = Week(number=2, days=tuple(date(2027, 1, 7) + timedelta(days=i) for i in range(7)))
+    assert not plans_next_week(week, MON)
+    assert not plans_next_week(week, TUE)
+    assert plans_next_week(week, WED)
+    # The window of the next week is the whole week, also when today is before its first day.
+    assert planning_window(following, WED) == list(following.days)
 
 
 def test_team_games_reads_the_schedule():

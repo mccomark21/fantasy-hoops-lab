@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from fantasyhoops.adds.readers import Player, read_adds, read_roster, read_week
+from fantasyhoops.adds.readers import (Player, has_next_page, read_adds, read_free_agents, read_roster,
+                                       read_week)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -47,9 +48,55 @@ def test_read_roster_reads_an_out_player_on_il():
     assert (gobert.slot, gobert.status, gobert.out, gobert.on_il) == ("IL", "O", True, True)
 
 
-def test_out_for_season_is_out():
+def test_out_for_season_not_active_and_suspended_are_out():
     assert Player("A", "BOS", ("C",), status="OFS", status_name="Out for Season").out
-    assert not Player("A", "BOS", ("C",), status="NA", status_name="Not Active").out
+    assert Player("A", "BOS", ("C",), status="NA", status_name="Not Active").out
+    assert Player("A", "BOS", ("C",), status="SUSP", status_name="Suspended").out
+    assert Player("A", "BOS", ("C",), status="X", status_name="Suspension").out
+    assert not Player("A", "BOS", ("C",), status="Q", status_name="Questionable").out
+    assert not Player("A", "BOS", ("C",), status="P", status_name="Probable").out
+
+
+def test_read_free_agents_divides_the_totals_by_the_games():
+    fas = {f.player.name: f for f in read_free_agents(fixture("free_agents.html"))}
+    assert list(fas) == ["Khaman Maluach", "Kevin Porter Jr.", "Moussa Diabaté", "Jrue Holiday", "Jusuf Nurkić"]
+    maluach = fas["Khaman Maluach"]
+    assert (maluach.player.team, maluach.player.positions, maluach.games) == ("PHX", ("C",), 3.0)
+    # The page shows 26.3 points, 25.8 rebounds and 1.3 3-pointers in 3 games.
+    assert maluach.line == pytest.approx(
+        {"pts": 26.3 / 3, "reb": 25.8 / 3, "ast": 2.5 / 3, "threes": 1.3 / 3, "blk": 4.8 / 3, "stl": 1.5 / 3})
+    holiday = fas["Jrue Holiday"]
+    assert (holiday.player.team, holiday.player.status, holiday.games) == ("POR", "Q", 2.0)
+
+
+def test_read_free_agents_with_no_projection():
+    fas = {f.player.name: f for f in read_free_agents(fixture("free_agents.html"))}
+    # Yahoo shows "-" for a player with no projection, and 0.0 for a player who is out.
+    porter, nurkic = fas["Kevin Porter Jr."], fas["Jusuf Nurkić"]
+    assert (porter.games, porter.line, porter.player.status, porter.player.out) == (0, {}, "NA", True)
+    assert (nurkic.games, nurkic.line, nurkic.player.out) == (0, {}, True)
+
+
+def test_read_free_agents_keeps_the_full_name_and_maps_the_team():
+    fas = read_free_agents(fixture("free_agents_phi.html"))
+    assert [(f.player.name, f.player.team, f.player.positions) for f in fas] == [
+        ("Anfernee Simons", "PHI", ("PG", "SG")), ("Adem Bona", "PHI", ("C",)),
+        ("Kentavious Caldwell-Pope", "PHI", ("SG", "SF")), ("Rayan Rupert", "PHI", ("SG", "SF"))]
+
+
+def test_read_free_agents_skips_players_on_waivers():
+    html = fixture("free_agents_phi.html").replace("<td><div>FA</div></td>", "<td><div>W</div></td>", 1)
+    assert "Anfernee Simons" not in [f.player.name for f in read_free_agents(html)]
+
+
+def test_has_next_page():
+    assert has_next_page(fixture("free_agents.html"))
+    assert not has_next_page(fixture("free_agents_phi.html"))
+
+
+def test_read_free_agents_with_no_table():
+    with pytest.raises(ValueError, match="no player table"):
+        read_free_agents("<html><body></body></html>")
 
 
 def test_read_roster_with_no_roster_table():
