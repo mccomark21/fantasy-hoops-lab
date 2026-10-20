@@ -139,25 +139,33 @@ def print_contingencies(plans):
         return
     print("Contingency plans: if a flagged player is ruled out just before his game.")
     for c in plans:
-        start = f", game at {c.time} ET" if c.time else ""
-        print(f"  {c.day:%a %m/%d}  {c.player.name} {c.player.status} ({c.player.team}{start}):")
-        if c.move:
-            print(f"      Lineup move: start {c.move.name} ({c.move.team}, {','.join(c.move.positions)}) "
-                  f"from the bench.")
-            continue
-        if not c.late_adds:
-            print("      No lineup move works, and no free agent who was read can take his slot.")
-            continue
-        drop = " to an empty stream spot" if c.drop is None else f", drop {c.drop.player.player.name} ({c.drop.team})"
-        print(f"      No lineup move works. Late add{drop}:")
-        for n, (o, t) in enumerate(c.late_adds, 1):
-            when = f"game at {t} ET" if t else f"check that his game starts after {c.player.name}'s game"
-            print(f"        {n}. {o.player.name}  {o.player.team}  {','.join(o.player.positions)}  "
-                  f"value {o.value:+.2f}  ({when})")
-        ends = ("no team window ends early" if c.drop is None else
-                f"the {c.drop.team} window ends early and loses {len(c.lost)} started game"
-                + ("" if len(c.lost) == 1 else "s") + (f" ({', '.join(f'{d:%a %m/%d}' for d in c.lost)})"
-                                                         if c.lost else ""))
-        print(f"      Cost: 1 add ({c.adds_left} left after the main plan), {ends}.")
-        if c.adds_left <= 0:
-            print("      The main plan uses all the adds, so this add takes an add from the main plan.")
+        for line in contingency_lines(c):
+            print(line)
+
+
+def contingency_lines(c):
+    """The text of one contingency plan, one line for each item."""
+    lines = []
+    start = f", game at {c.time} ET" if c.time else ""
+    lines.append(f"  {c.day:%a %m/%d}  {c.player.name} {c.player.status} ({c.player.team}{start}):")
+    if c.move:
+        lines.append(f"      Lineup move: start {c.move.name} ({c.move.team}, {','.join(c.move.positions)}) "
+                     f"from the bench.")
+        return lines
+    if not c.late_adds:
+        lines.append("      No lineup move works, and no free agent who was read can take his slot.")
+        return lines
+    drop = " to an empty stream spot" if c.drop is None else f", drop {c.drop.player.player.name} ({c.drop.team})"
+    lines.append(f"      No lineup move works. Late add{drop}:")
+    for n, (o, t) in enumerate(c.late_adds, 1):
+        when = f"game at {t} ET" if t else f"check that his game starts after {c.player.name}'s game"
+        lines.append(f"        {n}. {o.player.name}  {o.player.team}  {','.join(o.player.positions)}  "
+                     f"value {o.value:+.2f}  ({when})")
+    ends = ("no team window ends early" if c.drop is None else
+            f"the {c.drop.team} window ends early and loses {len(c.lost)} started game"
+            + ("" if len(c.lost) == 1 else "s") + (f" ({', '.join(f'{d:%a %m/%d}' for d in c.lost)})"
+                                                     if c.lost else ""))
+    lines.append(f"      Cost: 1 add ({c.adds_left} left after the main plan), {ends}.")
+    if c.adds_left <= 0:
+        lines.append("      The main plan uses all the adds, so this add takes an add from the main plan.")
+    return lines

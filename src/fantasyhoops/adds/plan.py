@@ -10,12 +10,15 @@ One planning run:
 6. schedule_plan(): choose the team windows for the stream spots.
 7. Print the open slots, the team ranking and the schedule plan.
 8. contingency_plans(): print a contingency plan for each game day of each flagged player.
+9. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
 """
+import argparse
 from dataclasses import dataclass, replace
 from datetime import date
 
-from fantasyhoops.adds.contingency import contingency_plans, game_times, print_contingencies
+from fantasyhoops.adds import page
+from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
 from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
@@ -24,11 +27,13 @@ from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_n
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import line_value, projection_scale
-from fantasyhoops.core.common import load_config
+from fantasyhoops.core import publish as site
+from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.schedule import read_schedule
 
 RANKING_ROWS = 12  # the teams that the ranking prints
 MAX_PAGES = 10  # pages of 25 free agents for each team. The planner stops after this number.
+URL = site.URL + "adds/"
 
 
 @dataclass(frozen=True)
@@ -196,7 +201,20 @@ def print_plan(plan, spots, adds, today):
               "players. A dash: not on the pages of this week.")
 
 
-def main(today=None):
+def publish_page(path, plan, publish=True):
+    """Print the path and the main numbers of the plan page, then publish the site with the page at /adds/."""
+    print()
+    print(f"Wrote the plan page: {path}")
+    if plan is not None:
+        print(f"Plan page: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')}.")
+    if not publish:
+        print("The run did not publish the page (--no-publish).")
+        return
+    site.publish(ROOT, "adds", path)
+    print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
+
+
+def main(today=None, publish=True):
     cfg = load_config()
     today = today or date.today()
     slots, sched = cfg["league"]["slots"], read_schedule()
@@ -218,9 +236,14 @@ def main(today=None):
     print_open_slots(data, days, cfg)
     print_ranking(ranking, read)
     print_plan(plan, spots, data.adds, today)
-    print_contingencies(contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots,
-                                          game_times(sched)))
+    contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
+    print_contingencies(contingencies)
+    text = page.render(data, days, spots, plan, ranking, read, today,
+                       contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
+    publish_page(page.write(text), plan, publish)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Plan the adds of the current fantasy week.")
+    parser.add_argument("--no-publish", action="store_true", help="Write the plan page, but do not publish it.")
+    main(publish=not parser.parse_args().no_publish)
