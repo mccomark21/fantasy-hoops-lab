@@ -20,6 +20,7 @@ from functools import cache
 from itertools import combinations
 
 from fantasyhoops.adds.readers import Player
+from fantasyhoops.adds.trends import Trend
 from fantasyhoops.core.lineup import best_lineup
 
 TEAMS_TO_READ = 8  # the teams with the most open days. The planner reads the free agents of these teams.
@@ -32,14 +33,25 @@ class Option:
     """A free agent that a plan can add, with his values.
 
     projected_value: the per-game value of Yahoo's projection for the next 7 days. None if Yahoo has no projection.
+    trend: his Trend from Transaction Trends. None if he is not on the pages of this week.
     """
     player: Player
     projected_value: float | None
+    trend: Trend | None = None
 
     @property
     def value(self):
         """The value that puts the options in order."""
         return self.projected_value
+
+
+def option_order(option):
+    """The sort key of the options, best first: the highest value, then the most adds this week, then today.
+
+    The trend is only a tiebreak between options. It never changes the plan score.
+    """
+    t = option.trend or Trend(0, 0)
+    return -option.value, -t.adds_week, -t.adds_today
 
 
 @dataclass(frozen=True)
@@ -138,8 +150,7 @@ class _Search:
         self.days, self.games, self.slots = days, games, slots
         self.open = [i for i, d in enumerate(days) if d.open]
         self.holders = [s.holder for s in spots]
-        self.fas = sorted((o for o in free_agents if o.value is not None and not o.player.out),
-                          key=lambda o: -o.value)
+        self.fas = sorted((o for o in free_agents if o.value is not None and not o.player.out), key=option_order)
         # groups[k]: (key, number of free agents with that key) for the free agents who play on open day k, in order
         # of the best value with that key. Of two plans with the same score, the search keeps the first that it
         # finds, so this order often gives the plan with the better players. Ticket 3 adds a real value tiebreak.

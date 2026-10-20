@@ -6,11 +6,12 @@ One planning run:
 2. open_slots_by_day(): find the open starting slots on each day of the planning window.
 3. rank_teams(): rank the NBA teams by the open days that they cover.
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
-5. schedule_plan(): choose the team windows for the stream spots.
-6. Print the open slots, the team ranking and the schedule plan.
+5. read_week_trends(): read Transaction Trends for each day of this week up to today.
+6. schedule_plan(): choose the team windows for the stream spots.
+7. Print the open slots, the team ranking and the schedule plan.
 Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from fantasyhoops.adds.planner import Option, StreamSpot, rank_teams, schedule_plan, teams_to_read
@@ -19,6 +20,7 @@ from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
                                      team_games)
 from fantasyhoops.adds.teams import yahoo_id
+from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import line_value, projection_scale
 from fantasyhoops.core.common import load_config
 from fantasyhoops.core.schedule import read_schedule
@@ -83,6 +85,11 @@ def value_options(free_agents, cfg):
     return [Option(f.player, line_value(f.line, scale, cfg)) for f in free_agents]
 
 
+def with_trends(options, trends):
+    """The options, each with his Trend from trends ({player name: Trend}). None if he is not in trends."""
+    return [replace(o, trend=trends.get(o.player.name)) for o in options]
+
+
 def _day(d):
     return f"{d:%a %m/%d}"
 
@@ -99,6 +106,11 @@ def _count(n, word):
 def _player(p):
     status = f" {p.status}" if p.status else ""
     return f"{p.name}{status}"
+
+
+def _trend(trend):
+    """For example "adds today 228, this week 1500". A dash if the player is not on Transaction Trends."""
+    return f"adds today {trend.adds_today}, this week {trend.adds_week}" if trend else "adds -"
 
 
 def print_open_slots(data, days, cfg):
@@ -172,12 +184,14 @@ def print_plan(plan, spots, adds, today):
         for n, o in enumerate(w.options, 1):
             p = o.player
             print(f"      {n}. {_player(p):<{width}}  {','.join(p.positions):<9}  "
-                  f"projected value {o.projected_value:+.2f}")
+                  f"projected value {o.projected_value:+.2f}  {_trend(o.trend)}")
     if any(w.add_day == today for w in plan.windows):
         print("  Note: an add for today helps only if his game has not started. The schedule has no game times.")
     if plan.windows:
         print("  The add day is the latest day that keeps all the started games of the window. "
               "You can wait until then for injury news.")
+        print("  Adds: the adds across all Yahoo leagues, from Transaction Trends. Each day shows the 50 most added "
+              "players. A dash: not on the pages of this week.")
 
 
 def main(today=None):
@@ -195,8 +209,10 @@ def main(today=None):
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
             free_agents = read_team_free_agents(yahoo, read)
+            trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
     if read:
-        plan = schedule_plan(days, games, spots, value_options(free_agents, cfg), data.adds.left, slots)
+        options = with_trends(value_options(free_agents, cfg), trends)
+        plan = schedule_plan(days, games, spots, options, data.adds.left, slots)
     print_open_slots(data, days, cfg)
     print_ranking(ranking, read)
     print_plan(plan, spots, data.adds, today)
