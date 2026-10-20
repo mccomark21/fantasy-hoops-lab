@@ -227,7 +227,7 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
     if not notes:
         return
     if any(w.add_day == today for w in plan.windows):
-        print("  Note: an add for today helps only if his game has not started. The schedule has no game times.")
+        print("  Note: an add for today helps only if his game has not started.")
     if plan.windows:
         print("  The add day is the latest day that keeps all the started games of the window. "
               "You can wait until then for injury news.")
