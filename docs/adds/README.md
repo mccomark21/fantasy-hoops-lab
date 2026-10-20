@@ -2,13 +2,15 @@
 
 Status: planned. This guide records the agreed design. The code will be in `src/fantasyhoops/adds/`.
 
-The planner shows how to use your adds in the current fantasy week. It chooses NBA teams for your stream spots, then lists the free agents on those teams. For the terms that all tools share, see the [glossary](../glossary.md).
+The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
 ## Table of contents
 
 - [Goal](#goal)
 - [Usage](#usage)
-- [The plan](#the-plan)
+- [The plans](#the-plans)
+- [Value](#value)
+- [Core and drops](#core-and-drops)
 - [Status rules](#status-rules)
 - [Data](#data)
 - [Configuration](#configuration)
@@ -17,9 +19,9 @@ The planner shows how to use your adds in the current fantasy week. It chooses N
 
 ## Goal
 
-The plan gets the most started games from your stream spots. If two plans have the same started games, the plan with the higher per-game value wins.
+Each plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins.
 
-Started games come mostly from game volume. The free agents are close in value, so value only breaks ties.
+The two plans give you a real choice: few adds and a good schedule, or more adds and better players.
 
 ## Usage
 
@@ -30,32 +32,69 @@ python -m fantasyhoops.adds.plan
 One planning run does these steps:
 
 1. It reads your league from Yahoo.
-2. It makes the plan for the planning window.
+2. It makes the two plans for the planning window.
 3. It writes the page in `output/adds/`.
 4. It publishes the site to GitHub Pages, at `/adds/`.
 
-You can run the planner on any day. Run it before the week starts for the full plan. Run it again during the week after an injury or a new free agent. Each run plans only the days that are left, with the adds that are left.
+You can run the planner on any day. Run it before the week starts for the full plans. Run it again during the week after an injury or a new free agent. Each run plans only the days that are left, with the adds that are left.
 
-## The plan
+## The plans
 
-The plan is a series of team windows for each stream spot, for example "Spot 1: CHA Mon–Wed, then PHX Thu–Sun".
+Both plans are a series of team windows for each stream spot, for example "Spot 1: CHA Mon–Wed, then PHX Thu–Sun". A window counts only the games that fill an open starting slot. An add takes effect on the same day (add delay 0). The page shows the latest day for each add, so that you can wait for injury news.
 
-- The planner chooses the windows from the NBA schedule. A window counts only the games that fill an open starting slot.
-- Each window shows its window options: the best 3 free agents on that team who fit an open position. The options are in order of per-game value. Each option also shows its recent value. You choose the player.
-- The planner does not propose a team that has no free agent at an open position.
-- A streamer who is already on your roster is a window that costs no add. The planner keeps him if no other team gives more started games for the add.
-- An add takes effect on the same day (add delay 0).
+### Schedule plan
 
-The page also warns you when a streamer has a higher rank than your lowest core player. You can then make him core in `config.toml`.
+1. Find the open starting slots on each day of the planning window.
+2. Rank the NBA teams by the open days that they cover. A team that plays on several open days covers them with one add.
+3. Search the free agents of the best teams. The planner reads the free-agent list filtered by team, so it finds players far down the overall list.
+4. Choose the team windows that fill the open days with the fewest adds.
+
+Each window shows its window options: the best 3 free agents on that team who fit an open position, in order of blended value.
+
+### Aggressive plan
+
+1. Start from the top free agents by blended value.
+2. Use more adds, up to the adds that are left, when a better player gains started games.
+
+### Comparison
+
+The page shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games.
+
+## Value
+
+The blended value orders the free agents. It uses your 6 categories and your weights, the same formula as `core/valuation.py`, on a blended stat line:
+
+- The projected line: Yahoo's projection for the next 7 days (from Rotowire). Rotowire updates it during the season.
+- The recent line: the player's per-game averages in the last 14 days.
+- Blended line = projected line, moved toward the recent line as games accumulate. The weight of the recent line = games in the last 14 days ÷ 14. A player with 7 games gets 50%.
+
+In the first week of the season, the blended value is the projected value, because there are no recent games.
+
+Next to each free agent, the page also shows:
+
+- The recent value: the value of the last-14-day line alone.
+- The trend: his adds today and this week across all Yahoo leagues, from Transaction Trends. Many of these adds come from leagues that score all 9 categories. So the trend is evidence and a tiebreak, not a plan of its own.
+
+The draft tools keep the season projections file. This tool does not use it for value.
+
+## Core and drops
+
+- The core list in `config.toml` holds the players that the planner never suggests to drop.
+- The other players are in stream spots. A plan can drop one of them, but the page shows the trade-off, for example "Drop Quickley (rank 90) → PHX Thu–Sun: +2 started games this week".
+- The plan score counts only this week's started games. The season cost of a drop is shown, not scored. You decide.
+- A dropped player who is still a free agent next week can come back in a later plan.
+
+The page also warns you when a streamer has a higher blended value than your lowest core player. You can then make him core.
 
 ## Status rules
+
+Yahoo uses the official NBA designations: O (out), Q (questionable), D (doubtful), P (probable) and others. Only players who are Out or Out for Season can go on IL.
 
 | Player | Main plan | Contingency plan |
 |---|---|---|
 | Healthy | Plays every game of his team. | None. |
-| Out player (O or INJ) | Does not play in the planning window. His slot is open. | None. |
-| Flagged player (any other status) | Plays every game of his team. | One for each of his game days. |
-| Player on IL | Does not take a roster spot. His spot is a stream spot. | None. |
+| Out player (Out or Out for Season) | Does not play in the planning window. His slot is open. If he is on IL, his roster spot is a stream spot. | None. |
+| Flagged player (Q, D, P or another status) | Plays every game of his team. | One for each of his game days. |
 | Core player on the bench, not on IL | Takes a roster spot. Fills no slot while he is out. Never dropped. | None. |
 
 A contingency plan fills the slot of a flagged player who is ruled out just before his game:
@@ -69,12 +108,17 @@ The planner does not keep an add back for contingency plans. The page shows the 
 
 | Data | Source |
 |---|---|
-| Your roster, the statuses, the adds that you used, the dates of the fantasy week | Your Yahoo league pages, with Playwright |
-| Free agents, with their recent stats | Your Yahoo league pages, with Playwright. Only players with status FA. |
+| Your roster, the statuses, the adds that you used | Your team page (`/nba/<league>/<team>`) |
+| The dates of the fantasy week, the matchup | Your league pages |
+| Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`), all pages, and the same list filtered by NBA team |
+| Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex`) |
 | NBA schedule | `data/schedule.csv` (`fetch/espn.py`) |
-| Per-game value and positions | The projections and `core/valuation.py`, as for the draft tools |
 
-Playwright uses a manual sign-in. The first run opens a browser window, and you sign in to Yahoo by hand. Later runs use the saved session until it expires. See [ADR 1](../adr/0001-playwright-for-league-data.md).
+Only players with status FA are free agents. Players on waivers (W) are not.
+
+Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. See [ADR 1](../adr/0001-playwright-for-league-data.md).
+
+Yahoo and ESPN use different team codes, for example SAS and SA. The planner maps the Yahoo codes to the ESPN codes of the schedule.
 
 ## Configuration
 
@@ -82,6 +126,8 @@ The settings will be in an `[adds]` section of `config.toml`:
 
 | Setting | Meaning |
 |---|---|
+| `league` | The Yahoo league ID: 22820. |
+| `team` | Your team ID in the league: 10 (TradeMark™). |
 | `core` | The names of your core players. |
 | `add_delay_days` | The add delay. 0 for this league. |
 
@@ -92,14 +138,18 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Term | Meaning |
 |---|---|
 | Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. |
-| Plan score | First the started games of the stream spots in the planning window. Ties go to the plan with the higher per-game value of those games. |
+| Open day | A day of the planning window with at least one open starting slot. |
+| Plan score | First the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games. |
+| Schedule plan | The plan that chooses NBA teams by the open days that they cover, then free agents on those teams, with the fewest adds. |
+| Aggressive plan | The plan that starts from the top free agents by blended value and uses more adds. |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team, for example "CHA Mon–Wed". |
 | Window options | The best 3 free agents on the team of a team window who fit an open position. |
-| Out player | A core player with status O or INJ. |
-| Flagged player | A core player with a status other than blank, O or INJ. |
+| Out player | A core player who is Out or Out for Season. |
+| Flagged player | A core player with a status other than blank or Out, for example Q, D or P. |
 | Contingency plan | How to fill the slot of a flagged player who is ruled out just before his game. |
+| Trend | The adds and drops of a player across all Yahoo leagues, from Transaction Trends. |
 
 ## Decisions
 
