@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 
 from fantasyhoops.adds.readers import (Player, has_next_page, read_adds, read_free_agents, read_roster,
                                        read_week)
@@ -82,6 +83,27 @@ def test_read_free_agents_keeps_the_full_name_and_maps_the_team():
     assert [(f.player.name, f.player.team, f.player.positions) for f in fas] == [
         ("Anfernee Simons", "PHI", ("PG", "SG")), ("Adem Bona", "PHI", ("C",)),
         ("Kentavious Caldwell-Pope", "PHI", ("SG", "SF")), ("Rayan Rupert", "PHI", ("SG", "SF"))]
+
+
+def test_read_recent_free_agents_with_no_games():
+    # On 2026-10-20 no player had a game in the last 14 days: Yahoo shows "-" in all stat cells.
+    fas = read_free_agents(fixture("free_agents_phi_recent.html"), totals=False)
+    assert [(f.player.name, f.player.team, f.games, f.line) for f in fas] == [
+        ("Anfernee Simons", "PHI", 0, {}), ("Adem Bona", "PHI", 0, {}),
+        ("Kentavious Caldwell-Pope", "PHI", 0, {}), ("Rayan Rupert", "PHI", 0, {})]
+
+
+def test_read_recent_free_agents_keeps_the_averages():
+    # The recent view shows per-game averages, so the reader does not divide them by GP*. The numbers are made up.
+    soup = BeautifulSoup(fixture("free_agents_phi_recent.html"), "html.parser")
+    header = [th.get_text(strip=True) for th in soup.select("thead th")]
+    cells = soup.select("tbody tr")[0].find_all("td")
+    for name, text in {"GP*": "7", "PTS": "18.5", "REB": "4.0", "AST": "5.5", "3PTM": "2.5", "ST": "1.0",
+                       "BLK": "0.5"}.items():
+        cells[header.index(name)].div.string = text
+    simons = read_free_agents(str(soup), totals=False)[0]
+    assert (simons.games, simons.line) == (
+        7, {"pts": 18.5, "reb": 4.0, "ast": 5.5, "threes": 2.5, "stl": 1.0, "blk": 0.5})
 
 
 def test_read_free_agents_skips_players_on_waivers():

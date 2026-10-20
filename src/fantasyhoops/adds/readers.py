@@ -78,6 +78,8 @@ class FreeAgent:
     games: the projected games in the next 7 days (GP*). 0 when Yahoo has no projection ("-").
     line: the projected per-game stats with the stat keys of core/valuation.py, for example {"pts": 15.2, ...}.
     Empty when games is 0.
+    A row of the list with stat1=S_AL14 (the last 14 days) has the same fields: games is the games in the last
+    14 days, and line is the per-game averages of those games.
     """
     player: Player
     games: float
@@ -151,10 +153,11 @@ def _number(text):
     return 0.0 if text in ("", "-") else float(text)
 
 
-def read_free_agents(html):
+def read_free_agents(html, totals=True):
     """The players with status FA on one page of the free-agent list (/nba/<league>/players?status=FA&stat1=S_PS7).
 
     The page shows TOTALS for the next 7 days. This function divides them by GP* to get a per-game line.
+    totals: False for a page with per-game averages (stat1=S_AL14). The function then does not divide.
     """
     table = _soup(html).select_one("div.players table")
     if table is None:
@@ -170,7 +173,8 @@ def read_free_agents(html):
         if cells[column["Roster Status"]] != "FA":
             continue  # players on waivers (W) are not free agents
         games = _number(cells[column["GP*"]])
-        line = {key: _number(cells[column[name]]) / games for name, key in STAT_COLUMNS.items()} if games else {}
+        per = games if totals else 1
+        line = {key: _number(cells[column[name]]) / per for name, key in STAT_COLUMNS.items()} if games else {}
         out.append(FreeAgent(player=read_player(block), games=games, line=line))
     return out
 

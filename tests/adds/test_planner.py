@@ -91,6 +91,35 @@ def test_options_are_the_best_three_who_fit_in_order_of_value():
     assert [o.player.name for o in p.windows[0].options] == ["C2", "C3", "C1"]
 
 
+def test_options_are_in_order_of_blended_value():
+    # The projected value puts C1 first. The blended value puts C2 first.
+    games = {WEEK[0]: {"PHI"}}
+    fas = [Option(Player("C1", "PHI", ("C",)), 3, recent_value=-1, blended_value=1),
+           Option(Player("C2", "PHI", ("C",)), 1, recent_value=5, blended_value=2)]
+    p = plan([], games, fas)
+    assert [o.player.name for o in p.windows[0].options] == ["C2", "C1"]
+    assert p.value == 2
+
+
+def test_a_tie_on_started_games_and_adds_goes_to_the_higher_blended_value():
+    # Two plans give 2 started games with 1 add: ATL (Mon and Wed) or CHI (Tue and Wed). The search finds the CHI
+    # plan first, because it keeps the spot empty on Mon. The ATL player has the higher blended value.
+    games = {WEEK[0]: {"ATL"}, WEEK[1]: {"CHI"}, WEEK[2]: {"ATL", "CHI"}}
+    fas = [fa("Chi", "CHI", value=1), Option(Player("Atl", "ATL", ("SF",)), 0.5, blended_value=2)]
+    p = plan([], games, fas, adds=1)
+    assert windows(p) == [(0, "ATL", WEEK[0], (WEEK[0], WEEK[2]))]
+    assert p.score == (2, -1, 4)
+
+
+def test_the_search_takes_a_score_function():
+    # A score that wants the most value, then the most started games: one game of Good beats two games of Bad.
+    games = {WEEK[0]: {"ATL", "CHI"}, WEEK[1]: {"ATL"}}
+    fas = [fa("Bad", "ATL", value=-1), fa("Good", "CHI", value=1)]
+    days = open_slots_by_day(FULL, games, SLOTS)
+    p = schedule_plan(days, games, [StreamSpot()], fas, 1, SLOTS, score=lambda started, adds, value: (value, started))
+    assert (p.started_games, p.value) == (1, 1)
+
+
 def test_a_holder_plays_until_the_add_that_drops_him():
     # The spot holds a DEN player. DEN plays Mon. PHI plays Tue to Thu. The plan keeps him for Mon, then adds PHI.
     games = {WEEK[0]: {"DEN"}, WEEK[1]: {"PHI"}, WEEK[2]: {"PHI"}, WEEK[3]: {"PHI"}}
@@ -109,22 +138,28 @@ def test_a_large_search():
     games = {d: {t for j, t in enumerate(teams) if (i + j) % 3 != 0} for i, d in enumerate(WEEK)}
     pos = [("PG",), ("SG", "SF"), ("SF", "PF"), ("PF", "C"), ("C",), ("PG", "SG")]
     fas = [fa(f"{t}{k}", t, pos[k], value=k + j / 10) for j, t in enumerate(teams) for k in range(6)]
-    assert plan([], games, fas, spots=1).score == (7, -4)
-    assert plan([], games, fas, spots=2).score == (12, -4)
+    assert plan([], games, fas, spots=1).score[:2] == (7, -4)
+    assert plan([], games, fas, spots=2).score[:2] == (12, -4)
 
 
 def brute_force(roster, games, free_agents, spots, adds):
-    """The best (started games, -adds) of all plans, by a plain search over the timelines of the spots."""
+    """The best (started games, -adds, value) of all plans, by a plain search over the timelines of the spots.
+
+    value: the total value of the started games. Of the players who play, the lineup takes the best value first.
+    """
     days = open_slots_by_day(roster, games, SLOTS)
     base = [[set(p.positions) for _, p in d.starters] + [set(p.positions) for p in d.bench] for d in days]
 
     def started(timelines):
-        total = 0
+        total, value = 0, 0.0
         for i, d in enumerate(days):
             now = [[o for o, first in t if first <= i][-1:] for t in timelines]
-            playing = [o for t in now for o in t if o.player.team in games[d.date]]
-            total += len(best_lineup(base[i] + [set(o.player.positions) for o in playing], SLOTS)) - len(d.starters)
-        return total
+            playing = sorted((o for t in now for o in t if o.player.team in games[d.date]), key=lambda o: -o.value)
+            lineup = best_lineup(base[i] + [set(o.player.positions) for o in playing], SLOTS)
+            starters = [playing[j - len(base[i])] for j in lineup if j >= len(base[i])]
+            total += len(starters)
+            value += sum(o.value for o in starters)
+        return total, value
 
     def timelines(adds_left, first):
         yield []
@@ -138,11 +173,12 @@ def brute_force(roster, games, free_agents, spots, adds):
         now = [[o for o, first in t if first <= i][-1:] for t in combo]
         return len({o for t in now for o in t}) == sum(len(t) for t in now)
 
-    best = (0, 0)
+    best = (0, 0, 0.0)
     for combo in product(*[list(timelines(adds, 0))] * spots):
         n = sum(len(t) for t in combo)
         if n <= adds and all(distinct(combo, i) for i in range(len(days))):
-            best = max(best, (started(combo), -n))
+            count, value = started(combo)
+            best = max(best, (count, -n, value))
     return best
 
 
@@ -154,7 +190,20 @@ def test_the_search_finds_the_best_plan(seed):
     games = {d: {t for t in teams + ["BOS"] if rnd.random() < 0.5} for d in WEEK[:4]}
     roster = [Player(f"P{i}", "BOS", (rnd.choice(SLOTS),)) for i in range(rnd.randint(2, 6))]
     fas = [fa(t, t, rnd.sample(SLOTS, rnd.randint(1, 2)), value=rnd.random()) for t in teams]
-    assert plan(roster, games, fas, spots=2, adds=3).score == brute_force(roster, games, fas, 2, 3)
+    assert plan(roster, games, fas, spots=2, adds=3).score == pytest.approx(brute_force(roster, games, fas, 2, 3))
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_the_search_finds_the_best_plan_with_teammates(seed):
+    # Small random weeks with 2 or 3 free agents on each team, some with the same positions: the search must give
+    # each added player the best value of the free agents with his key who are not in a spot.
+    rnd = random.Random(seed)
+    teams = ["ATL", "ATL", "ATL", "CHI", "CHI"]
+    games = {d: {t for t in ["ATL", "CHI", "BOS"] if rnd.random() < 0.6} for d in WEEK[:4]}
+    roster = [Player(f"P{i}", "BOS", (rnd.choice(SLOTS),)) for i in range(rnd.randint(2, 6))]
+    fas = [fa(f"{t}{n}", t, rnd.choice([("C",), ("PF", "C")]), value=rnd.random() - 0.5)
+           for n, t in enumerate(teams)]
+    assert plan(roster, games, fas, spots=2, adds=2).score == pytest.approx(brute_force(roster, games, fas, 2, 2))
 
 
 def test_rank_teams_by_open_days_covered():

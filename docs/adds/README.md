@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Steps 1 and 2 work: the planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the empty stream spots. The schedule plan uses the projected value, not the blended value yet. The aggressive plan, the drops, the page and the publish step are not built yet.
+Status: in progress. This guide records the agreed design. The code is in `src/fantasyhoops/adds/`. Steps 1 to 3 work: the planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the empty stream spots. The schedule plan uses the blended value for the option order and the tiebreak. The aggressive plan, the drops, the page and the publish step are not built yet.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -51,9 +51,9 @@ Both plans are a series of team windows for each stream spot, for example "Spot 
 1. Find the open starting slots on each day of the planning window.
 2. Rank the NBA teams by the open days that they cover. A team that plays on several open days covers them with one add.
 3. Search the free agents of the best teams. The planner reads the free-agent list filtered by team, so it finds players far down the overall list. It reads the 8 teams with the most open days, and the best team for each open day that those 8 teams do not cover.
-4. Choose the team windows that give the most started games. If two plans have the same started games, the plan with fewer adds wins. A free agent must fit an open position on that day, with the other added players.
+4. Choose the team windows that give the most started games. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins. A free agent must fit an open position on that day, with the other added players.
 
-Each window shows its window options: the best 3 free agents on that team who fit the window, in order of blended value. A free agent fits the window if the plan keeps all its started games with him. Until the blended value is built, the options are in order of projected value.
+Each window shows its window options: the best 3 free agents on that team who fit the window, in order of blended value. A free agent fits the window if the plan keeps all its started games with him. Each option shows his projected, recent and blended value.
 
 The search is exact. It looks at each open day in order. On each day, each stream spot keeps its player or gets a free agent who starts that day. The search does not know which players the plan dropped earlier in the week. A dropped player goes on waivers, so the plan then takes a different free agent with the same team and positions, if one exists.
 
@@ -75,6 +75,10 @@ The blended value orders the free agents. It uses your 6 categories and your wei
 - Blended line = projected line, moved toward the recent line as games accumulate. The weight of the recent line = games in the last 14 days ÷ 14. A player with 7 games gets 50%.
 
 In the first week of the season, the blended value is the projected value, because there are no recent games.
+
+If Yahoo has no projection for a player, but he has recent games, the blended line is the recent line. It is the only stat line that the planner has for him. A player with no projection and no recent games has no value, and the plans do not use him.
+
+The planner reads each free-agent list twice: with `stat1=S_PS7` (the projection for the next 7 days, as totals) and with `stat1=S_AL14` (the averages of the last 14 days). It matches the players of the two lists by name and NBA team.
 
 Next to each free agent, the page also shows:
 
