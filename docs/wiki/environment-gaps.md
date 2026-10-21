@@ -21,3 +21,4 @@ Dated observations of what the repo did not have. Each item names the date of th
 - The owner did not choose the weekly wiki lint schedule on 2026-10-21.
 - When PR #56 merges, the "no CI checks" and "no CODING_STANDARDS.md" gaps above are superseded.
 - On 2026-10-21, the owner merged PR #56 (`mccomark21/fantasy-hoops-lab@0f485ab`). This supersedes the "no CI checks" and "no CODING_STANDARDS.md" gaps above. On 2026-10-21, the first push runs on main waited about 1 minute in the queue and then passed.
+- On 2026-10-21, agent worktrees under `.claude/worktrees/` had no `data/` folder and no Yahoo session, so no build agent of #59 to #65 could run the planner live. A suggested fix is `"worktree": {"symlinkDirectories": ["data"]}` in `.claude/settings.local.json`. Auto mode does not let an agent change settings, so the owner must add it. See [Run of issues #59 to #65](run-issues-59-to-65.md).

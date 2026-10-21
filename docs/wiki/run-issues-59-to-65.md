@@ -22,3 +22,12 @@ Related: [Ticket workflow](ticket-workflow.md), [Adds build decisions](adds-buil
 - PR #66 (#64) merged as `mccomark21/fantasy-hoops-lab@d4deef6`. PR #67 (#65) merged as `mccomark21/fantasy-hoops-lab@66d1f32`.
 - The review of PR #69 (#62) found a blocker in `adds/drops.py`: the drop gain mixed fractional and whole started games.
 - Wave 2 (#60, #63, #61) started after the merge of PR #67.
+
+## Result on 2026-10-21
+
+- All 7 issues closed on 2026-10-21. PR #68 (#59) merged as `mccomark21/fantasy-hoops-lab@0ff169c`, PR #69 (#62) as `@7d4bb08`, PR #70 (#63) as `@0356a32`, PR #72 (#60) as `@346b0a5` and PR #71 (#61) as `@aec7677`.
+- Each PR got a review from a separate agent before the merge. The reviews found one real bug (the drop gain in PR #69) and many smaller points.
+- The build agents could not run the planner live. Their worktrees had no `data/` folder and no Yahoo session. So the live problems showed only in the owner's run.
+- The owner's first run after the merges (main at `0356a32`) took 553 s and found no matchup scores. A diagnosis agent found two causes: Yahoo changed the score table after the first games (#73), and each page fetch waits for a 15 s `networkidle` timeout (#74).
+
+Related: [Environment gaps](environment-gaps.md).
