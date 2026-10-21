@@ -16,6 +16,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 - [Page redesign kept](decision-page-redesign-kept.md): on 2026-10-21, the owner kept the plan page redesign of `a73ee76`, which changed the scope of #52.
 - [Owner follow-ups on #45, #46 and #49](decision-owner-follow-ups.md): on 2026-10-21, these tickets closed with two kinds of owner step left (live-run checks and the core list).
 - [Owner merges PR #54](decision-owner-merges-pr-54.md): on 2026-10-21, the owner decided that the owner merges PR #54. An agent does not merge it.
+- [The pr-flow skill](decision-pr-flow-skill.md): on 2026-10-21, a user-level skill for builder, reviewer and merger roles, made from the problems of the runs of #59 to #76.
 - [Wiki location](decision-wiki-location.md): on 2026-10-21, the owner put the wiki in `docs/wiki/`.
 
 ## Recurring problems
