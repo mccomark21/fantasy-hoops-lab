@@ -36,11 +36,12 @@ config.toml               All settings. [league] applies to all tools.
 pyproject.toml            Package metadata, dependencies and pytest settings
 src/fantasyhoops/
   core/                   Shared code: paths and config (common), player identity, valuation, NBA schedule, site publish
-  fetch/                  Downloads: espn.py (rosters, schedule), yahoo.py (positions, prices, ADP)
+  fetch/                  Downloads: espn.py (rosters, schedule), rotation.py (rotation log), yahoo.py (positions, prices, ADP)
   draft/                  Draft tools
   adds/                   Weekly adds planner (planned)
 tests/
   core/                   Tests for core/
+  fetch/                  Tests for fetch/, with saved ESPN JSON in fixtures/
   draft/                  Tests for draft/
 data/                     Inputs that all tools share (not tracked by Git)
 output/                   Generated files, one folder for each tool (not tracked by Git)
@@ -81,8 +82,16 @@ Each tool is a module. Run it with `python -m` from the repo root:
 
 ```
 python -m fantasyhoops.fetch.espn       # Download NBA rosters and the schedule
+python -m fantasyhoops.fetch.rotation   # Add the finished games to the rotation log
 python -m fantasyhoops.draft.board      # Write the draft board
 ```
+
+The rotation log is a record of each check-in and check-out of each NBA player in each regular-season game. `fetch/rotation.py` writes it:
+
+- `data/rotation_log.csv`: one row for each stint, with the score at the check-in and at the check-out.
+- `data/rotation_scores.csv`: one row for each play that changes the score.
+
+The log starts at the first game of the season. A run reads only the games that are not in the log, so run it again after each game day. The planning run does not update the log. The run prints each player whose stints are more than 1.5 minutes (`minute_tolerance`) from his box-score minutes. Other tools read the log with `core/rotation.py`. The close-game settings are in `[rotation]` in `config.toml`.
 
 The full list of draft commands is in [docs/draft/](docs/draft/README.md#usage).
 
