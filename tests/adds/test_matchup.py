@@ -57,6 +57,21 @@ def test_the_reader_does_not_read_the_player_table_as_the_score_table():
     assert read_matchup(html, team=10) is None
 
 
+def test_a_player_link_that_ends_in_your_team_id_is_not_your_team_link():
+    # Your team ID is 10. The row of the opponent has a player link that ends in /10, before the team link.
+    head = "".join(f"<th>{h}</th>" for h in ["Team", "PTS", "REB", "AST", "3PTM", "BLK", "ST"])
+
+    def row(links, pts):
+        return f"<tr><td>{links}</td><td>{pts}</td>" + "<td>0</td>" * 5 + "</tr>"
+
+    mine = row('<a href="https://basketball.fantasysports.yahoo.com/nba/22820/10">Mine</a>', 5)
+    theirs = row('<a href="https://sports.yahoo.com/nba/players/10">A Player</a>'
+                 '<a href="https://basketball.fantasysports.yahoo.com/nba/22820/4">Theirs</a>', 9)
+    html = f"<table><thead><tr>{head}</tr></thead><tbody>{mine}{theirs}</tbody></table>"
+    m = read_matchup(html, team=10)
+    assert m.mine["pts"] == 5 and m.theirs["pts"] == 9
+
+
 def test_a_page_with_no_score_table_gives_no_matchup():
     assert read_matchup((FIXTURES / "matchup.html").read_text(encoding="utf-8"), team=10) is None
 

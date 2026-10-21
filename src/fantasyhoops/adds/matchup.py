@@ -45,7 +45,7 @@ def read_matchup(html, team):
     """The Matchup on the matchup page (/nba/<league>/matchup?mid1=<team>), or None if the page has no score table.
 
     The score table has the stat headers of STAT_COLUMNS and one row for each team. The header does not always
-    have a "Score" cell. team: your team ID. Your row is the row with the link to /<league>/<team>. The team name is
+    have a "Score" cell. team: your team ID. Your row is the row with the link to /nba/<league>/<team>. The team name is
     the text of the first team link with text, because the first link can be a logo with no text.
     """
     for table in BeautifulSoup(html, "html.parser").find_all("table"):
@@ -60,7 +60,8 @@ def read_matchup(html, team):
             if link is None or len(cells) != len(heads):
                 continue
             scores = {key: _number(cells[heads.index(name)]) for name, key in STAT_COLUMNS.items()}
-            rows.append((re.search(rf"/{team}/?$", link["href"]) is not None, link.get_text(strip=True), scores))
+            yours = re.search(rf"/nba/\d+/{team}/?$", link["href"]) is not None
+            rows.append((yours, link.get_text(strip=True), scores))
         mine = [r for r in rows if r[0]]
         theirs = [r for r in rows if not r[0]]
         if len(mine) == 1 and len(theirs) == 1:

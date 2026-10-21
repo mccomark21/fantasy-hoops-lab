@@ -125,10 +125,14 @@ def test_the_page_shows_the_matchup_score_and_the_weight_of_each_category():
 
 def test_the_page_shows_the_matchup_weights_from_the_live_score_table():
     # The matchup page of 2026-10-21 (#73). The week has 6 days, and the planning window is 2026-10-21 to 10-25.
-    from fantasyhoops.core.common import load_config
+    # The margins are the first values of config.toml (#59), fixed here so that a change to config.toml has no effect.
+    cats = ("pts", "reb", "ast", "threes", "blk", "stl")
+    cfg = {"weights": {c: 1.0 for c in cats}, "adds": {"matchup": {
+        "close": {"pts": 40, "reb": 15, "ast": 10, "threes": 5, "blk": 3, "stl": 3},
+        "large": {"pts": 120, "reb": 45, "ast": 30, "threes": 15, "blk": 9, "stl": 9}, "min_weight": 0.5}}}
     fixture = Path(__file__).parent / "fixtures" / "matchup_scores_live.html"
     m = read_matchup(fixture.read_text(encoding="utf-8"), team=10)
-    html = render(matchup=m, weights=matchup_weights(m, load_config(), share_left=5 / 6))
+    html = render(matchup=m, weights=matchup_weights(m, cfg, share_left=5 / 6))
     shown = text(html)
     assert "The planner did not find the category scores" not in shown
     assert "PTS 24 45 -21 1.00" in shown and "REB 4 17 -13 0.99" in shown and "BLK 0 3 -3 0.95" in shown
