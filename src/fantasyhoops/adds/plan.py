@@ -400,7 +400,7 @@ def main(today=None, publish=True):
     slots, sched = cfg["league"]["slots"], read_schedule()
     plan, aggressive, empty, read, options, drops, warnings, rows = None, None, None, [], [], [], [], []
     weights, match_empty, match_replacement = None, None, None
-    next_week = None
+    games_next = None
     values = season_values(cfg)
     with open_league(cfg["adds"]["league"]) as yahoo:
         data = read_league(yahoo, cfg, today)
@@ -425,13 +425,13 @@ def main(today=None, publish=True):
         mcfg = weighted_cfg(cfg, weights)
         options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg), trends), rests, nights, chance)
         spots = matchup_spots(spots, scale, cfg, mcfg)
-        next_week, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
-        plan = schedule_plan(days, games, spots, options, data.adds.left, slots, next_week=next_week,
+        games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
+        plan = schedule_plan(days, games, spots, options, data.adds.left, slots, next_week=games_next,
                              next_weight=weight)
         drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
         warnings = value_warnings(plan, data.roster, spots, cfg, values)
         empty, match_empty = empty_slot_value(cfg, scale), empty_slot_value(mcfg, scale)
-        aggressive = matchup_plan(days, games, spots, options, data.adds.left, slots, match_empty, next_week, weight)
+        aggressive = matchup_plan(days, games, spots, options, data.adds.left, slots, match_empty, games_next, weight)
         match_replacement = replacement_value([replace(o, blended_value=o.match) for o in options
                                                if not o.player.on_waivers])
         rows = spot_plans(data.roster, spots, games, options, data.adds.left, slots)
@@ -444,13 +444,13 @@ def main(today=None, publish=True):
         print()
         for line in matchup_lines(data.matchup, weights):
             print(line)
-    print_plan(plan, spots, data.adds, today, drops, warnings, nights=nights, next_week=next_week)
+    print_plan(plan, spots, data.adds, today, drops, warnings, nights=nights, next_week=games_next)
     if aggressive is not None and aggressive.windows == plan.windows:
         print()
         print("Aggressive plan: the same as the schedule plan.")
     elif aggressive is not None:
         print_plan(aggressive, spots, data.adds, today, title="Aggressive plan", notes=False, nights=nights,
-                   next_week=next_week)
+                   next_week=games_next)
     print_comparison(plan, aggressive, empty, match_empty)
     print_spot_plans(rows, nights)
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
