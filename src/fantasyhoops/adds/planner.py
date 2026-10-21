@@ -14,16 +14,20 @@ The search (_Search) looks at the open days only, in order. On each open day, ea
 a new free agent who starts that day. An add on a day when the new player does not start is never better than
 the same add on his first started game, so the search tries only those adds. The search tries all the other
 choices. To keep it fast, it sees a player only as his key: the open days that are left on which his team plays,
-and his positions. Two players with the same key give the same started games, and a cache holds the best result
-for each day, set of keys and adds left. For the value tiebreak, each key in the search also holds the value of
-the player (see _Search). The search does not know which players were dropped earlier in the
+his positions and his rest days. Two players with the same key give the same started games, and a cache holds the
+best result for each day, set of keys and adds left. For the value tiebreak, each key in the search also holds the
+value of the player (see _Search). The search does not know which players were dropped earlier in the
 week, so a plan can use the same key twice. The plan then takes a different player with that key when one exists.
+
+Rest risk (adds/rest.py): a game of a player on the rest list on the second night of a back-to-back counts less
+than 1 started game (counted_games()). So the started games of a plan can be a fraction.
 """
 import math
 from dataclasses import dataclass, replace
 from datetime import date
 from functools import cache
 from itertools import combinations
+from typing import NamedTuple
 
 from fantasyhoops.adds.readers import Player, available_on
 from fantasyhoops.adds.trends import Trend
@@ -31,7 +35,36 @@ from fantasyhoops.core.lineup import best_lineup
 
 TEAMS_TO_READ = 8  # the teams with the most open days. The planner reads the free agents of these teams.
 OPTIONS = 3  # window options for each team window
-EMPTY = ((), (), 0.0)  # the key of an empty spot, or of a player with no games on the open days that are left
+DIGITS = 6  # the plan score rounds the started games to this number of decimals, so that equal sums tie
+
+
+def counted_games(rests, days):
+    """The started games that one game on each of days counts in total: 1 for each game, or the count of a rest day.
+
+    rests: ((day, count), ...), for example Option.rest_games. A day here can be a date or an open-day index.
+    """
+    counts = dict(rests)
+    return sum(counts.get(d, 1.0) for d in days)
+
+
+class Key(NamedTuple):
+    """A player as the search sees him on open day k (see _Search).
+
+    days: the open days from k on which he can start. positions: his positions, sorted. rests: (open day, count)
+    for each open day of days on which a game counts less than 1. value: his value for the plan score.
+    """
+    days: tuple
+    positions: tuple
+    rests: tuple
+    value: float
+
+    @property
+    def base(self):
+        """The key with no value: (days, positions, rests)."""
+        return self.days, self.positions, self.rests
+
+
+EMPTY = Key((), (), (), 0.0)  # the key of an empty spot, or of a player with no games on the open days that are left
 
 
 @dataclass(frozen=True)
@@ -45,6 +78,8 @@ class Option:
     trend: his Trend from Transaction Trends. None if he is not on the pages of this week.
     matchup_value: the per-game value of the blended line with the matchup weights (adds/matchup.py). None if the
     run did not compute it.
+    rest_games: ((day, count), ...) for each second night of a back-to-back on which he can rest (adds/rest.py).
+    A game on that day counts count started games. Empty for a player who is not on the rest list.
     """
     player: Player
     projected_value: float | None
@@ -52,6 +87,7 @@ class Option:
     blended_value: float | None = None
     trend: Trend | None = None
     matchup_value: float | None = None
+    rest_games: tuple = ()
 
     @property
     def value(self):
@@ -113,10 +149,12 @@ class TeamWindow:
 class Plan:
     """A plan for the stream spots: its team windows in order of spot and day, its started games and its adds.
 
-    value: the total blended value of the started games (the sum of Option.value for each started game).
+    started_games: the counted started games (counted_games() of each player). A fraction if a player
+    on the rest list starts on a second night.
+    value: the total blended value of the started games (the sum of Option.value x the count of each started game).
     """
     windows: tuple
-    started_games: int
+    started_games: float
     adds: int
     value: float = 0.0
 
@@ -127,8 +165,9 @@ class Plan:
 
 def plan_score(started_games, adds, value=0.0):
     """The plan score as a sort key, higher is better: the most started games, then the fewest adds, then the
-    highest total blended value of the started games."""
-    return started_games, -adds, value
+    highest total blended value of the started games. The started games can be a fraction. The score rounds them
+    to DIGITS decimals, so that the same games in a different order give a tie."""
+    return round(started_games, DIGITS), -adds, value
 
 
 def aggressive_score(empty_value):
@@ -140,7 +179,7 @@ def aggressive_score(empty_value):
     adds, then to the plan with more started games.
     """
     def score(started_games, adds, value=0.0):
-        return value - empty_value * started_games, -adds, started_games
+        return value - empty_value * started_games, -adds, round(started_games, DIGITS)
     return score
 
 
@@ -215,9 +254,10 @@ def _value(option):
 class _Search:
     """The search for one set of inputs. k is the index of an open day in self.open. i is the index of a day.
 
-    A key here is (open days, positions, value): the key of the module docstring and the value of the player.
-    For each base key (open days, positions), the search gives an added player the best value of the free agents
-    with that base key who are not in a spot now.
+    A key here is (open days, positions, rest days, value): the key of the module docstring and the value of the
+    player. rest days: (open day, count) for each open day of the key on which a game counts less than 1.
+    For each base key (open days, positions, rest days), the search gives an added player the best value of the
+    free agents with that base key who are not in a spot now.
     """
 
     def __init__(self, days, games, spots, free_agents, slots, score=plan_score):
@@ -231,7 +271,7 @@ class _Search:
         for k in range(len(self.open)):
             group = {}
             for o in self.fas:
-                base = self.key(o, k)[:2]
+                base = self.key(o, k).base
                 if base[0][:1] == (k,):
                     group.setdefault(base, []).append(o.value)
             self.groups.append(list(group.items()))
@@ -241,7 +281,8 @@ class _Search:
         return not p.out and p.available(day) and p.team in self.games[day]
 
     def key(self, option, k):
-        """The key of a player on open day k: (the open days from k on which his team plays, his positions, value).
+        """The key of a player on open day k: (the open days from k on which his team plays, his positions, his
+        rest days, value).
 
         An Out player has no games. Only a holder can be Out, because the search skips Out free agents.
         A waiver player has no games on his clear day and before it.
@@ -249,28 +290,35 @@ class _Search:
         p = option.player
         if p.out:
             return EMPTY
-        return self._key(p.team, tuple(sorted(p.positions)), k, _value(option), p.clear_day)
+        return self._key(p.team, tuple(sorted(p.positions)), option.rest_games, k, _value(option), p.clear_day)
 
     @cache
-    def _key(self, team, positions, k, value, clear_day):
+    def _key(self, team, positions, rest_games, k, value, clear_day):
         dates = [self.days[self.open[j]].date for j in range(k, len(self.open))]
         days = tuple(j for j, d in enumerate(dates, k) if team in self.games[d] and available_on(clear_day, d))
-        return (days, positions, value) if days else EMPTY
+        counts = dict(rest_games)
+        rests = tuple((j, counts[dates[j - k]]) for j in days if dates[j - k] in counts)
+        return Key(days, positions, rests, value) if days else EMPTY
 
     @cache
     def count(self, k, keys):
-        """(started games, their total value) of the stream spots on open day k, for a sorted tuple of keys."""
+        """(counted started games, their total value, starters) of the stream spots on open day k, for a sorted
+        tuple of keys. starters: the number of players who start.
+
+        The players with the highest count get the slots first, then the players with the higher value."""
         i = self.open[k]
         base = [set(p.positions) for _, p in self.days[i].starters] + [set(p.positions) for p in self.days[i].bench]
-        playing = sorted((key for key in keys if key[0][:1] == (k,)), key=lambda key: -key[2])
-        lineup = best_lineup(base + [set(key[1]) for key in playing], self.slots)
-        started = [playing[j - len(base)][2] for j in lineup if j >= len(base)]
-        return len(started), sum(started)
+        playing = sorted((key for key in keys if key.days[:1] == (k,)),
+                         key=lambda key: (-counted_games(key.rests, [k]), -key.value))
+        lineup = best_lineup(base + [set(key.positions) for key in playing], self.slots)
+        started = [playing[j - len(base)] for j in lineup if j >= len(base)]
+        counts = [counted_games(key.rests, [k]) for key in started]
+        return sum(counts), sum(c * key.value for c, key in zip(counts, started)), len(started)
 
     @staticmethod
     def _free_value(base, values, kept):
         """The best value of the free agents with this base key who are not in kept, or None if all are in kept."""
-        held = [key[2] for key in kept if key[:2] == base]
+        held = [key.value for key in kept if key.base == base]
         for value in values:
             if value in held:
                 held.remove(value)
@@ -295,12 +343,12 @@ class _Search:
         if n == 0:
             yield ()
             return
-        now = self.count(k, tuple(sorted(kept)))[0]
+        now = self.count(k, tuple(sorted(kept)))[2]
         for g in range(first, len(self.groups[k])):
             base, values = self.groups[k][g]
             value = self._free_value(base, values, kept)
-            key = (*base, value)
-            if value is not None and self.count(k, tuple(sorted(kept + [key])))[0] == now + 1:
+            key = Key(*base, value)
+            if value is not None and self.count(k, tuple(sorted(kept + [key])))[2] == now + 1:
                 for rest in self._picks(k, kept + [key], n - 1, g):
                     yield (key, *rest)
 
@@ -316,7 +364,7 @@ class _Search:
             for keys, removed, added in self.moves(k, occ, adds):
                 started, spent, value, moves = best(k + 1, tuple(sorted(_next(key, k) for key in keys)),
                                                     adds - len(added))
-                count, day_value = self.count(k, keys)
+                count, day_value, _ = self.count(k, keys)
                 found = (started + count, spent + len(added), value + day_value,
                          ((k, removed, added), *moves) if added else moves)
                 if top is None or self.score(*found[:3]) > self.score(*top[:3]):
@@ -333,7 +381,7 @@ class _Search:
         used = {h for h in self.holders if h}
         for k, removed, added in moves:
             now = [t[-1][0] if t else None for t in spots]
-            held = [(*self.key(o, k)[:2], v) if o and self.key(o, k) != EMPTY else EMPTY
+            held = [Key(*self.key(o, k).base, v) if o and self.key(o, k) != EMPTY else EMPTY
                     for o, v in zip(now, values)]
             free = []
             for key in removed:
@@ -342,17 +390,20 @@ class _Search:
                 # The best free agent with this base key who is not in a spot now. A player who was not in the plan
                 # before comes first, because Yahoo puts a dropped player on waivers. Of those, a player with the
                 # value that the search used comes first.
-                fits = [o for o in self.fas if self.key(o, k)[:2] == key[:2] and o not in now]
-                same = [o for o in fits if o.value == key[2]]
+                fits = [o for o in self.fas if self.key(o, k).base == key.base and o not in now]
+                same = [o for o in fits if o.value == key.value]
                 o = next((o for o in same + fits if o not in used), (same + fits)[0])
                 used.add(o)
-                now[s], values[s] = o, key[2]
+                now[s], values[s] = o, key.value
                 spots[s].append((o, self.open[k]))
         return spots
 
     def starters(self, i, players):
-        """The players who start on day i, as a set. players: the players in the stream spots on day i."""
-        playing = sorted((o for o in players if self.plays(o, i)), key=lambda o: -_value(o))
+        """The players who start on day i, as a set. players: the players in the stream spots on day i.
+
+        The players with the highest count get the slots first, then the players with the higher value (see count())."""
+        day = self.days[i].date
+        playing = sorted((o for o in players if self.plays(o, i)), key=lambda o: (-counted_games(o.rest_games, [day]), -_value(o)))
         base = [set(p.positions) for _, p in self.days[i].starters] + [set(p.positions) for p in self.days[i].bench]
         lineup = best_lineup(base + [set(o.player.positions) for o in playing], self.slots)
         return {playing[j - len(base)] for j in lineup if j >= len(base)}
@@ -372,7 +423,7 @@ class _Search:
 
     def _plan(self, spots):
         started = self._started(spots)
-        total = sum(len(v) for v in started.values())
+        total = _counted(started)
         used = {o for timeline in spots for o, _ in timeline}
         windows = []
         for s, timeline in enumerate(spots):
@@ -389,10 +440,11 @@ class _Search:
                     player=o,
                     options=() if holder else self._options(spots, s, n, used, total)))
         return Plan(windows=tuple(windows), started_games=total, adds=sum(w.add_day is not None for w in windows),
-                    value=sum(_value(o) * len(d) for (_, o), d in started.items()))
+                    value=sum(_value(o) * counted_games(o.rest_games, days) for (_, o), days in started.items()))
 
     def _options(self, spots, s, n, used, total):
-        """The best free agents on the team of window n of spot s with whom the plan keeps all its started games."""
+        """The best free agents on the team of window n of spot s with whom the plan keeps all its counted started
+        games."""
         o, first = spots[s][n]
         fits = []
         for other in self.fas:
@@ -400,13 +452,18 @@ class _Search:
                 continue
             swapped = [list(t) for t in spots]
             swapped[s][n] = (other, first)
-            if sum(len(v) for v in self._started(swapped).values()) >= total:
+            if round(_counted(self._started(swapped)), DIGITS) >= round(total, DIGITS):
                 fits.append(other)
         return tuple(fits[:OPTIONS])
 
 
+def _counted(started):
+    """The counted started games of {(spot, Option): days with a started game}."""
+    return sum(counted_games(o.rest_games, days) for (_, o), days in started.items())
+
+
 def _next(key, k):
     """The key on open day k + 1."""
-    days, positions, value = key
-    days = days[1:] if days[:1] == (k,) else days
-    return (days, positions, value) if days else EMPTY
+    days = key.days[1:] if key.days[:1] == (k,) else key.days
+    rests = tuple(r for r in key.rests if r[0] > k)
+    return Key(days, key.positions, rests, key.value) if days else EMPTY

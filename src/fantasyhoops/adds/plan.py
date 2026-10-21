@@ -14,11 +14,13 @@ One planning run:
 6. schedule_plan(): choose the team windows for the stream spots. matchup_plan(): the same search with the
    aggressive score and the matchup values (matchup_weights()). spot_plans(): the best plans for one roster spot,
    the rows of the plan page.
+   Before the plans, with_rests() marks the rest games of the players on the rest list (adds/rest.py).
 7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings,
    the aggressive plan, the comparison of the two plans and the plans for one roster spot.
 8. contingency_plans(): print a contingency plan for each game day of each flagged player.
 9. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
-Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
+Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
+NBA schedule: data/schedule.csv (fetch/espn.py).
 """
 import argparse
 from dataclasses import dataclass, replace
@@ -31,10 +33,11 @@ from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_
                                      season_values, value_warnings)
 from fantasyhoops.adds.matchup import (matchup_lines, matchup_plan, matchup_score, matchup_spots,
                                        matchup_weights, read_matchup, weighted_cfg)
-from fantasyhoops.adds.planner import (rank_teams, schedule_plan, teams_to_read, value_above_empty,
-                                       waiver_options)
+from fantasyhoops.adds.planner import (StreamSpot, counted_games, rank_teams, schedule_plan, teams_to_read,
+                                       value_above_empty, waiver_options)
 from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free_agents, read_roster,
                                        read_waiver_players, read_week)
+from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
 from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.spots import spot_plans
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
@@ -163,13 +166,20 @@ def _day(d):
     return f"{d:%a %m/%d}"
 
 
-def _days(dates):
-    return ", ".join(_day(d) for d in dates) or "none"
+def _days(dates, team=None, nights=None):
+    """The days as text. With team and nights (rest.second_nights()), "b2b" marks each second night of team."""
+    nights = nights or {}
+    return ", ".join(_day(d) + (" b2b" if team in nights.get(d, ()) else "") for d in dates) or "none"
 
 
 def _count(n, word):
-    """For example "1 add" and "2 adds"."""
-    return f"{n} {word}" + ("" if n == 1 else "s")
+    """For example "1 add", "2 adds" and "1.5 started games"."""
+    return f"{games_text(n)} {word}" + ("" if n == 1 else "s")
+
+
+def _counted(window):
+    """The counted started games of a team window as text (planner.counted_games())."""
+    return games_text(counted_games(window.player.rest_games, window.started))
 
 
 def _signed(value):
@@ -251,11 +261,12 @@ def print_waivers(options, replacement):
               f"first plan day {_day(p.clear_day + timedelta(days=1))}, Val {_signed(market_value(o.value, replacement))}")
 
 
-def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule plan", notes=True):
+def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule plan", notes=True, nights=None):
     """Print a plan: each team window with its add day, its started games and its options.
 
     drops: the Drops of drops.drop_trade_offs(). Each one prints below its window. warnings: lines to print last.
     title: the name of the plan. notes: print the notes on the add day and the trend below the plan.
+    nights: from rest.second_nights(). "b2b" marks each started game on a second night of a back-to-back.
     """
     print()
     if not spots:
@@ -276,10 +287,11 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
     for w in plan.windows:
         if w.add_day:
             print(f"  Spot {w.spot + 1}: {w.team} {_day(w.add_day)} to {_day(w.last_day)}, "
-                  f"latest add day {_day(w.add_day)}. Started games: {len(w.started)} ({_days(w.started)}).")
+                  f"latest add day {_day(w.add_day)}. Started games: {_counted(w)} "
+                  f"({_days(w.started, w.team, nights)}).")
         else:
             print(f"  Spot {w.spot + 1}: {w.player.player.name} ({w.team}) holds the spot to {_day(w.last_day)}. "
-                  f"Started games: {len(w.started)} ({_days(w.started)}).")
+                  f"Started games: {_counted(w)} ({_days(w.started, w.team, nights)}).")
         for d in drops:
             if d.window == w:
                 print(f"      {d.text()}")
@@ -298,6 +310,9 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
               "You can wait until then for injury news.")
         print("  Adds: the adds across all Yahoo leagues, from Transaction Trends. Each day shows the 50 most added "
               "players. A dash: not on the pages of this week.")
+    if any(w.player.rest_games for w in plan.windows):
+        print("  A game of a player on the rest list on a second night of a back-to-back (b2b) counts "
+              "1 - [adds] rest_chance started games.")
     if drops:
         print("  A drop is a suggestion. The plan score counts only the started games of this week. "
               "The rank and the season value show the season cost.")
@@ -315,7 +330,8 @@ def print_comparison(plan, aggressive, empty_value, match_empty=None):
     match_empty = empty_value if match_empty is None else match_empty
     if plan is None or aggressive is None:
         return
-    rows = [("Adds", plan.adds, aggressive.adds), ("Started games", plan.started_games, aggressive.started_games),
+    rows = [("Adds", plan.adds, aggressive.adds),
+            ("Started games", games_text(plan.started_games), games_text(aggressive.started_games)),
             ("Blended value", _signed(plan.value), _signed(aggressive.value)),
             ("Value above an empty slot", _signed(value_above_empty(plan, empty_value)),
              _signed(value_above_empty(aggressive, empty_value))),
@@ -333,15 +349,18 @@ def print_comparison(plan, aggressive, empty_value, match_empty=None):
           f"has a matchup value of {match_empty:+.2f}.")
 
 
-def print_spot_plans(rows):
-    """Print the best plans for one roster spot: the games gained, the adds and the moves of each row."""
+def print_spot_plans(rows, nights=None):
+    """Print the best plans for one roster spot: the games gained, the adds and the moves of each row.
+
+    nights: from rest.second_nights(). "b2b" marks each started game on a second night of a back-to-back."""
     print()
     print("Best plans for one roster spot:" if rows else "Best plans for one roster spot: none.")
     for n, row in enumerate(rows, 1):
         drop = f", drop {row.spot.holder.player.name}" if row.spot.holder else ""
-        print(f"  {n}. {row.gain:+d} started games with {_count(row.plan.adds, 'add')}{drop}")
+        print(f"  {n}. {games_text(row.gain, sign=True)} started games with {_count(row.plan.adds, 'add')}{drop}")
         for w in row.added:
-            print(f"      +{_player(w.player.player)} ({w.team}) {_days(w.started)}, latest add day {_day(w.add_day)}")
+            print(f"      +{_player(w.player.player)} ({w.team}) {_days(w.started, w.team, nights)}, "
+                  f"latest add day {_day(w.add_day)}")
 
 
 def publish_page(path, rows, publish=True):
@@ -349,7 +368,7 @@ def publish_page(path, rows, publish=True):
     print()
     print(f"Wrote the plan page: {path}")
     if rows:
-        print(f"Plan page: best plan for one roster spot: {rows[0].gain:+d} started games with "
+        print(f"Plan page: best plan for one roster spot: {games_text(rows[0].gain, sign=True)} started games with "
               f"{_count(rows[0].plan.adds, 'add')}.")
     if not publish:
         print("The run did not publish the page (--no-publish).")
@@ -368,8 +387,11 @@ def main(today=None, publish=True):
     with open_league(cfg["adds"]["league"]) as yahoo:
         data = read_league(yahoo, cfg, today)
         window = planning_window(data.week, today)
-        games = team_games(sched, window)
-        spots = stream_spots(data.roster, cfg, values)
+        games, nights = team_games(sched, window), second_nights(sched, window)
+        chance = cfg["adds"].get("rest_chance", DEFAULT_REST_CHANCE)
+        rests = read_rest_names(cfg) if chance else set()
+        spots = [StreamSpot(with_rests([s.holder], rests, nights, chance)[0]) if s.holder else s
+                 for s in stream_spots(data.roster, cfg, values)]
         days = open_slots_by_day(kept_roster(data.roster, spots), games, slots)
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
@@ -383,7 +405,7 @@ def main(today=None, publish=True):
         scale = projection_scale(cfg)
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
-        options = with_trends(value_options(free_agents, cfg, recent, mcfg), trends)
+        options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg), trends), rests, nights, chance)
         spots = matchup_spots(spots, scale, cfg, mcfg)
         plan = schedule_plan(days, games, spots, options, data.adds.left, slots)
         drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
@@ -402,19 +424,19 @@ def main(today=None, publish=True):
         print()
         for line in matchup_lines(data.matchup, weights):
             print(line)
-    print_plan(plan, spots, data.adds, today, drops, warnings)
+    print_plan(plan, spots, data.adds, today, drops, warnings, nights=nights)
     if aggressive is not None and aggressive.windows == plan.windows:
         print()
         print("Aggressive plan: the same as the schedule plan.")
     elif aggressive is not None:
-        print_plan(aggressive, spots, data.adds, today, title="Aggressive plan", notes=False)
+        print_plan(aggressive, spots, data.adds, today, title="Aggressive plan", notes=False, nights=nights)
     print_comparison(plan, aggressive, empty, match_empty)
-    print_spot_plans(rows)
+    print_spot_plans(rows, nights)
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
     print_contingencies(contingencies)
     text = page.render(data, days, games, spots, rows, options, ranking, read, today,
                        replacement=replacement, warnings=warnings, matchup=data.matchup,
-                       weights=weights, match_replacement=match_replacement,
+                       weights=weights, match_replacement=match_replacement, nights=nights,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
     publish_page(page.write(text), rows, publish)
 

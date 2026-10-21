@@ -7,7 +7,7 @@ the rows above it do not use, so the rows are alternatives. The design is in doc
 from dataclasses import dataclass
 
 from fantasyhoops.adds.drops import kept_roster
-from fantasyhoops.adds.planner import schedule_plan
+from fantasyhoops.adds.planner import DIGITS, schedule_plan
 from fantasyhoops.adds.slots import open_slots_by_day
 
 ROWS = 3  # the rows of the table
@@ -18,11 +18,12 @@ class SpotPlan:
     """The best plan for one stream spot.
 
     spot: the StreamSpot. plan: the Plan of that spot alone, with one add or more. gain: the started games of the
-    plan minus the started games of the spot with no add (the games of its holder, or 0 for an empty spot).
+    plan minus the started games of the spot with no add (the games of its holder, or 0 for an empty spot). A fraction
+    if a player on the rest list starts on a second night of a back-to-back.
     """
     spot: object
     plan: object
-    gain: int
+    gain: float
 
     @property
     def added(self):
@@ -34,7 +35,7 @@ def _spot_plan(roster, spot, games, options, adds_left, slots):
     days = open_slots_by_day(kept_roster(roster, [spot]), games, slots)
     plan = schedule_plan(days, games, [spot], options, adds_left, slots)
     base = schedule_plan(days, games, [spot], options, 0, slots)
-    return SpotPlan(spot, plan, plan.started_games - base.started_games)
+    return SpotPlan(spot, plan, round(plan.started_games - base.started_games, DIGITS))
 
 
 def spot_plans(roster, spots, games, options, adds_left, slots, rows=ROWS):
