@@ -17,16 +17,21 @@ SIGN_IN_MINUTES = 5  # time that you have to sign in by hand when the session ha
 WAIT_SECONDS = 10  # default of [adds] page_wait in config.toml
 
 # The elements that the readers of each page kind need, by the start of the page path (#74).
+# Each page kind has required elements and optional elements. A required element that does not appear raises
+# PageNotReady. An optional element gets SCORE_WAIT_SECONDS, and then get() reads the page as it is.
 # The team page path is the team ID, so a path that starts with a digit is a team page.
 # Each selector names table rows, because a table can be in the page before its rows are.
 READY = [
-    ("players", ("div.players table tbody tr",)),  # readers.read_free_agents() and read_waiver_players()
-    ("matchup", ("a.Navtarget[href]",  # readers.read_week()
-                 "table.Datatable tbody tr")),  # matchup.read_matchup(): the score table
-    ("buzzindex", ("table.Tst-table tbody tr",)),  # trends.read_trends()
+    ("players", ("div.players table tbody tr",), ()),  # readers.read_free_agents() and read_waiver_players()
+    # readers.read_week() needs the day links. matchup.read_matchup() reads the score table if the page has one.
+    # The next-week page on the last day of a week and the page before the first games have no score table.
+    ("matchup", ("a.Navtarget[href]",), ("table.Datatable tbody tr",)),
+    ("buzzindex", ("table.Tst-table tbody tr",), ()),  # trends.read_trends()
 ]
 # readers.read_roster() reads data-pos. A script on the page adds data-pos about 0.1 s after the table appears.
-TEAM_READY = ("table#statTable0 tbody tr[data-pos]",)
+TEAM_READY = (("table#statTable0 tbody tr[data-pos]",), ())
+# In the live check of 2026-10-21, the score table appeared 0.1 s or less after the day links.
+SCORE_WAIT_SECONDS = 2
 
 
 class PageNotReady(RuntimeError):
@@ -38,13 +43,13 @@ class UnknownPage(ValueError):
 
 
 def ready_selectors(path):
-    """The CSS selectors of the elements that the readers of the page at path need, in the order of the waits.
+    """(required selectors, optional selectors) of the elements that the readers of the page at path need.
 
     A path that matches no page kind raises UnknownPage. Add the page kind and its elements to READY.
     """
-    for start, selectors in READY:
+    for start, required, optional in READY:
         if path.startswith(start):
-            return selectors
+            return required, optional
     if path[:1].isdigit():
         return TEAM_READY
     raise UnknownPage(f"No page kind matches the Yahoo page path {path!r}. "
@@ -65,19 +70,24 @@ class League:
     def get(self, path):
         url = f"{self.base}/{path}"
         try:
-            selectors = ready_selectors(path)
+            required, optional = ready_selectors(path)
         except UnknownPage as error:
             raise UnknownPage(f"{error} URL: {url}") from None
         self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
         if not self.page.url.startswith(SITE):
             self._sign_in(url)
         # Do not wait for networkidle. Yahoo pages keep loading ads, so that wait used its full timeout on each page.
-        for selector in selectors:
+        for selector in required:
             try:
                 self.page.wait_for_selector(selector, state="attached", timeout=self.wait_seconds * 1000)
             except PlaywrightTimeout:
                 raise PageNotReady(f"The Yahoo page {url} did not show the element {selector} in {self.wait_seconds} s. "
                                    "The reader of this page needs that element.") from None
+        for selector in optional:
+            try:
+                self.page.wait_for_selector(selector, state="attached", timeout=SCORE_WAIT_SECONDS * 1000)
+            except PlaywrightTimeout:
+                pass  # The page has no such element. The reader gets the page as it is.
         return self.page.content()
 
     def _sign_in(self, url):

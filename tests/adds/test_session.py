@@ -2,7 +2,7 @@
 import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
-from fantasyhoops.adds.session import SITE, League, PageNotReady, UnknownPage, ready_selectors
+from fantasyhoops.adds.session import SCORE_WAIT_SECONDS, SITE, League, PageNotReady, UnknownPage, ready_selectors
 
 TEAM = "table#statTable0 tbody tr[data-pos]"
 PLAYERS = "div.players table tbody tr"
@@ -33,16 +33,16 @@ class FakePage:
         return "<html>page</html>"
 
 
-@pytest.mark.parametrize("path, selectors", [
-    ("10", (TEAM,)),
-    ("matchup?mid1=10", (DAYS, SCORES)),
-    ("matchup?week=2&mid1=10", (DAYS, SCORES)),
-    ("players?status=FA&pos=P&count=25", (PLAYERS,)),
-    ("players?status=W&pos=P&count=0", (PLAYERS,)),
-    ("buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1", (TRENDS,)),
+@pytest.mark.parametrize("path, required, optional", [
+    ("10", (TEAM,), ()),
+    ("matchup?mid1=10", (DAYS,), (SCORES,)),
+    ("matchup?week=2&mid1=10", (DAYS,), (SCORES,)),
+    ("players?status=FA&pos=P&count=25", (PLAYERS,), ()),
+    ("players?status=W&pos=P&count=0", (PLAYERS,), ()),
+    ("buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1", (TRENDS,), ()),
 ])
-def test_ready_selectors_name_the_elements_that_the_reader_needs(path, selectors):
-    assert ready_selectors(path) == selectors
+def test_ready_selectors_name_the_elements_that_the_reader_needs(path, required, optional):
+    assert ready_selectors(path) == (required, optional)
 
 
 @pytest.mark.parametrize("path", ["", "transactions", "standings"])
@@ -62,7 +62,19 @@ def test_get_waits_for_the_element_of_the_page_and_not_for_networkidle():
 def test_get_of_the_matchup_page_waits_for_the_day_links_and_the_score_rows():
     page = FakePage()
     League(page, 22820, wait_seconds=7).get("matchup?mid1=10")
-    assert [w[0] for w in page.waits] == [DAYS, SCORES]
+    assert page.waits == [(DAYS, "attached", 7000), (SCORES, "attached", SCORE_WAIT_SECONDS * 1000)]
+
+
+def test_get_of_a_matchup_page_with_no_score_table_gives_the_page():
+    # The next-week page on the last day of a week and the page before the first games have no score table.
+    page = FakePage(missing={SCORES})
+    assert League(page, 22820).get("matchup?week=2&mid1=10") == "<html>page</html>"
+
+
+def test_get_of_a_matchup_page_with_no_day_links_raises_an_error():
+    page = FakePage(missing={DAYS})
+    with pytest.raises(PageNotReady):
+        League(page, 22820).get("matchup?mid1=10")
 
 
 def test_get_of_a_page_with_no_known_kind_raises_an_error_that_names_the_url_and_opens_no_page():
