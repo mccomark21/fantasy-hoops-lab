@@ -11,6 +11,8 @@ One planning run:
    read_waiver_list(): read the players on waivers (W), each with his clear day.
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
+   read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
+   positions (adds/role_up.py). The mark changes no value.
 6. schedule_plan(): choose the team windows for the stream spots. matchup_plan(): the same search with the
    aggressive score and the matchup values (matchup_weights()). spot_plans(): the best plans for one roster spot,
    the rows of the plan page.
@@ -42,6 +44,7 @@ from fantasyhoops.adds.roles import read_roles
 from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free_agents, read_roster,
                                        read_waiver_players, read_week)
 from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
+from fantasyhoops.adds.role_up import mark_role_ups, read_absences
 from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.spots import spot_plans
 from fantasyhoops.adds.slots import (next_week_games, open_slots_by_day, planning_window, plans_next_week,
@@ -309,10 +312,11 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
         width = max(len(_player(o.player)) for o in w.options) if w.options else 0
         for n, o in enumerate(w.options, 1):
             p = o.player
+            role = f"  role up: {', '.join(o.role_up)} absent" if o.role_up else ""
             print(f"      {n}. {_player(p):<{width}}  {','.join(p.positions):<9}  "
                   f"value: projected {_signed(o.projected_value)}, recent {_signed(o.recent_value)}, "
                   f"blended {_signed(o.value)}, matchup {_signed(o.match)}{_next_games(p.team, next_week)}  "
-                  f"{_trend(o.trend)}")
+                  f"{_trend(o.trend)}{role}")
     if next_week is not None and plan.windows:
         last = {w.spot: w for w in plan.windows}.values()  # the window of each spot on the last day of the week
         games = sum(next_week.get(w.team, 0) for w in last if not w.player.player.out)
@@ -335,6 +339,18 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
               "The rank and the season value show the season cost.")
     for line in warnings:
         print(f"  {line}")
+
+
+def print_role_ups(absences, options):
+    """Print each absent starter of the rotation log and the free agents at his positions. Nothing if none."""
+    if not absences:
+        return
+    print()
+    for a in absences:
+        names = [o.player.name for o in options if a.name in o.role_up and not o.player.out]
+        print(f"Role up: {a.name} ({a.team}) is absent. Free agents at his positions: {', '.join(names) or 'none'}.")
+    print("  Absent: he started most of his recent games, then missed the last games of his team in the rotation log. "
+          "The mark changes no value.")
 
 
 def print_comparison(plan, aggressive, empty_value, match_empty=None):
@@ -398,7 +414,7 @@ def main(today=None, publish=True):
     cfg = load_config()
     today = today or date.today()
     slots, sched = cfg["league"]["slots"], read_schedule()
-    plan, aggressive, empty, read, options, drops, warnings, rows = None, None, None, [], [], [], [], []
+    plan, aggressive, empty, read, options, drops, warnings, rows, absences = None, None, None, [], [], [], [], [], []
     weights, match_empty, match_replacement = None, None, None
     games_next = None
     values = season_values(cfg)
@@ -423,7 +439,9 @@ def main(today=None, publish=True):
         scale = projection_scale(cfg)
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
+        absences = read_absences(today, cfg)
         options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg), trends), rests, nights, chance)
+        options = mark_role_ups(options, absences)
         spots = matchup_spots(spots, scale, cfg, mcfg)
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
         plan = schedule_plan(days, games, spots, options, data.adds.left, slots, next_week=games_next,
@@ -444,6 +462,7 @@ def main(today=None, publish=True):
         print()
         for line in matchup_lines(data.matchup, weights):
             print(line)
+    print_role_ups(absences, options)
     print_plan(plan, spots, data.adds, today, drops, warnings, nights=nights, next_week=games_next)
     if aggressive is not None and aggressive.windows == plan.windows:
         print()

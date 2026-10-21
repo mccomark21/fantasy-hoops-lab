@@ -1,6 +1,6 @@
 import pandas as pd
 
-from fantasyhoops.core.identity import espn_keys, link_players
+from fantasyhoops.core.identity import espn_keys, link_players, yahoo_keys
 
 PLAYERS = pd.DataFrame({
     "player_id": [1, 2, 3, 4, 5, 6],
@@ -77,3 +77,8 @@ def test_espn_and_yahoo_miss():
 def test_espn_keys_map_each_yahoo_name_to_its_espn_name():
     # Lu Dort: the ESPN name is the projection name. Alex Sarr: the same name in both sources, so no row.
     assert espn_keys(OVERRIDES) == {"luguentz dort": "lu dort"}
+
+
+def test_yahoo_keys_map_each_espn_name_to_its_yahoo_name():
+    # The same override rows as espn_keys(), in the other direction.
+    assert yahoo_keys(OVERRIDES) == {"lu dort": "luguentz dort"}

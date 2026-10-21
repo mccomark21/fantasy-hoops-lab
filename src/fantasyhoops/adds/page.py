@@ -9,6 +9,7 @@ A section shows only the parts that exist. The main sections:
   Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py).
 A third section lists the waiver players (W) with their clear days.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
+The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
 draft board.
 """
@@ -203,7 +204,8 @@ def free_agent_data(options, days, games, replacement, match_replacement=None, n
                         "match": market(o.match, match_replacement),
                         "trend": o.trend.adds_today if o.trend else None, "plays": plays, "fits": fits,
                         "b2b": [on and p.team in nights.get(d.date, ()) for on, d in zip(plays, days)],
-                        "role": role_text(role), "rise": bool(role and role.rise)})
+                        "role": role_text(role), "rise": bool(role and role.rise),
+                        "role_up": list(o.role_up)})
     return {"days": [{"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games,
                       "open": len(d.open)} for d in days],
             "players": players, "positions": list(POSITIONS), "flag": FLAG, "rows": FREE_AGENT_ROWS}
@@ -243,7 +245,8 @@ def free_agents_section(options, days, games, replacement, match_replacement=Non
             'Val: blended value per game above a '
             f'replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). Match: the same value '
             'with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. '
-            '<span class="flag">FA?</span> a value this high is unusual for a free agent.</p>\n'
+            '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
+            '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
             f'{role_legend(roles, minutes_rise)}'
             f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>')
 
@@ -271,6 +274,23 @@ def waivers_section(options, replacement):
             f'<tbody>{rows}</tbody></table>\n'
             '<p class="legend">First day: the first day that a plan can use him, the day after he clears waivers. '
             f'Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>')
+
+
+def role_up_section(options):
+    """One line for each absent starter who marks a free agent: the free agents at his positions. Nothing if none."""
+    marked = {}
+    for o in options:
+        if not o.player.out:
+            for name in o.role_up:
+                marked.setdefault(name, []).append(o.player)
+    if not marked:
+        return ""
+    items = "".join(f"<li>{_e(name)} is absent. Role up: {_e(', '.join(f'{p.name} ({p.team})' for p in players))}.</li>"
+                    for name, players in marked.items())
+    return (f"<section><h2>Role up</h2>\n<ul>{items}</ul>\n"
+            '<p class="legend">Absent: he started most of his recent games, then missed the last games of his team. '
+            "His backups can get more minutes. Their recent line does not show the new role yet. The mark changes "
+            "no value.</p></section>")
 
 
 def contingency_section(contingencies):
@@ -331,6 +351,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
         free_agents_section(options, days, games, replacement, match_replacement, nights, roles,
                             minutes_rise),
         waivers_section(options, replacement),
+        role_up_section(options),
         contingency_section(contingencies),
         ranking_section(ranking, read),
         method_note(),
@@ -426,6 +447,7 @@ label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; ma
 .dot.game { border: 1.5px solid var(--muted); }
 .flag { display: inline-block; padding: 0 4px; border-radius: 4px; background: var(--good); color: #fff;
         font-size: 11px; font-weight: 700; }
+.flag.up { background: var(--q); }
 .neg { color: var(--muted); }
 .wide { display: none; }
 @media (min-width: 600px) { .fa .wide { display: table-cell; } }
@@ -486,7 +508,9 @@ function render() {
       `<tr><td class="name">${esc(p.name)}${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
       + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
       + `${p.rise ? ' <span class="flag">MIN+</span>' : ""}`
-      + `<div class="sub">${esc(p.team)} · ${esc(p.pos.join(","))}${p.trend ? ` · ${p.trend} adds today` : ""}</div>`
+      + `${p.role_up.length ? ' <span class="flag up">UP</span>' : ""}`
+      + `<div class="sub">${esc(p.team)} · ${esc(p.pos.join(","))}${p.trend ? ` · ${p.trend} adds today` : ""}`
+      + `${p.role_up.length ? ` · role up: ${esc(p.role_up.join(", "))} absent` : ""}</div>`
       + `${p.role ? `<div class="sub">${esc(p.role)}</div>` : ""}</td>`
       + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td>`
       + `<td class="${p.match < 0 ? "neg" : ""}">${fmt(p.match)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`

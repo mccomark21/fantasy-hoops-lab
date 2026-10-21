@@ -1,4 +1,4 @@
-"""Link each projection player to its ESPN team and its Yahoo row. Map a Yahoo name to its ESPN name.
+"""Link each projection player to its ESPN team and its Yahoo row. Map a Yahoo name to its ESPN name, and back.
 
 Names match after name_key() (no accents, punctuation or suffixes).
 data/name_overrides.csv gives the ESPN name, the Yahoo name or the team for a player that does not match.
@@ -41,11 +41,21 @@ def link_players(players, rosters, yahoo, overrides):
     return out.join(linked)
 
 
-def espn_keys(overrides):
-    """{Yahoo name key: ESPN name key} for each override row whose two names do not match after name_key().
+def _override_keys(overrides):
+    """(ESPN name key, Yahoo name key) for each override row whose two names do not match after name_key().
 
     overrides is data/name_overrides.csv, read with dtype=str and fillna(""). A blank name is the projection name.
     """
     espn = overrides.espn_name.where(overrides.espn_name != "", overrides.name).map(name_key)
     yahoo = overrides.yahoo_name.where(overrides.yahoo_name != "", overrides.name).map(name_key)
-    return {y: e for y, e in zip(yahoo, espn) if y != e}
+    return [(e, y) for e, y in zip(espn, yahoo) if e != y]
+
+
+def espn_keys(overrides):
+    """{Yahoo name key: ESPN name key} from the override rows. See _override_keys()."""
+    return {y: e for e, y in _override_keys(overrides)}
+
+
+def yahoo_keys(overrides):
+    """{ESPN name key: Yahoo name key} from the override rows. See _override_keys()."""
+    return {e: y for e, y in _override_keys(overrides)}
