@@ -98,7 +98,8 @@ def contingency_plans(days, games, plan, spots, free_agents, adds_left, slots, t
 
 def _late_add(p, day, time, others, count, here, spots, games, fas, slots, times, left):
     """The Contingency with a late add: the cheapest drop for which free agents fit, and the best of them."""
-    later = [o for o in fas if o.player.team in games[day.date] and _later(times.get((day.date, o.player.team)), time)]
+    later = [o for o in fas if o.player.team in games[day.date] and o.player.available(day.date)
+             and _later(times.get((day.date, o.player.team)), time)]
     # The drops, cheapest first: an empty stream spot, then each streamer by the started games that he loses.
     drops = [None] if len({w.spot for w in here}) < spots else []
     drops += sorted(here, key=lambda w: (len(_lost(w, day.date)), w.player.value))

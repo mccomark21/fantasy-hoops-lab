@@ -7,7 +7,8 @@ The inputs are plain data, so the tests need no Yahoo pages:
 - days: the Days of the planning window from slots.open_slots_by_day(), made from the roster WITHOUT the players
   in the stream spots. games: {day: set of NBA teams that play}, from slots.team_games().
 - spots: one StreamSpot for each stream spot. A spot is empty or holds a player who can be dropped.
-- free_agents: one Option for each free agent, with his values.
+- free_agents: one Option for each free agent, with his values. A waiver player (Player.clear_day) is a candidate
+  only on the days after his clear day. His add is a waiver claim, and it uses one add.
 
 The search (_Search) looks at the open days only, in order. On each open day, each spot keeps its player or takes
 a new free agent who starts that day. An add on a day when the new player does not start is never better than
@@ -223,21 +224,27 @@ class _Search:
             self.groups.append(list(group.items()))
 
     def plays(self, option, i):
-        return not option.player.out and option.player.team in self.games[self.days[i].date]
+        p, day = option.player, self.days[i].date
+        return not p.out and p.available(day) and p.team in self.games[day]
 
     def key(self, option, k):
         """The key of a player on open day k: (the open days from k on which his team plays, his positions, value).
 
         An Out player has no games. Only a holder can be Out, because the search skips Out free agents.
+        A waiver player has no games on his clear day and before it.
         """
-        if option.player.out:
+        p = option.player
+        if p.out:
             return EMPTY
-        return self._key(option.player.team, tuple(sorted(option.player.positions)), k, _value(option))
+        return self._key(p.team, tuple(sorted(p.positions)), k, _value(option), p.clear_day)
 
     @cache
-    def _key(self, team, positions, k, value):
-        days = tuple(j for j in range(k, len(self.open)) if team in self.games[self.days[self.open[j]].date])
+    def _key(self, team, positions, k, value, clear_day=None):
+        days = tuple(j for j in range(k, len(self.open)) if self._plays(team, clear_day, self.days[self.open[j]].date))
         return (days, positions, value) if days else EMPTY
+
+    def _plays(self, team, clear_day, day):
+        return team in self.games[day] and (clear_day is None or day > clear_day)
 
     @cache
     def count(self, k, keys):

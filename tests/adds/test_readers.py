@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 from bs4 import BeautifulSoup
 
 from fantasyhoops.adds.readers import (Player, has_next_page, read_adds, read_free_agents, read_roster,
-                                       read_week)
+                                       read_waiver_players, read_week)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -109,6 +109,40 @@ def test_read_recent_free_agents_keeps_the_averages():
 def test_read_free_agents_skips_players_on_waivers():
     html = fixture("free_agents_phi.html").replace("<td><div>FA</div></td>", "<td><div>W</div></td>", 1)
     assert "Anfernee Simons" not in [f.player.name for f in read_free_agents(html)]
+
+
+def waiver_page(cell):
+    """The PHI page with the Roster Status cell of Anfernee Simons changed to cell, for example "W (Oct 22)"."""
+    return fixture("free_agents_phi.html").replace("<td><div>FA</div></td>", f"<td><div>{cell}</div></td>", 1)
+
+
+def test_read_waiver_players_reads_the_clear_day():
+    # The live list of 2026-10-21 showed "W (Oct 22)" in the Roster Status cell.
+    was = read_waiver_players(waiver_page("W (Oct 22)"), today=date(2026, 10, 21))
+    assert [(w.player.name, w.player.clear_day) for w in was] == [("Anfernee Simons", date(2026, 10, 22))]
+    assert (was[0].player.team, was[0].games) == ("PHI", 4.0)
+
+
+def test_read_free_agents_gives_no_clear_day():
+    fas = read_free_agents(waiver_page("W (Oct 22)"))
+    assert "Anfernee Simons" not in [f.player.name for f in fas]
+    assert all(f.player.clear_day is None for f in fas)
+
+
+def test_a_clear_day_in_january_is_in_the_next_year():
+    was = read_waiver_players(waiver_page("W (Jan 2)"), today=date(2026, 12, 31))
+    assert was[0].player.clear_day == date(2027, 1, 2)
+
+
+def test_a_waiver_player_with_no_clear_day_is_skipped():
+    assert read_waiver_players(waiver_page("W"), today=date(2026, 10, 21)) == []
+
+
+def test_a_waiver_player_is_available_from_the_day_after_his_clear_day():
+    wed = date(2026, 10, 21)
+    claim = Player("A", "BOS", ("C",), clear_day=wed)
+    assert [claim.available(wed - timedelta(days=1)), claim.available(wed), claim.available(wed + timedelta(days=1))]         == [False, False, True]
+    assert Player("B", "BOS", ("C",)).available(wed)
 
 
 def test_has_next_page():

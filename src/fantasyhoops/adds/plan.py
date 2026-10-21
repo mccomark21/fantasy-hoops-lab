@@ -7,6 +7,7 @@ One planning run:
 3. rank_teams(): rank the NBA teams by the open days that they cover.
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
    read_market_free_agents(): read the first MARKET_PAGES pages of the full free-agent list (the free-agent market).
+   read_waiver_list(): read the players on waivers (W), each with his clear day.
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
 6. schedule_plan(): choose the team windows for the stream spots. aggressive_plan(): the same search with the
@@ -19,7 +20,7 @@ Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (f
 """
 import argparse
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, timedelta
 
 from fantasyhoops.adds import page
 from fantasyhoops.adds.blend import blended_options
@@ -27,7 +28,8 @@ from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, 
 from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
                                      season_values, value_warnings)
 from fantasyhoops.adds.planner import aggressive_plan, rank_teams, schedule_plan, teams_to_read, value_above_empty
-from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
+from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free_agents, read_roster,
+                                       read_waiver_players, read_week)
 from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.spots import spot_plans
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
@@ -73,13 +75,13 @@ def read_league(yahoo, cfg, today):
     return LeagueData(roster=read_roster(team_page), adds=adds, week=week, next_week=next_week)
 
 
-def free_agent_path(team, offset=0, view=PROJECTED):
+def free_agent_path(team, offset=0, view=PROJECTED, status="FA"):
     """The path of one page of the free-agent list of one NBA team (ESPN code), with the stats of the view.
 
-    team None: the full list of all teams.
+    team None: the full list of all teams. status "W": the list of the players on waivers.
     """
     eteam = f"&eteam=ET_{yahoo_id(team)}" if team else ""
-    return f"players?status=FA&pos=P&cut_type=33&myteam=0&sort=OR&sdir=1&stat1={view}{eteam}&count={offset}"
+    return f"players?status={status}&pos=P&cut_type=33&myteam=0&sort=OR&sdir=1&stat1={view}{eteam}&count={offset}"
 
 
 def read_team_free_agents(yahoo, teams, view=PROJECTED):
@@ -103,6 +105,20 @@ def read_market_free_agents(yahoo, view=PROJECTED):
     for page in range(MARKET_PAGES):
         html = yahoo.get(free_agent_path(None, 25 * page, view))
         out += read_free_agents(html, totals=view == PROJECTED)
+        if not has_next_page(html):
+            break
+    return out
+
+
+def read_waiver_list(yahoo, today, view=PROJECTED):
+    """The players on waivers (W) of the first MARKET_PAGES pages of the full waiver list, each with his clear day.
+
+    The waiver list is short (4 players on 2026-10-21), so the run does not read it for each NBA team.
+    """
+    out = []
+    for page in range(MARKET_PAGES):
+        html = yahoo.get(free_agent_path(None, 25 * page, view, status="W"))
+        out += read_waiver_players(html, today, totals=view == PROJECTED)
         if not has_next_page(html):
             break
     return out
@@ -154,7 +170,8 @@ def _signed(value):
 
 def _player(p):
     status = f" {p.status}" if p.status else ""
-    return f"{p.name}{status}"
+    claim = " W (waiver claim, not sure)" if p.clear_day else ""
+    return f"{p.name}{status}{claim}"
 
 
 def _trend(trend):
@@ -206,6 +223,22 @@ def print_ranking(ranking, read):
               f"{_count(r.open_slots, 'open slot'):<13} ({_days(r.open_days)})")
     if len(ranking) > RANKING_ROWS:
         print(f"  ... {len(ranking) - RANKING_ROWS} more teams play on an open day.")
+
+
+def print_waivers(options):
+    """Print the waiver players, best value first: the clear day and the first day that a plan can use him.
+
+    Nothing if no option is on waivers.
+    """
+    waivers = sorted((o for o in options if o.player.clear_day and o.value is not None), key=lambda o: -o.value)
+    if not waivers:
+        return
+    print()
+    print("Waiver players (a claim is not sure, and it uses an add):")
+    for o in waivers:
+        p = o.player
+        print(f"  {p.name} ({p.team}) {','.join(p.positions)}  clears {_day(p.clear_day)}, "
+              f"first plan day {_day(p.clear_day + timedelta(days=1))}, blended {_signed(o.value)}")
 
 
 def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule plan", notes=True):
@@ -325,9 +358,10 @@ def main(today=None, publish=True):
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
-            free_agents = unique_free_agents(read_team_free_agents(yahoo, read) + read_market_free_agents(yahoo))
+            free_agents = unique_free_agents(read_team_free_agents(yahoo, read) + read_market_free_agents(yahoo)
+                                             + read_waiver_list(yahoo, today))
             recent = unique_free_agents(read_team_free_agents(yahoo, read, RECENT)
-                                        + read_market_free_agents(yahoo, RECENT))
+                                        + read_market_free_agents(yahoo, RECENT) + read_waiver_list(yahoo, today, RECENT))
             trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
     if read:
         options = with_trends(value_options(free_agents, cfg, recent), trends)
@@ -340,6 +374,7 @@ def main(today=None, publish=True):
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
+    print_waivers(options)
     print_plan(plan, spots, data.adds, today, drops, warnings)
     if aggressive is not None and aggressive.windows == plan.windows:
         print()
@@ -351,7 +386,7 @@ def main(today=None, publish=True):
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
     print_contingencies(contingencies)
     text = page.render(data, days, games, spots, rows, options, ranking, read, today,
-                       replacement=replacement_value(options), warnings=warnings,
+                       replacement=replacement_value([o for o in options if not o.player.clear_day]), warnings=warnings,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
     publish_page(page.write(text), rows, publish)
 

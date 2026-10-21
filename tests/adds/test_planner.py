@@ -286,3 +286,24 @@ def test_teams_to_read_cover_each_open_day():
     ranking = rank_teams(open_slots_by_day([], games, SLOTS), games)
     assert [r.team for r in ranking] == ["ATL", "PHI", "CHI"]
     assert teams_to_read(ranking, count=1) == ["ATL", "CHI"]
+
+
+def claim(name, team, clear_day, positions=("SF",), value=1.0):
+    """The Option of a waiver player who clears waivers on clear_day."""
+    return Option(Player(name, team, tuple(positions), clear_day=clear_day), value)
+
+
+def test_a_waiver_player_is_not_in_a_plan_before_his_clear_day():
+    # PHI plays Mon to Thu. The waiver player clears on Tue, so the first day that a plan can use him is Wed.
+    games = {d: {"PHI"} for d in WEEK[:4]}
+    p = plan([], games, [claim("Claim", "PHI", WEEK[1])])
+    assert windows(p) == [(0, "PHI", WEEK[2], (WEEK[2], WEEK[3]))]
+    assert [o.player.name for o in p.windows[0].options] == ["Claim"]
+
+
+def test_a_free_agent_with_more_games_beats_a_better_waiver_player():
+    # The free agent starts Mon to Thu. The waiver player starts only Wed and Thu, so he is not a window option.
+    games = {d: {"PHI"} for d in WEEK[:4]}
+    p = plan([], games, [claim("Claim", "PHI", WEEK[1], value=3.0), fa("Free", "PHI", value=0.5)])
+    assert windows(p) == [(0, "PHI", WEEK[0], tuple(WEEK[:4]))]
+    assert [o.player.name for o in p.windows[0].options] == ["Free"]
