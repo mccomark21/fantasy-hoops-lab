@@ -87,6 +87,7 @@ class Option:
     run did not compute it.
     rest_games: ((day, count), ...) for each second night of a back-to-back on which he can rest (adds/rest.py).
     A game on that day counts count started games. Empty for a player who is not on the rest list.
+    role_up: the names of the absent starters on his NBA team who share one of his positions (adds/role.py).
     """
     player: Player
     projected_value: float | None
@@ -95,6 +96,7 @@ class Option:
     trend: Trend | None = None
     matchup_value: float | None = None
     rest_games: tuple = ()
+    role_up: tuple = ()
 
     @property
     def value(self):

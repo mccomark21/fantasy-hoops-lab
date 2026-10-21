@@ -1,6 +1,7 @@
 import json
 import re
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import date, timedelta
 from html.parser import HTMLParser
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from fantasyhoops.adds.matchup import Matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
 from fantasyhoops.adds.readers import Adds, Player, Week
 from fantasyhoops.adds.roles import Role
+from fantasyhoops.adds.role import Absence
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.spots import SpotPlan
 
@@ -280,7 +282,33 @@ def test_the_command_counts_a_second_night_of_a_player_on_the_rest_list_as_less_
     assert 'class="b2b"' in (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
 
 
-def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None):
+def test_the_free_agent_data_and_the_page_show_the_role_up_mark_and_the_absent_teammate():
+    marked = replace(PHI, role_up=("Star Wing",))
+    data = page.free_agent_data([marked, CHI], DAYS, GAMES, replacement=0.5)
+    assert [p["role_up"] for p in data["players"]] == [["Star Wing"], []]
+    shown = text(page.render(DATA, DAYS, GAMES, SPOTS, [], [marked, CHI], today=WEEK[0]))
+    assert "Role up" in shown
+    assert "Star Wing is absent. Role up: Phi & One (PHI)." in shown
+    assert "role up" in page.SCRIPT
+
+
+def test_the_page_has_no_role_up_section_with_no_mark():
+    assert "Role up" not in text(render())
+
+
+def test_the_command_marks_the_role_up_free_agents_in_the_window_options(monkeypatch, tmp_path, capsys):
+    absent = [Absence("Star Wing", "PHI", WEEK[0] - timedelta(days=2), 1, ("SF", "PF"))]
+    options = [option("Phi One", "PHI", 0.3), option("Phi Guard", "PHI", 0.2, ("PG",))]
+    run_command(monkeypatch, tmp_path, [], publish=False, options=options, absences=absent)
+    out = capsys.readouterr().out
+    assert "Role up: Star Wing (PHI) is absent. Free agents at his positions: Phi One." in out
+    lines = out.splitlines()
+    assert next(line for line in lines if "1. Phi One" in line).endswith("role up: Star Wing absent")
+    assert not next(line for line in lines if "2. Phi Guard" in line).endswith("absent")
+    assert "Star Wing is absent. Role up: Phi One (PHI)." in text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
+
+
+def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=()):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced.
 
     rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
@@ -310,6 +338,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None: options)
     monkeypatch.setattr(command, "projection_scale", lambda cfg: None)
     monkeypatch.setattr(command, "empty_slot_value", lambda cfg, scale=None: -10.0)
+    monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(page, "PAGE", tmp_path / "adds_plan.html")
     monkeypatch.setattr(command.site, "publish", lambda *args: published.append(args))
     command.main(today=WEEK[0], publish=publish)

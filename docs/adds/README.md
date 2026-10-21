@@ -14,6 +14,7 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 - [The page](#the-page)
 - [Core and drops](#core-and-drops)
 - [Status rules](#status-rules)
+- [Role up](#role-up)
 - [Data](#data)
 - [Configuration](#configuration)
 - [Terms](#terms)
@@ -175,7 +176,7 @@ If the matchup page has no score table, all weights are 1, and the terminal and 
 
 ## The page
 
-The page has two main sections: the best plans for one roster spot, and the free-agent table. Between them, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight. The page is public, so it does not show the name of the opponent. A last section lists the waiver players.
+The page has two main sections: the best plans for one roster spot, and the free-agent table. Between them, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight. The page is public, so it does not show the name of the opponent. After the free-agent table, a section lists the waiver players. The next section lists the role-up marks (see [Role up](#role-up)).
 
 ### Best plans for one roster spot
 
@@ -205,7 +206,7 @@ Match is the market value with the matchup weights: the matchup value above the 
 
 A filter does not change Val or Match, because they are values per game.
 
-A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status.
+A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status. A player with a role-up mark gets the mark "UP", and his line names the absent starter.
 
 ### Role line
 
@@ -261,6 +262,27 @@ The game times come from the `time` column of `data/schedule.csv` (US Eastern). 
 
 The planner does not keep an add back for contingency plans. The page shows the cost, and you decide. The terminal prints the contingency plans after the main plan.
 
+## Role up
+
+Decision (2026-10-21): the planner marks the free agents who can get more minutes because a starter on their NBA team is absent. The mark changes no value and no plan. When a starter is absent, the last-14-day line of his backup does not show the new role yet.
+
+The planner finds the absent starters in the rotation log (`core/rotation.py`). It does not read the statuses of players on other fantasy rosters, so the log is the only source for most starters. The planning run does not update the log. Run `python -m fantasyhoops.fetch.rotation` first.
+
+1. A player is absent when his NBA team played a game after his last game in the log.
+2. He is a starter when he started more than half of his last `starter_games` games (5).
+3. The absence is new when his first missed game is in the last `days` days (7).
+4. The mark stays for the first `games` missed games (3). After those games, the recent line of his backup shows the new role.
+5. `core/identity.py` links his ESPN name to his Yahoo positions in `data/yahoo_players.csv`. A row of `data/name_overrides.csv` applies when its `espn_name` matches.
+6. A free agent on his team who shares one of his positions gets the mark "role up", with the name of the absent starter.
+
+The terminal prints each absent starter and the free agents at his positions. Each window option with the mark ends with "role up: <name> absent". The page shows the mark in the free-agent table and lists the marks in the section "Role up".
+
+Limits:
+
+- The log shows an absence only after the first missed game. A starter who is Out for the next game, but who has not missed a game yet, gets no mark.
+- A starter who rests for one game is absent for that game too. So a rest day can give a mark.
+- A player with no Yahoo positions marks no free agent.
+
 ## Data
 
 | Data | Source |
@@ -301,6 +323,9 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `rest_chance` | The chance that a player on the rest list sits on a second night: 0.5. That game counts `1 - rest_chance` started games. 0 counts each game as 1. |
 | `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
 | `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |
+| `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
+| `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |
+| `role_up.games` | The role-up mark stays for this number of missed games: 3. |
 
 The settings of the [matchup weights](#matchup-weights) are in `[adds.matchup]`:
 
@@ -333,6 +358,8 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Window options | The best 3 free agents on the team of a team window who fit an open position. |
 | Out player | A core player who is Out, Out for Season, NA (Not Active) or suspended. |
 | Flagged player | A core player with a status that is not blank and does not make him an Out player, for example Q, D or P. |
+| Absent starter | A player who started more than half of his recent games, then missed the last games of his NBA team in the rotation log. See [Role up](#role-up). |
+| Role up | The mark of a free agent whose NBA team has an absent starter at one of his positions. The mark changes no value. |
 | Contingency plan | How to fill the slot of a flagged player who is ruled out just before his game. |
 | Trend | The adds and drops of a player across all Yahoo leagues, from Transaction Trends. |
 | Waiver player | A player with Yahoo status W. A plan can use him from the day after his clear day, as a waiver claim. |
