@@ -144,12 +144,15 @@ def test_a_move_marks_a_waiver_claim():
 
 
 def test_the_command_prints_the_waiver_players_and_uses_one_after_his_clear_day(monkeypatch, tmp_path, capsys):
-    # PHI plays Mon and Tue. The waiver player clears on Mon, so the plan adds him on Tue.
+    # PHI plays Mon and Tue. The waiver player clears on Mon, so the plan adds him on Tue. The DEN free agent has no
+    # game. He is the replacement free agent (value 0.1), so the market value of the waiver player is +0.20.
     claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
-    run_command(monkeypatch, tmp_path, [], publish=False, options=[claim])
+    run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)])
     out = capsys.readouterr().out
     assert "Waiver players (a claim is not sure, and it uses an add):" in out
-    assert "Phi Claim (PHI) SF  clears Mon 01/04, first plan day Tue 01/05" in out
+    assert "Phi Claim (PHI) SF  clears Mon 01/04, first plan day Tue 01/05, Val +0.20" in out
+    # The page shows the same Val.
+    assert "Phi Claim W PHI SF Mon 1/4 Tue 1/5 +0.20" in text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
     assert "Spot 1: PHI Tue 01/05 to Tue 01/05" in out
     assert "1. Phi Claim W (waiver claim, not sure)" in out
     assert command.free_agent_path(None, 25, status="W").startswith("players?status=W&")

@@ -13,7 +13,8 @@ import html
 import json
 from datetime import date, timedelta
 
-from fantasyhoops.adds.value import REPLACEMENT_RANK
+from fantasyhoops.adds.planner import waiver_options
+from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core.common import OUT as _OUT
 
 OUT = _OUT / "adds"
@@ -36,7 +37,7 @@ def _day(d):
 
 def _player(p):
     status = f' <span class="status" title="{_e(p.status_name or p.status)}">{_e(p.status)}</span>' if p.status else ""
-    if p.clear_day:
+    if p.on_waivers:
         status += f' <span class="status" title="Waiver claim, not sure. Clears {_day(p.clear_day)}.">W</span>'
     return f"{_e(p.name)}{status}"
 
@@ -121,7 +122,7 @@ def plans_section(rows, days, spots, adds, today):
     note = ""
     if any(w.add_day == today for row in rows for w in row.added):
         note = '\n<p class="muted">An add for today helps only if his game has not started.</p>'
-    if any(w.player.player.clear_day for row in rows for w in row.added):
+    if any(w.player.player.on_waivers for row in rows for w in row.added):
         note += f'\n<p class="muted">{CLAIM_NOTE}</p>'
     return (f'<section>{title}\n<table class="plans"><thead><tr><th></th>{head}<th class="total">Adds</th>'
             f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
@@ -158,7 +159,7 @@ def free_agents_section(options, days, games, replacement):
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
     """
-    options = [o for o in options if not o.player.clear_day]
+    options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
         return ""
     data = json.dumps(free_agent_data(options, days, games, replacement), ensure_ascii=False).replace("</", "<\\/")
@@ -179,12 +180,13 @@ def waivers_section(options, replacement):
 
     Nothing if no option is on waivers.
     """
-    waivers = sorted((o for o in options if o.player.clear_day and o.value is not None), key=lambda o: -o.value)
+    waivers = waiver_options(options)
     if not waivers:
         return ""
 
     def market(v):
-        return "—" if replacement is None else f"{v - replacement:+.2f}"
+        v = market_value(v, replacement)
+        return "—" if v is None else f"{v:+.2f}"
 
     rows = "".join(f'<tr><td class="name">{_player(o.player)}</td><td class="name">{_e(o.player.team)}</td>'
                    f'<td class="name">{_e(",".join(o.player.positions))}</td><td>{_day(o.player.clear_day)}</td>'

@@ -5,7 +5,7 @@ from itertools import product
 import pytest
 
 from fantasyhoops.adds.planner import (Option, StreamSpot, aggressive_plan, aggressive_score, plan_score, rank_teams,
-                                       schedule_plan, teams_to_read, value_above_empty)
+                                       schedule_plan, teams_to_read, value_above_empty, waiver_options)
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
 from fantasyhoops.core.lineup import best_lineup
@@ -299,6 +299,12 @@ def test_a_waiver_player_is_not_in_a_plan_before_his_clear_day():
     p = plan([], games, [claim("Claim", "PHI", WEEK[1])])
     assert windows(p) == [(0, "PHI", WEEK[2], (WEEK[2], WEEK[3]))]
     assert [o.player.name for o in p.windows[0].options] == ["Claim"]
+
+
+def test_waiver_options_are_the_waiver_players_with_a_value_best_first():
+    low, high = claim("Low", "PHI", WEEK[1], value=0.2), claim("High", "PHI", WEEK[1], value=0.9)
+    no_value = Option(Player("None", "PHI", ("C",), clear_day=WEEK[1]), None)
+    assert waiver_options([fa("Free", "PHI"), low, no_value, high]) == [high, low]
 
 
 def test_a_free_agent_with_more_games_beats_a_better_waiver_player():

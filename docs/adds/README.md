@@ -206,7 +206,8 @@ Only players with status FA are free agents. Players on waivers (W) are not. The
 - A waiver claim is not sure. A team with a higher waiver priority can claim him first. The terminal and the page mark each waiver player with W.
 - A waiver claim uses one add of the weekly limit.
 - The Roster Status cell has no year. The planner uses the year of the run day, or the next year if that date is more than 180 days before the run day.
-- A W cell without a date gives no clear day. The planner skips that player.
+- A W cell without a valid date gives no clear day, for example "W" or "W (Feb 29)" in a year with no Feb 29. The planner prints a warning and skips that player.
+- The terminal list and the page show the same Val: the market value of the free-agent table.
 - The free-agent table and the replacement value use only the players with status FA.
 
 Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. See [ADR 1](../adr/0001-playwright-for-league-data.md).

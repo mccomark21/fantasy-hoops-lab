@@ -48,3 +48,8 @@ def replacement_value(options, rank=REPLACEMENT_RANK):
     """
     values = sorted((o.value for o in options if o.value is not None and not o.player.out), reverse=True)
     return values[min(rank, len(values)) - 1] if values else None
+
+
+def market_value(value, replacement):
+    """The market value: value minus the replacement value, to 2 decimals. None if one of the two is None."""
+    return None if value is None or replacement is None else round(value - replacement, 2)

@@ -17,6 +17,11 @@ OUT_STATUSES = {"O", "OFS", "NA", "SUSP"}
 OUT_TITLES = ("out", "not active", "suspen")
 
 
+def available_on(clear_day, day):
+    """The waiver rule: a plan can use a player on day if he has no clear day (None) or day is after it."""
+    return clear_day is None or day > clear_day
+
+
 @dataclass(frozen=True)
 class Player:
     """One player on a Yahoo roster or in a Yahoo player list.
@@ -36,9 +41,14 @@ class Player:
     status_name: str = ""
     clear_day: date | None = None
 
+    @property
+    def on_waivers(self):
+        """True if the player is on waivers (W). A plan can use him only after his clear day."""
+        return self.clear_day is not None
+
     def available(self, day):
         """True if a plan can use him on day: he is not on waivers, or day is after his clear day."""
-        return self.clear_day is None or day > self.clear_day
+        return available_on(self.clear_day, day)
 
     @property
     def on_il(self):
@@ -166,38 +176,49 @@ def read_free_agents(html, totals=True):
     totals: False for a page with per-game averages (stat1=S_AL14). The function then does not divide.
     """
     # Players on waivers (W) are not free agents.
-    return _read_list(html, totals, lambda cell: (cell == "FA", None))
+    return _read_list(html, totals, lambda cell, player: (cell == "FA", None))
 
 
 def clear_day(cell, today):
-    """The clear day of a Roster Status cell such as "W (Oct 22)". None for a cell with no clear day.
+    """The clear day of a Roster Status cell such as "W (Oct 22)". None for a cell with no valid clear day.
 
     The cell has no year. The year is the year of today, or the next year if that date is more than
-    180 days before today.
+    180 days before today. A date that does not exist in that year (Feb 29) gives None.
     """
     found = re.fullmatch(r"W \((\w{3}) (\d{1,2})\)", cell)
     if not found:
         return None
-    month = datetime.strptime(found[1], "%b").month
-    day = date(today.year, month, int(found[2]))
-    return date(today.year + 1, month, day.day) if (today - day).days > 180 else day
+    try:
+        month = datetime.strptime(found[1], "%b").month
+        day = date(today.year, month, int(found[2]))
+        return date(today.year + 1, month, day.day) if (today - day).days > 180 else day
+    except ValueError:
+        return None
 
 
 def read_waiver_players(html, today, totals=True):
     """The players on waivers (W) on one page of the player list with status=W, each with his clear day.
 
     The Roster Status cell shows the clear day, for example "W (Oct 22)" (seen on 2026-10-21).
-    A W cell without a date gives no clear day. The plans cannot tell when he is free, so the function skips him.
-    today: the day of the run, for the year of the clear day. totals: see read_free_agents().
+    A W cell without a valid clear day: the plans cannot tell when he is free. The function prints a warning
+    and skips him. today: the day of the run, for the year of the clear day. totals: see read_free_agents().
     """
-    def keep(cell):
+    def keep(cell, player):
+        if not cell.startswith("W"):
+            return False, None
         day = clear_day(cell, today)
+        if day is None:
+            print(f'Warning: the waiver list shows {player.name} as "{cell}" with no clear day. '
+                  "The planner skips him.")
         return day is not None, day
     return _read_list(html, totals, keep)
 
 
 def _read_list(html, totals, keep):
-    """The FreeAgents of one page of a player list. keep(Roster Status cell) -> (keep the row?, clear day)."""
+    """The FreeAgents of one page of a player list.
+
+    keep(Roster Status cell, Player) -> (keep the row?, clear day).
+    """
     table = _soup(html).select_one("div.players table")
     if table is None:
         raise ValueError("The free-agent page has no player table (div.players table).")
@@ -209,13 +230,14 @@ def _read_list(html, totals, keep):
         if block is None or block.select_one("a.name") is None:
             continue
         cells = [td.get_text(" ", strip=True) for td in row.find_all("td")]
-        kept, day = keep(cells[column["Roster Status"]])
+        player = read_player(block)
+        kept, day = keep(cells[column["Roster Status"]], player)
         if not kept:
             continue
         games = _number(cells[column["GP*"]])
         per = games if totals else 1
         line = {key: _number(cells[column[name]]) / per for name, key in STAT_COLUMNS.items()} if games else {}
-        out.append(FreeAgent(player=replace(read_player(block), clear_day=day), games=games, line=line))
+        out.append(FreeAgent(player=replace(player, clear_day=day), games=games, line=line))
     return out
 
 

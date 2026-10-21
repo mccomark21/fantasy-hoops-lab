@@ -25,7 +25,7 @@ from datetime import date
 from functools import cache
 from itertools import combinations
 
-from fantasyhoops.adds.readers import Player
+from fantasyhoops.adds.readers import Player, available_on
 from fantasyhoops.adds.trends import Trend
 from fantasyhoops.core.lineup import best_lineup
 
@@ -63,6 +63,11 @@ def option_order(option):
     """
     t = option.trend or Trend(0, 0)
     return -option.value, -t.adds_week, -t.adds_today
+
+
+def waiver_options(options):
+    """The options on waivers (W) who have a value, best value first. The terminal and the page list these."""
+    return sorted((o for o in options if o.player.on_waivers and o.value is not None), key=lambda o: -o.value)
 
 
 @dataclass(frozen=True)
@@ -239,12 +244,10 @@ class _Search:
         return self._key(p.team, tuple(sorted(p.positions)), k, _value(option), p.clear_day)
 
     @cache
-    def _key(self, team, positions, k, value, clear_day=None):
-        days = tuple(j for j in range(k, len(self.open)) if self._plays(team, clear_day, self.days[self.open[j]].date))
+    def _key(self, team, positions, k, value, clear_day):
+        dates = [self.days[self.open[j]].date for j in range(k, len(self.open))]
+        days = tuple(j for j, d in enumerate(dates, k) if team in self.games[d] and available_on(clear_day, d))
         return (days, positions, value) if days else EMPTY
-
-    def _plays(self, team, clear_day, day):
-        return team in self.games[day] and (clear_day is None or day > clear_day)
 
     @cache
     def count(self, k, keys):

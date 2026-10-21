@@ -27,7 +27,8 @@ from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
                                      season_values, value_warnings)
-from fantasyhoops.adds.planner import aggressive_plan, rank_teams, schedule_plan, teams_to_read, value_above_empty
+from fantasyhoops.adds.planner import (aggressive_plan, rank_teams, schedule_plan, teams_to_read, value_above_empty,
+                                       waiver_options)
 from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free_agents, read_roster,
                                        read_waiver_players, read_week)
 from fantasyhoops.adds.session import open_league
@@ -36,7 +37,7 @@ from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_n
                                      team_games)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
-from fantasyhoops.adds.value import empty_slot_value, projection_scale, replacement_value
+from fantasyhoops.adds.value import empty_slot_value, market_value, projection_scale, replacement_value
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.schedule import read_schedule
@@ -170,7 +171,7 @@ def _signed(value):
 
 def _player(p):
     status = f" {p.status}" if p.status else ""
-    claim = " W (waiver claim, not sure)" if p.clear_day else ""
+    claim = " W (waiver claim, not sure)" if p.on_waivers else ""
     return f"{p.name}{status}{claim}"
 
 
@@ -225,12 +226,13 @@ def print_ranking(ranking, read):
         print(f"  ... {len(ranking) - RANKING_ROWS} more teams play on an open day.")
 
 
-def print_waivers(options):
-    """Print the waiver players, best value first: the clear day and the first day that a plan can use him.
+def print_waivers(options, replacement):
+    """Print the waiver players, best value first: the clear day, the first day that a plan can use him and Val.
 
-    Nothing if no option is on waivers.
+    Val: the market value, the same as on the page. replacement: from value.replacement_value(). Nothing if no
+    option is on waivers.
     """
-    waivers = sorted((o for o in options if o.player.clear_day and o.value is not None), key=lambda o: -o.value)
+    waivers = waiver_options(options)
     if not waivers:
         return
     print()
@@ -238,7 +240,7 @@ def print_waivers(options):
     for o in waivers:
         p = o.player
         print(f"  {p.name} ({p.team}) {','.join(p.positions)}  clears {_day(p.clear_day)}, "
-              f"first plan day {_day(p.clear_day + timedelta(days=1))}, blended {_signed(o.value)}")
+              f"first plan day {_day(p.clear_day + timedelta(days=1))}, Val {_signed(market_value(o.value, replacement))}")
 
 
 def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule plan", notes=True):
@@ -374,7 +376,8 @@ def main(today=None, publish=True):
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
-    print_waivers(options)
+    replacement = replacement_value([o for o in options if not o.player.on_waivers])
+    print_waivers(options, replacement)
     print_plan(plan, spots, data.adds, today, drops, warnings)
     if aggressive is not None and aggressive.windows == plan.windows:
         print()
@@ -386,7 +389,7 @@ def main(today=None, publish=True):
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
     print_contingencies(contingencies)
     text = page.render(data, days, games, spots, rows, options, ranking, read, today,
-                       replacement=replacement_value([o for o in options if not o.player.clear_day]), warnings=warnings,
+                       replacement=replacement, warnings=warnings,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
     publish_page(page.write(text), rows, publish)
 
