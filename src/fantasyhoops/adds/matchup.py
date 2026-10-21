@@ -17,7 +17,7 @@ from dataclasses import dataclass, replace
 import pandas as pd
 from bs4 import BeautifulSoup
 
-from fantasyhoops.adds.planner import StreamSpot, aggressive_plan, counted_games
+from fantasyhoops.adds.planner import StreamSpot, aggressive_plan, counted_games, next_week_totals
 from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.value import line_value
 from fantasyhoops.core.common import latest_projections, name_key
@@ -136,11 +136,13 @@ def _finite(value):
     return value is not None and math.isfinite(value)
 
 
-def matchup_plan(days, games, spots, free_agents, adds_left, slots, empty_value):
+def matchup_plan(days, games, spots, free_agents, adds_left, slots, empty_value, next_week=None, next_weight=0.0):
     """The aggressive plan (planner.aggressive_plan()) with the matchup value of each Option in the plan score.
 
     empty_value: the value of an empty slot with the matchup weights. The Plan holds the original Options, and its
     value is the total blended value of its started games, as in the other plans. matchup_score() gives its score.
+    next_week, next_weight: the next-week bonus of planner.schedule_plan(). The bonus also uses the matchup values.
+    The next value of the Plan uses the blended values.
     """
     original = {}
 
@@ -150,12 +152,13 @@ def matchup_plan(days, games, spots, free_agents, adds_left, slots, empty_value)
         return new
 
     plan = aggressive_plan(days, games, [StreamSpot(scored(s.holder)) if s.holder else s for s in spots],
-                           [scored(o) for o in free_agents], adds_left, slots, empty_value)
+                           [scored(o) for o in free_agents], adds_left, slots, empty_value, next_week, next_weight)
     windows = tuple(replace(w, player=original.get(w.player.player, w.player),
                             options=tuple(original.get(o.player, o) for o in w.options)) for w in plan.windows)
     value = sum(counted_games(w.player.rest_games, w.started) * (w.player.value if _finite(w.player.value) else 0.0)
                 for w in windows)
-    return replace(plan, windows=windows, value=value)
+    next_games, next_value = next_week_totals(windows, next_week, next_weight)
+    return replace(plan, windows=windows, value=value, next_games=next_games, next_value=next_value)
 
 
 def matchup_score(plan, empty_value):

@@ -4,7 +4,7 @@ import pandas as pd
 
 from fantasyhoops.adds.readers import Player, Week
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
-                                     team_games)
+                                     next_week_games, team_games)
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON, TUE, WED = date(2027, 1, 4), date(2027, 1, 5), date(2027, 1, 6)
@@ -84,3 +84,11 @@ def test_team_games_reads_the_schedule():
     sched = pd.DataFrame({"date": pd.to_datetime(["2027-01-04", "2027-01-04", "2027-01-05", "2027-01-05"]),
                           "team": ["BOS", "NY", "SA", "DAL"], "opponent": ["NY", "BOS", "DAL", "SA"]})
     assert team_games(sched, [MON, TUE, WED]) == {MON: {"BOS", "NY"}, TUE: {"SA", "DAL"}, WED: set()}
+
+
+def test_next_week_games_counts_the_games_of_each_team_in_the_7_days_after_the_week():
+    week = Week(1, (MON, TUE, WED))
+    days = pd.to_datetime(["2027-01-06", "2027-01-07", "2027-01-08", "2027-01-13", "2027-01-14", "2027-01-07"])
+    sched = pd.DataFrame({"date": days, "team": ["BOS", "BOS", "BOS", "BOS", "BOS", "NY"]})
+    # Wed 01/06 is in the week. Thu 01/07 to Wed 01/13 is next week. Thu 01/14 is after it.
+    assert next_week_games(sched, week) == {"BOS": 3, "NY": 1}
