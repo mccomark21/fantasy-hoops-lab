@@ -95,12 +95,25 @@ def test_the_matchup_value_of_a_holder_comes_from_his_season_projection():
                                 "steals": [10], "blocks": [10]})
     holder = Option(Player("Old Streamer", "MIA", ("C",)), 6.0)
     mcfg = weighted_cfg(CFG, {c: 1.0 for c in CATS} | {"pts": 0.5})
-    spots = matchup_spots([StreamSpot(), StreamSpot(holder)], SCALE, mcfg, projections)
+    spots = matchup_spots([StreamSpot(), StreamSpot(holder)], SCALE, CFG, mcfg, projections)
     assert spots[0] == StreamSpot()
     assert spots[1].holder.value == 6.0 and spots[1].holder.matchup_value == pytest.approx(28.0)
     # A holder who is not in the projections file keeps no matchup value.
     other = Option(Player("New Guy", "MIA", ("C",)), float("-inf"))
-    assert matchup_spots([StreamSpot(other)], SCALE, mcfg, projections)[0].holder.matchup_value is None
+    assert matchup_spots([StreamSpot(other)], SCALE, CFG, mcfg, projections)[0].holder.matchup_value is None
+
+
+def test_two_players_with_the_same_name_give_the_line_of_the_player_with_the_higher_value():
+    # drops.rank_players() keeps the player with the higher season value for a shared name key. So the matchup
+    # value must come from the same player: here the second row (20 pts a game), not the first (5 pts a game).
+    projections = pd.DataFrame({"first_name": ["Same", "Same"], "last_name": ["Name", "Name"], "games": [10, 10],
+                                "field_goals": [25, 100], "threes": [0, 0], "free_throws": [0, 0],
+                                "offensive_rebounds": [0, 0], "defensive_rebounds": [0, 0], "assists": [0, 0],
+                                "steals": [0, 0], "blocks": [0, 0]})
+    holder = Option(Player("Same Name", "MIA", ("C",)), 20.0)
+    mcfg = weighted_cfg(CFG, {c: 1.0 for c in CATS} | {"pts": 0.5})
+    (spot,) = matchup_spots([StreamSpot(holder)], SCALE, CFG, mcfg, projections)
+    assert spot.holder.matchup_value == pytest.approx(10.0)
 
 
 def fa(name, team, value, match=None):

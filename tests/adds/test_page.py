@@ -119,6 +119,14 @@ def test_the_page_shows_the_matchup_score_and_the_weight_of_each_category():
     assert "Matchup" not in text(render())
 
 
+def test_the_opponent_name_is_not_on_the_page():
+    # The page is public (ADR 2). The name must not be in the HTML, the script or its data.
+    m = Matchup("Secret Rival Team", {"pts": 300}, {"pts": 290})
+    html = render(matchup=m, weights={"pts": 1.0})
+    assert "Secret" not in html and "Rival" not in html
+    assert "300" in text(html)
+
+
 def test_the_page_holds_the_free_agent_data_as_safe_json():
     html = render()
     raw = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)

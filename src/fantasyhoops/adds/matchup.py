@@ -98,28 +98,35 @@ def weighted_cfg(cfg, weights):
     return {**cfg, "weights": {cat: w * weights.get(cat, 1.0) for cat, w in cfg["weights"].items()}}
 
 
-def season_lines(projections):
-    """{name_key(name): per-game stat line} for the players of a projections DataFrame with games > 0."""
+def season_lines(projections, scale, cfg):
+    """{name_key(name): per-game stat line} for the players of a projections DataFrame with games > 0.
+
+    Two players with the same name key: the line of the player with the higher value (line_value() with cfg) is in
+    the result. drops.rank_players() keeps the same player, so a holder gets the line of his own season value.
+    """
     df = projections[projections.games > 0].copy()
     for cat, calc in STATS.items():
         df[cat] = calc(df) / df.games
     out = {}
     for row in df.itertuples():
-        out.setdefault(name_key(f"{row.first_name} {row.last_name}"), {cat: getattr(row, cat) for cat in STATS})
+        key, line = name_key(f"{row.first_name} {row.last_name}"), {cat: getattr(row, cat) for cat in STATS}
+        if key not in out or line_value(line, scale, cfg) > line_value(out[key], scale, cfg):
+            out[key] = line
     return out
 
 
-def matchup_spots(spots, scale, matchup_cfg, projections=None):
+def matchup_spots(spots, scale, cfg, matchup_cfg, projections=None):
     """The StreamSpots, each holder with his matchup value: the value of his season projection with the matchup cfg.
 
-    A holder who is not in the projections file gets no matchup value. projections: a projections DataFrame. If None,
-    the function reads the newest projections file, but only if a spot has a holder.
+    cfg: the config without the matchup weights. A holder who is not in the projections file gets no matchup value.
+    projections: a projections DataFrame. If None, the function reads the newest projections file, but only if a
+    spot has a holder.
     """
     if not any(s.holder for s in spots):
         return list(spots)
     if projections is None:
-        projections = pd.read_csv(latest_projections(matchup_cfg))
-    lines = season_lines(projections)
+        projections = pd.read_csv(latest_projections(cfg))
+    lines = season_lines(projections, scale, cfg)
     return [StreamSpot(replace(s.holder, matchup_value=line_value(lines.get(name_key(s.holder.player.name)), scale,
                                                                   matchup_cfg)))
             if s.holder else s for s in spots]

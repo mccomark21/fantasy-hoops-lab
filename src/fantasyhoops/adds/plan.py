@@ -384,7 +384,7 @@ def main(today=None, publish=True):
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
         options = with_trends(value_options(free_agents, cfg, recent, mcfg), trends)
-        spots = matchup_spots(spots, scale, mcfg)
+        spots = matchup_spots(spots, scale, cfg, mcfg)
         plan = schedule_plan(days, games, spots, options, data.adds.left, slots)
         drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
         warnings = value_warnings(plan, data.roster, spots, cfg, values)
