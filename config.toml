@@ -76,6 +76,16 @@ close_margin = 5           # points
 close_minutes = 5          # minutes at the end of the fourth quarter and of each overtime period
 minute_tolerance = 1.5     # the fetch run prints each player whose stints differ from his box-score minutes by more than this
 
+# Matchup weights: the weight of a category from your margin in the current matchup (adds/matchup.py, #59).
+# A margin of close or less keeps weight 1. A margin of large or more (a lead or a deficit) gets min_weight.
+# Between the two, the weight goes down in a straight line. The margins are for a whole week. The planner
+# multiplies them by the days of the planning window / the days of the fantasy week.
+# First values: close = about what one streamer adds in 3 games, large = 3 x close. There is no better source yet.
+[adds.matchup]
+close = { pts = 40, reb = 15, ast = 10, threes = 5, blk = 3, stl = 3 }
+large = { pts = 120, reb = 45, ast = 30, threes = 15, blk = 9, stl = 9 }
+min_weight = 0.5           # the lowest weight. Above 0, so a lost or won category still counts a little
+
 # Weight for each category z-score. See docs/draft/category_weights.md.
 # Punted categories (FG%, FT%, TO) are not in this list.
 [weights]

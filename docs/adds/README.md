@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the aggressive plan, the comparison of the two plans and the best plans for one roster spot. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the best plans for one roster spot and a free-agent table with filters. It does not show the schedule plan, the aggressive plan or the comparison.
+Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the category totals of the current matchup with the matchup weights, the aggressive plan, the comparison of the two plans and the best plans for one roster spot. The aggressive plan uses the matchup value. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the best plans for one roster spot, the matchup weights and a free-agent table with filters. It does not show the schedule plan, the aggressive plan or the comparison.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -22,7 +22,7 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 
 The schedule plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins.
 
-The aggressive plan gets the most value from your stream spots: the sum of the value above an empty slot of its started games. It can give up started games for better players.
+The aggressive plan gets the most value from your stream spots: the sum of the matchup value above an empty slot of its started games. It can give up started games for better players. The matchup value weights the categories by the state of the current matchup (see [Matchup weights](#matchup-weights)).
 
 The two plans give you a real choice: few adds and a good schedule, or more adds and better players.
 
@@ -68,11 +68,11 @@ The search is exact. It looks at each open day in order. On each day, each strea
 
 ### Aggressive plan
 
-Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left.
+Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left. Since 2026-10-21 (#59), the score uses the [matchup value](#matchup-weights).
 
 The aggressive plan uses the same free agents and the same exact search as the schedule plan, with a different plan score:
 
-1. Each started game counts its value above an empty slot: the blended value of the player minus the value of an empty slot.
+1. Each started game counts its value above an empty slot: the matchup value of the player minus the matchup value of an empty slot. With all categories tied, the matchup value is the blended value.
 2. The plan with the highest sum of these values wins. Ties go to the plan with fewer adds, then to the plan with more started games.
 3. The plan uses more adds, up to the adds that are left, when the better players give a higher sum.
 
@@ -88,7 +88,7 @@ The planner shows no drop trade-offs for the aggressive plan, because the gain o
 
 ### Comparison
 
-The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot, the score of the aggressive plan. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
+The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot. The last row is the matchup value above an empty slot, the score of the aggressive plan. With all matchup weights at 1, the last two rows are the same. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
 
 ## Value
 
@@ -118,9 +118,27 @@ The planner itself uses the values on the scale of the projections. A market val
 
 The stat lines come from Yahoo. The season projections file of the draft tools gives only the category scale: the mean and the standard deviation of each category in the player pool. So the values are on the same scale as the per-game value on the draft board. A streamer usually has a value below 0, because the pool holds the drafted players.
 
+### Matchup weights
+
+Decision (2026-10-21, #59): the aggressive plan weights the 6 categories by the state of the current matchup. The schedule plan, the option order and the best plans for one roster spot keep the blended value.
+
+The planner reads the category totals of your team and your opponent from the score table of the matchup page. The margin of a category is your total minus the total of your opponent. Each category then gets a matchup weight:
+
+1. A margin of `close` or less (a lead or a deficit) keeps weight 1.
+2. A margin of `large` or more gets weight `min_weight` (0.5).
+3. Between the two, the weight goes down in a straight line.
+
+The `close` and `large` margins in `config.toml` are for a whole week. The planner multiplies them by the share of the week that is left: the days of the planning window ÷ the days of the fantasy week. A lead of 5 3PM is close with 6 days left. With 1 day left, it is a large lead.
+
+The matchup value of a player is his value with each category weight times its matchup weight, on the same category scale. A holder gets the matchup value of his season projection. With all categories tied, all weights are 1, so the matchup value equals the blended value. On the first day of a week, and when the planner plans the next week, the totals are 0, so the weights are 1.
+
+Example: you lead 3PM by 15 with the whole week left. The weight of 3PM goes from 0.70 to 0.35. A streamer who adds 3PM is then worth less in the aggressive plan. If you trail blocks by 2, blocks keep their weight.
+
+If the matchup page has no score table, all weights are 1, and the terminal and the page say so.
+
 ## The page
 
-The page has two main sections: the best plans for one roster spot, and the free-agent table. A third section lists the waiver players.
+The page has two main sections: the best plans for one roster spot, and the free-agent table. Between them, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight. The page is public, so it does not show the name of the opponent. A last section lists the waiver players.
 
 ### Best plans for one roster spot
 
@@ -144,9 +162,11 @@ The table shows the free agents that the run read: the free agents of the teams 
 - Days: select one day or more. The table shows the players who play on all the selected days. Each day shows your open slots and the NBA games of that day.
 - Positions: select one position or more. The table shows the players with one of the selected positions.
 - "Only games that fill an open slot": a game counts only if an open slot of that day takes one of his positions.
-- Sort: click Val, Recent or Gms. Gms is the number of his games on the selected days. Sort by Gms to find the player with the most games on those days. Val then puts the players with the same games in order.
+- Sort: click Val, Match, Recent or Gms. Gms is the number of his games on the selected days. Sort by Gms to find the player with the most games on those days. Val then puts the players with the same games in order.
 
-A filter does not change Val, because Val is a value per game.
+Match is the market value with the matchup weights: the matchup value above the matchup value of a replacement free agent. Compare Val and Match to see how the matchup changes the value of a player.
+
+A filter does not change Val or Match, because they are values per game.
 
 A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status.
 
@@ -194,7 +214,7 @@ The planner does not keep an add back for contingency plans. The page shows the 
 | Data | Source |
 |---|---|
 | Your roster, the statuses, the adds that you used | Your team page (`/nba/<league>/<team>`) |
-| The dates of the fantasy week, the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
+| The dates of the fantasy week, the category totals of the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
 | Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`): the first 6 pages of the full list, and all pages of the list filtered by NBA team |
 | Waiver players and their clear days | The waiver list (`/players?status=W`): the first 6 pages of the full list. The Roster Status cell shows the clear day, for example "W (Oct 22)". |
 | Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex?date=<day>&bimtab=A&sort=BI_A`), one page for each day of this week up to today |
@@ -226,6 +246,16 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `stream_spots` | The number of stream spots: 3. The empty spots count first. |
 | `add_delay_days` | The add delay. 0 for this league. |
 
+The settings of the [matchup weights](#matchup-weights) are in `[adds.matchup]`:
+
+| Setting | Meaning |
+|---|---|
+| `close` | For each category, the margin in a whole week that keeps weight 1: pts 40, reb 15, ast 10, 3PM 5, blk 3, stl 3. About what one streamer adds in 3 games. |
+| `large` | For each category, the margin in a whole week that gets `min_weight`: 3 × `close`. |
+| `min_weight` | The lowest matchup weight: 0.5. Above 0, so a category with a large margin still counts. |
+
+These first values are estimates. There is no better source yet.
+
 ## Terms
 
 The terms that only the planner uses. The shared terms are in the [glossary](../glossary.md).
@@ -234,10 +264,12 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 |---|---|
 | Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. |
 | Open day | A day of the planning window with at least one open starting slot. |
-| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games. Aggressive plan: the sum of the value above an empty slot of the started games. Ties go to the plan with fewer adds, then to the plan with more started games. |
-| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). |
+| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games. Aggressive plan: the sum of the matchup value above an empty slot of the started games. Ties go to the plan with fewer adds, then to the plan with more started games. |
+| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan uses the matchup value of the player and of the empty slot. |
+| Matchup weight | The weight of a category from your margin in the current matchup: 1 for a close category, down to `min_weight` for a large lead or deficit. |
+| Matchup value | The value of a player with each category weight times its matchup weight. With all categories tied, it equals the blended value. |
 | Schedule plan | The plan that chooses NBA teams by the open days that they cover, then free agents on those teams, with the fewest adds. |
-| Aggressive plan | The plan with the highest sum of the value above an empty slot of its started games. It can use more adds and give up started games for better players. |
+| Aggressive plan | The plan with the highest sum of the matchup value above an empty slot of its started games. It can use more adds and give up started games for better players. |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team, for example "CHA Mon–Wed". |

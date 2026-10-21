@@ -29,20 +29,24 @@ def blend_line(projected, recent, games):
     return {key: (1 - w) * projected[key] + w * recent.get(key, 0.0) for key in projected}
 
 
-def blended_options(free_agents, recent, scale, cfg):
-    """An Option for each FreeAgent of the projected view, with his projected, recent and blended values.
+def blended_options(free_agents, recent, scale, cfg, matchup_cfg=None):
+    """An Option for each FreeAgent of the projected view, with his projected, recent, blended and matchup values.
 
     free_agents: the FreeAgents of the projected view (S_PS7). recent: the FreeAgents of the recent view (S_AL14)
     of the same lists. The function matches the players of the two views by name and NBA team. A player who is
     not in the recent view has no recent games. scale, cfg: for line_value() (adds/value.py).
+    matchup_cfg: cfg with the matchup weights (matchup.weighted_cfg()). The matchup value is the value of the
+    blended line with these weights. None: the Options get no matchup value.
     """
     by_player = {(f.player.name, f.player.team): f for f in recent}
     out = []
     for f in free_agents:
         r = by_player.get((f.player.name, f.player.team))
         games, line = (r.games, r.line) if r else (0, {})
+        blended = blend_line(f.line, line, games)
         out.append(Option(f.player,
                           projected_value=line_value(f.line, scale, cfg),
                           recent_value=line_value(line, scale, cfg) if games else None,
-                          blended_value=line_value(blend_line(f.line, line, games), scale, cfg)))
+                          blended_value=line_value(blended, scale, cfg),
+                          matchup_value=line_value(blended, scale, matchup_cfg) if matchup_cfg else None))
     return out
