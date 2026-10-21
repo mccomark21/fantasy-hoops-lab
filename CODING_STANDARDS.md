@@ -31,8 +31,8 @@ A reviewer checks each change against these rules. Each rule names something tha
 1. The guide for a tool is `docs/<tool>/README.md`.
 2. Terms that more than one tool uses go in `docs/glossary.md`.
 3. Each decision record goes in `docs/adr/`.
-5. A commit that changes only files in `docs/wiki/` can go straight to main, with no ticket and no PR. All other changes need a ticket and a PR.
 4. History goes in `docs/wiki/`. Each claim there has a date and cites a commit, a PR or an issue.
+5. A commit that changes only files in `docs/wiki/` can go straight to main, with no ticket and no PR. All other changes need a ticket and a PR.
 
 ## Code
 
