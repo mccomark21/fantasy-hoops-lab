@@ -10,32 +10,41 @@ from fantasyhoops import draft
 from fantasyhoops.core.common import DATA, ROOT, load_config
 
 ENGINE = Path(draft.__file__).parent / "team_builder.js"
+# best() and reference() for the speed tests (see node_timing.js).
+TIMING_JS = (Path(__file__).parent / "node_timing.js").read_text(encoding="utf-8")
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is not on PATH")
 
-# Reads {"data", "core": [ids], "fit": [ids]} on stdin. Writes {"score", "fits", "ms", "slots", "bench"}:
-# ms = time of all fit calls. slots and bench: slotRoster of the core in the order of core, as player names.
-DRIVER = """
+# Reads {"data", "core": [ids], "fit": [ids], "slow"} on stdin. Writes {"score", "fits", "ms", "baseline_ms", "slots", "bench"}:
+# ms = best() of all fit calls. baseline_ms = best() of reference() (node_timing.js). slow (default 1) calls fit
+# that many times for each player, to make a fit that is slow times slower. slots and bench: slotRoster of the core
+# in the order of core, as player names.
+DRIVER = TIMING_JS + """
 const { scoreCore, fit, slotRoster } = require(process.argv[1]);
 let text = "";
 process.stdin.on("data", c => (text += c));
 process.stdin.on("end", () => {
-  const { data, core, fit: ids } = JSON.parse(text);
+  const { data, core, fit: ids, slow = 1 } = JSON.parse(text);
   const byId = new Map(data.players.map(p => [p.id, p]));
   const team = core.map(id => byId.get(id));
   const score = scoreCore(team, data);
-  const start = performance.now();
-  const fits = ids.map(id => fit(team, byId.get(id), data));
-  const ms = performance.now() - start;
+  const fitAll = () => ids.map(id => {
+    for (let k = 1; k < slow; k++) fit(team, byId.get(id), data);
+    return fit(team, byId.get(id), data);
+  });
+  const fits = fitAll();
+  const ms = best(fitAll);
+  const baseline_ms = best(reference);
   const roster = slotRoster(team, data);
   const slots = Object.fromEntries(Object.entries(roster.slots).map(([s, p]) => [s, p.name]));
-  process.stdout.write(JSON.stringify({ score, fits, ms, slots, bench: roster.bench.map(p => p.name) }));
+  process.stdout.write(JSON.stringify({ score, fits, ms, baseline_ms, slots, bench: roster.bench.map(p => p.name) }));
 });
 """
 
 
-def engine(data, core, fit=()):
+def engine(data, core, fit=(), slow=1):
     """Run team_builder.js in node. core and fit are lists of player ids."""
-    out = subprocess.run(["node", "-e", DRIVER, str(ENGINE)], input=json.dumps({"data": data, "core": core, "fit": list(fit)}),
+    out = subprocess.run(["node", "-e", DRIVER, str(ENGINE)],
+                         input=json.dumps({"data": data, "core": core, "fit": list(fit), "slow": slow}),
                          capture_output=True, text=True, check=True, encoding="utf-8")
     return json.loads(out.stdout)
 
@@ -151,16 +160,33 @@ def test_slot_roster_moves_a_high_value_player_into_a_starting_slot():
     assert result["bench"] == ["p5"]
 
 
-def test_fit_for_500_players_takes_less_than_100_ms():
+# The fit time of 500 players divided by the reference time (node_timing.js). On the owner's machine, the ratio is
+# about 1.9 and a fit that is 10 times slower gives about 18. The limit of 6 lets a runner be about 3 times slower
+# for fit than for the reference work.
+MAX_FIT_RATIO = 6
+
+
+def fit_500(slow=1):
+    """engine() result for the fit of 500 random players on 21 days. slow makes fit that many times slower."""
     rng = random.Random(36)
     teams = [f"T{i}" for i in range(30)]
     days = [day(rng.sample(teams, rng.randint(4, 30)), week=f"wk{19 + i // 7}", quality=rng.random() < 0.3, date=str(i))
             for i in range(21)]
     positions = ["PG", "PG/SG", "SG/SF", "SF/PF", "PF/C", "C", "SG/SF/PF"]
     players = [player(i, rng.choice(teams), rng.choice(positions), 500 - i, rests_b2b=int(rng.random() < 0.1)) for i in range(500)]
-    result = engine(data(days, players), [0, 3, 7, 12, 20, 33, 41], fit=range(500))
+    return engine(data(days, players), [0, 3, 7, 12, 20, 33, 41], fit=range(500), slow=slow)
+
+
+def test_fit_for_500_players_takes_less_than_6_times_the_reference_work():
+    result = fit_500()
     assert len(result["fits"]) == 500
-    assert result["ms"] < 100
+    ratio = result["ms"] / result["baseline_ms"]
+    assert ratio < MAX_FIT_RATIO, f"fit {result['ms']:.1f} ms, reference {result['baseline_ms']:.1f} ms, ratio {ratio:.1f}"
+
+
+def test_the_fit_time_check_fails_when_fit_is_10_times_slower():
+    result = fit_500(slow=10)
+    assert result["ms"] / result["baseline_ms"] >= MAX_FIT_RATIO
 
 
 # Real schedule and rankings: 3 random cores of 6, 7 and 8 top-75 players.
