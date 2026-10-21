@@ -29,3 +29,14 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Projected value | The per-game value of Yahoo's projection for the next 7 days (from Rotowire). |
 | Recent value | The per-game value of a player's averages in the last 14 days, from Yahoo. |
 | Blended value | The per-game value of a blend of the projected line and the recent line. The weight of the recent line = games in the last 14 days ÷ 14. |
+
+## Rotation
+
+The rotation log (`data/rotation_log.csv`) gives these terms. `core/rotation.py` reads it.
+
+| Term | Meaning |
+|---|---|
+| Stint | The time from a check-in of a player to his next check-out, in one period. A stint of 0 seconds is not in the log. |
+| Start | The player is in the starting lineup of the game, from the ESPN box score. |
+| Close game | At some moment in the last 5:00 of the fourth quarter or of an overtime period, the margin is 5 points or fewer. A game with an overtime period is always a close game. The settings are `close_minutes` and `close_margin` in `[rotation]`. |
+| Close | The player is on the floor at the end of a close game. The closes of a player are counted against the close games of his team. |

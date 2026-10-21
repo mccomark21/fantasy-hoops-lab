@@ -68,6 +68,13 @@ core = []                  # names of your core players: the planner never sugge
 stream_spots = 3           # stream spots: the empty spots, then the lowest non-core players up to this number
 add_delay_days = 0         # days between an add and the first day that the player can start
 
+# Rotation log: python -m fantasyhoops.fetch.rotation writes data/rotation_log.csv. core/rotation.py reads it.
+# A close game: at some moment in the last close_minutes of the fourth quarter or of an overtime period,
+# the margin is close_margin points or fewer. A close: the player is on the floor at the end of a close game.
+[rotation]
+close_margin = 5           # points
+close_minutes = 5          # minutes at the end of the fourth quarter and of each overtime period
+
 # Weight for each category z-score. See docs/draft/category_weights.md.
 # Punted categories (FG%, FT%, TO) are not in this list.
 [weights]
