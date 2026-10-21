@@ -340,17 +340,58 @@ def test_the_command_marks_the_role_up_free_agents_in_the_window_options(monkeyp
     assert "Star Wing is absent. Role up: Phi One (PHI)." in text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
 
 
-def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=()):
+def test_the_free_agent_data_marks_a_game_on_an_open_day_early_next_week():
+    # Next Mon has an open PG slot. Next Tue has no open slot. PHI plays both days, CHI plays Tue only.
+    nmon, ntue = WEEK[6] + timedelta(days=1), WEEK[6] + timedelta(days=2)
+    early = [Day(nmon, 4, (), (), ("PG",)), Day(ntue, 6, (), (), ())]
+    early_games = {nmon: {"PHI"}, ntue: {"PHI", "CHI"}}
+    guard = option("Phi Guard", "PHI", 0.4, ("PG",))
+    data = page.free_agent_data([guard, PHI, CHI], DAYS, GAMES, replacement=0.5, next_days=early,
+                                next_games=early_games)
+    # Phi Guard fills the open PG slot on Mon. Phi & One (SF) does not fit it. Chi One plays only on Tue (no open slot).
+    assert [p["next_open"] for p in data["players"]] == [["Mon open"], [], []]
+
+
+def test_the_page_shows_the_next_week_mark_in_the_free_agent_table():
+    nmon = WEEK[6] + timedelta(days=1)
+    early, early_games = [Day(nmon, 4, (), (), ("SF", "Util"))], {nmon: {"PHI"}}
+    html = render(next_days=early, next_games=early_games)
+    data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
+    assert {p["name"]: p["next_open"] for p in data["players"]}["Phi & One"] == ["Mon open"]
+    assert "p.next_open" in page.SCRIPT and 'class="flag next"' in page.SCRIPT
+    shown = text(html)
+    assert "Mon open he plays next Mon 1/11, and your core players leave a starting slot open that he can fill (2 open slots)." in shown
+
+
+def test_the_page_has_no_next_week_mark_with_no_days_to_check():
+    html = render()
+    assert "next Mon" not in text(html)
+    data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
+    assert all(p["next_open"] == [] for p in data["players"])
+
+
+def test_the_command_marks_the_free_agents_who_play_on_an_open_day_early_next_week(monkeypatch, tmp_path, capsys):
+    # The week is Mon and Tue. Next week starts on Wed, and PHI plays then. The roster is empty, so all slots are open.
+    run_command(monkeypatch, tmp_path, [], publish=False, extra_games=[(WEEK[2], "PHI")])
+    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
+    assert data["players"][0]["next_open"] == ["Wed open"]
+    assert "he plays next Wed 1/6" in text(html)
+
+
+def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=()):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced.
 
     rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
+    extra_games: (day, team) for each more game of the schedule, for example a game next week.
     """
     @contextmanager
     def no_yahoo(league, wait_seconds):
         yield None
 
     import pandas as pd
-    sched = pd.DataFrame({"date": [str(WEEK[0]), str(WEEK[0]), str(WEEK[1])], "team": ["PHI", "BOS", "PHI"]})
+    games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
+    sched = pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
     cfg = {"league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
            "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {})}, "weights": {"pts": 1.0}}
     monkeypatch.setattr(command, "read_rest_names", lambda cfg: set(rests or ()))

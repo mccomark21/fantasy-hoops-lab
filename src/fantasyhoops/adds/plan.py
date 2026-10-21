@@ -23,7 +23,9 @@ One planning run:
 8. contingency_plans(): print a contingency plan for each game day of each flagged player.
 9. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
    The run does not update the log. Without data/rotation_log.csv, the page has no role lines.
-10. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
+10. next_week_window(): find the open slots of your kept roster on the first days of next week
+    ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
+11. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
 NBA schedule: data/schedule.csv (fetch/espn.py).
 """
@@ -47,8 +49,8 @@ from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_na
 from fantasyhoops.adds.role_up import mark_role_ups, read_absences
 from fantasyhoops.adds.session import WAIT_SECONDS, open_league
 from fantasyhoops.adds.spots import spot_plans
-from fantasyhoops.adds.slots import (next_week_games, open_slots_by_day, planning_window, plans_next_week,
-                                     roster_spots_used, team_games)
+from fantasyhoops.adds.slots import (NEXT_WEEK_OPEN_DAYS, next_week_games, next_week_window, open_slots_by_day,
+                                     planning_window, plans_next_week, roster_spots_used, team_games)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import empty_slot_value, market_value, projection_scale, replacement_value
@@ -427,6 +429,9 @@ def main(today=None, publish=True):
         spots = [StreamSpot(with_rests([s.holder], rests, nights, chance)[0]) if s.holder else s
                  for s in stream_spots(data.roster, cfg, values)]
         days = open_slots_by_day(kept_roster(data.roster, spots), games, slots)
+        early = next_week_window(data.week, cfg["adds"].get("next_week_open_days", NEXT_WEEK_OPEN_DAYS))
+        early_games = team_games(sched, early)
+        early_days = open_slots_by_day(kept_roster(data.roster, spots), early_games, slots)
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
@@ -479,7 +484,8 @@ def main(today=None, publish=True):
                        weights=weights, match_replacement=match_replacement, nights=nights,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies],
                        roles=read_roles([o.player for o in options], cfg, today),
-                       minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"))
+                       minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"),
+                       next_days=early_days, next_games=early_games)
     publish_page(page.write(text), rows, publish)
 
 

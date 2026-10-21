@@ -13,6 +13,7 @@ import pandas as pd
 from fantasyhoops.core.lineup import starting_slots
 
 UTIL = "Util"
+NEXT_WEEK_OPEN_DAYS = 2  # the first days of next week that the page checks for open slots, [adds] next_week_open_days
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,15 @@ def next_week_games(sched, week, days=7):
     dates = pd.to_datetime(sched.date).dt.date
     after = (dates > week.end) & (dates <= week.end + timedelta(days=days))
     return sched.team[after].value_counts().to_dict()
+
+
+def next_week_window(week, days=NEXT_WEEK_OPEN_DAYS):
+    """The first days of next week: the days days after the last day of week. No days if days is 0.
+
+    The planner does not read the dates of next week from Yahoo (see next_week_games()). The page checks these days
+    for open slots (#76): open_slots_by_day() with team_games() of these days.
+    """
+    return [week.end + timedelta(days=i) for i in range(1, days + 1)]
 
 
 def roster_spots_used(roster):
