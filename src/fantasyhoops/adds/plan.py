@@ -6,12 +6,13 @@ One planning run:
 2. open_slots_by_day(): find the open starting slots on each day of the planning window.
 3. rank_teams(): rank the NBA teams by the open days that they cover.
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
+   read_market_free_agents(): read the first MARKET_PAGES pages of the full free-agent list (the free-agent market).
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
 6. schedule_plan(): choose the team windows for the stream spots. aggressive_plan(): the same search with the
-   aggressive score.
+   aggressive score. spot_plans(): the best plans for one roster spot, the rows of the plan page.
 7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings,
-   the aggressive plan and the comparison of the two plans.
+   the aggressive plan, the comparison of the two plans and the plans for one roster spot.
 8. contingency_plans(): print a contingency plan for each game day of each flagged player.
 9. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 Settings: [adds] and [league] in config.toml. NBA schedule: data/schedule.csv (fetch/espn.py).
@@ -28,17 +29,19 @@ from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_
 from fantasyhoops.adds.planner import aggressive_plan, rank_teams, schedule_plan, teams_to_read, value_above_empty
 from fantasyhoops.adds.readers import Adds, has_next_page, read_adds, read_free_agents, read_roster, read_week
 from fantasyhoops.adds.session import open_league
+from fantasyhoops.adds.spots import spot_plans
 from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
                                      team_games)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
-from fantasyhoops.adds.value import empty_slot_value, projection_scale
+from fantasyhoops.adds.value import empty_slot_value, projection_scale, replacement_value
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.schedule import read_schedule
 
 RANKING_ROWS = 12  # the teams that the ranking prints
 MAX_PAGES = 10  # pages of 25 free agents for each team. The planner stops after this number.
+MARKET_PAGES = 6  # pages of 25 free agents of the full list: the top 150 by Yahoo's rank
 URL = site.URL + "adds/"
 PROJECTED, RECENT = "S_PS7", "S_AL14"  # the views of the free-agent list: next 7 days (totals), last 14 days (averages)
 
@@ -71,9 +74,12 @@ def read_league(yahoo, cfg, today):
 
 
 def free_agent_path(team, offset=0, view=PROJECTED):
-    """The path of one page of the free-agent list of one NBA team (ESPN code), with the stats of the view."""
-    return (f"players?status=FA&pos=P&cut_type=33&myteam=0&sort=OR&sdir=1&stat1={view}"
-            f"&eteam=ET_{yahoo_id(team)}&count={offset}")
+    """The path of one page of the free-agent list of one NBA team (ESPN code), with the stats of the view.
+
+    team None: the full list of all teams.
+    """
+    eteam = f"&eteam=ET_{yahoo_id(team)}" if team else ""
+    return f"players?status=FA&pos=P&cut_type=33&myteam=0&sort=OR&sdir=1&stat1={view}{eteam}&count={offset}"
 
 
 def read_team_free_agents(yahoo, teams, view=PROJECTED):
@@ -89,6 +95,22 @@ def read_team_free_agents(yahoo, teams, view=PROJECTED):
             if not has_next_page(html):
                 break
     return out
+
+
+def read_market_free_agents(yahoo, view=PROJECTED):
+    """The FreeAgents of the first MARKET_PAGES pages of the full free-agent list, best Yahoo rank first."""
+    out = []
+    for page in range(MARKET_PAGES):
+        html = yahoo.get(free_agent_path(None, 25 * page, view))
+        out += read_free_agents(html, totals=view == PROJECTED)
+        if not has_next_page(html):
+            break
+    return out
+
+
+def unique_free_agents(free_agents):
+    """The free agents with each player one time: a player on a team page and on the market pages counts once."""
+    return list({(f.player.name, f.player.team): f for f in free_agents}.values())
 
 
 def stream_spots(roster, cfg, values=None):
@@ -263,12 +285,24 @@ def print_comparison(plan, aggressive, empty_value):
           f"{empty_value:+.2f}.")
 
 
-def publish_page(path, plan, publish=True):
-    """Print the path and the main numbers of the plan page, then publish the site with the page at /adds/."""
+def print_spot_plans(rows):
+    """Print the best plans for one roster spot: the games gained, the adds and the moves of each row."""
+    print()
+    print("Best plans for one roster spot:" if rows else "Best plans for one roster spot: none.")
+    for n, row in enumerate(rows, 1):
+        drop = f", drop {row.spot.holder.player.name}" if row.spot.holder else ""
+        print(f"  {n}. {row.gain:+d} started games with {_count(row.plan.adds, 'add')}{drop}")
+        for w in row.added:
+            print(f"      +{_player(w.player.player)} ({w.team}) {_days(w.started)}, latest add day {_day(w.add_day)}")
+
+
+def publish_page(path, rows, publish=True):
+    """Print the path and the best row of the plan page, then publish the site with the page at /adds/."""
     print()
     print(f"Wrote the plan page: {path}")
-    if plan is not None:
-        print(f"Plan page: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')}.")
+    if rows:
+        print(f"Plan page: best plan for one roster spot: {rows[0].gain:+d} started games with "
+              f"{_count(rows[0].plan.adds, 'add')}.")
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
@@ -280,7 +314,7 @@ def main(today=None, publish=True):
     cfg = load_config()
     today = today or date.today()
     slots, sched = cfg["league"]["slots"], read_schedule()
-    plan, aggressive, empty, read, options, drops, warnings = None, None, None, [], [], [], []
+    plan, aggressive, empty, read, options, drops, warnings, rows = None, None, None, [], [], [], [], []
     values = season_values(cfg)
     with open_league(cfg["adds"]["league"]) as yahoo:
         data = read_league(yahoo, cfg, today)
@@ -291,8 +325,9 @@ def main(today=None, publish=True):
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
-            free_agents = read_team_free_agents(yahoo, read)
-            recent = read_team_free_agents(yahoo, read, RECENT)
+            free_agents = unique_free_agents(read_team_free_agents(yahoo, read) + read_market_free_agents(yahoo))
+            recent = unique_free_agents(read_team_free_agents(yahoo, read, RECENT)
+                                        + read_market_free_agents(yahoo, RECENT))
             trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
     if read:
         options = with_trends(value_options(free_agents, cfg, recent), trends)
@@ -301,6 +336,7 @@ def main(today=None, publish=True):
         warnings = value_warnings(plan, data.roster, spots, cfg, values)
         empty = empty_slot_value(cfg)
         aggressive = aggressive_plan(days, games, spots, options, data.adds.left, slots, empty)
+        rows = spot_plans(data.roster, spots, games, options, data.adds.left, slots)
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
@@ -311,12 +347,13 @@ def main(today=None, publish=True):
     elif aggressive is not None:
         print_plan(aggressive, spots, data.adds, today, title="Aggressive plan", notes=False)
     print_comparison(plan, aggressive, empty)
+    print_spot_plans(rows)
     contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
     print_contingencies(contingencies)
-    text = page.render(data, days, spots, plan, ranking, read, today, drops=drops, aggressive=aggressive,
-                       empty_value=empty, warnings=warnings,
+    text = page.render(data, days, games, spots, rows, options, ranking, read, today,
+                       replacement=replacement_value(options), warnings=warnings,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
-    publish_page(page.write(text), plan, publish)
+    publish_page(page.write(text), rows, publish)
 
 
 if __name__ == "__main__":

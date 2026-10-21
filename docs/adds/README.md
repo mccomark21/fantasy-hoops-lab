@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the aggressive plan and the comparison of the two plans. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`.
+Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the aggressive plan, the comparison of the two plans and the best plans for one roster spot. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the best plans for one roster spot and a free-agent table with filters. It does not show the schedule plan, the aggressive plan or the comparison.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -10,6 +10,7 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 - [Usage](#usage)
 - [The plans](#the-plans)
 - [Value](#value)
+- [The page](#the-page)
 - [Core and drops](#core-and-drops)
 - [Status rules](#status-rules)
 - [Data](#data)
@@ -87,7 +88,7 @@ The planner shows no drop trade-offs for the aggressive plan, because the gain o
 
 ### Comparison
 
-The terminal and the page show the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot, the score of the aggressive plan. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
+The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot, the score of the aggressive plan. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
 
 ## Value
 
@@ -109,7 +110,45 @@ Next to each free agent, the page also shows:
 - The trend: his adds today and this week across all Yahoo leagues, from Transaction Trends. Many of these adds come from leagues that score all 9 categories. So the trend is evidence and a tiebreak, not a plan of its own.
   Transaction Trends shows one day and the 50 most added players of that day. The planner reads one page for each day of this week up to today and adds them. A player who is not on the page of a day counts 0 adds that day. A player who is on no page shows a dash. Between two options with the same blended value, the option with more adds this week comes first, then more adds today. The trend never changes the plan score.
 
+### Market value
+
+The page shows the market value: the blended value above a replacement free agent. The replacement free agent is the free agent at rank 15 by blended value among the free agents that the run read (Out players do not count). His market value is 0. A positive market value is better than the replacement free agent.
+
+The planner itself uses the values on the scale of the projections. A market value is the same value minus one number, so it does not change the order of the players or of the plans.
+
 The stat lines come from Yahoo. The season projections file of the draft tools gives only the category scale: the mean and the standard deviation of each category in the player pool. So the values are on the same scale as the per-game value on the draft board. A streamer usually has a value below 0, because the pool holds the drafted players.
+
+## The page
+
+The page has two main sections: the best plans for one roster spot, and the free-agent table.
+
+### Best plans for one roster spot
+
+Each row is a plan for one stream spot. A row can use more than one add in that spot, for example player A on Tue and Thu, then player B on Sat and Sun. A row never uses adds in two spots. Each row uses different players, so the rows are alternatives.
+
+To make a row, the planner runs the search of the schedule plan for each stream spot alone. The other stream players stay in their spots. It keeps the best result: the most games gained, then the fewest adds, then the highest value. Then it removes the players of that row and makes the next row. The page shows 3 rows.
+
+| Column | What it shows |
+| --- | --- |
+| Days | The started games of the new players on that day. A `+` marks a latest add day. |
+| Adds | The adds of the row. |
+| Gms | The games gained: the started games of the new players minus the started games that the dropped player loses. |
+| Moves | One line for each add, for example "+Alex Caruso (OKC) – Tue, Thu & Sun", then the drop. |
+
+The rows can all use the same spot. Usually that is the spot whose player loses the fewest games.
+
+### Free-agent table
+
+The table shows the free agents that the run read: the free agents of the teams that the schedule plan reads, and the first 6 pages (150 players) of the full free-agent list. It shows the 10 best players for the filters.
+
+- Days: select one day or more. The table shows the players who play on all the selected days. Each day shows your open slots and the NBA games of that day.
+- Positions: select one position or more. The table shows the players with one of the selected positions.
+- "Only games that fill an open slot": a game counts only if an open slot of that day takes one of his positions.
+- Sort: click Val, Recent or Gms. Gms is the number of his games on the selected days. Sort by Gms to find the player with the most games on those days. Val then puts the players with the same games in order.
+
+A filter does not change Val, because Val is a value per game.
+
+A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status.
 
 ## Core and drops
 
@@ -152,7 +191,7 @@ The planner does not keep an add back for contingency plans. The page shows the 
 |---|---|
 | Your roster, the statuses, the adds that you used | Your team page (`/nba/<league>/<team>`) |
 | The dates of the fantasy week, the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
-| Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`), all pages, and the same list filtered by NBA team |
+| Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`): the first 6 pages of the full list, and all pages of the list filtered by NBA team |
 | Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex?date=<day>&bimtab=A&sort=BI_A`), one page for each day of this week up to today |
 | NBA schedule and game times | `data/schedule.csv` (`fetch/espn.py`) |
 

@@ -1,30 +1,27 @@
 """The plan page: one HTML file in output/adds/ for use on a phone. The design is in docs/adds/README.md.
 
 render() makes the page from the data of one planning run. Each section of the page comes from one small function.
-A section shows only the parts that exist. Some fields are optional:
-- Option: recent_value, blended_value and trend. The options table gets a column for each field that one option
-  or more has (not None).
-- render(): drops (the Drops of the plan), aggressive (the aggressive Plan), empty_value (the value of an empty
-  slot, for the comparison), warnings (text lines, for example the core warning) and contingencies (text lines,
-  one for each contingency plan).
-The page has inline CSS and no scripts. The colours and the font are the colours and the font of the draft board.
+A section shows only the parts that exist. The two main sections:
+- Best plans for one roster spot: the SpotPlans of adds/spots.py, as a table of days.
+- Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
+  script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
+The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
+draft board.
 """
 import html
+import json
 from datetime import date
 
-from fantasyhoops.adds.planner import value_above_empty
+from fantasyhoops.adds.value import REPLACEMENT_RANK
 from fantasyhoops.core.common import OUT as _OUT
 
 OUT = _OUT / "adds"
 PAGE = OUT / "adds_plan.html"
 TITLE = "Weekly adds plan"
 RANKING_ROWS = 12  # the teams in the ranking table
-# The optional values of an Option: (attribute, column header, title of the header).
-OPTION_VALUES = (
-    ("projected_value", "Proj", "Projected value: Yahoo's projection for the next 7 days"),
-    ("recent_value", "Recent", "Recent value: the averages of the last 14 days"),
-    ("blended_value", "Blend", "Blended value: the projected line moved toward the recent line"),
-)
+FREE_AGENT_ROWS = 10  # the rows of the free-agent table: the best players for the filters
+FLAG = 1.5  # the market value from which a free agent gets the "FA?" mark
+POSITIONS = ("PG", "SG", "SF", "PF", "C")  # the position filters
 
 
 def _e(text):
@@ -36,31 +33,17 @@ def _day(d):
     return f"{d:%a} {d.month}/{d.day}"
 
 
-def _count(n, word):
-    """For example "1 add" and "2 adds"."""
-    return f"{n} {word}" + ("" if n == 1 else "s")
-
-
-def _value(v):
-    return "—" if v is None else f"{v:+.2f}"
-
-
 def _player(p):
     status = f' <span class="status" title="{_e(p.status_name or p.status)}">{_e(p.status)}</span>' if p.status else ""
     return f"{_e(p.name)}{status}"
 
 
-def _first_day(window, days):
-    """The first day of a team window: its add day, or the first day of the plan for the window of a holder."""
-    return window.add_day or days[0].date
+def _stat(value, label):
+    return f'<div class="stat"><b>{_e(value)}</b><span>{_e(label)}</span></div>'
 
 
-def _stat(value, label, key=False):
-    return f'<div class="stat{" key" if key else ""}"><b>{_e(value)}</b><span>{_e(label)}</span></div>'
-
-
-def header(data, days, spots, plan, today):
-    """The title, the fantasy week and the main numbers of the plan."""
+def header(data, days, spots, today):
+    """The title, the fantasy week, the adds left, the stream spots and the players who are out."""
     week, adds = data.week, data.adds
     lines = [f"<h1>{TITLE}</h1>"]
     if data.next_week:
@@ -69,9 +52,6 @@ def header(data, days, spots, plan, today):
     lines.append(f"<p>Week {week.number}: {_day(week.start)} to {_day(week.end)}.{window} "
                  f"Made on {_day(today)}.</p>")
     stats = [_stat(f"{adds.left} of {adds.limit}", "adds left"), _stat(len(spots), "stream spots")]
-    if plan is not None:
-        stats = [_stat(plan.started_games, "started games", key=True), _stat(plan.adds, "adds used"), *stats]
-        stats.append(_stat(f"{plan.value:+.1f}", "blended value"))
     lines.append(f'<div class="stats">{"".join(stats)}</div>')
     out = [p.name + (f" ({p.status})" if p.status else "") for p in data.roster if p.out]
     if out:
@@ -85,133 +65,100 @@ def warnings_section(warnings):
     return f'<section class="warning"><ul>{items}</ul></section>' if items else ""
 
 
-def grid(plan, days, spots):
-    """The grid of stream spots × days: the team of each window, the add days and the days with a started game."""
+def _and(words):
+    """For example "Tue, Thu & Sun"."""
+    return " & ".join(filter(None, [", ".join(words[:-1]), words[-1]])) if words else ""
+
+
+def _day_head(d):
+    """A day column header: "Tue" and "10/20". On a phone, the page shows only the first letter."""
+    name = f"{d:%a}"
+    return f'<th>{name[0]}<span class="long">{name[1:]}</span><br><small>{d.month}/{d.day}</small></th>'
+
+
+def _moves(row):
+    """The moves of a SpotPlan: one line for each add, then the drop."""
+    lines = [f'<div>+{_player(w.player.player)} ({_e(w.team)}) <span>– {_and([f"{d:%a}" for d in w.started])}</span>'
+             f"</div>" for w in row.added]
+    if row.spot.holder:
+        lines.append(f"<div><span>drop {_e(row.spot.holder.player.name)}</span></div>")
+    return "".join(lines)
+
+
+def plans_section(rows, days, spots, adds, today):
+    """The best plans for one roster spot: one row for each SpotPlan, one column for each day, then the adds,
+    the games gained and the moves. A short message if there is no plan."""
+    title = "<h2>Best plans for one roster spot</h2>"
+    if not spots:
+        return (f"<section>{title}\n<p>No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
+                "There are no adds to plan.</p></section>")
+    if not adds.left:
+        return (f"<section>{title}\n<p>No adds left this week ({adds.used} of {adds.limit} used). "
+                "There are no adds to plan.</p></section>")
     if not days:
-        return ""
-    head = "".join(f'<th title="{d.nba_games} NBA games">{d.date:%a}<br><small>{d.date.month}/{d.date.day}</small></th>'
-                   for d in days)
-    open_row = "".join(f'<td class="{"open" if d.open else "full"}" title="{_e(", ".join(d.open) or "no open slots")}">'
-                       f'{len(d.open)}</td>' for d in days)
-    rows = [f'<tr class="slots"><th>Open</th>{open_row}</tr>']
-    windows = plan.windows if plan is not None else ()
-    for s in range(len(spots)):
+        return f"<section>{title}\n<p>The fantasy week is over. There are no days to plan.</p></section>"
+    if not rows:
+        return f"<section>{title}\n<p>No free agent that the planner read gives a started game.</p></section>"
+    head = "".join(_day_head(d.date) for d in days)
+    open_row = "".join(f'<td title="{_e(", ".join(d.open) or "no open slots")}">{len(d.open)}</td>' for d in days)
+    body = [f'<tr class="open"><th>Open</th>{open_row}<td></td><td></td><td></td></tr>']
+    for n, row in enumerate(rows, 1):
         cells = []
         for d in days:
-            here = [w for w in windows if w.spot == s and _first_day(w, days) <= d.date <= w.last_day]
-            if not here:
-                cells.append('<td class="empty">·</td>')
-                continue
-            w = here[0]
-            cls = "on" if d.date in w.started else "hold"
-            add = '<i title="Latest add day">+</i>' if d.date == w.add_day else ""
-            cells.append(f'<td class="{cls}">{add}{_e(w.team)}</td>')
-        rows.append(f"<tr><th>Spot {s + 1}</th>{''.join(cells)}</tr>")
-    return (f'<section><h2>Stream spots by day</h2>\n<table class="grid"><thead><tr><th></th>{head}</tr></thead>'
-            f'<tbody>{"".join(rows)}</tbody></table>\n'
-            '<p class="legend"><span class="key on">PHX</span> started game '
-            '<span class="key hold">PHX</span> in the spot, no started game '
-            '<span class="key">+</span> latest add day. Open: the open starting slots of the day.</p></section>')
+            started = sum(d.date in w.started for w in row.added)
+            add = "<i>+</i>" if any(w.add_day == d.date for w in row.added) else ""
+            cells.append(f'<td class="on"><b>{started}{add}</b></td>' if started
+                         else f"<td>{add or '·'}</td>")
+        body.append(f'<tr><th>{n}</th>{"".join(cells)}<td class="total">{row.plan.adds}</td>'
+                    f'<td class="total">{row.gain:+d}</td><td class="moves">{_moves(row)}</td></tr>')
+    note = ""
+    if any(w.add_day == today for row in rows for w in row.added):
+        note = '\n<p class="muted">An add for today helps only if his game has not started.</p>'
+    return (f'<section>{title}\n<table class="plans"><thead><tr><th></th>{head}<th class="total">Adds</th>'
+            f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
+            '<p class="legend">Each row is a plan for one roster spot, with different players in each row. A row can '
+            'use more than one add in the same spot. A cell shows a started game of a new player. '
+            '<i>+</i> marks a latest add day. Gms: the started games of the new players minus the started games that '
+            f"the dropped player loses.</p>{note}</section>")
 
 
-def _columns(options):
-    """The value columns that one option or more has: (attribute, header, title)."""
-    cols = [c for c in OPTION_VALUES if any(getattr(o, c[0], None) is not None for o in options)]
-    if any(getattr(o, "trend", None) is not None for o in options):
-        cols.append(("trend", "Trend", "Adds today / this week across all Yahoo leagues, from Transaction Trends"))
-    return cols
+def free_agent_data(options, days, games, replacement):
+    """The data of the free-agent table: the days and one row for each option who plays, best value first.
 
-
-def _trend(trend):
-    """Adds today / this week, or a dash when the player is not on the Transaction Trends pages."""
-    return "–" if trend is None else f"{trend.adds_today} / {trend.adds_week}"
-
-
-def options_table(window):
-    """The window options of one team window, best first. The player of the plan has a mark."""
-    if not window.options:
-        return ""
-    cols = _columns(window.options)
-    head = "".join(f'<th title="{_e(title)}">{_e(name)}</th>' for _, name, title in cols)
-    rows = []
-    for n, o in enumerate(window.options, 1):
-        values = "".join(f"<td>{_value(getattr(o, a)) if a != 'trend' else _trend(o.trend)}</td>"
-                         for a, _, _ in cols)
-        pick = ' class="pick"' if o == window.player else ""
-        rows.append(f'<tr{pick}><td>{n}</td><td class="name">{_player(o.player)}</td>'
-                    f'<td>{_e(",".join(o.player.positions))}</td>{values}</tr>')
-    return (f'<table class="options"><thead><tr><th>#</th><th class="name">Window options</th><th>Pos</th>{head}'
-            f'</tr></thead><tbody>{"".join(rows)}</tbody></table>')
-
-
-def window_card(window, days, drop=None):
-    """One team window: its spot, its team and days, its add day, its started games, the drop trade-off text (or
-    None) and its options."""
-    first = _first_day(window, days)
-    span = _day(first) if first == window.last_day else f"{_day(first)} – {_day(window.last_day)}"
-    add = (f"Latest add day: <b>{_day(window.add_day)}</b>." if window.add_day
-           else f"{_player(window.player.player)} holds the spot now. No add.")
-    started = ", ".join(f"{d:%a}" for d in window.started) or "none"
-    lines = [f'<article class="window"><h3>Spot {window.spot + 1} · {_e(window.team)} '
-             f'<span class="span">{span}</span></h3>',
-             f"<p>{add} {_count(len(window.started), 'started game')} ({started}).</p>"]
-    if drop:
-        lines.append(f'<p class="drop">{_e(drop)}</p>')
-    lines.append(options_table(window))
-    lines.append("</article>")
-    return "\n".join(lines)
-
-
-def plan_section(plan, days, spots, adds, today, title="Schedule plan", drops=()):
-    """A plan: one card for each team window, with the text of its Drop. A short message if there is no plan."""
-    drops = {id(d.window): d.text() for d in drops}
-    if not spots:
-        body = ("<p>No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
-                "There are no adds to plan.</p>")
-    elif not adds.left:
-        body = f"<p>No adds left this week ({adds.used} of {adds.limit} used). There are no adds to plan.</p>"
-    elif plan is None:
-        body = f"<p>{_count(len(spots), 'stream spot')}, but no open day. There are no adds to plan.</p>"
-    elif not plan.windows:
-        body = "<p>No free agent of the teams that the planner read gives a started game.</p>"
-    else:
-        body = (f"<p>{_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')}.</p>\n"
-                + "\n".join(window_card(w, days, drops.get(id(w))) for w in plan.windows))
-        if any(w.add_day == today for w in plan.windows):
-            body += ("\n<p class=\"muted\">An add for today helps only if his game has not started.</p>")
-    return f"<section><h2>{_e(title)}</h2>\n{body}</section>"
-
-
-def aggressive_section(plan, aggressive, days, spots, adds, today):
-    """The aggressive plan, or one line if it is the same as the schedule plan. Nothing if there is no plan."""
-    if aggressive is None:
-        return ""
-    if plan is not None and aggressive.windows == plan.windows:
-        return "<section><h2>Aggressive plan</h2>\n<p>The same as the schedule plan.</p></section>"
-    return plan_section(aggressive, days, spots, adds, today, "Aggressive plan")
-
-
-def comparison(plans, empty_value=None):
-    """The plans side by side: adds, started games and blended value. plans: (name, Plan). Needs two plans or more.
-
-    empty_value: the value of an empty slot. If it is not None, the table also shows the value above an empty slot,
-    the score of the aggressive plan.
+    A value is a market value: the value minus replacement. plays: his team plays on the day. fits: he plays and
+    one of the open slots of the day takes one of his positions (Util takes all positions).
     """
-    plans = [(name, p) for name, p in plans if p is not None]
-    if len(plans) < 2:
+    def market(v):
+        return None if v is None or replacement is None else round(v - replacement, 2)
+
+    players = []
+    for o in sorted((o for o in options if not o.player.out and o.value is not None), key=lambda o: -o.value):
+        p = o.player
+        plays = [p.team in games.get(d.date, ()) for d in days]
+        fits = [on and any(s in d.open for s in (*p.positions, "Util")) for on, d in zip(plays, days)]
+        players.append({"name": p.name, "team": p.team, "pos": list(p.positions), "status": p.status,
+                        "value": market(o.value), "recent": market(o.recent_value),
+                        "trend": o.trend.adds_today if o.trend else None, "plays": plays, "fits": fits})
+    return {"days": [{"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games,
+                      "open": len(d.open)} for d in days],
+            "players": players, "positions": list(POSITIONS), "flag": FLAG, "rows": FREE_AGENT_ROWS}
+
+
+def free_agents_section(options, days, games, replacement):
+    """The free-agent table with its filters. A script fills the table from the data. Nothing with no options."""
+    if not options or not days:
         return ""
-    rows = [("Adds", [p.adds for _, p in plans]), ("Started games", [p.started_games for _, p in plans]),
-            ("Blended value", [_value(p.value) for _, p in plans])]
-    if empty_value is not None:
-        rows.append(("Value above an empty slot", [_value(value_above_empty(p, empty_value)) for _, p in plans]))
-    head = "".join(f"<th>{_e(name)}</th>" for name, _ in plans)
-    body = "".join(f'<tr><th class="name">{label}</th>{"".join(f"<td>{_e(v)}</td>" for v in values)}</tr>'
-                   for label, values in rows)
-    return (f'<section><h2>Comparison</h2>\n<table class="compare"><thead><tr><th></th>{head}</tr></thead>'
-            f"<tbody>{body}</tbody></table>\n"
-            '<p class="muted">Blended value: the sum of the blended values of the started games. '
-            "The aggressive plan gets the most value above an empty slot. It can give up started games "
-            "for better players.</p></section>")
+    data = json.dumps(free_agent_data(options, days, games, replacement), ensure_ascii=False).replace("</", "<\\/")
+    return ('<section><h2>Free agents</h2>\n'
+            '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
+            '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
+            '</label>\n<p class="count" id="fa-count"></p>\n<table class="fa" id="fa-table"></table>\n'
+            '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
+            '<span class="dot game"></span> game, no open slot for him. Val: blended value per game above a '
+            f'replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). A filter does not '
+            'change Val. Gms: his games on the selected days. '
+            '<span class="flag">FA?</span> a value this high is unusual for a free agent.</p>\n'
+            f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>')
 
 
 def contingency_section(contingencies):
@@ -242,31 +189,28 @@ def method_note():
             "A player scores only on a day when his NBA team plays and he is in a starting slot.</p>\n"
             "<p>The team keeps its core players all season. The other roster spots are stream spots. "
             "The league gives 5 adds each week, so the team can change the players in the stream spots.</p>\n"
-            "<p>The planner finds the days with open starting slots. It ranks the NBA teams by the open days that "
-            "they play on. Then it chooses free agents on those teams. The plan gets the most started games with "
-            "the fewest adds. The aggressive plan can use more adds and give up started games for better "
-            "players.</p>\n"
-            "<p>The value of a player is his value per game in the 6 categories that this league counts. "
-            "A value below 0 is normal for a free agent.</p></details>")
+            "<p>The planner finds the days with open starting slots. For each stream spot, it finds the free agents "
+            "who give the most started games with the fewest adds. Each row of the plans is one roster spot.</p>\n"
+            "<p>The value of a player is his value per game in the 6 categories that this league counts, above a "
+            f"replacement free agent: 0 is the value of the free agent at rank {REPLACEMENT_RANK}.</p></details>")
 
 
-def render(data, days, spots, plan, ranking=(), read=(), today=None, *, drops=(), aggressive=None, empty_value=None,
+def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
            warnings=(), contingencies=()):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
-    spots: the StreamSpots. plan: the schedule Plan, or None. ranking: the TeamRanks. read: the teams whose
-    free agents the run read. drops: the Drops of the schedule plan. aggressive: the aggressive Plan, or None.
-    empty_value: the value of an empty slot, or None. warnings and contingencies: text lines.
+    games: {day: set of NBA teams that play}. spots: the StreamSpots. rows: the SpotPlans (adds/spots.py).
+    options: the Options of the free agents. ranking: the TeamRanks. read: the teams whose free agents the run
+    read. replacement: the value of a replacement free agent (value.replacement_value()), or None.
+    warnings and contingencies: text lines.
     """
     today = today or date.today()
     sections = [
-        header(data, days, spots, plan, today),
+        header(data, days, spots, today),
         warnings_section(warnings),
-        grid(plan, days, spots),
-        comparison([("Schedule", plan), ("Aggressive", aggressive)], empty_value),
-        plan_section(plan, days, spots, data.adds, today, drops=drops),
-        aggressive_section(plan, aggressive, days, spots, data.adds, today),
+        plans_section(rows, days, spots, data.adds, today),
+        free_agents_section(options, days, games, replacement),
         contingency_section(contingencies),
         ranking_section(ranking, read),
         method_note(),
@@ -318,31 +262,55 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
 th, td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--line); }
 thead th { background: var(--head); font-weight: 600; }
 th.name, td.name { text-align: left; overflow-wrap: anywhere; }
-.grid { table-layout: fixed; border: 1px solid var(--line); font-size: 12px; }
-.grid th, .grid td { text-align: center; padding: 4px 1px; }
-.grid th:first-child { width: 17%; text-align: left; padding-left: 4px; }
-.grid small { color: var(--muted); font-weight: 400; }
-.grid td.on { background: color-mix(in srgb, var(--good) 35%, transparent); font-weight: 700; }
-.grid td.hold { color: var(--muted); background: var(--head); }
-.grid td.empty, .grid td.full { color: var(--muted); }
-.grid td.open { color: var(--q); font-weight: 700; }
-.grid tr.slots th, .grid tr.slots td { background: var(--head); }
-.grid i { font-style: normal; color: var(--q); font-weight: 700; }
+.plans { table-layout: fixed; border: 1px solid var(--line); font-size: 12px; }
+.plans th, .plans td { text-align: center; padding: 4px 1px; }
+.plans th:first-child { width: 6%; }
+.plans .total { width: 9%; font-weight: 700; font-size: 14px; }
+.plans thead .total { font-size: 11px; }
+.plans .moves { width: 36%; text-align: left; padding: 4px 6px; font-size: 11px; line-height: 1.35; }
+.plans td.moves div + div { margin-top: 3px; }
+.plans td.moves span { color: var(--muted); }
+.plans small { color: var(--muted); font-weight: 400; }
+.plans td.on { background: color-mix(in srgb, var(--good) 30%, transparent); }
+.plans td b { font-size: 14px; }
+.plans tr.open td, .plans tr.open th { background: var(--head); color: var(--q); font-weight: 700; }
+i { font-style: normal; color: var(--q); font-weight: 700; }
+@media (max-width: 599px) {
+  .plans th:first-child { width: 11%; font-size: 10px; }
+  .plans .total { width: 8%; }
+  .plans thead .total { font-size: 9px; }
+  .plans .moves { width: 38%; }
+  .plans thead small, .plans .long { display: none; }
+}
 .legend { font-size: 12px; margin-top: 6px; }
-.key { display: inline-block; padding: 0 4px; border-radius: 4px; font-weight: 700; color: var(--q); }
-.key.on { background: color-mix(in srgb, var(--good) 35%, transparent); color: var(--fg); }
-.key.hold { background: var(--head); color: var(--muted); font-weight: 400; }
-.window { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin: 0 0 10px; }
-.window .span { font-weight: 400; color: var(--muted); font-size: 13px; }
-.window p { margin: 0 0 6px; }
-.window p b { color: var(--fg); }
-.drop { color: var(--fg); }
-.options { font-size: 13px; }
-.options tr.pick td { background: color-mix(in srgb, var(--q) 12%, var(--bg)); }
-.options tr.pick td.name { font-weight: 600; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.filters .label { width: 100%; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+button.chip { font: inherit; font-size: 13px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
+              background: var(--bg); color: var(--fg); cursor: pointer; line-height: 1.2; }
+button.chip small { display: block; color: var(--muted); font-size: 11px; }
+button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: #fff; }
+button.chip[aria-pressed="true"] small { color: #ede9fe; }
+button.chip.none { opacity: .55; }
+label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; }
+.count { font-size: 12px; margin: 0 0 4px; }
+.fa { font-size: 13px; }
+.fa th.sort { cursor: pointer; white-space: nowrap; }
+.fa th.sort[aria-sort] { color: var(--q); }
+.fa th.day, .fa td.day { text-align: center; width: 26px; padding: 5px 0; }
+.fa th.day.sel { color: var(--q); }
+.fa td.sel { background: color-mix(in srgb, var(--q) 10%, transparent); }
+.fa small, .fa .sub { color: var(--muted); font-weight: 400; font-size: 11px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+.dot.fit { background: var(--q); }
+.dot.game { border: 1.5px solid var(--muted); }
+.flag { display: inline-block; padding: 0 4px; border-radius: 4px; background: var(--good); color: #fff;
+        font-size: 11px; font-weight: 700; }
+.neg { color: var(--muted); }
+.wide { display: none; }
+@media (min-width: 600px) { .fa .wide { display: table-cell; } }
 .status { display: inline-block; padding: 0 4px; border-radius: 4px; background: var(--warn); color: #1c1917;
           font-size: 11px; font-weight: 700; }
-.compare, .ranking { font-size: 13px; }
+.ranking { font-size: 13px; }
 details.notes { margin: 16px 0 8px; color: var(--muted); }
 details.notes summary { cursor: pointer; color: var(--fg); font-weight: 600; width: fit-content; }
 details.notes p, details.notes table { margin: 6px 0 0; }
@@ -354,4 +322,52 @@ __BODY__
 </main>
 </body>
 </html>
+"""
+
+SCRIPT = r"""
+const DATA = JSON.parse(document.getElementById("fa-data").textContent);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2);
+const state = {days: new Set(), pos: new Set(), fit: true, sort: "value"};
+const hits = p => state.fit ? p.fits : p.plays;
+const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
+const SORTS = {value: p => p.value, games: p => games(p) * 100 + p.value, recent: p => p.recent ?? -99};
+const chip = (label, sub, on, dim) => `<button type="button" class="chip${dim ? " none" : ""}" aria-pressed="${on}">`
+  + `${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
+
+function toggle(set, v) { set.has(v) ? set.delete(v) : set.add(v); render(); }
+
+function chips() {
+  $("day-chips").innerHTML = `<span class="label">Days (plays on all selected days)</span>` + DATA.days.map((d, i) =>
+    chip(`${d.label} ${d.md}`, `${d.open} open · ${d.nba} NBA`, state.days.has(i), !d.open)).join("");
+  $("pos-chips").innerHTML = `<span class="label">Positions (any)</span>`
+    + DATA.positions.map(p => chip(p, "", state.pos.has(p))).join("");
+  $("day-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.days, i));
+  $("pos-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.pos, DATA.positions[i]));
+}
+
+function render() {
+  chips();
+  const rows = DATA.players.filter(p => [...state.days].every(i => hits(p)[i])
+    && (!state.pos.size || p.pos.some(x => state.pos.has(x))))
+    .sort((a, b) => SORTS[state.sort](b) - SORTS[state.sort](a));
+  $("fa-count").textContent = `Top ${Math.min(DATA.rows, rows.length)} of ${rows.length} free agents that match the filters`;
+  const th = (key, label, cls) => `<th class="sort ${cls || ""}" data-sort="${key}"`
+    + `${state.sort === key ? ' aria-sort="descending"' : ""}>${label}</th>`;
+  const sel = i => state.days.has(i) ? " sel" : "";
+  const head = DATA.days.map((d, i) => `<th class="day${sel(i)}">${d.label.slice(0, 2)}<br><small>${d.open}</small></th>`).join("");
+  $("fa-table").innerHTML = `<thead><tr><th class="name">Player</th>${th("value", "Val")}${th("recent", "Recent", "wide")}`
+    + `${th("games", "Gms")}${head}</tr></thead><tbody>` + rows.slice(0, DATA.rows).map(p =>
+      `<tr><td class="name">${esc(p.name)}${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
+      + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
+      + `<div class="sub">${esc(p.team)} · ${esc(p.pos.join(","))}${p.trend ? ` · ${p.trend} adds today` : ""}</div></td>`
+      + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`
+      + DATA.days.map((d, i) => `<td class="day${sel(i)}">${p.fits[i] ? '<span class="dot fit"></span>'
+        : p.plays[i] ? '<span class="dot game"></span>' : ""}</td>`).join("") + `</tr>`).join("") + `</tbody>`;
+  $("fa-table").querySelectorAll("th.sort").forEach(h => h.onclick = () => { state.sort = h.dataset.sort; render(); });
+}
+
+$("fit-only").onchange = e => { state.fit = e.target.checked; render(); };
+render();
 """
