@@ -3,8 +3,8 @@ from datetime import date, timedelta
 import pandas as pd
 
 from fantasyhoops.adds.readers import Player, Week
-from fantasyhoops.adds.slots import (open_slots_by_day, planning_window, plans_next_week, roster_spots_used,
-                                     next_week_games, team_games)
+from fantasyhoops.adds.slots import (next_week_games, next_week_window, open_slots_by_day, planning_window,
+                                     plans_next_week, roster_spots_used, team_games)
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON, TUE, WED = date(2027, 1, 4), date(2027, 1, 5), date(2027, 1, 6)
@@ -92,3 +92,21 @@ def test_next_week_games_counts_the_games_of_each_team_in_the_7_days_after_the_w
     sched = pd.DataFrame({"date": days, "team": ["BOS", "BOS", "BOS", "BOS", "BOS", "NY"]})
     # Wed 01/06 is in the week. Thu 01/07 to Wed 01/13 is next week. Thu 01/14 is after it.
     assert next_week_games(sched, week) == {"BOS": 3, "NY": 1}
+
+
+def test_next_week_window_is_the_first_days_after_the_last_day_of_the_week():
+    week = Week(1, (MON, TUE, WED))
+    assert next_week_window(week) == [date(2027, 1, 7), date(2027, 1, 8)]
+    assert next_week_window(week, 1) == [date(2027, 1, 7)]
+    assert next_week_window(week, 0) == []
+
+
+def test_the_open_slots_of_next_week_come_from_the_same_roster_and_schedule():
+    # The week ends on Sun 01/03. Next Mon is 01/04: BOS and NY play. Next Tue is 01/05: SA plays.
+    week = Week(0, tuple(date(2026, 12, 28) + timedelta(days=i) for i in range(7)))
+    days = next_week_window(week)
+    sched = pd.DataFrame({"date": pd.to_datetime(["2027-01-04", "2027-01-04", "2027-01-05"]),
+                          "team": ["BOS", "NY", "SA"]})
+    found = open_slots_by_day(ROSTER, team_games(sched, days), SLOTS)
+    assert [d.date for d in found] == [MON, TUE]
+    assert found[0].open == ("SG", "PF", "Util")

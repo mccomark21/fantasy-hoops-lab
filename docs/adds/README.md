@@ -106,6 +106,17 @@ The planner adds a player only on a day that he starts this week. It does not ad
 
 The terminal shows the games next week of each window option, and the games next week of the last players of each plan.
 
+#### Next-week mark
+
+Decision (2026-10-21, #76): the free-agent table of the page marks each free agent who plays on an open day early next week. The mark names the day, for example "Mon open".
+
+1. The days are the first `next_week_open_days` (2) days after the last day of the week to plan. Next week starts on the same day as for the next-week games.
+2. The open slots of these days come from the same roster as this week: your roster without the players in the stream spots. The [status rules](#status-rules) of today apply.
+3. A free agent gets the mark if his NBA team plays on that day and an open slot takes one of his positions. Util takes all positions. This is the rule of the filled dot.
+4. A day with all slots full gives no mark.
+
+The mark changes no value and no plan. The legend under the table names each day and its open slots. The terminal does not show the mark.
+
 ### Comparison
 
 The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot. The last row is the matchup value above an empty slot, the score of the aggressive plan for this week. The rows have no next-week bonus. With all matchup weights at 1, the last two rows are the same. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
@@ -206,7 +217,7 @@ Match is the market value with the matchup weights: the matchup value above the 
 
 A filter does not change Val or Match, because they are values per game.
 
-A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status. A player with a role-up mark gets the mark "UP", and his line names the absent starter.
+A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status. A player with a role-up mark gets the mark "UP", and his line names the absent starter. A player who fits an open slot on one of the first days of next week gets a mark such as "Mon open" (see [Next-week mark](#next-week-mark)).
 
 ### Role line
 
@@ -343,6 +354,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `rest_chance` | The chance that a player on the rest list sits on a second night: 0.5. That game counts `1 - rest_chance` started games. 0 counts each game as 1. |
 | `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
 | `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |
+| `next_week_open_days` | The first days of next week that the page checks for open slots: 2. 0 turns off the next-week mark. See [Next-week mark](#next-week-mark). |
 | `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
 | `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |
 | `role_up.games` | The role-up mark stays for this number of missed games: 3. |
@@ -375,6 +387,7 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Open day | A day of the planning window with at least one open starting slot. |
 | Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games, then to the plan with more next-week games. Aggressive plan: the sum of the matchup value above an empty slot of the started games, plus the next-week bonus. Ties go to the plan with fewer adds, then to the plan with more started games. |
 | Next-week games | The games next week of the players who hold a stream spot on the last day of the week, x `next_week_weight`. |
+| Next-week mark | The mark of a free agent who fits an open slot on one of the first days of next week, for example "Mon open". The mark changes no value. |
 | Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan uses the matchup value of the player and of the empty slot. |
 | Matchup weight | The weight of a category from your margin in the current matchup: 1 for a close category, down to `min_weight` for a large lead or deficit. |
 | Matchup value | The value of a player with each category weight times its matchup weight. With all categories tied, it equals the blended value. |

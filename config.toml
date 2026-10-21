@@ -80,6 +80,9 @@ minutes_rise = 4.0         # minutes
 # The part of a game this week that a game next week is worth (#60). The last players in the stream spots can stay
 # next week with no add. Injuries and role changes can occur before then. No data gives a better value yet. 0 = off.
 next_week_weight = 0.5
+# Next-week mark on the page (#76): the first days of next week to check for open slots of your kept roster. The page
+# marks each free agent who plays on such a day and fits an open slot, for example "Mon open". 0 = off.
+next_week_open_days = 2    # days
 
 # Role up: mark a free agent when a starter on his NBA team at one of his positions is absent. The mark changes no value.
 # Absent: the starter missed the last games of his team in the rotation log. See docs/adds/README.md, "Role up".
