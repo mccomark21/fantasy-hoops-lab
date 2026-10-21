@@ -23,14 +23,11 @@ The project started as custom draft rankings. Now it holds one tool for each par
 | Tool | Package | Status | Documentation |
 |---|---|---|---|
 | Draft tools: rankings, draft board, auction simulator, keeper report | `fantasyhoops.draft` | Used for the 2026-27 draft | [docs/draft/](docs/draft/README.md) |
-| Weekly adds planner | `fantasyhoops.adds` | Planned | See below |
+| Weekly adds planner | `fantasyhoops.adds` | Planned | [docs/adds/](docs/adds/README.md) |
 
-### Weekly adds planner (planned)
+The tools publish their pages to one public site on GitHub Pages: `https://mccomark21.github.io/fantasy-hoops-lab/`. The home page links to each tool. The draft board is at `/draft/` and the adds plan is at `/adds/`. The shared publish step is `core/publish.py`.
 
-Before each fantasy week starts, the planner shows how to use the 5 weekly adds:
-
-1. Find the NBA teams whose games fill the open slots in your lineup.
-2. Find the players on those teams who are likely to be free agents.
+The terms that more than one tool uses are in the [glossary](docs/glossary.md). Each important decision has an ADR in [docs/adr/](docs/adr/).
 
 ## Repo layout
 
@@ -38,7 +35,7 @@ Before each fantasy week starts, the planner shows how to use the 5 weekly adds:
 config.toml               All settings. [league] applies to all tools.
 pyproject.toml            Package metadata, dependencies and pytest settings
 src/fantasyhoops/
-  core/                   Shared code: paths and config (common), player identity, valuation, NBA schedule
+  core/                   Shared code: paths and config (common), player identity, valuation, NBA schedule, site publish
   fetch/                  Downloads: espn.py (rosters, schedule), yahoo.py (positions, prices, ADP)
   draft/                  Draft tools
   adds/                   Weekly adds planner (planned)
@@ -48,7 +45,10 @@ tests/
 data/                     Inputs that all tools share (not tracked by Git)
 output/                   Generated files, one folder for each tool (not tracked by Git)
 docs/
+  glossary.md             Terms that more than one tool uses
+  adr/                    Architecture decision records
   draft/                  Draft tools guide and the category weights
+  adds/                   Weekly adds planner guide
 ```
 
 ## Getting started
@@ -97,7 +97,8 @@ All settings are in [`config.toml`](config.toml). The `[league]` section applies
 3. Write the files of the tool in `output/<tool>/`. See `OUT` in `src/fantasyhoops/draft/__init__.py`.
 4. Put the settings in a new section of `config.toml`.
 5. Put the tests in `tests/<tool>/`.
-6. Add a row to the [Tools](#tools) table and a guide in `docs/<tool>/`.
+6. Add a row to the [Tools](#tools) table and a guide in `docs/<tool>/README.md`.
+7. Put the terms that more than one tool uses in [docs/glossary.md](docs/glossary.md).
 
 ## Testing
 
@@ -105,7 +106,7 @@ All settings are in [`config.toml`](config.toml). The `[league]` section applies
 python -m pytest
 ```
 
-The `draft/publish.py` tests make temporary Git repos, so they need `git` on the `PATH`.
+The publish tests (`tests/core/test_publish.py`, `tests/draft/test_publish.py`) make temporary Git repos, so they need `git` on the `PATH`.
 
 ## Roadmap
 

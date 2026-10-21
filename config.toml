@@ -1,5 +1,6 @@
 # Settings for all tools in src/fantasyhoops/. Change a value, then run the tool again.
-# [league] applies to all tools. The other sections are for the draft tools (src/fantasyhoops/draft/).
+# [league] applies to all tools. [adds] is for the adds planner (src/fantasyhoops/adds/).
+# The other sections are for the draft tools (src/fantasyhoops/draft/).
 
 [league]
 teams = 14
@@ -57,6 +58,15 @@ missing_tier = "med"       # tier for a player who is not in the file (med is th
 # so start at 1.0. The simulator does not raise his production for these days: the rest days are a small part
 # of the projected games, and a rest on a known date is the risk that this setting shows.
 rest_chance = 1.0
+
+# Weekly adds planner: python -m fantasyhoops.adds.plan. See docs/adds/README.md.
+# The planner reads the Yahoo pages with the saved sign-in in .auth/yahoo/.
+[adds]
+league = 22820             # Yahoo league ID
+team = 10                  # your team ID in the league
+core = []                  # names of your core players: the planner never suggests to drop them
+stream_spots = 3           # stream spots: the empty spots, then the lowest non-core players up to this number
+add_delay_days = 0         # days between an add and the first day that the player can start
 
 # Weight for each category z-score. See docs/draft/category_weights.md.
 # Punted categories (FG%, FT%, TO) are not in this list.

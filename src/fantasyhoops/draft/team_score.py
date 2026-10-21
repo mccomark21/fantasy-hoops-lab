@@ -17,6 +17,8 @@
 import numpy as np
 import pandas as pd
 
+from fantasyhoops.core.lineup import best_lineup
+
 
 def make_playoffs(rankings, days, cfg):
     """(players, playoffs) from build_rankings() and the days of playoffs.playoff_schedule().
@@ -187,32 +189,9 @@ class Playoffs:
         return left
 
     def _lineup(self, playing, key="prod"):
-        """The best legal lineup. Adding players by production is the best order: legal lineups are a matroid.
+        """The best legal lineup (lineup.best_lineup), with the players in order of key, highest first.
 
         key: the column that sets the order. game_counts() uses value, so the lowest value sits.
         """
-        slots, lineup = self.cfg["league"]["slots"], []
-        for p in sorted(playing, key=lambda p: -p[key]):
-            pos = [q["pos"] for q in lineup] + [p["pos"]]
-            # A player who gets no position slot goes to Util. There is one Util slot.
-            if len(pos) - (len(slots) - open_slots(pos, slots)) <= 1:
-                lineup.append(p)
-        return lineup
-
-
-def open_slots(roster, slots):
-    """Number of slots that the roster cannot fill. Each player fills one slot (bipartite matching)."""
-    holder = {}
-
-    def place(player, tried):
-        for slot in slots:
-            if slot in roster[player] and slot not in tried:
-                tried.add(slot)
-                if slot not in holder or place(holder[slot], tried):
-                    holder[slot] = player
-                    return True
-        return False
-
-    for player in range(len(roster)):
-        place(player, set())
-    return len(slots) - len(holder)
+        ranked = sorted(playing, key=lambda p: -p[key])
+        return [ranked[i] for i in best_lineup([p["pos"] for p in ranked], self.cfg["league"]["slots"])]

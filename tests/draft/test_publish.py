@@ -2,34 +2,12 @@ import subprocess
 
 import pytest
 
-from fantasyhoops.draft.publish import BRANCH, publish
+from fantasyhoops.core.publish import BRANCH
+from fantasyhoops.draft.publish import publish
 
 
 def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout
-
-
-@pytest.fixture
-def repo(tmp_path):
-    """A clone with one commit on main and a bare 'origin'."""
-    origin = tmp_path / "origin.git"
-    work = tmp_path / "work"
-    git(tmp_path, "init", "--bare", "-b", "main", str(origin))
-    git(tmp_path, "clone", str(origin), str(work))
-    git(work, "config", "user.name", "Test")
-    git(work, "config", "user.email", "test@example.com")
-    (work / "README.md").write_text("main\n")
-    git(work, "add", "README.md")
-    git(work, "commit", "-m", "init")
-    git(work, "push", "origin", "main")
-    return work
-
-
-def remote_pages(repo):
-    """Files on gh-pages in origin, as {name: text}."""
-    git(repo, "fetch", "origin", BRANCH)
-    names = git(repo, "ls-tree", "--name-only", "FETCH_HEAD").split()
-    return {n: git(repo, "show", f"FETCH_HEAD:{n}") for n in names}
 
 
 def board(repo, text):
@@ -39,15 +17,17 @@ def board(repo, text):
     return path
 
 
-def test_board_is_index_on_remote_gh_pages(repo):
+def test_board_is_index_of_the_draft_folder(repo, remote_pages):
     publish(repo, board(repo, "<p>board</p>"))
-    assert remote_pages(repo) == {".nojekyll": "", "index.html": "<p>board</p>"}
+    pages = remote_pages(repo)
+    assert pages["draft/index.html"] == "<p>board</p>"
+    assert set(pages) == {".nojekyll", "index.html", "draft/index.html"}
 
 
-def test_second_publish_replaces_the_first(repo):
+def test_second_publish_replaces_the_first(repo, remote_pages):
     publish(repo, board(repo, "<p>old</p>"))
     publish(repo, board(repo, "<p>new</p>"))
-    assert remote_pages(repo)["index.html"] == "<p>new</p>"
+    assert remote_pages(repo)["draft/index.html"] == "<p>new</p>"
     assert git(repo, "rev-list", "--count", "FETCH_HEAD").strip() == "1"
 
 
@@ -65,9 +45,11 @@ def test_missing_board_stops_with_an_error(repo):
         publish(repo, repo / "output" / "draft_board.html")
 
 
-def test_other_playoff_window_pages_keep_their_names(repo):
+def test_other_playoff_window_pages_keep_their_names(repo, remote_pages):
     other = repo / "output" / "draft_board_wk20-wk22.html"
     main = board(repo, "<p>board</p>")
     other.write_text("<p>wk20</p>")
     publish(repo, main, [other])
-    assert remote_pages(repo) == {".nojekyll": "", "draft_board_wk20-wk22.html": "<p>wk20</p>", "index.html": "<p>board</p>"}
+    pages = remote_pages(repo)
+    assert pages["draft/draft_board_wk20-wk22.html"] == "<p>wk20</p>"
+    assert pages["draft/index.html"] == "<p>board</p>"

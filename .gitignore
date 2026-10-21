@@ -11,3 +11,6 @@ output/
 
 # Local planning notes (not shared)
 .scratch/
+
+# Saved Yahoo sign-in session (Playwright profile)
+.auth/
