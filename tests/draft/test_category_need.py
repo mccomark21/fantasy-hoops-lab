@@ -8,31 +8,39 @@ import pytest
 from fantasyhoops import draft
 
 ENGINE = Path(draft.__file__).parent / "category_need.js"
+# best() and reference() for the speed tests (see node_timing.js).
+TIMING_JS = (Path(__file__).parent / "node_timing.js").read_text(encoding="utf-8")
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is not on PATH")
 
 CATS = ["pts", "reb", "ast", "threes", "stl", "blk"]
 
 # Reads {"data", "roster", "candidates": [{player, price}]} on stdin.
-# Writes {"gap", "needs", "ms"}: gap = categoryGap of the roster, needs = need for each candidate, ms = time of all need calls.
-DRIVER = """
+# Writes {"gap", "needs", "ms", "baseline_ms"}: gap = categoryGap of the roster, needs = need for each candidate,
+# ms = best() of all need calls, baseline_ms = best() of reference() (node_timing.js).
+# slow (default 1) calls need that many times for each candidate, to make a need that is slow times slower.
+DRIVER = TIMING_JS + """
 const { categoryGap, need } = require(process.argv[1]);
 let text = "";
 process.stdin.on("data", c => (text += c));
 process.stdin.on("end", () => {
-  const { data, roster, candidates } = JSON.parse(text);
+  const { data, roster, candidates, slow = 1 } = JSON.parse(text);
   const gap = categoryGap(roster, data);
-  const start = performance.now();
-  const needs = candidates.map(c => need(roster, c, data));
-  const ms = performance.now() - start;
-  process.stdout.write(JSON.stringify({ gap, needs, ms }));
+  const needAll = () => candidates.map(c => {
+    for (let k = 1; k < slow; k++) need(roster, c, data);
+    return need(roster, c, data);
+  });
+  const needs = needAll();
+  const ms = best(needAll);
+  const baseline_ms = best(reference);
+  process.stdout.write(JSON.stringify({ gap, needs, ms, baseline_ms }));
 });
 """
 
 
-def engine(data, roster, candidates=()):
+def engine(data, roster, candidates=(), slow=1):
     """Run category_need.js in node."""
     out = subprocess.run(["node", "-e", DRIVER, str(ENGINE)],
-                         input=json.dumps({"data": data, "roster": roster, "candidates": list(candidates)}),
+                         input=json.dumps({"data": data, "roster": roster, "candidates": list(candidates), "slow": slow}),
                          capture_output=True, text=True, check=True, encoding="utf-8")
     return json.loads(out.stdout)
 
@@ -144,12 +152,29 @@ def test_price_outside_the_curve_is_clamped():
     assert poor["totals"]["pts"] == pytest.approx(0.1)
 
 
-def test_speed_500_candidates():
+def need_500(slow=1):
+    """engine() result for the need of 500 candidates. slow makes need that many times slower."""
     roster = [pick(f"p{i}", 15, pts=1.0, blk=0.5) for i in range(4)]
     cands = [{"player": player(f"c{i}", pts=(i % 7) / 3, blk=(i % 5) / 4), "price": 1 + i % 60} for i in range(500)]
-    out = engine(data(), roster, cands)
-    print(f"need x 500: {out['ms']:.2f} ms")
-    assert out["ms"] < 100
+    return engine(data(), roster, cands, slow=slow)
+
+
+# The need time of 500 candidates divided by the reference time (node_timing.js). On the owner's machine, the ratio
+# is about 0.12 and a need that is 10 times slower gives about 0.87. The limit of 0.4 lets a runner be about
+# 3 times slower for need than for the reference work.
+MAX_NEED_RATIO = 0.4
+
+
+def test_speed_500_candidates():
+    out = need_500()
+    ratio = out["ms"] / out["baseline_ms"]
+    print(f"need x 500: {out['ms']:.2f} ms, reference {out['baseline_ms']:.2f} ms, ratio {ratio:.3f}")
+    assert ratio < MAX_NEED_RATIO, f"need {out['ms']:.2f} ms, reference {out['baseline_ms']:.2f} ms, ratio {ratio:.3f}"
+
+
+def test_the_need_time_check_fails_when_need_is_10_times_slower():
+    out = need_500(slow=10)
+    assert out["ms"] / out["baseline_ms"] >= MAX_NEED_RATIO
 
 
 def test_each_category_has_its_own_band():

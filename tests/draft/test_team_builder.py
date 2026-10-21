@@ -10,38 +10,16 @@ from fantasyhoops import draft
 from fantasyhoops.core.common import DATA, ROOT, load_config
 
 ENGINE = Path(draft.__file__).parent / "team_builder.js"
+# best() and reference() for the speed tests (see node_timing.js).
+TIMING_JS = (Path(__file__).parent / "node_timing.js").read_text(encoding="utf-8")
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is not on PATH")
 
 # Reads {"data", "core": [ids], "fit": [ids], "slow"} on stdin. Writes {"score", "fits", "ms", "baseline_ms", "slots", "bench"}:
-# ms = the least time of 5 passes of all fit calls. baseline_ms = the least time of 5 passes of reference(), which does
-# not use team_builder.js, so it measures the speed of the machine. slow (default 1) calls fit that many times for each
-# player, to make a fit that is slow times slower. slots and bench: slotRoster of the core in the order of core, as names.
-DRIVER = """
+# ms = best() of all fit calls. baseline_ms = best() of reference() (node_timing.js). slow (default 1) calls fit
+# that many times for each player, to make a fit that is slow times slower. slots and bench: slotRoster of the core
+# in the order of core, as player names.
+DRIVER = TIMING_JS + """
 const { scoreCore, fit, slotRoster } = require(process.argv[1]);
-function best(f) {
-  let least = Infinity;
-  for (let i = 0; i < 5; i++) {
-    const start = performance.now();
-    f();
-    least = Math.min(least, performance.now() - start);
-  }
-  return least;
-}
-function reference(data) {
-  const sets = data.days.map(d => new Set(d.teams));
-  let n = 0;
-  for (let round = 0; round < 10; round++) {
-    for (const p of data.players) {
-      sets.forEach((teams, i) => {
-        if (!teams.has(p.team)) return;
-        const some = data.players.slice(i + round, i + round + 8).concat([p]);
-        some.sort((a, b) => b.value - a.value);
-        n += some[0].id;
-      });
-    }
-  }
-  return n;
-}
 let text = "";
 process.stdin.on("data", c => (text += c));
 process.stdin.on("end", () => {
@@ -55,7 +33,7 @@ process.stdin.on("end", () => {
   });
   const fits = fitAll();
   const ms = best(fitAll);
-  const baseline_ms = best(() => reference(data));
+  const baseline_ms = best(reference);
   const roster = slotRoster(team, data);
   const slots = Object.fromEntries(Object.entries(roster.slots).map(([s, p]) => [s, p.name]));
   process.stdout.write(JSON.stringify({ score, fits, ms, baseline_ms, slots, bench: roster.bench.map(p => p.name) }));
@@ -182,10 +160,10 @@ def test_slot_roster_moves_a_high_value_player_into_a_starting_slot():
     assert result["bench"] == ["p5"]
 
 
-# The fit time of 500 players divided by the reference time of the same Node process. A fixed limit in ms failed
-# on slow CI runners (#83). On the owner's machine, the ratio is about 1.5 and a fit that is 10 times slower gives
-# about 15. The limit of 5 lets a runner be about 3 times slower for fit than for the reference work.
-MAX_FIT_RATIO = 5
+# The fit time of 500 players divided by the reference time (node_timing.js). On the owner's machine, the ratio is
+# about 1.9 and a fit that is 10 times slower gives about 18. The limit of 6 lets a runner be about 3 times slower
+# for fit than for the reference work.
+MAX_FIT_RATIO = 6
 
 
 def fit_500(slow=1):
@@ -199,7 +177,7 @@ def fit_500(slow=1):
     return engine(data(days, players), [0, 3, 7, 12, 20, 33, 41], fit=range(500), slow=slow)
 
 
-def test_fit_for_500_players_takes_less_than_5_times_the_reference_work():
+def test_fit_for_500_players_takes_less_than_6_times_the_reference_work():
     result = fit_500()
     assert len(result["fits"]) == 500
     ratio = result["ms"] / result["baseline_ms"]
