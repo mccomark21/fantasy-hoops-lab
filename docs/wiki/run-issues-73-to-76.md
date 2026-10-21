@@ -14,3 +14,12 @@ On 2026-10-21, the owner asked the chief of staff to build issues #73 to #76. Th
 - #73, #74 and #76 build in parallel. #75 waits for the owner to approve the sample.
 
 Related: [Environment gaps](environment-gaps.md).
+
+## Result on 2026-10-21
+
+- All issues of this run closed on 2026-10-21: #73 (PR #80, `mccomark21/fantasy-hoops-lab@5c14544`), #75 (PR #81, `@1557a76`), #74 (PR #82, `@08dbbf2`), #83 (PR #84, `@b6a2cea`) and #76 (PR #77, `@79fc505`). #78 (PR #79, `@0922496`) added the "Adds planner" rule 1 to CODING_STANDARDS.md.
+- The chief of staff filed #83 during the run. Two PRs failed CI once on a timing test of the draft tools (187 ms against a limit of 100 ms), and a rerun passed. PR #84 made the timing tests relative to a reference workload in the same Node process.
+- The reviews found 2 blockers in PR #82: the Transaction Trends page got no wait, and a matchup page with no score table stopped the run. The builder fixed both before the merge.
+- On 2026-10-21, the owner's run at `@08dbbf2` took 32 s, against 553 s before #74. The matchup weights came from the live scores (REB 0.99, BLK 0.95, others 1.00).
+- On 2026-10-21, the rotation log held 3 games, so the page showed no starter or closer flags yet. The flags need about 5 logged games for each player.
+- Review agents left local branches `pr66` to `pr82` from `gh pr checkout`. The chief of staff deleted them on 2026-10-21. A later review prompt can ask the reviewer to use `gh pr diff` or a detached checkout.
