@@ -1,4 +1,5 @@
 import random
+from dataclasses import replace
 from datetime import date, timedelta
 from itertools import product
 
@@ -313,3 +314,55 @@ def test_a_free_agent_with_more_games_beats_a_better_waiver_player():
     p = plan([], games, [claim("Claim", "PHI", WEEK[1], value=3.0), fa("Free", "PHI", value=0.5)])
     assert windows(p) == [(0, "PHI", WEEK[0], tuple(WEEK[:4]))]
     assert [o.player.name for o in p.windows[0].options] == ["Free"]
+
+
+def rester(name, team, positions=("SF",), value=1.0, nights=(), count=0.5):
+    """A free agent on the rest list. nights: his second nights of a back-to-back. Each one counts count games."""
+    return replace(fa(name, team, positions, value), rest_games=tuple((d, count) for d in nights))
+
+
+def test_a_player_on_the_rest_list_counts_less_than_2_started_games_for_a_back_to_back():
+    # PHI plays Mon and Tue, a back-to-back. The second night counts 0.5 games, and its value counts 0.5 too.
+    games = {WEEK[0]: {"PHI"}, WEEK[1]: {"PHI"}}
+    p = plan([], games, [rester("Rests", "PHI", value=2.0, nights=[WEEK[1]])])
+    assert (p.started_games, p.adds, p.value) == (1.5, 1, 3.0)
+    assert windows(p) == [(0, "PHI", WEEK[0], (WEEK[0], WEEK[1]))]
+
+
+def test_a_player_who_is_not_on_the_rest_list_counts_as_before():
+    games = {WEEK[0]: {"PHI"}, WEEK[1]: {"PHI"}}
+    p = plan([], games, [fa("Plays", "PHI", value=2.0)])
+    assert (p.started_games, p.adds, p.value) == (2, 1, 4.0)
+
+
+def test_the_plan_takes_a_player_with_no_rest_risk_over_a_player_on_the_rest_list():
+    # Both play Mon and Tue. The player on the rest list has the higher value, but he counts 1.5 games, not 2.
+    # He is not a window option, because the plan loses 0.5 games with him.
+    games = {WEEK[0]: {"PHI", "ATL"}, WEEK[1]: {"PHI", "ATL"}}
+    fas = [rester("Rests", "PHI", value=5.0, nights=[WEEK[1]]), fa("Plays", "ATL", value=1.0)]
+    p = plan([], games, fas)
+    assert (p.started_games, [w.team for w in p.windows]) == (2, ["ATL"])
+    assert [o.player.name for o in p.windows[0].options] == ["Plays"]
+
+
+def test_a_tie_on_fractional_started_games_goes_to_the_fewer_adds():
+    # One spot. PHI and CHI play Tue on a second night. One PHI player gives 1.5 games with 1 add.
+    # ATL on Mon, then CHI on Tue, also gives 1.5 games, but with 2 adds.
+    games = {WEEK[0]: {"PHI", "ATL"}, WEEK[1]: {"PHI", "CHI"}}
+    fas = [rester("Phi", "PHI", nights=[WEEK[1]]), fa("Atl", "ATL", value=3.0),
+           rester("Chi", "CHI", value=3.0, nights=[WEEK[1]])]
+    p = plan([], games, fas)
+    assert (p.started_games, p.adds, [w.team for w in p.windows]) == (1.5, 1, ["PHI"])
+
+
+def test_the_plan_score_rounds_the_started_games_for_a_tie():
+    assert plan_score(0.1 + 0.2, 1) == plan_score(0.3, 1)
+    assert aggressive_score(0.0)(0.1 + 0.2, 1) == aggressive_score(0.0)(0.3, 1)
+
+
+def test_a_holder_on_the_rest_list_counts_less_on_a_second_night():
+    games = {WEEK[0]: {"DEN"}, WEEK[1]: {"DEN"}}
+    days = open_slots_by_day([], games, SLOTS)
+    holder = rester("Holder", "DEN", nights=[WEEK[1]], count=0.0)
+    p = schedule_plan(days, games, [StreamSpot(holder)], [], 5, SLOTS)
+    assert (p.started_games, p.adds) == (1, 0)

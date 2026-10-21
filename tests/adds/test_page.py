@@ -227,8 +227,42 @@ def test_the_command_does_not_publish_with_no_publish(monkeypatch, tmp_path, cap
     assert "did not publish" in capsys.readouterr().out
 
 
-def run_command(monkeypatch, tmp_path, published, publish, options=None):
-    """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced."""
+def test_the_page_marks_the_second_game_of_each_back_to_back():
+    # PHI plays Mon and Tue, so Tue is a second night. CHI plays Sat and Sun, so Sun is a second night.
+    nights = {WEEK[1]: {"PHI"}, WEEK[6]: {"CHI"}}
+    rows = plan_rows(render(nights=nights))
+    marks = [[bool(re.search(r'class="b2b"', cell)) for cell in re.findall(r"<td[^>]*>.*?</td>", row)[:7]]
+             for row in rows]
+    assert marks[0] == [False, True, False, False, False, False, True]
+    assert marks[1] == [False, True, False, False, False, False, False]
+    assert "second game of a back-to-back" in text(render(nights=nights))
+    data = page.free_agent_data(OPTIONS, DAYS, GAMES, replacement=0.5, nights=nights)
+    assert data["players"][2]["b2b"] == [False, False, False, False, False, False, True]  # Chi One
+    assert data["players"][1]["b2b"] == [False, True, False, False, False, False, False]  # Phi & One
+
+
+def test_a_fractional_gain_shows_one_decimal():
+    row = SpotPlan(ROW2.spot, ROW2.plan, 1.5)
+    html = page.render(DATA, DAYS, GAMES, SPOTS, [row], OPTIONS, today=WEEK[0])
+    assert re.findall(r'<td class="total">([^<]*)</td>', plan_rows(html)[0]) == ["1", "+1.5"]
+
+
+def test_the_command_counts_a_second_night_of_a_player_on_the_rest_list_as_less_than_1_game(
+        monkeypatch, tmp_path, capsys):
+    # PHI plays Mon and Tue. Phi One is on the rest list, and [adds] rest_chance is 0.5.
+    run_command(monkeypatch, tmp_path, [], publish=False, rests={"phi one"})
+    out = capsys.readouterr().out
+    assert "Schedule plan: 1.5 started games with 1 add" in out
+    assert "Started games: 1.5 (Mon 01/04, Tue 01/05 b2b)." in out
+    assert "  1. +1.5 started games with 1 add" in out
+    assert 'class="b2b"' in (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+
+
+def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None):
+    """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced.
+
+    rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
+    """
     @contextmanager
     def no_yahoo(league):
         yield None
@@ -236,7 +270,8 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None):
     import pandas as pd
     sched = pd.DataFrame({"date": [str(WEEK[0]), str(WEEK[0]), str(WEEK[1])], "team": ["PHI", "BOS", "PHI"]})
     cfg = {"league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
-           "adds": {"league": 1, "team": 1}, "weights": {"pts": 1.0}}
+           "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {})}, "weights": {"pts": 1.0}}
+    monkeypatch.setattr(command, "read_rest_names", lambda cfg: set(rests or ()))
     monkeypatch.setattr(command, "load_config", lambda: cfg)
     monkeypatch.setattr(command, "read_schedule", lambda: sched)
     monkeypatch.setattr(command, "open_league", no_yahoo)

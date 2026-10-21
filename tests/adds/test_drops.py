@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date, timedelta
 
 import numpy as np
@@ -99,6 +100,19 @@ def test_no_drop_when_the_holder_gives_the_same_started_games():
     spots, plan, drops = run([player("Quickley", "TOR")], games, [fa("Sun", "PHX")], config(1, stream_spots=1),
                              values(Quickley=(90, -0.52)))
     assert (plan.started_games, plan.adds, drops) == (7, 0, [])
+
+
+def test_the_gain_of_a_drop_counts_a_rest_game_of_the_holder_as_in_the_plan():
+    # Quickley (TOR, on the rest list) plays Mon and Tue. Tue is a second night, so it counts 0.5.
+    # PHX plays Tue to Fri. Drop him on Tue: 1 + 4 = 5 started games. Keep him: 1 + 0.5 = 1.5. So +3.5.
+    games = {WEEK[0]: {"TOR"}, WEEK[1]: {"TOR", "PHX"}, WEEK[2]: {"PHX"}, WEEK[3]: {"PHX"}, WEEK[4]: {"PHX"}}
+    roster, vals = [player("Quickley", "TOR")], values(Quickley=(90, -0.52))
+    spots = [StreamSpot(replace(s.holder, rest_games=((WEEK[1], 0.5),)))
+             for s in choose_stream_spots(roster, config(1, stream_spots=1), vals)]
+    days = open_slots_by_day(kept_roster(roster, spots), games, SLOTS)
+    plan = schedule_plan(days, games, spots, [fa("Sun", "PHX")], 5, SLOTS)
+    drops = drop_trade_offs(plan, roster, spots, games, [fa("Sun", "PHX")], 5, SLOTS, vals)
+    assert (plan.started_games, [d.gain for d in drops]) == (5, [3.5])
 
 
 def test_a_warning_shows_for_a_streamer_with_a_higher_value_than_the_lowest_core_player():

@@ -7,6 +7,7 @@ A section shows only the parts that exist. The main sections:
 - Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
   script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
 A third section lists the waiver players (W) with their clear days.
+A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
 draft board.
 """
@@ -16,6 +17,7 @@ from datetime import date, timedelta
 
 from fantasyhoops.adds.planner import waiver_options
 from fantasyhoops.adds.readers import STAT_COLUMNS
+from fantasyhoops.adds.rest import games_text
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core.common import OUT as _OUT
 
@@ -26,6 +28,7 @@ RANKING_ROWS = 12  # the teams in the ranking table
 FREE_AGENT_ROWS = 10  # the rows of the free-agent table: the best players for the filters
 FLAG = 1.5  # the market value from which a free agent gets the "FA?" mark
 POSITIONS = ("PG", "SG", "SF", "PF", "C")  # the position filters
+B2B = '<sup class="b2b" title="second game of a back-to-back">2</sup>'  # the mark of a second night
 
 
 def _e(text):
@@ -95,9 +98,12 @@ def _moves(row):
     return "".join(lines)
 
 
-def plans_section(rows, days, spots, adds, today):
+def plans_section(rows, days, spots, adds, today, nights=None):
     """The best plans for one roster spot: one row for each SpotPlan, one column for each day, then the adds,
-    the games gained and the moves. A short message if there is no plan."""
+    the games gained and the moves. A short message if there is no plan.
+
+    nights: from rest.second_nights(). B2B marks a started game of a new player on a second night of his team."""
+    nights = nights or {}
     title = "<h2>Best plans for one roster spot</h2>"
     if not spots:
         return (f"<section>{title}\n<p>No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
@@ -117,10 +123,12 @@ def plans_section(rows, days, spots, adds, today):
         for d in days:
             started = sum(d.date in w.started for w in row.added)
             add = "<i>+</i>" if any(w.add_day == d.date for w in row.added) else ""
-            cells.append(f'<td class="on"><b>{started}{add}</b></td>' if started
+            b2b = B2B if any(d.date in w.started and w.team in nights.get(d.date, ()) for w in row.added) else ""
+            cells.append(f'<td class="on"><b>{started}{add}{b2b}</b></td>' if started
                          else f"<td>{add or '·'}</td>")
         body.append(f'<tr><th>{n}</th>{"".join(cells)}<td class="total">{row.plan.adds}</td>'
-                    f'<td class="total">{row.gain:+d}</td><td class="moves">{_moves(row)}</td></tr>')
+                    f'<td class="total">{games_text(row.gain, sign=True)}</td>'
+                    f'<td class="moves">{_moves(row)}</td></tr>')
     note = ""
     if any(w.add_day == today for row in rows for w in row.added):
         note = '\n<p class="muted">An add for today helps only if his game has not started.</p>'
@@ -130,8 +138,9 @@ def plans_section(rows, days, spots, adds, today):
             f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
             '<p class="legend">Each row is a plan for one roster spot, with different players in each row. A row can '
             'use more than one add in the same spot. A cell shows a started game of a new player. '
-            '<i>+</i> marks a latest add day. Gms: the started games of the new players minus the started games that '
-            f"the dropped player loses.</p>{note}</section>")
+            f'<i>+</i> marks a latest add day. {B2B} marks the second game of a back-to-back. Gms: the started games '
+            'of the new players minus the started games that the dropped player loses. A game of a player on the rest '
+            f"list on a second night counts less than 1.</p>{note}</section>")
 
 
 def matchup_section(matchup, weights):
@@ -158,13 +167,16 @@ def matchup_section(matchup, weights):
             f"<th>Weight</th></tr></thead><tbody>{rows}</tbody></table>\n{note}</section>")
 
 
-def free_agent_data(options, days, games, replacement, match_replacement=None):
+def free_agent_data(options, days, games, replacement, match_replacement=None, nights=None):
     """The data of the free-agent table: the days and one row for each option who plays, best value first.
 
     A value is a market value: the value minus replacement. match: the matchup value minus match_replacement, the
     matchup value of a replacement free agent. plays: his team plays on the day. fits: he plays and
-    one of the open slots of the day takes one of his positions (Util takes all positions).
+    one of the open slots of the day takes one of his positions (Util takes all positions). b2b: he plays on the
+    second night of a back-to-back (nights, from rest.second_nights()).
     """
+    nights = nights or {}
+
     def market(v, base=replacement):
         return None if v is None or base is None else round(v - base, 2)
 
@@ -176,13 +188,14 @@ def free_agent_data(options, days, games, replacement, match_replacement=None):
         players.append({"name": p.name, "team": p.team, "pos": list(p.positions), "status": p.status,
                         "value": market(o.value), "recent": market(o.recent_value),
                         "match": market(o.match, match_replacement),
-                        "trend": o.trend.adds_today if o.trend else None, "plays": plays, "fits": fits})
+                        "trend": o.trend.adds_today if o.trend else None, "plays": plays, "fits": fits,
+                        "b2b": [on and p.team in nights.get(d.date, ()) for on, d in zip(plays, days)]})
     return {"days": [{"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games,
                       "open": len(d.open)} for d in days],
             "players": players, "positions": list(POSITIONS), "flag": FLAG, "rows": FREE_AGENT_ROWS}
 
 
-def free_agents_section(options, days, games, replacement, match_replacement=None):
+def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
@@ -190,14 +203,15 @@ def free_agents_section(options, days, games, replacement, match_replacement=Non
     options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
         return ""
-    data = json.dumps(free_agent_data(options, days, games, replacement, match_replacement), ensure_ascii=False)
-    data = data.replace("</", "<\\/")
+    data = free_agent_data(options, days, games, replacement, match_replacement, nights)
+    data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return ('<section><h2>Free agents</h2>\n'
             '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
             '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
             '</label>\n<p class="count" id="fa-count"></p>\n<table class="fa" id="fa-table"></table>\n'
             '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
-            '<span class="dot game"></span> game, no open slot for him. Val: blended value per game above a '
+            f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
+            'Val: blended value per game above a '
             f'replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). Match: the same value '
             'with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. '
             '<span class="flag">FA?</span> a value this high is unusual for a free agent.</p>\n'
@@ -264,7 +278,7 @@ def method_note():
 
 
 def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
-           warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None):
+           warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None, nights=None):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
@@ -273,14 +287,15 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
     read. replacement: the value of a replacement free agent (value.replacement_value()), or None.
     warnings and contingencies: text lines. matchup, weights: the matchup.Matchup (or None) and the matchup weights
     (None: no matchup section). match_replacement: the matchup value of a replacement free agent, or None.
+    nights: from rest.second_nights(), for the B2B marks.
     """
     today = today or date.today()
     sections = [
         header(data, days, spots, today),
         warnings_section(warnings),
-        plans_section(rows, days, spots, data.adds, today),
+        plans_section(rows, days, spots, data.adds, today, nights),
         matchup_section(matchup, weights),
-        free_agents_section(options, days, games, replacement, match_replacement),
+        free_agents_section(options, days, games, replacement, match_replacement, nights),
         waivers_section(options, replacement),
         contingency_section(contingencies),
         ranking_section(ranking, read),
@@ -346,6 +361,7 @@ th.name, td.name { text-align: left; overflow-wrap: anywhere; }
 .plans td b { font-size: 14px; }
 .plans tr.open td, .plans tr.open th { background: var(--head); color: var(--q); font-weight: 700; }
 i { font-style: normal; color: var(--q); font-weight: 700; }
+sup.b2b { font-size: 9px; font-weight: 700; color: var(--bad); margin-left: 1px; }
 @media (max-width: 599px) {
   .plans th:first-child { width: 11%; font-size: 10px; }
   .plans .total { width: 8%; }
@@ -400,6 +416,7 @@ const DATA = JSON.parse(document.getElementById("fa-data").textContent);
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const fmt = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2);
+const B2B = '<sup class="b2b" title="second game of a back-to-back">2</sup>';
 const state = {days: new Set(), pos: new Set(), fit: true, sort: "value"};
 const hits = p => state.fit ? p.fits : p.plays;
 const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
@@ -438,7 +455,8 @@ function render() {
       + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td>`
       + `<td class="${p.match < 0 ? "neg" : ""}">${fmt(p.match)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`
       + DATA.days.map((d, i) => `<td class="day${sel(i)}">${p.fits[i] ? '<span class="dot fit"></span>'
-        : p.plays[i] ? '<span class="dot game"></span>' : ""}</td>`).join("") + `</tr>`).join("") + `</tbody>`;
+        : p.plays[i] ? '<span class="dot game"></span>' : ""}${p.b2b[i] ? B2B : ""}</td>`).join("") + `</tr>`).join("")
+      + `</tbody>`;
   $("fa-table").querySelectorAll("th.sort").forEach(h => h.onclick = () => { state.sort = h.dataset.sort; render(); });
 }
 

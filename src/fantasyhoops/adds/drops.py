@@ -13,7 +13,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from fantasyhoops.adds.planner import Option, StreamSpot, schedule_plan
+from fantasyhoops.adds.planner import DIGITS, Option, StreamSpot, counted_games, schedule_plan
+from fantasyhoops.adds.rest import games_text
 from fantasyhoops.adds.slots import open_slots_by_day, roster_spots_used
 from fantasyhoops.core.common import latest_projections, name_key
 from fantasyhoops.core.valuation import value_players
@@ -88,13 +89,14 @@ class Drop:
     """A suggested drop: the add of window drops holder, and the plan gets gain more started games this week.
 
     gain: the started games of the plan minus the started games of the best plan that keeps the holder. Both counts
-    include the started games of the holder and of the players who are kept.
+    include the started games of the holder and of the players who are kept. A fraction if a player on the rest
+    list starts on a second night of a back-to-back.
     season: the SeasonValue of the holder, or None if he is not in the projections file.
     """
     window: object
     holder: object
     season: SeasonValue | None
-    gain: int
+    gain: float
 
     def text(self):
         """For example "Drop Quickley (rank 90, season value -0.52) -> PHX Thu 01/07 to Sun 01/10: +2 started
@@ -104,7 +106,7 @@ class Drop:
                   else "not in the projections file")
         games = "game" if self.gain == 1 else "games"
         return (f"Drop {self.holder.name} ({season}) -> {w.team} {w.add_day:%a %m/%d} to {w.last_day:%a %m/%d}: "
-                f"+{self.gain} started {games} this week.")
+                f"{games_text(self.gain, sign=True)} started {games} this week.")
 
 
 def drop_trade_offs(plan, roster, spots, games, free_agents, adds_left, slots, values):
@@ -123,16 +125,22 @@ def drop_trade_offs(plan, roster, spots, games, free_agents, adds_left, slots, v
         others = spots[:s] + spots[s + 1:]
         days = open_slots_by_day(kept_roster(roster, others), games, slots)
         kept = schedule_plan(days, games, others, free_agents, adds_left, slots)
-        kept_starts = kept.started_games + _roster_starts(kept_roster(roster, others), games, slots) - base
-        gain = plan.started_games - kept_starts
+        kept_starts = kept.started_games + _roster_starts(kept_roster(roster, others), games, slots, spots) - base
+        gain = round(plan.started_games - kept_starts, DIGITS)
         out.append(Drop(window=added[0], holder=spot.holder.player, season=season_value(spot.holder.player, values),
                         gain=gain))
     return out
 
 
-def _roster_starts(roster, games, slots):
-    """The started games of the players on the roster in the days of games."""
-    return sum(len(d.starters) for d in open_slots_by_day(roster, games, slots))
+def _roster_starts(roster, games, slots, spots=()):
+    """The counted started games of the players on the roster in the days of games.
+
+    spots: the StreamSpots. A holder on the roster counts his games with his rest games (planner.counted_games()),
+    the same count as in the plan. Each other player counts each game as 1.
+    """
+    rests = {s.holder.player: s.holder.rest_games for s in spots if s.holder}
+    return sum(counted_games(rests.get(p, ()), [d.date])
+               for d in open_slots_by_day(roster, games, slots) for _, p in d.starters)
 
 
 def value_warnings(plan, roster, spots, cfg, values):

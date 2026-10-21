@@ -40,3 +40,11 @@ The rotation log (`data/rotation_log.csv`) gives these terms. `core/rotation.py`
 | Start | The player is in the starting lineup of the game, from the ESPN box score. |
 | Close game | At some moment in the last 5:00 of the fourth quarter or of an overtime period, the margin is 5 points or fewer. A game with an overtime period is always a close game. The settings are `close_minutes` and `close_margin` in `[rotation]`. |
 | Close | The player is on the floor at the end of a close game. The closes of a player are counted against the close games of his team. |
+
+## Schedule
+
+| Term | Meaning |
+|---|---|
+| Back-to-back | Two games of one NBA team on two days in a row. |
+| Second night | The second game of a back-to-back. |
+| Rest list | The players with `rests_b2b` = 1 in the `[risk] file` of `config.toml`. They can rest on a second night. In the draft tools, the list changes only the playoff game counts, never the season games or the value. In the adds planner, a game of a player on the list on a second night counts `1 - [adds] rest_chance` started games. |

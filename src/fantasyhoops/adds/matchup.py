@@ -17,7 +17,7 @@ from dataclasses import dataclass, replace
 import pandas as pd
 from bs4 import BeautifulSoup
 
-from fantasyhoops.adds.planner import StreamSpot, aggressive_plan
+from fantasyhoops.adds.planner import StreamSpot, aggressive_plan, counted_games
 from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.value import line_value
 from fantasyhoops.core.common import latest_projections, name_key
@@ -153,7 +153,8 @@ def matchup_plan(days, games, spots, free_agents, adds_left, slots, empty_value)
                            [scored(o) for o in free_agents], adds_left, slots, empty_value)
     windows = tuple(replace(w, player=original.get(w.player.player, w.player),
                             options=tuple(original.get(o.player, o) for o in w.options)) for w in plan.windows)
-    value = sum(len(w.started) * (w.player.value if _finite(w.player.value) else 0.0) for w in windows)
+    value = sum(counted_games(w.player.rest_games, w.started) * (w.player.value if _finite(w.player.value) else 0.0)
+                for w in windows)
     return replace(plan, windows=windows, value=value)
 
 
@@ -163,8 +164,8 @@ def matchup_score(plan, empty_value):
     empty_value: the value of an empty slot with the matchup weights. A player with no finite matchup value counts as
     an empty slot.
     """
-    return sum(len(w.started) * ((w.player.match if _finite(w.player.match) else empty_value) - empty_value)
-               for w in plan.windows)
+    return sum(counted_games(w.player.rest_games, w.started)
+               * ((w.player.match if _finite(w.player.match) else empty_value) - empty_value) for w in plan.windows)
 
 
 def matchup_lines(matchup, weights):

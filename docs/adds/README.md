@@ -9,6 +9,7 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 - [Goal](#goal)
 - [Usage](#usage)
 - [The plans](#the-plans)
+- [Rest on back-to-backs](#rest-on-back-to-backs)
 - [Value](#value)
 - [The page](#the-page)
 - [Core and drops](#core-and-drops)
@@ -25,6 +26,8 @@ The schedule plan gets the most started games from your stream spots. If two pla
 The aggressive plan gets the most value from your stream spots: the sum of the matchup value above an empty slot of its started games. It can give up started games for better players. The matchup value weights the categories by the state of the current matchup (see [Matchup weights](#matchup-weights)).
 
 The two plans give you a real choice: few adds and a good schedule, or more adds and better players.
+
+A started game of a player on the rest list on the second night of a back-to-back counts less than 1 started game. See [Rest on back-to-backs](#rest-on-back-to-backs).
 
 ## Usage
 
@@ -90,6 +93,24 @@ The planner shows no drop trade-offs for the aggressive plan, because the gain o
 
 The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot. The last row is the matchup value above an empty slot, the score of the aggressive plan. With all matchup weights at 1, the last two rows are the same. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
 
+## Rest on back-to-backs
+
+Decision (2026-10-21, #62): a player on the rest list counts less than 1 started game on the second night of a back-to-back. All other players count each game as 1, as before.
+
+- The rest list is the `rests_b2b` column of the `[risk] file` (`data/projection_risk.csv`), the list of the draft tools. The names match after `name_key()`. A player who is not in the file does not rest. If the file does not exist, nobody rests.
+- A second night is a game of a team on the day after a game of the same team. A game on the day before the planning window counts too.
+- One game of a player on the rest list on a second night counts `1 - rest_chance` started games. `[adds] rest_chance` is 0.5, so the game counts 0.5. No data gives a better value yet. With 0, the planner counts each game as 1.
+- The value of that game in the plan score is the blended value times the same count.
+- The count applies to the free agents and to the players in the stream spots. It does not change the kept players.
+
+The started games of a plan can now be a fraction, for example 6.5. The tie rules of the plan score stay in the same order. The score rounds the started games to 6 decimals, so that the same games in a different order give a tie. So a player with no rest risk beats a player on the rest list with the same games.
+
+On each day, the lineup puts the players with no rest risk in the open slots first, then the players with the higher value. A window option fits only if the plan keeps all its counted started games with him.
+
+The draft tools do not change. There, `rests_b2b` changes only the playoff game counts, never the season games or the value. `[adds] rest_chance` is separate from `[risk] rest_chance` of the auction simulator.
+
+The page marks each second night with a small "2", for all players. The terminal marks it with "b2b".
+
 ## Value
 
 The blended value orders the free agents. It uses your 6 categories and your weights, the same formula as `core/valuation.py`, on a blended stat line:
@@ -148,9 +169,9 @@ To make a row, the planner runs the search of the schedule plan for each stream 
 
 | Column | What it shows |
 | --- | --- |
-| Days | The started games of the new players on that day. A `+` marks a latest add day. |
+| Days | The started games of the new players on that day. A `+` marks a latest add day. A small "2" marks a game on a second night. |
 | Adds | The adds of the row. |
-| Gms | The games gained: the started games of the new players minus the started games that the dropped player loses. |
+| Gms | The games gained: the started games of the new players minus the started games that the dropped player loses. A fraction if a player on the rest list starts on a second night. |
 | Moves | One line for each add, for example "+Alex Caruso (OKC) – Tue, Thu & Sun", then the drop. |
 
 The rows can all use the same spot. Usually that is the spot whose player loses the fewest games.
@@ -168,7 +189,7 @@ Match is the market value with the matchup weights: the matchup value above the 
 
 A filter does not change Val or Match, because they are values per game.
 
-A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status.
+A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status.
 
 ### Waiver players
 
@@ -193,7 +214,7 @@ Yahoo uses the official NBA designations: O (out), Q (questionable), D (doubtful
 
 | Player | Main plan | Contingency plan |
 |---|---|---|
-| Healthy | Plays every game of his team. | None. |
+| Healthy | Plays every game of his team. A game of a player on the rest list on a second night counts `1 - rest_chance` started games. | None. |
 | Out player (Out, Out for Season, NA (Not Active) or suspended) | Does not play in the planning window. His slot is open. If he is on IL, his roster spot is a stream spot. A free agent with one of these statuses is not in the plan. | None. |
 | Flagged player (Q, D, P or another status) | Plays every game of his team. | One for each of his game days. |
 | Core player on the bench, not on IL | Takes a roster spot. Fills no slot while he is out. Never dropped. | None. |
@@ -245,6 +266,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `core` | The names of your core players. |
 | `stream_spots` | The number of stream spots: 3. The empty spots count first. |
 | `add_delay_days` | The add delay. 0 for this league. |
+| `rest_chance` | The chance that a player on the rest list sits on a second night: 0.5. That game counts `1 - rest_chance` started games. 0 counts each game as 1. |
 
 The settings of the [matchup weights](#matchup-weights) are in `[adds.matchup]`:
 
@@ -262,7 +284,7 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 
 | Term | Meaning |
 |---|---|
-| Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. |
+| Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. A started game of a player on the rest list on a second night counts `1 - rest_chance`. |
 | Open day | A day of the planning window with at least one open starting slot. |
 | Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games. Aggressive plan: the sum of the matchup value above an empty slot of the started games. Ties go to the plan with fewer adds, then to the plan with more started games. |
 | Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan uses the matchup value of the player and of the empty slot. |
