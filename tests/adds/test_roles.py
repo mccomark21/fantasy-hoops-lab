@@ -9,7 +9,9 @@ from fantasyhoops.adds.roles import player_roles, read_roles
 from fantasyhoops.core.common import load_config
 from fantasyhoops.core.rotation import LOG, SCORES
 
-CFG = {"rotation": {"close_margin": 5, "close_minutes": 5}, "adds": {"minutes_rise": 4.0}}
+FLAGS = {"window_games": 10, "min_games": 5, "new_games": 3, "close_window": 8, "min_close_games": 4,
+         "new_closes": 2, "regular_share": 0.7, "some_share": 0.2}
+CFG = {"rotation": {"close_margin": 5, "close_minutes": 5}, "adds": {"minutes_rise": 4.0, "flags": FLAGS}}
 END = 2880  # the end of the fourth quarter, in seconds
 TODAY = date(2026, 11, 20)
 
@@ -83,7 +85,7 @@ def test_a_large_rise_of_the_minutes_gets_the_mark_and_the_threshold_is_a_settin
     r = player_roles(players, stints, scores, CFG, TODAY)[("Joe Fa", "PHI")]
     assert (r.minutes_last5, r.minutes_14d, r.change) == (pytest.approx(20.0), pytest.approx(15.0), pytest.approx(5.0))
     assert r.rise
-    high = {**CFG, "adds": {"minutes_rise": 6.0}}
+    high = {**CFG, "adds": {**CFG["adds"], "minutes_rise": 6.0}}
     assert not player_roles(players, stints, scores, high, TODAY)[("Joe Fa", "PHI")].rise
 
 
@@ -97,6 +99,18 @@ def test_the_closes_in_the_close_games_of_his_team():
     # Close games in the last 14 days: g5 (3 points) and g7 (2 points). g6 is a blowout, so his close there
     # does not count. He closes g5, not g7.
     assert (r.closes, r.close_games) == (1, 2)
+
+
+def test_the_role_has_the_starter_flag_and_the_closer_flag():
+    r = role()
+    # Starts in his 7 games, oldest first: - - - - S S S. So he is a new starter (core/role_flags.py).
+    # PHI has 2 close games (g5 and g7), fewer than min_close_games: no closer flag.
+    assert (r.starter, r.closer) == ("New", None)
+
+
+def test_the_flags_count_games_before_today_only():
+    # On Nov 18, the log holds g1 to g6 before today: - - - - S S. 2/6 is Inconsistent.
+    assert role(today=date(2026, 11, 18)).starter == "Inconsistent"
 
 
 def test_a_game_with_a_large_margin_is_not_a_close_game():

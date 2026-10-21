@@ -85,6 +85,20 @@ starter_games = 5          # a starter started more than half of his last starte
 days = 7                   # the first missed game is in the last days days, so the absence is new
 games = 3                  # the mark stays for this number of missed games. Then the recent line shows the new role
 
+# Starter flag and closer flag on the page (#75, core/role_flags.py). The flags change no value.
+# Starter flag: his last window_games games. Closer flag: the last close_window close games of his NBA team.
+# Check order: New (the last new_games or new_closes are all starts or closes, and fewer than half of the earlier
+# games in the window are), then Regular (regular_share or more), then Inconsistent (some_share or more).
+[adds.flags]
+window_games = 10
+min_games = 5              # fewer games give no starter flag
+new_games = 3
+close_window = 8
+min_close_games = 4        # fewer close games give no closer flag
+new_closes = 2
+regular_share = 0.7
+some_share = 0.2
+
 # Rotation log: python -m fantasyhoops.fetch.rotation writes data/rotation_log.csv. core/rotation.py reads it.
 # A close game: at some moment in the last close_minutes of the fourth quarter or of an overtime period,
 # the margin is close_margin points or fewer. A close: the player is on the floor at the end of a close game.
