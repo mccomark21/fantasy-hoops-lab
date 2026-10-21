@@ -16,3 +16,9 @@ The skill reads the CI check name, the ticket rules and the closing-comment shap
 For agents to merge, the owner must add an auto-mode allow rule to `~/.claude/settings.json`. As of 2026-10-21, the owner had not added it.
 
 Related: [Ticket workflow](ticket-workflow.md), [Environment gaps](environment-gaps.md).
+
+## Update on 2026-10-21: renamed to ticket-pipeline
+
+- On 2026-10-21, the owner renamed the skill to `ticket-pipeline` (`~/.claude/skills/ticket-pipeline/`). The `pr-flow` folder was deleted. This supersedes the path above.
+- The new version adds an Orchestrator role (waves by file, briefs with pointers, a separate reviewer, the merge queue). A builder that waits on another PR commits, pushes to its own branch, reports what is left and stops.
+- Scenario tests on 2026-10-21 (workspace `~/.claude/skills/ticket-pipeline-workspace/`): round 1 (5 easy tests) gave 30/30 for both versions. Round 2 (5 harder tests from the problems of the runs) gave 25/25 for `ticket-pipeline` and 21/25 for `pr-flow`. The old version claimed a live check that a worktree with no data could not do.
