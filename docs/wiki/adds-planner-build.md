@@ -40,3 +40,9 @@ On 2026-10-21, all 12 issues were open with 0 comments.
 - The PR body ends with "Closes #42" through "closes #53". A merge closes all 12 issues, but adds no comment to them.
 - The audit found three stale points in the PR body: the test count (317, not 323), the claim that nothing was published, and the #52 row.
 - The owner merges PR #54. See [Owner merges PR #54](decision-owner-merges-pr-54.md).
+
+## Update on 2026-10-21: merged
+
+- On 2026-10-21, the owner merged PR #54 as a squash commit, `mccomark21/fantasy-hoops-lab@a9ff86b`. The merge closed #42. The push run on main passed: 317 passed, 6 skipped (run 39616422251).
+- The squash merge left the branch commits out of main's history. The closing comments on #43 to #53 cite those commits, for example 966993f and bcc5c04. GitHub keeps them in the PR #54 refs, so the links still work. See [Ticket workflow](ticket-workflow.md).
+- PR #54 merged before its branch got the CI workflow from PR #56, so it had no pull-request check.

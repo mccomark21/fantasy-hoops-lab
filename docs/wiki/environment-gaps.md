@@ -20,3 +20,4 @@ Dated observations of what the repo did not have. Each item names the date of th
 - In CI, 6 tests in `tests/draft/test_team_builder.py` skip, because git does not track `data/schedule.csv` or the projections file. See the Decision comment on #55.
 - The owner did not choose the weekly wiki lint schedule on 2026-10-21.
 - When PR #56 merges, the "no CI checks" and "no CODING_STANDARDS.md" gaps above are superseded.
+- On 2026-10-21, the owner merged PR #56 (`mccomark21/fantasy-hoops-lab@0f485ab`). This supersedes the "no CI checks" and "no CODING_STANDARDS.md" gaps above. On 2026-10-21, the first push runs on main waited about 1 minute in the queue and then passed.

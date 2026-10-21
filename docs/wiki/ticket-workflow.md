@@ -37,3 +37,9 @@ The audit of 2026-10-21 suggested these steps for #42:
 For a later epic, post the decision comments on the issue when the decision happens, as on #39.
 
 Related: [Adds planner build](adds-planner-build.md), [Environment gaps](environment-gaps.md).
+
+## Update on 2026-10-21
+
+- On 2026-10-21, CODING_STANDARDS.md came into the repo (PR #56). It states the ticket rules: one PR per ticket, dated Decision comments, and a closing comment.
+- On 2026-10-21, the owner squash-merged PR #54. The commit SHAs in a ticket's closing comment are then not in main's history. A squash PR for each ticket avoids this, because its closing comment cites the squash commit.
+- On 2026-10-21, the owner decided that a commit that changes only `docs/wiki/` can go straight to main. CODING_STANDARDS.md got this as Docs rule 5. This commit adds the rule.
