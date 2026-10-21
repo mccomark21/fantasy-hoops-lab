@@ -142,6 +142,17 @@ def test_the_matchup_plan_scores_the_matchup_values_and_shows_the_blended_values
     assert matchup_score(m, -10.0) == 8
 
 
+def test_the_matchup_plan_uses_the_next_week_bonus_with_the_matchup_values():
+    # Mon is open. With the matchup values, Good (CHI, -6) and Bad (ATL, -6) tie this week. Bad has 4 games next
+    # week, so the bonus chooses him. The next-week value of the plan uses his blended value (-8).
+    games = {WEEK[0]: {"ATL", "CHI"}}
+    days = open_slots_by_day([], games, SLOTS)
+    fas = [fa("Good", "CHI", -1, -6), fa("Bad", "ATL", -8, -6)]
+    m = matchup_plan(days, games, [StreamSpot()], fas, 1, SLOTS, -10.0, next_week={"ATL": 4}, next_weight=0.5)
+    assert [w.player.player.name for w in m.windows] == ["Bad"]
+    assert (m.next_games, m.next_value) == (2.0, -16.0)
+
+
 def test_the_matchup_score_counts_a_holder_with_no_value_as_an_empty_slot():
     games = {WEEK[0]: {"DEN"}}
     days = open_slots_by_day([], games, SLOTS)

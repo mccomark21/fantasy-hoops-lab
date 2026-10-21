@@ -21,6 +21,13 @@ week, so a plan can use the same key twice. The plan then takes a different play
 
 Rest risk (adds/rest.py): a game of a player on the rest list on the second night of a back-to-back counts less
 than 1 started game (counted_games()). So the started games of a plan can be a fraction.
+
+Next week (#60): a player who holds a stream spot on the last day of the week can stay on the roster next week.
+With next_week ({team: games next week}) and next_weight, he adds next_weight x his games next week to the
+next-week totals of the plan (next_games, next_value). The schedule score uses them as the last tiebreak. The
+aggressive score adds their value above an empty slot, never less than 0. In the search, each game next week is
+one more open day of the key after the last open day, so the search knows the next-week games of each spot at
+the end of the week.
 """
 import math
 from dataclasses import dataclass, replace
@@ -152,22 +159,33 @@ class Plan:
     started_games: the counted started games (counted_games() of each player). A fraction if a player
     on the rest list starts on a second night.
     value: the total blended value of the started games (the sum of Option.value x the count of each started game).
+    next_games: next_weight x the games next week of the players who hold a stream spot on the last day of the
+    week. next_value: the sum of next_weight x his games next week x his value, for each of these players.
     """
     windows: tuple
     started_games: float
     adds: int
     value: float = 0.0
+    next_games: float = 0.0
+    next_value: float = 0.0
+
+    @property
+    def totals(self):
+        """The arguments of a score function: (started games, adds, value, next games, next value)."""
+        return self.started_games, self.adds, self.value, self.next_games, self.next_value
 
     @property
     def score(self):
-        return plan_score(self.started_games, self.adds, self.value)
+        return plan_score(*self.totals)
 
 
-def plan_score(started_games, adds, value=0.0):
+def plan_score(started_games, adds, value=0.0, next_games=0.0, next_value=0.0):
     """The plan score as a sort key, higher is better: the most started games, then the fewest adds, then the
-    highest total blended value of the started games. The started games can be a fraction. The score rounds them
-    to DIGITS decimals, so that the same games in a different order give a tie."""
-    return round(started_games, DIGITS), -adds, value
+    highest total blended value of the started games, then the most weighted games next week (Plan.next_games).
+    The started games can be a fraction. The score rounds them and the next-week games to DIGITS decimals, so that
+    the same games in a different order give a tie. next_value: not used. A score function takes it, see
+    aggressive_score()."""
+    return round(started_games, DIGITS), -adds, value, round(next_games, DIGITS)
 
 
 def aggressive_score(empty_value):
@@ -177,13 +195,17 @@ def aggressive_score(empty_value):
     empty_value for each started game. empty_value is the value of a stat line of zeros (value.empty_slot_value()),
     so each started game counts more than 0, and a better player counts more. Ties go to the plan with fewer
     adds, then to the plan with more started games.
+    The next-week bonus adds the value above an empty slot of the weighted games next week (Plan.next_games and
+    Plan.next_value). The bonus is never less than 0, so it never lowers the part of the score from this week.
     """
-    def score(started_games, adds, value=0.0):
-        return value - empty_value * started_games, -adds, round(started_games, DIGITS)
+    def score(started_games, adds, value=0.0, next_games=0.0, next_value=0.0):
+        bonus = max(0.0, next_value - empty_value * next_games)
+        return value - empty_value * started_games + bonus, -adds, round(started_games, DIGITS)
     return score
 
 
-def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_value):
+def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_value, next_week=None,
+                    next_weight=0.0):
     """The best Plan by aggressive_score(empty_value). It uses adds_left adds or fewer.
 
     The arguments are the arguments of schedule_plan(). A holder with no season value (not in the projections
@@ -191,7 +213,19 @@ def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_val
     """
     spots = [StreamSpot(replace(s.holder, projected_value=empty_value, blended_value=None))
              if s.holder and not _finite(s.holder.value) else s for s in spots]
-    return schedule_plan(days, games, spots, free_agents, adds_left, slots, score=aggressive_score(empty_value))
+    return schedule_plan(days, games, spots, free_agents, adds_left, slots, score=aggressive_score(empty_value),
+                         next_week=next_week, next_weight=next_weight)
+
+
+def next_week_totals(windows, next_week, next_weight):
+    """(next games, next value) of a plan (see Plan) from its team windows.
+
+    The last window of each spot holds the player on the last day of the week. A player who is Out gets no games.
+    next_week: {team: games next week}, or None for no bonus.
+    """
+    last = [w.player for w in {w.spot: w for w in windows}.values() if not w.player.player.out]
+    ahead = [next_weight * (next_week or {}).get(o.player.team, 0) for o in last]
+    return sum(ahead), sum(g * _value(o) for g, o in zip(ahead, last))
 
 
 def value_above_empty(plan, empty_value):
@@ -231,15 +265,20 @@ def teams_to_read(ranking, count=TEAMS_TO_READ):
     return teams
 
 
-def schedule_plan(days, games, spots, free_agents, adds_left, slots, score=plan_score):
+def schedule_plan(days, games, spots, free_agents, adds_left, slots, score=plan_score, next_week=None,
+                  next_weight=0.0):
     """The best Plan by score() for the stream spots. It uses adds_left adds or fewer.
 
     days, games, spots and free_agents: see the module docstring. A free agent who is out or who has no
     value is not a candidate. slots: the position slots, cfg["league"]["slots"].
-    score: a function (started games, adds, total value of the started games) -> sort key, higher is better.
-    The search adds these three numbers over the days, so the key must depend only on their totals.
+    score: a function (started games, adds, total value of the started games, next games, next value) -> sort
+    key, higher is better (see Plan.totals). The search adds these numbers over the days and the spots, so the key
+    must depend only on their totals.
+    next_week: {NBA team: its games next week} (slots.next_week_games()). next_weight: the part of a game this week
+    that a game next week is worth, [adds] next_week_weight. With no next_week or a weight of 0, there is no bonus.
     """
-    return _Search(days, games, spots, free_agents, slots, score).plan(adds_left)
+    search = _Search(days, games, spots, free_agents, slots, score, next_week if next_weight else None, next_weight)
+    return search.plan(adds_left)
 
 
 def _finite(value):
@@ -258,10 +297,13 @@ class _Search:
     player. rest days: (open day, count) for each open day of the key on which a game counts less than 1.
     For each base key (open days, positions, rest days), the search gives an added player the best value of the
     free agents with that base key who are not in a spot now.
+    The open days of a key also hold one index from len(self.open) up for each game of his team next week. No
+    real open day has these indexes, so the started games do not change.
     """
 
-    def __init__(self, days, games, spots, free_agents, slots, score=plan_score):
+    def __init__(self, days, games, spots, free_agents, slots, score=plan_score, next_week=None, next_weight=0.0):
         self.days, self.games, self.slots, self.score = days, games, slots, score
+        self.next_week, self.next_weight = next_week or {}, next_weight
         self.open = [i for i, d in enumerate(days) if d.open]
         self.holders = [s.holder for s in spots]
         self.fas = sorted((o for o in free_agents if o.value is not None and not o.player.out), key=option_order)
@@ -298,6 +340,7 @@ class _Search:
         days = tuple(j for j, d in enumerate(dates, k) if team in self.games[d] and available_on(clear_day, d))
         counts = dict(rest_games)
         rests = tuple((j, counts[dates[j - k]]) for j in days if dates[j - k] in counts)
+        days += tuple(range(len(self.open), len(self.open) + self.next_week.get(team, 0)))
         return Key(days, positions, rests, value) if days else EMPTY
 
     @cache
@@ -355,24 +398,26 @@ class _Search:
     def plan(self, adds_left):
         @cache
         def best(k, occ, adds):
-            """(started games, adds, value, moves) for open days k and later. moves: (k, removed keys, added keys).
+            """(started games, adds, value, next games, next value, moves) for open days k and later.
 
-            value: the total value of the started games."""
+            value: the total value of the started games. next games, next value: see Plan. moves: (k, removed
+            keys, added keys). After the last open day, the open days of each key are its games next week."""
             if k == len(self.open):
-                return 0, 0, 0.0, ()
+                ahead = [self.next_weight * len(key.days) for key in occ]
+                return 0, 0, 0.0, sum(ahead), sum(g * key.value for g, key in zip(ahead, occ)), ()
             top = None
             for keys, removed, added in self.moves(k, occ, adds):
-                started, spent, value, moves = best(k + 1, tuple(sorted(_next(key, k) for key in keys)),
-                                                    adds - len(added))
+                started, spent, value, *ahead, moves = best(k + 1, tuple(sorted(_next(key, k) for key in keys)),
+                                                            adds - len(added))
                 count, day_value, _ = self.count(k, keys)
-                found = (started + count, spent + len(added), value + day_value,
+                found = (started + count, spent + len(added), value + day_value, *ahead,
                          ((k, removed, added), *moves) if added else moves)
-                if top is None or self.score(*found[:3]) > self.score(*top[:3]):
+                if top is None or self.score(*found[:5]) > self.score(*top[:5]):
                     top = found
             return top
 
         start = tuple(sorted(self.key(h, 0) if h else EMPTY for h in self.holders))
-        return self._plan(self._timelines(best(0, start, adds_left)[3]))
+        return self._plan(self._timelines(best(0, start, adds_left)[-1]))
 
     def _timelines(self, moves):
         """For each spot: the list of (Option, index of the first day). A holder starts on day 0."""
@@ -440,8 +485,10 @@ class _Search:
                     started=tuple(started.get((s, o), ())),
                     player=o,
                     options=() if holder else self._options(spots, s, n, used, total)))
+        next_games, next_value = next_week_totals(windows, self.next_week, self.next_weight)
         return Plan(windows=tuple(windows), started_games=total, adds=sum(w.add_day is not None for w in windows),
-                    value=sum(_value(o) * counted_games(o.rest_games, days) for (_, o), days in started.items()))
+                    value=sum(_value(o) * counted_games(o.rest_games, days) for (_, o), days in started.items()),
+                    next_games=next_games, next_value=next_value)
 
     def _options(self, spots, s, n, used, total):
         """The best free agents on the team of window n of spot s with whom the plan keeps all its counted started

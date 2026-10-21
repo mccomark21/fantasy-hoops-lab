@@ -50,6 +50,16 @@ def team_games(sched, days):
     return {d: set(sched.team[dates == d]) for d in days}
 
 
+def next_week_games(sched, week, days=7):
+    """{NBA team (ESPN code): its games in the days after the last day of week} from data/schedule.csv.
+
+    days: the length of next week. The planner does not read the dates of next week from Yahoo, so it uses 7.
+    """
+    dates = pd.to_datetime(sched.date).dt.date
+    after = (dates > week.end) & (dates <= week.end + timedelta(days=days))
+    return sched.team[after].value_counts().to_dict()
+
+
 def roster_spots_used(roster):
     """The players who take a roster spot: all players who are not on IL."""
     return sum(not p.on_il for p in roster)

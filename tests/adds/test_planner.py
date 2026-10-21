@@ -110,7 +110,7 @@ def test_a_tie_on_started_games_and_adds_goes_to_the_higher_blended_value():
     fas = [fa("Chi", "CHI", value=1), Option(Player("Atl", "ATL", ("SF",)), 0.5, blended_value=2)]
     p = plan([], games, fas, adds=1)
     assert windows(p) == [(0, "ATL", WEEK[0], (WEEK[0], WEEK[2]))]
-    assert p.score == (2, -1, 4)
+    assert p.score == (2, -1, 4, 0)
 
 
 def test_the_search_takes_a_score_function():
@@ -118,7 +118,8 @@ def test_the_search_takes_a_score_function():
     games = {WEEK[0]: {"ATL", "CHI"}, WEEK[1]: {"ATL"}}
     fas = [fa("Bad", "ATL", value=-1), fa("Good", "CHI", value=1)]
     days = open_slots_by_day(FULL, games, SLOTS)
-    p = schedule_plan(days, games, [StreamSpot()], fas, 1, SLOTS, score=lambda started, adds, value: (value, started))
+    p = schedule_plan(days, games, [StreamSpot()], fas, 1, SLOTS,
+                      score=lambda started, adds, value, *_: (value, started))
     assert (p.started_games, p.value) == (1, 1)
 
 
@@ -144,16 +145,21 @@ def test_a_large_search():
     assert plan([], games, fas, spots=2).score[:2] == (12, -4)
 
 
-def brute_force(roster, games, free_agents, spots, adds, score=plan_score):
-    """The best score(started games, adds, value) of all plans, by a plain search over the timelines of the spots.
+def brute_force(roster, games, free_agents, spots, adds, score=plan_score, next_week=None, weight=0.0):
+    """The best score(started games, adds, value, next games, next value) of all plans, by a plain search over the
+    timelines of the spots.
 
     value: the total value of the started games. Of the players who play, the lineup takes the best value first.
+    next_week: {team: games next week}. The last player of each spot gets weight x his games next week. With
+    next_week, a plan in which an added player has no started game does not count, because the search adds a
+    player only on a day that he starts.
     """
+    next_week = next_week or {}
     days = open_slots_by_day(roster, games, SLOTS)
     base = [[set(p.positions) for _, p in d.starters] + [set(p.positions) for p in d.bench] for d in days]
 
     def started(timelines):
-        total, value = 0, 0.0
+        total, value, starts = 0, 0.0, set()
         for i, d in enumerate(days):
             now = [[o for o, first in t if first <= i][-1:] for t in timelines]
             playing = sorted((o for t in now for o in t if o.player.team in games[d.date]), key=lambda o: -o.value)
@@ -161,7 +167,8 @@ def brute_force(roster, games, free_agents, spots, adds, score=plan_score):
             starters = [playing[j - len(base[i])] for j in lineup if j >= len(base[i])]
             total += len(starters)
             value += sum(o.value for o in starters)
-        return total, value
+            starts |= {(id(o), i) for o in starters}
+        return total, value, starts
 
     def timelines(adds_left, first):
         yield []
@@ -179,9 +186,19 @@ def brute_force(roster, games, free_agents, spots, adds, score=plan_score):
     for combo in product(*[list(timelines(adds, 0))] * spots):
         n = sum(len(t) for t in combo)
         if n <= adds and all(distinct(combo, i) for i in range(len(days))):
-            count, value = started(combo)
-            best = max(best, score(count, n, value))
+            count, value, starts = started(combo)
+            if next_week and not all(_starts(t, starts, len(days)) for t in combo):
+                continue
+            last = [t[-1][0] for t in combo if t]
+            ahead = [weight * next_week.get(o.player.team, 0) for o in last]
+            best = max(best, score(count, n, value, sum(ahead), sum(g * o.value for g, o in zip(ahead, last))))
     return best
+
+
+def _starts(timeline, starts, n_days):
+    """True if each player of the timeline has a started game in his part of the timeline."""
+    ends = [first for _, first in timeline[1:]] + [n_days]
+    return all(any((id(o), i) in starts for i in range(first, end)) for (o, first), end in zip(timeline, ends))
 
 
 @pytest.mark.parametrize("seed", range(20))
@@ -366,3 +383,87 @@ def test_a_holder_on_the_rest_list_counts_less_on_a_second_night():
     holder = rester("Holder", "DEN", nights=[WEEK[1]], count=0.0)
     p = schedule_plan(days, games, [StreamSpot(holder)], [], 5, SLOTS)
     assert (p.started_games, p.adds) == (1, 0)
+
+
+# Next week (#60): a player who holds a stream spot on the last day of the week gets a bonus for his games next week.
+
+def test_between_two_equal_plans_the_last_streamer_with_more_games_next_week_wins():
+    # ATL and CHI play Mon only. Both plans give 1 started game with 1 add and the same value.
+    games = {WEEK[0]: {"ATL", "CHI"}}
+    fas = [fa("Atl", "ATL"), fa("Chi", "CHI")]
+    days = open_slots_by_day(FULL, games, SLOTS)
+    for more in ["ATL", "CHI"]:
+        next_week = {"ATL": 2, "CHI": 2, more: 4}
+        p = schedule_plan(days, games, [StreamSpot()], fas, 1, SLOTS, next_week=next_week, next_weight=0.5)
+        assert windows(p) == [(0, more, WEEK[0], (WEEK[0],))]
+        assert (p.started_games, p.adds, p.value, p.next_games) == (1, 1, 1.0, 2.0)
+        assert p.score == (1, -1, 1.0, 2.0)
+
+
+def test_the_schedule_plan_uses_the_next_week_games_only_as_a_tiebreak():
+    # Phi starts Mon and Tue this week and has no games next week. Atl starts Mon only and has 4 games next week.
+    # The schedule plan keeps the most started games this week.
+    games = {WEEK[0]: {"PHI", "ATL"}, WEEK[1]: {"PHI"}}
+    days = open_slots_by_day(FULL, games, SLOTS)
+    p = schedule_plan(days, games, [StreamSpot()], [fa("Phi", "PHI"), fa("Atl", "ATL")], 1, SLOTS,
+                      next_week={"ATL": 4}, next_weight=1.0)
+    assert [w.team for w in p.windows] == ["PHI"] and p.next_games == 0
+
+
+def test_the_aggressive_plan_adds_the_next_week_bonus_to_the_value_of_this_week():
+    # Mon is open. Good (CHI) is worth 9 above an empty slot and has no games next week. Bad (ATL) is worth 4 and
+    # has 4 games next week. With weight 0.5, Bad gets a bonus of 0.5 x 4 x 4 = 8, so 4 + 8 = 12 beats 9.
+    games = {WEEK[0]: {"ATL", "CHI"}}
+    fas = [fa("Bad", "ATL", value=-6), fa("Good", "CHI", value=-1)]
+    days = open_slots_by_day(FULL, games, SLOTS)
+    found = {w: aggressive_plan(days, games, [StreamSpot()], fas, 1, SLOTS, EMPTY_VALUE, next_week={"ATL": 4},
+                                next_weight=w) for w in [0.0, 0.5]}
+    assert [w.team for w in found[0.0].windows] == ["CHI"]
+    assert [w.team for w in found[0.5].windows] == ["ATL"]
+    assert (found[0.5].next_games, found[0.5].next_value) == (2.0, -12.0)
+    assert value_above_empty(found[0.5], EMPTY_VALUE) == 4  # the this-week part
+    assert aggressive_score(EMPTY_VALUE)(*found[0.5].totals)[0] == 12
+
+
+def test_the_bonus_never_lowers_the_this_week_part_of_the_score():
+    score = aggressive_score(EMPTY_VALUE)
+    this_week = score(3, 1, -15.0)
+    assert score(3, 1, -15.0, 2.0, -8.0)[0] == this_week[0] + 12  # 2 games at -4: 2 x 6 above an empty slot
+    assert score(3, 1, -15.0, 2.0, -30.0)[0] == this_week[0]  # below an empty slot: no bonus, never less
+    assert score(3, 1, -15.0, 0.0, 0.0) == this_week
+    assert plan_score(3, 1, -15.0, 2.0, -8.0)[:3] == plan_score(3, 1, -15.0)[:3]
+
+
+def test_an_out_holder_gets_no_next_week_bonus():
+    games = {WEEK[0]: {"PHI"}}
+    days = open_slots_by_day([], games, SLOTS)
+    holder = fa("Hurt", "DEN", status="O")
+    p = schedule_plan(days, games, [StreamSpot(holder)], [], 0, SLOTS, next_week={"DEN": 4}, next_weight=0.5)
+    assert p.next_games == 0
+
+
+def test_a_kept_holder_gets_the_next_week_bonus():
+    # The holder (DEN) plays Mon. With no adds left, he holds the spot on the last day of the week.
+    games = {WEEK[0]: {"DEN"}, WEEK[1]: {"PHI"}}
+    days = open_slots_by_day([], games, SLOTS)
+    p = schedule_plan(days, games, [StreamSpot(fa("Holder", "DEN"))], [], 0, SLOTS, next_week={"DEN": 3},
+                      next_weight=0.5)
+    assert p.next_games == 1.5
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_the_search_finds_the_best_plan_with_next_week_games(seed):
+    # Small random weeks with random games next week, for the schedule score and for the aggressive score.
+    rnd = random.Random(seed)
+    teams = ["ATL", "CHI", "DAL", "DEN"]
+    games = {d: {t for t in teams + ["BOS"] if rnd.random() < 0.5} for d in WEEK[:4]}
+    roster = [Player(f"P{i}", "BOS", (rnd.choice(SLOTS),)) for i in range(rnd.randint(2, 6))]
+    fas = [fa(t, t, rnd.sample(SLOTS, rnd.randint(1, 2)), value=-9 * rnd.random()) for t in teams]
+    next_week = {t: rnd.randint(0, 4) for t in teams}
+    days = open_slots_by_day(roster, games, SLOTS)
+    p = schedule_plan(days, games, [StreamSpot()] * 2, fas, 3, SLOTS, next_week=next_week, next_weight=0.5)
+    assert p.score == pytest.approx(brute_force(roster, games, fas, 2, 3, next_week=next_week, weight=0.5))
+    score = aggressive_score(EMPTY_VALUE)
+    a = aggressive_plan(days, games, [StreamSpot()] * 2, fas, 3, SLOTS, EMPTY_VALUE, next_week=next_week,
+                        next_weight=0.5)
+    assert score(*a.totals) == pytest.approx(brute_force(roster, games, fas, 2, 3, score, next_week, 0.5))

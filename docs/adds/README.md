@@ -21,9 +21,9 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 
 ## Goal
 
-The schedule plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins.
+The schedule plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins. If the value is also the same, the plan whose last streamers have more games next week wins.
 
-The aggressive plan gets the most value from your stream spots: the sum of the matchup value above an empty slot of its started games. It can give up started games for better players. The matchup value weights the categories by the state of the current matchup (see [Matchup weights](#matchup-weights)).
+The aggressive plan gets the most value from your stream spots: the sum of the matchup value above an empty slot of its started games, plus a bonus for the games next week of its last streamers. It can give up started games for better players. The matchup value weights the categories by the state of the current matchup (see [Matchup weights](#matchup-weights)).
 
 The two plans give you a real choice: few adds and a good schedule, or more adds and better players.
 
@@ -63,9 +63,9 @@ Both plans are a series of team windows for each stream spot, for example "Spot 
 1. Find the open starting slots on each day of the planning window.
 2. Rank the NBA teams by the open days that they cover. A team that plays on several open days covers them with one add.
 3. Search the free agents of the best teams. The planner reads the free-agent list filtered by team, so it finds players far down the overall list. It reads the 8 teams with the most open days, and the best team for each open day that those 8 teams do not cover.
-4. Choose the team windows that give the most started games. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins. A free agent must fit an open position on that day, with the other added players.
+4. Choose the team windows that give the most started games. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins. If the value is also the same, the plan with more [next-week games](#next-week-games) wins. A free agent must fit an open position on that day, with the other added players.
 
-Each window shows its window options: the best 3 free agents on that team who fit the window, in order of blended value. A free agent fits the window if the plan keeps all its started games with him. Each option shows his projected, recent and blended value.
+Each window shows its window options: the best 3 free agents on that team who fit the window, in order of blended value. A free agent fits the window if the plan keeps all its started games with him. Each option shows his projected, recent and blended value and the games of his team next week.
 
 The search is exact. It looks at each open day in order. On each day, each stream spot keeps its player or gets a free agent who starts that day. The search does not know which players the plan dropped earlier in the week. A dropped player goes on waivers, so the plan then takes a different free agent with the same team and positions, if one exists.
 
@@ -76,8 +76,9 @@ Decision (2026-10-20): the score of the aggressive plan is the sum of the value 
 The aggressive plan uses the same free agents and the same exact search as the schedule plan, with a different plan score:
 
 1. Each started game counts its value above an empty slot: the matchup value of the player minus the matchup value of an empty slot. With all categories tied, the matchup value is the blended value.
-2. The plan with the highest sum of these values wins. Ties go to the plan with fewer adds, then to the plan with more started games.
-3. The plan uses more adds, up to the adds that are left, when the better players give a higher sum.
+2. The plan adds the next-week bonus: for each of its [next-week games](#next-week-games), the matchup value above an empty slot of that player. The bonus is never less than 0.
+3. The plan with the highest sum wins. Ties go to the plan with fewer adds, then to the plan with more started games.
+4. The plan uses more adds, up to the adds that are left, when the better players give a higher sum.
 
 The value of an empty slot is the value of a stat line of zeros on the category scale of the season projections file. It is about -11.8 with the projections file of 2026-10-12.
 
@@ -89,9 +90,24 @@ A holder who is not in the projections file counts as an empty slot in the aggre
 
 The planner shows no drop trade-offs for the aggressive plan, because the gain of a drop counts started games. The windows of the aggressive plan show which players it drops.
 
+### Next-week games
+
+Decision (2026-10-21, #60): a player who holds a stream spot on the last day of the week can stay on the roster next week. Then that spot needs no add on the first day of next week. So both plans count the games next week of these players:
+
+1. Next week is the 7 days after the last day of the week to plan. The planner does not read the dates of next week from Yahoo. So a longer week, for example the week of the All-Star break, gets only its first 7 days.
+2. Each game of his NBA team next week counts, also on days with all slots full. The open slots of next week are not known yet. A second night of a back-to-back next week also counts 1 game.
+3. A game next week counts `next_week_weight` (0.5) of a game this week, because injuries and role changes can occur before then.
+4. A player who is Out gets no next-week games. An empty spot also gets none.
+
+The schedule plan uses the next-week games only as the last tiebreak. The aggressive plan adds their matchup value above an empty slot to its score as a bonus. The bonus is a separate term and never less than 0, so it never lowers the part of the score from this week. The aggressive plan can choose a plan with a lower value this week if the bonus is larger than the difference.
+
+The planner adds a player only on a day that he starts this week. It does not add a player only for his games next week. The best plans for one roster spot, the drop trade-offs and the contingency plans do not use the next-week games.
+
+The terminal shows the games next week of each window option, and the games next week of the last players of each plan.
+
 ### Comparison
 
-The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot. The last row is the matchup value above an empty slot, the score of the aggressive plan. With all matchup weights at 1, the last two rows are the same. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
+The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot. The last row is the matchup value above an empty slot, the score of the aggressive plan for this week. The rows have no next-week bonus. With all matchup weights at 1, the last two rows are the same. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
 
 ## Rest on back-to-backs
 
@@ -216,7 +232,7 @@ A separate table lists the waiver players that the run read, best value first. I
 - The stream spots are the empty roster spots first, also the spots that IL frees. Then, up to `stream_spots` (3), the rostered players with the lowest season value who are not core and not on IL hold a stream spot. The planner keeps all other players, as it keeps the core players.
 - A player in a stream spot plays until the first add to his spot. That add drops him. A drop is a suggestion, never an order. The output shows the trade-off, for example "Drop Quickley (rank 90, season value -0.52) -> PHX Thu 01/07 to Sun 01/10: +2 started games this week".
 - The gain of a drop is the started games of the plan minus the started games of the best plan that keeps him. Both counts include the started games of the kept players.
-- The plan score counts only this week's started games. The started games of a player in a stream spot count. The season cost of a drop is shown, not scored. You decide.
+- The plan score counts this week's started games, and the next-week games as a tiebreak or a bonus (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The season cost of a drop is shown, not scored. You decide.
 - A dropped player who is still a free agent next week can come back in a later plan.
 
 Rostered players are not on the free-agent list. So their rank and season value come from the season projections file of the draft tools: the per-game value (`pg_value` of `core/valuation.py`) and the rank by that value (`pg_rank` on the draft board). The free-agent values use the same category scale, so the numbers compare. A player who is not in the projections file has the lowest value, and the output says so.
@@ -284,6 +300,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `add_delay_days` | The add delay. 0 for this league. |
 | `rest_chance` | The chance that a player on the rest list sits on a second night: 0.5. That game counts `1 - rest_chance` started games. 0 counts each game as 1. |
 | `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
+| `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |
 
 The settings of the [matchup weights](#matchup-weights) are in `[adds.matchup]`:
 
@@ -303,7 +320,8 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 |---|---|
 | Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. A started game of a player on the rest list on a second night counts `1 - rest_chance`. |
 | Open day | A day of the planning window with at least one open starting slot. |
-| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games. Aggressive plan: the sum of the matchup value above an empty slot of the started games. Ties go to the plan with fewer adds, then to the plan with more started games. |
+| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games, then to the plan with more next-week games. Aggressive plan: the sum of the matchup value above an empty slot of the started games, plus the next-week bonus. Ties go to the plan with fewer adds, then to the plan with more started games. |
+| Next-week games | The games next week of the players who hold a stream spot on the last day of the week, x `next_week_weight`. |
 | Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan uses the matchup value of the player and of the empty slot. |
 | Matchup weight | The weight of a category from your margin in the current matchup: 1 for a close category, down to `min_weight` for a large lead or deficit. |
 | Matchup value | The value of a player with each category weight times its matchup weight. With all categories tied, it equals the blended value. |
