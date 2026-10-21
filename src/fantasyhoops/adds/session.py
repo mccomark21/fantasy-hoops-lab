@@ -16,26 +16,39 @@ SITE = "https://basketball.fantasysports.yahoo.com"
 SIGN_IN_MINUTES = 5  # time that you have to sign in by hand when the session has expired
 WAIT_SECONDS = 10  # default of [adds] page_wait in config.toml
 
-# The element that the reader of each page kind needs, by the start of the page path (#74).
+# The elements that the readers of each page kind need, by the start of the page path (#74).
 # The team page path is the team ID, so a path that starts with a digit is a team page.
+# Each selector names table rows, because a table can be in the page before its rows are.
 READY = [
-    ("players", "div.players table"),  # readers.read_free_agents() and read_waiver_players()
-    ("matchup", "a.Navtarget[href]"),  # readers.read_week()
+    ("players", ("div.players table tbody tr",)),  # readers.read_free_agents() and read_waiver_players()
+    ("matchup", ("a.Navtarget[href]",  # readers.read_week()
+                 "table.Datatable tbody tr")),  # matchup.read_matchup(): the score table
+    ("buzzindex", ("table.Tst-table tbody tr",)),  # trends.read_trends()
 ]
 # readers.read_roster() reads data-pos. A script on the page adds data-pos about 0.1 s after the table appears.
-TEAM_READY = "table#statTable0 tbody tr[data-pos]"
+TEAM_READY = ("table#statTable0 tbody tr[data-pos]",)
 
 
 class PageNotReady(RuntimeError):
     """A Yahoo page did not show the element that its reader needs before the timeout."""
 
 
-def ready_selector(path):
-    """The CSS selector of the element that the reader of the page at path needs. None: no reader uses the page."""
-    for start, selector in READY:
+class UnknownPage(ValueError):
+    """No page kind in READY matches the page path, so get() does not know which element to wait for."""
+
+
+def ready_selectors(path):
+    """The CSS selectors of the elements that the readers of the page at path need, in the order of the waits.
+
+    A path that matches no page kind raises UnknownPage. Add the page kind and its elements to READY.
+    """
+    for start, selectors in READY:
         if path.startswith(start):
-            return selector
-    return TEAM_READY if path[:1].isdigit() else None
+            return selectors
+    if path[:1].isdigit():
+        return TEAM_READY
+    raise UnknownPage(f"No page kind matches the Yahoo page path {path!r}. "
+                      "Add the page kind and the elements that its reader needs to READY in adds/session.py.")
 
 
 class League:
@@ -49,14 +62,17 @@ class League:
         self.base = f"{SITE}/nba/{league}"
         self.wait_seconds = wait_seconds
 
-    def get(self, path=""):
-        url = f"{self.base}/{path}" if path else self.base
+    def get(self, path):
+        url = f"{self.base}/{path}"
+        try:
+            selectors = ready_selectors(path)
+        except UnknownPage as error:
+            raise UnknownPage(f"{error} URL: {url}") from None
         self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
         if not self.page.url.startswith(SITE):
             self._sign_in(url)
         # Do not wait for networkidle. Yahoo pages keep loading ads, so that wait used its full timeout on each page.
-        selector = ready_selector(path)
-        if selector:
+        for selector in selectors:
             try:
                 self.page.wait_for_selector(selector, state="attached", timeout=self.wait_seconds * 1000)
             except PlaywrightTimeout:
