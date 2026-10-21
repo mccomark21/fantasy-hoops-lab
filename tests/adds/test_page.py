@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from fantasyhoops.adds import page
 from fantasyhoops.adds import plan as command
+from fantasyhoops.adds.matchup import Matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
 from fantasyhoops.adds.readers import Adds, Player, Week
 from fantasyhoops.adds.slots import Day
@@ -100,6 +101,32 @@ def test_the_free_agent_data_has_market_values_and_the_days_of_each_player():
     assert data["rows"] == 10 and data["flag"] == page.FLAG
 
 
+def test_the_free_agent_data_has_the_matchup_value_next_to_the_value():
+    shooter = Option(Player("Shooter", "PHI", ("SF",)), 1.0, matchup_value=0.4)
+    data = page.free_agent_data([shooter, PHI], DAYS, GAMES, replacement=0.5, match_replacement=0.2)
+    assert [(p["value"], p["match"]) for p in data["players"]] == [(0.5, 0.2), (-0.19, 0.11)]
+
+
+def test_the_page_shows_the_matchup_score_and_the_weight_of_each_category():
+    m = Matchup("Rival & Co", {"pts": 300, "threes": 40, "blk": 8}, {"pts": 290, "threes": 25, "blk": 10})
+    weights = {"pts": 1.0, "threes": 0.5, "blk": 1.0}
+    shown = text(render(matchup=m, weights=weights))
+    # The page is public, so it does not show the name of the opponent.
+    assert "Rival" not in shown and "your opponent in this matchup" in shown
+    assert "3PTM 40 25 +15 0.50" in shown and "PTS 300 290 +10 1.00" in shown and "BLK 8 10 -2 1.00" in shown
+    assert "The planner did not find the category scores" in text(render(weights=weights))
+    # A run with no weights (no free agents read) shows no matchup section.
+    assert "Matchup" not in text(render())
+
+
+def test_the_opponent_name_is_not_on_the_page():
+    # The page is public (ADR 2). The name must not be in the HTML, the script or its data.
+    m = Matchup("Secret Rival Team", {"pts": 300}, {"pts": 290})
+    html = render(matchup=m, weights={"pts": 1.0})
+    assert "Secret" not in html and "Rival" not in html
+    assert "300" in text(html)
+
+
 def test_the_page_holds_the_free_agent_data_as_safe_json():
     html = render()
     raw = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
@@ -179,9 +206,12 @@ def test_the_command_prints_the_comparison_and_shows_the_plans_for_one_roster_sp
     out = capsys.readouterr().out
     assert "Schedule plan: 2 started games with 1 add" in out
     assert "Aggressive plan: 1 started game with 1 add" in out
-    lines = [line.split() for line in out[out.index("Comparison:"):].splitlines()[1:6]]
+    lines = [line.split() for line in out[out.index("Comparison:"):].splitlines()[1:7]]
     assert lines == [["Schedule", "Aggressive"], ["Adds", "1", "1"], ["Started", "games", "2", "1"],
-                     ["Blended", "value", "-12.00", "-1.00"], ["Value", "above", "an", "empty", "slot", "+8.00", "+9.00"]]
+                     ["Blended", "value", "-12.00", "-1.00"], ["Value", "above", "an", "empty", "slot", "+8.00", "+9.00"],
+                     ["Matchup", "value", "above", "empty", "+8.00", "+9.00"]]
+    # The read_league() of this test gives no matchup scores, so all weights are 1.
+    assert "the planner did not find the category scores" in out
     # Each row of the page has different players: the PHI player first (2 games), then the BOS player (1 game).
     shown = text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
     assert "Comparison" not in shown and "Aggressive" not in shown
@@ -206,7 +236,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None):
     import pandas as pd
     sched = pd.DataFrame({"date": [str(WEEK[0]), str(WEEK[0]), str(WEEK[1])], "team": ["PHI", "BOS", "PHI"]})
     cfg = {"league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
-           "adds": {"league": 1, "team": 1}}
+           "adds": {"league": 1, "team": 1}, "weights": {"pts": 1.0}}
     monkeypatch.setattr(command, "load_config", lambda: cfg)
     monkeypatch.setattr(command, "read_schedule", lambda: sched)
     monkeypatch.setattr(command, "open_league", no_yahoo)
@@ -219,8 +249,9 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None):
     monkeypatch.setattr(command, "read_waiver_list", lambda yahoo, today, view=None: [])
     monkeypatch.setattr(command, "read_week_trends", lambda yahoo, days: {})
     options = options or [option("Phi One", "PHI", 0.3)]
-    monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(): options)
-    monkeypatch.setattr(command, "empty_slot_value", lambda cfg: -10.0)
+    monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None: options)
+    monkeypatch.setattr(command, "projection_scale", lambda cfg: None)
+    monkeypatch.setattr(command, "empty_slot_value", lambda cfg, scale=None: -10.0)
     monkeypatch.setattr(page, "PAGE", tmp_path / "adds_plan.html")
     monkeypatch.setattr(command.site, "publish", lambda *args: published.append(args))
     command.main(today=WEEK[0], publish=publish)

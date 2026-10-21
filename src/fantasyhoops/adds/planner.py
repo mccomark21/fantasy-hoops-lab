@@ -43,17 +43,25 @@ class Option:
     blended_value: the per-game value of the blended line (adds/blend.py). None if he has no projection and no
     recent games. An Option made without a blended value uses the projected value.
     trend: his Trend from Transaction Trends. None if he is not on the pages of this week.
+    matchup_value: the per-game value of the blended line with the matchup weights (adds/matchup.py). None if the
+    run did not compute it.
     """
     player: Player
     projected_value: float | None
     recent_value: float | None = None
     blended_value: float | None = None
     trend: Trend | None = None
+    matchup_value: float | None = None
 
     @property
     def value(self):
         """The value that puts the options in order and breaks ties between plans: the blended value."""
         return self.projected_value if self.blended_value is None else self.blended_value
+
+    @property
+    def match(self):
+        """The matchup value. The blended value if the run did not compute a matchup value."""
+        return self.value if self.matchup_value is None else self.matchup_value
 
 
 def option_order(option):

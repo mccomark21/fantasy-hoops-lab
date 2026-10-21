@@ -1,8 +1,9 @@
 """The plan page: one HTML file in output/adds/ for use on a phone. The design is in docs/adds/README.md.
 
 render() makes the page from the data of one planning run. Each section of the page comes from one small function.
-A section shows only the parts that exist. The two main sections:
+A section shows only the parts that exist. The main sections:
 - Best plans for one roster spot: the SpotPlans of adds/spots.py, as a table of days.
+- Matchup: the category scores of the current matchup and the weight of each category (adds/matchup.py).
 - Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
   script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
 A third section lists the waiver players (W) with their clear days.
@@ -14,6 +15,7 @@ import json
 from datetime import date, timedelta
 
 from fantasyhoops.adds.planner import waiver_options
+from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core.common import OUT as _OUT
 
@@ -132,14 +134,39 @@ def plans_section(rows, days, spots, adds, today):
             f"the dropped player loses.</p>{note}</section>")
 
 
-def free_agent_data(options, days, games, replacement):
+def matchup_section(matchup, weights):
+    """The score of each category in the current matchup, the margin and the matchup weight.
+
+    matchup: a matchup.Matchup, or None if the planner did not find the scores. weights: {category: weight}.
+    Nothing if weights is None (the run read no free agents).
+    """
+    if weights is None:
+        return ""
+    title = "<h2>Matchup</h2>"
+    note = ('<p class="legend">Weight: the matchup weight of the category. A close category keeps weight 1. '
+            "A large lead or deficit lowers the weight. Match in the free-agent table uses these weights.</p>")
+    if matchup is None:
+        return (f"<section>{title}\n<p>The planner did not find the category scores on the matchup page. "
+                "All weights are 1.</p></section>")
+    names = {key: name for name, key in STAT_COLUMNS.items()}
+    rows = "".join(f'<tr><td class="name">{_e(names.get(c, c))}</td><td>{matchup.mine.get(c, 0):g}</td>'
+                   f"<td>{matchup.theirs.get(c, 0):g}</td><td>{matchup.margin(c):+g}</td><td>{w:.2f}</td></tr>"
+                   for c, w in weights.items())
+    # The page is public (ADR 2), so it does not show the name of the opponent.
+    return (f"<section>{title}\n<p>The category totals of your team and your opponent in this matchup.</p>\n"
+            '<table class="ranking"><thead><tr><th class="name">Cat</th><th>You</th><th>Opp</th><th>Margin</th>'
+            f"<th>Weight</th></tr></thead><tbody>{rows}</tbody></table>\n{note}</section>")
+
+
+def free_agent_data(options, days, games, replacement, match_replacement=None):
     """The data of the free-agent table: the days and one row for each option who plays, best value first.
 
-    A value is a market value: the value minus replacement. plays: his team plays on the day. fits: he plays and
+    A value is a market value: the value minus replacement. match: the matchup value minus match_replacement, the
+    matchup value of a replacement free agent. plays: his team plays on the day. fits: he plays and
     one of the open slots of the day takes one of his positions (Util takes all positions).
     """
-    def market(v):
-        return None if v is None or replacement is None else round(v - replacement, 2)
+    def market(v, base=replacement):
+        return None if v is None or base is None else round(v - base, 2)
 
     players = []
     for o in sorted((o for o in options if not o.player.out and o.value is not None), key=lambda o: -o.value):
@@ -148,13 +175,14 @@ def free_agent_data(options, days, games, replacement):
         fits = [on and any(s in d.open for s in (*p.positions, "Util")) for on, d in zip(plays, days)]
         players.append({"name": p.name, "team": p.team, "pos": list(p.positions), "status": p.status,
                         "value": market(o.value), "recent": market(o.recent_value),
+                        "match": market(o.match, match_replacement),
                         "trend": o.trend.adds_today if o.trend else None, "plays": plays, "fits": fits})
     return {"days": [{"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games,
                       "open": len(d.open)} for d in days],
             "players": players, "positions": list(POSITIONS), "flag": FLAG, "rows": FREE_AGENT_ROWS}
 
 
-def free_agents_section(options, days, games, replacement):
+def free_agents_section(options, days, games, replacement, match_replacement=None):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
@@ -162,15 +190,16 @@ def free_agents_section(options, days, games, replacement):
     options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
         return ""
-    data = json.dumps(free_agent_data(options, days, games, replacement), ensure_ascii=False).replace("</", "<\\/")
+    data = json.dumps(free_agent_data(options, days, games, replacement, match_replacement), ensure_ascii=False)
+    data = data.replace("</", "<\\/")
     return ('<section><h2>Free agents</h2>\n'
             '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
             '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
             '</label>\n<p class="count" id="fa-count"></p>\n<table class="fa" id="fa-table"></table>\n'
             '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
             '<span class="dot game"></span> game, no open slot for him. Val: blended value per game above a '
-            f'replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). A filter does not '
-            'change Val. Gms: his games on the selected days. '
+            f'replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). Match: the same value '
+            'with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. '
             '<span class="flag">FA?</span> a value this high is unusual for a free agent.</p>\n'
             f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>')
 
@@ -235,21 +264,23 @@ def method_note():
 
 
 def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
-           warnings=(), contingencies=()):
+           warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
     games: {day: set of NBA teams that play}. spots: the StreamSpots. rows: the SpotPlans (adds/spots.py).
     options: the Options of the free agents. ranking: the TeamRanks. read: the teams whose free agents the run
     read. replacement: the value of a replacement free agent (value.replacement_value()), or None.
-    warnings and contingencies: text lines.
+    warnings and contingencies: text lines. matchup, weights: the matchup.Matchup (or None) and the matchup weights
+    (None: no matchup section). match_replacement: the matchup value of a replacement free agent, or None.
     """
     today = today or date.today()
     sections = [
         header(data, days, spots, today),
         warnings_section(warnings),
         plans_section(rows, days, spots, data.adds, today),
-        free_agents_section(options, days, games, replacement),
+        matchup_section(matchup, weights),
+        free_agents_section(options, days, games, replacement, match_replacement),
         waivers_section(options, replacement),
         contingency_section(contingencies),
         ranking_section(ranking, read),
@@ -372,7 +403,8 @@ const fmt = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2);
 const state = {days: new Set(), pos: new Set(), fit: true, sort: "value"};
 const hits = p => state.fit ? p.fits : p.plays;
 const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
-const SORTS = {value: p => p.value, games: p => games(p) * 100 + p.value, recent: p => p.recent ?? -99};
+const SORTS = {value: p => p.value, games: p => games(p) * 100 + p.value, recent: p => p.recent ?? -99,
+  match: p => p.match ?? -99};
 const chip = (label, sub, on, dim) => `<button type="button" class="chip${dim ? " none" : ""}" aria-pressed="${on}">`
   + `${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
 
@@ -397,12 +429,14 @@ function render() {
     + `${state.sort === key ? ' aria-sort="descending"' : ""}>${label}</th>`;
   const sel = i => state.days.has(i) ? " sel" : "";
   const head = DATA.days.map((d, i) => `<th class="day${sel(i)}">${d.label.slice(0, 2)}<br><small>${d.open}</small></th>`).join("");
-  $("fa-table").innerHTML = `<thead><tr><th class="name">Player</th>${th("value", "Val")}${th("recent", "Recent", "wide")}`
+  $("fa-table").innerHTML = `<thead><tr><th class="name">Player</th>${th("value", "Val")}${th("match", "Match")}`
+    + `${th("recent", "Recent", "wide")}`
     + `${th("games", "Gms")}${head}</tr></thead><tbody>` + rows.slice(0, DATA.rows).map(p =>
       `<tr><td class="name">${esc(p.name)}${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
       + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
       + `<div class="sub">${esc(p.team)} · ${esc(p.pos.join(","))}${p.trend ? ` · ${p.trend} adds today` : ""}</div></td>`
-      + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`
+      + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td>`
+      + `<td class="${p.match < 0 ? "neg" : ""}">${fmt(p.match)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`
       + DATA.days.map((d, i) => `<td class="day${sel(i)}">${p.fits[i] ? '<span class="dot fit"></span>'
         : p.plays[i] ? '<span class="dot game"></span>' : ""}</td>`).join("") + `</tr>`).join("") + `</tbody>`;
   $("fa-table").querySelectorAll("th.sort").forEach(h => h.onclick = () => { state.sort = h.dataset.sort; render(); });
