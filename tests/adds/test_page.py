@@ -4,11 +4,12 @@ from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
 from html.parser import HTMLParser
+from pathlib import Path
 from types import SimpleNamespace
 
 from fantasyhoops.adds import page
 from fantasyhoops.adds import plan as command
-from fantasyhoops.adds.matchup import Matchup
+from fantasyhoops.adds.matchup import Matchup, matchup_weights, read_matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
 from fantasyhoops.adds.readers import Adds, Player, Week
 from fantasyhoops.adds.role_up import Absence
@@ -120,6 +121,18 @@ def test_the_page_shows_the_matchup_score_and_the_weight_of_each_category():
     assert "The planner did not find the category scores" in text(render(weights=weights))
     # A run with no weights (no free agents read) shows no matchup section.
     assert "Matchup" not in text(render())
+
+
+def test_the_page_shows_the_matchup_weights_from_the_live_score_table():
+    # The matchup page of 2026-10-21 (#73). The week has 6 days, and the planning window is 2026-10-21 to 10-25.
+    from fantasyhoops.core.common import load_config
+    fixture = Path(__file__).parent / "fixtures" / "matchup_scores_live.html"
+    m = read_matchup(fixture.read_text(encoding="utf-8"), team=10)
+    html = render(matchup=m, weights=matchup_weights(m, load_config(), share_left=5 / 6))
+    shown = text(html)
+    assert "The planner did not find the category scores" not in shown
+    assert "PTS 24 45 -21 1.00" in shown and "REB 4 17 -13 0.99" in shown and "BLK 0 3 -3 0.95" in shown
+    assert "Opponent" not in html
 
 
 def test_the_opponent_name_is_not_on_the_page():

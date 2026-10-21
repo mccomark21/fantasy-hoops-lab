@@ -160,7 +160,7 @@ The stat lines come from Yahoo. The season projections file of the draft tools g
 
 Decision (2026-10-21, #59): the aggressive plan weights the 6 categories by the state of the current matchup. The schedule plan, the option order and the best plans for one roster spot keep the blended value.
 
-The planner reads the category totals of your team and your opponent from the score table of the matchup page. The margin of a category is your total minus the total of your opponent. Each category then gets a matchup weight:
+The planner reads the category totals of your team and your opponent from the score table of the matchup page. The planner finds the score table by its stat headers (PTS, REB, AST, 3PTM, ST, BLK). On 2026-10-21, after the first games, the table had no Score header (#73). The margin of a category is your total minus the total of your opponent. Each category then gets a matchup weight:
 
 1. A margin of `close` or less (a lead or a deficit) keeps weight 1.
 2. A margin of `large` or more gets weight `min_weight` (0.5).

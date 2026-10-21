@@ -41,6 +41,22 @@ def test_the_reader_finds_your_row_by_the_team_link():
     assert m.opponent == "TradeMark" and m.mine["pts"] == 13
 
 
+def test_the_reader_reads_the_live_score_table_of_2026_10_21():
+    # After the first games, the header has no "Score" cell, and the first link of each row is a logo with no text.
+    m = read_matchup((FIXTURES / "matchup_scores_live.html").read_text(encoding="utf-8"), team=10)
+    assert m.opponent == "Opponent"
+    assert m.mine == {"threes": 4, "pts": 24, "reb": 4, "ast": 9, "stl": 1, "blk": 0}
+    assert m.theirs == {"threes": 5, "pts": 45, "reb": 17, "ast": 14, "stl": 1, "blk": 3}
+
+
+def test_the_reader_does_not_read_the_player_table_as_the_score_table():
+    # The player table has the same stat headers. Its rows have player links, not team links.
+    head = "".join(f"<th>{h}</th>" for h in ["Player", "PTS", "REB", "AST", "3PTM", "BLK", "ST"])
+    row = '<tr><td><a href="https://sports.yahoo.com/nba/players/1">A Player</a></td>' + "<td>1</td>" * 6 + "</tr>"
+    html = f"<table><thead><tr>{head}</tr></thead><tbody>{row}{row}</tbody></table>"
+    assert read_matchup(html, team=10) is None
+
+
 def test_a_page_with_no_score_table_gives_no_matchup():
     assert read_matchup((FIXTURES / "matchup.html").read_text(encoding="utf-8"), team=10) is None
 

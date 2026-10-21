@@ -44,17 +44,19 @@ def _number(text):
 def read_matchup(html, team):
     """The Matchup on the matchup page (/nba/<league>/matchup?mid1=<team>), or None if the page has no score table.
 
-    The score table has a header with "Score" and one row for each team. team: your team ID. Your row is the row
-    with the link to /<league>/<team>.
+    The score table has the stat headers of STAT_COLUMNS and one row for each team. The header does not always
+    have a "Score" cell. team: your team ID. Your row is the row with the link to /<league>/<team>. The team name is
+    the text of the first team link with text, because the first link can be a logo with no text.
     """
     for table in BeautifulSoup(html, "html.parser").find_all("table"):
         head = table.select("thead tr")
         heads = [cell.get_text(" ", strip=True) for cell in head[-1].find_all(["th", "td"])] if head else []
-        if "Score" not in heads or not set(STAT_COLUMNS) <= set(heads):
+        if not set(STAT_COLUMNS) <= set(heads):
             continue
         rows = []
         for row in table.select("tbody tr"):
-            link, cells = row.select_one("a[href]"), [td.get_text(" ", strip=True) for td in row.find_all("td")]
+            cells = [td.get_text(" ", strip=True) for td in row.find_all("td")]
+            link = next((a for a in row.select("a[href]") if a.get_text(strip=True)), None)
             if link is None or len(cells) != len(heads):
                 continue
             scores = {key: _number(cells[heads.index(name)]) for name, key in STAT_COLUMNS.items()}
