@@ -5,6 +5,7 @@ core/rotation.py reads the log (data/rotation_log.csv and data/rotation_scores.c
   yesterday). The change is the first minus the second. A change of [adds] minutes_rise or more gets a mark.
 - Starts: his starts in his games of the last 14 days.
 - Closes: his closes in the close games of his NBA team in the last 14 days. core/rotation.py defines a close game.
+- Starter flag and closer flag: core/role_flags.py, over his last games and the last close games of his team.
 The role is a mark only. It does not change the blended value or the plans. This module writes no file.
 """
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ import pandas as pd
 from fantasyhoops.adds.blend import RECENT_DAYS
 from fantasyhoops.core.common import DATA, name_key
 from fantasyhoops.core.identity import espn_keys
+from fantasyhoops.core.role_flags import role_flags
 from fantasyhoops.core.rotation import LOG, SCORES, player_games, read_log, read_scores
 
 LAST_GAMES = 5  # the games of the short minutes window
@@ -31,6 +33,8 @@ class Role:
     closes: int  # his closes in the close games of his team in the last 14 days
     close_games: int  # the close games of his team in the last 14 days
     rise: bool  # the change is [adds] minutes_rise or more
+    starter: str | None = None  # the starter flag of core/role_flags.py: New, Regular, Inconsistent or None
+    closer: str | None = None  # the closer flag of core/role_flags.py
 
     @property
     def change(self):
@@ -81,9 +85,10 @@ def player_roles(players, stints, scores, cfg, today, overrides=None):
         close = teams[teams.team == player[1]].game_id
         last5 = float(mine.minutes.tail(LAST_GAMES).mean())
         mean14 = float(recent.minutes.mean()) if len(recent) else None
+        starter, closer = role_flags(games, pid, player[1], cfg["adds"]["flags"])
         out[player] = Role(minutes_last5=last5, minutes_14d=mean14, games=len(recent), starts=int(recent.started.sum()),
                            closes=int(recent[recent.game_id.isin(close)].closed.sum()), close_games=len(close),
-                           rise=mean14 is not None and last5 - mean14 >= rise)
+                           rise=mean14 is not None and last5 - mean14 >= rise, starter=starter, closer=closer)
     return out
 
 

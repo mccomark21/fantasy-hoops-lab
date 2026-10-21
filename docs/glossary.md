@@ -40,6 +40,11 @@ The rotation log (`data/rotation_log.csv`) gives these terms. `core/rotation.py`
 | Start | The player is in the starting lineup of the game, from the ESPN box score. |
 | Close game | At some moment in the last 5:00 of the fourth quarter or of an overtime period, the margin is 5 points or fewer. A game with an overtime period is always a close game. The settings are `close_minutes` and `close_margin` in `[rotation]`. |
 | Close | The player is on the floor at the end of a close game. The closes of a player are counted against the close games of his team. |
+| Starter flag | New, Regular or Inconsistent, from his starts in his last 10 games that he played. No flag with fewer than 5 games. `core/role_flags.py` gives it. The settings are in `[adds.flags]`. See the [adds guide](adds/README.md#starter-flag-and-closer-flag). |
+| Closer flag | New, Regular or Inconsistent, from his closes in the last 8 close games of his NBA team. A close game that he did not play counts as not closed. No flag with fewer than 4 close games. |
+| New (flag) | He started (closed) each of the last 3 games (2 close games), and fewer than half of the earlier games in the window. |
+| Regular (flag) | He started (closed) 70% or more of the window. |
+| Inconsistent (flag) | He started (closed) 20% or more of the window, but less than 70%. |
 
 ## Schedule
 

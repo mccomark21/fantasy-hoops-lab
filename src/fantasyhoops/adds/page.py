@@ -6,7 +6,8 @@ A section shows only the parts that exist. The main sections:
 - Matchup: the category scores of the current matchup and the weight of each category (adds/matchup.py).
 - Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
   script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
-  Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py).
+  Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py), with the
+  starter flag and the closer flag (core/role_flags.py).
 A third section lists the waiver players (W) with their clear days.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
 The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
@@ -170,12 +171,15 @@ def matchup_section(matchup, weights):
 
 
 def role_text(role):
-    """For example "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 · Closes 1/2". None with no Role (adds/roles.py)."""
+    """For example "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 (Regular) · Closes 1/2 (New)". None with no Role
+    (adds/roles.py). The starter flag follows the starts and the closer flag follows the closes. No flag: no word."""
     if role is None:
         return None
     recent = "no games in 14d" if role.minutes_14d is None else f"{role.minutes_14d:.1f} 14d ({role.change:+.1f})"
-    return (f"Min {role.minutes_last5:.1f} L5, {recent} · Starts {role.starts}/{role.games} · "
-            f"Closes {role.closes}/{role.close_games}")
+    starter = f" ({role.starter})" if role.starter else ""
+    closer = f" ({role.closer})" if role.closer else ""
+    return (f"Min {role.minutes_last5:.1f} L5, {recent} · Starts {role.starts}/{role.games}{starter} · "
+            f"Closes {role.closes}/{role.close_games}{closer}")
 
 
 def free_agent_data(options, days, games, replacement, match_replacement=None, nights=None, roles=None):
@@ -211,12 +215,26 @@ def free_agent_data(options, days, games, replacement, match_replacement=None, n
             "players": players, "positions": list(POSITIONS), "flag": FLAG, "rows": FREE_AGENT_ROWS}
 
 
-def role_legend(roles, minutes_rise):
+def flag_legend(flags):
+    """The legend of the starter flag and the closer flag. flags: [adds.flags] in config.toml. Nothing with None."""
+    if not flags:
+        return ""
+    return (f' The word after Starts is the starter flag, from his last {flags["window_games"]} games '
+            f'({flags["min_games"]} or more). The word after Closes is the closer flag, from the last '
+            f'{flags["close_window"]} close games of his team ({flags["min_close_games"]} or more). A close game '
+            f'that he did not play counts as not closed. New: he started each of his last {flags["new_games"]} '
+            f'games (closed each of the last {flags["new_closes"]} close games), and fewer than half of the '
+            f'earlier games in the window. Regular: {flags["regular_share"]:.0%} or more. Inconsistent: '
+            f'{flags["some_share"]:.0%} or more. No word: less, or too few games.')
+
+
+def role_legend(roles, minutes_rise, flags=None):
     """The legend of the role line under each player. Nothing with no roles (no rotation log)."""
     if not roles:
         return ""
     rise = (f' <span class="flag">MIN+</span> L5 is {minutes_rise:g} minutes or more above 14d.'
             if minutes_rise is not None else "")
+    rise += flag_legend(flags)
     return ('<p class="legend">Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d), with the '
             'change. Starts: his starts / his games in the last 14 days. Closes: his closes / the close games of his '
             'team in the last 14 days. A close: he is on the floor at the end of a close game. '
@@ -225,11 +243,12 @@ def role_legend(roles, minutes_rise):
 
 
 def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None,
-                        roles=None, minutes_rise=None):
+                        roles=None, minutes_rise=None, flags=None):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
     roles and minutes_rise: the Roles of adds/roles.py and [adds] minutes_rise, for the role line of each player.
+    flags: [adds.flags], for the legend of the starter flag and the closer flag.
     """
     options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
@@ -247,7 +266,7 @@ def free_agents_section(options, days, games, replacement, match_replacement=Non
             'with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. '
             '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
             '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
-            f'{role_legend(roles, minutes_rise)}'
+            f'{role_legend(roles, minutes_rise, flags)}'
             f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>')
 
 
@@ -329,7 +348,7 @@ def method_note():
 
 def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
            warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None, nights=None,
-           roles=None, minutes_rise=None):
+           roles=None, minutes_rise=None, flags=None):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
@@ -340,7 +359,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
     (None: no matchup section). match_replacement: the matchup value of a replacement free agent, or None.
     nights: from rest.second_nights(), for the B2B marks.
     roles: {(name, team): Role} from adds/roles.py, or None with no rotation log. minutes_rise: [adds] minutes_rise,
-    for the legend of the minutes mark.
+    for the legend of the minutes mark. flags: [adds.flags], for the legend of the starter and closer flags.
     """
     today = today or date.today()
     sections = [
@@ -349,7 +368,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
         plans_section(rows, days, spots, data.adds, today, nights),
         matchup_section(matchup, weights),
         free_agents_section(options, days, games, replacement, match_replacement, nights, roles,
-                            minutes_rise),
+                            minutes_rise, flags),
         waivers_section(options, replacement),
         role_up_section(options),
         contingency_section(contingencies),

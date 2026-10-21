@@ -16,6 +16,7 @@ from fantasyhoops.adds.role_up import Absence
 from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.spots import SpotPlan
+from fantasyhoops.core.common import load_config
 
 MON = date(2027, 1, 4)
 WEEK = [MON + timedelta(days=i) for i in range(7)]
@@ -149,19 +150,33 @@ def test_the_opponent_name_is_not_on_the_page():
 
 def test_the_free_agent_data_has_the_minutes_the_starts_and_the_closes():
     roles = {("Phi & One", "PHI"): Role(minutes_last5=28.04, minutes_14d=22.0, games=4, starts=3, closes=1,
-                                        close_games=2, rise=True),
+                                        close_games=2, rise=True, starter="Regular", closer="New"),
              ("Star", "PHI"): Role(minutes_last5=30.0, minutes_14d=None, games=0, starts=0, closes=0, close_games=0,
                                    rise=False)}
     players = {p["name"]: p for p in page.free_agent_data(OPTIONS, DAYS, GAMES, 0.5, roles=roles)["players"]}
-    assert players["Phi & One"]["role"] == "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 · Closes 1/2"
+    assert players["Phi & One"]["role"] == "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 (Regular) · Closes 1/2 (New)"
     assert players["Phi & One"]["rise"]
     assert players["Star"]["role"] == "Min 30.0 L5, no games in 14d · Starts 0/0 · Closes 0/0"
     assert not players["Star"]["rise"]
     # A player who is not in the rotation log has no role text.
     assert players["Chi One"]["role"] is None and not players["Chi One"]["rise"]
-    shown = text(render(roles=roles, minutes_rise=4.0))
+    shown = text(render(roles=roles, minutes_rise=4.0, flags=load_config()["adds"]["flags"]))
     assert "Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d)" in shown
     assert "MIN+ L5 is 4 minutes or more above 14d" in shown
+    assert "The word after Starts is the starter flag, from his last 10 games (5 or more)." in shown
+    assert "from the last 8 close games of his team (4 or more)" in shown
+    assert "Regular: 70% or more. Inconsistent: 20% or more." in shown
+
+
+def test_the_page_shows_the_starter_flag_and_the_closer_flag_in_the_html():
+    roles = {("Phi & One", "PHI"): Role(minutes_last5=20.0, minutes_14d=20.0, games=5, starts=1, closes=0,
+                                        close_games=4, rise=False, starter="Inconsistent", closer=None),
+             ("Star", "PHI"): Role(minutes_last5=30.0, minutes_14d=30.0, games=5, starts=5, closes=4, close_games=4,
+                                   rise=False, starter="New", closer="Regular")}
+    html = render(roles=roles, minutes_rise=4.0)
+    assert "Starts 1/5 (Inconsistent) · Closes 0/4" in html
+    assert "Closes 0/4 (" not in html  # no closer flag: no word after the closes
+    assert "Starts 5/5 (New) · Closes 4/4 (Regular)" in html
 
 
 def test_the_page_has_no_role_legend_with_no_rotation_log():

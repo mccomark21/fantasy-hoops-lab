@@ -479,7 +479,7 @@ def main(today=None, publish=True):
                        weights=weights, match_replacement=match_replacement, nights=nights,
                        contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies],
                        roles=read_roles([o.player for o in options], cfg, today),
-                       minutes_rise=cfg["adds"].get("minutes_rise"))
+                       minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"))
     publish_page(page.write(text), rows, publish)
 
 

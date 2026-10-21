@@ -212,14 +212,33 @@ A filled dot is a game in an open slot that he can fill. An empty circle is a ga
 
 Decision (2026-10-21): the role line is a mark only. It does not change the blended value or the plans.
 
-Each player in the free-agent table has a role line from the rotation log, for example "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 · Closes 1/2":
+Each player in the free-agent table has a role line from the rotation log, for example "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 (Regular) · Closes 1/2 (New)":
 
 - Min: his mean minutes in his last 5 games (L5), then his mean minutes in his games of the last 14 days (14d), then the change (L5 minus 14d).
-- Starts: his starts / his games in the last 14 days.
-- Closes: his closes / the close games of his NBA team in the last 14 days. See [close game](../glossary.md#rotation) in the glossary. A close in a blowout does not count.
+- Starts: his starts / his games in the last 14 days. The word in parentheses is his [starter flag](#starter-flag-and-closer-flag).
+- Closes: his closes / the close games of his NBA team in the last 14 days. See [close game](../glossary.md#rotation) in the glossary. A close in a blowout does not count. The word in parentheses is his [closer flag](#starter-flag-and-closer-flag).
 - MIN+: the change is `minutes_rise` (4) minutes or more. The mark is next to his name.
 
 The last 5 games are the last 5 games that he played. They can be older than 14 days. The 14 days end yesterday, because the log holds only final games. Early in the season, both windows hold the same games, so the change is 0.
+
+#### Starter flag and closer flag
+
+Decision (2026-10-21, #75): the owner approved this rule. The flags are marks only. They change no value and no plan. `core/role_flags.py` gives the flags, so other tools can use them.
+
+- The starter flag uses his last `window_games` (10) games that he played.
+- The closer flag uses the last `close_window` (8) close games of his current NBA team. A close game that he did not play counts as "not closed".
+- The windows count games, not days, so they differ from the 14-day counts of the role line. The games end yesterday.
+
+The check order is New, then Regular, then Inconsistent:
+
+| Flag | Starter flag | Closer flag |
+| --- | --- | --- |
+| New | He started each of his last `new_games` (3) games, and fewer than half of the earlier games in the window. | He closed each of the last `new_closes` (2) close games, and fewer than half of the earlier close games in the window. |
+| Regular | He started `regular_share` (70%) or more of the window. | He closed 70% or more of the window. |
+| Inconsistent | He started `some_share` (20%) or more, but less than 70%. | He closed 20% or more, but less than 70%. |
+| No flag | Less than 20%, or fewer than `min_games` (5) games. | Less than 20%, or fewer than `min_close_games` (4) close games. |
+
+A player with no flag has no word after the count. The legend under the free-agent table gives the rule with the settings of `config.toml`.
 
 The planner links each Yahoo name to an ESPN name after `name_key()`. `data/name_overrides.csv` gives the ESPN name for a player whose names do not match. If two ESPN players have the same name, the player with games for the NBA team of the free agent wins. If neither has games for that team, the free agent gets no role line. A player who is not in the log has no role line. Without `data/rotation_log.csv`, the page has no role lines.
 
@@ -326,6 +345,14 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
 | `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |
 | `role_up.games` | The role-up mark stays for this number of missed games: 3. |
+| `flags.window_games` | The games in the window of the starter flag: 10. See [Starter flag and closer flag](#starter-flag-and-closer-flag). |
+| `flags.min_games` | Fewer games than this number give no starter flag: 5. |
+| `flags.new_games` | The last games that must all be starts for New: 3. |
+| `flags.close_window` | The close games of his team in the window of the closer flag: 8. |
+| `flags.min_close_games` | Fewer close games than this number give no closer flag: 4. |
+| `flags.new_closes` | The last close games that must all be closes for New: 2. |
+| `flags.regular_share` | The share of the window for Regular: 0.7. |
+| `flags.some_share` | The share of the window for Inconsistent: 0.2. |
 
 The settings of the [matchup weights](#matchup-weights) are in `[adds.matchup]`:
 
@@ -364,7 +391,7 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Trend | The adds and drops of a player across all Yahoo leagues, from Transaction Trends. |
 | Waiver player | A player with Yahoo status W. A plan can use him from the day after his clear day, as a waiver claim. |
 | Clear day | The day that a waiver player clears waivers, from the Roster Status cell, for example "W (Oct 22)". |
-| Role line | The minutes, the starts and the closes of a free agent, from the rotation log. |
+| Role line | The minutes, the starts and the closes of a free agent, from the rotation log, with his starter flag and closer flag. |
 
 ## Decisions
 
