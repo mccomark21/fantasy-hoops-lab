@@ -90,7 +90,7 @@ def test_minute_gaps_name_each_player_off_by_more_than_the_tolerance():
     game = tiny_game()
     game["boxscore"]["players"][0]["statistics"][0]["athletes"][5]["stats"] = ["9"]  # a6 played 6 minutes
     stints, _, box = game_stints(game)
-    assert [g["player"] for g in minute_gaps(stints, box)] == ["A6"]
+    assert [g["player"] for g in minute_gaps(stints, box, 1.5)] == ["A6"]
 
 
 def test_real_game_matches_the_box_score():
@@ -99,7 +99,7 @@ def test_real_game_matches_the_box_score():
     played = {pid for pid, b in box.items() if b["minutes"] > 0}
     assert {s["player_id"] for s in stints} == played
     assert (len(box), len(played)) == (28, 22)  # 6 players did not play
-    assert minute_gaps(stints, box) == []
+    assert minute_gaps(stints, box, 1.5) == []
     assert all(s["out_sec"] > s["in_sec"] for s in stints)
     assert scores[-1]["home_score"] == 121 and scores[-1]["away_score"] == 113
 
@@ -123,7 +123,7 @@ def read_csv(path):
 
 
 def test_update_reads_each_game_once(tmp_path, monkeypatch):
-    monkeypatch.setattr(rotation, "load_config", lambda: {"league": {"espn_season": 2027}})
+    monkeypatch.setattr(rotation, "load_config", lambda: {"league": {"espn_season": 2027}, "rotation": {"minute_tolerance": 1.5}})
     board = {"leagues": [{"calendar": ["2026-10-21T07:00Z"]}],
              "events": [{"id": "900", "season": {"year": 2027, "type": 2}, "status": {"type": {"completed": True}}}]}
     asked = []

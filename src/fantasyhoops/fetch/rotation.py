@@ -3,7 +3,7 @@
 A stint is the time from a check-in to the next check-out of one player in one period.
 The log starts at the first regular-season game of espn_season in config.toml.
 A run reads only the games that are not in the log. Run it again after each game day.
-The run prints each player whose stints are more than 1.5 minutes from his box-score minutes.
+The run prints each player whose stints are more than minute_tolerance ([rotation] in config.toml) from his box-score minutes.
 Output (the run adds rows):
   data/rotation_log.csv     - one row for each stint, with the score at the check-in and at the check-out
   data/rotation_scores.csv  - one row for each play that changes the score
@@ -14,16 +14,13 @@ from collections import defaultdict
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from fantasyhoops.core.common import DATA, load_config
-from fantasyhoops.core.rotation import period_bounds
+from fantasyhoops.core.common import load_config
+from fantasyhoops.core.rotation import LOG, SCORES, period_bounds
 from fantasyhoops.fetch.espn import API, get_json, local_date
 
-LOG = DATA / "rotation_log.csv"
-SCORES = DATA / "rotation_scores.csv"
 LOG_COLUMNS = ["game_id", "date", "team", "opponent", "player_id", "player", "starter", "period",
                "in_sec", "out_sec", "in_team_score", "in_opp_score", "out_team_score", "out_opp_score"]
 SCORE_COLUMNS = ["game_id", "sec", "home_score", "away_score"]
-TOLERANCE = 1.5  # minutes between the stints and the box score of a player
 LINEUP = 5
 # A player on the bench can get these. They do not show that he is on the floor.
 BENCH_PLAYS = ("Technical", "Ejection")
@@ -153,7 +150,7 @@ def game_stints(summary):
     return stints, scores, box
 
 
-def minute_gaps(stints, box, tolerance=TOLERANCE):
+def minute_gaps(stints, box, tolerance):
     """The players whose stints are more than tolerance minutes from their box-score minutes."""
     played = defaultdict(float)
     for s in stints:
@@ -198,7 +195,8 @@ def _append(path, columns, rows):
 
 def update(get=get_json, today=None, log=LOG, scores=SCORES):
     """Add the finished games that are not in the log. Gives {"games": new game IDs, "gaps": minute gaps}."""
-    season = load_config()["league"]["espn_season"]
+    cfg = load_config()
+    season, tolerance = cfg["league"]["espn_season"], cfg["rotation"]["minute_tolerance"]
     today = today or datetime.now(ZoneInfo("America/New_York")).date().isoformat()
     done, newest = logged_games(log)
     log.parent.mkdir(exist_ok=True)
@@ -216,16 +214,16 @@ def update(get=get_json, today=None, log=LOG, scores=SCORES):
             _append(log, LOG_COLUMNS, stints)
             done.add(game_id)
             new.append(game_id)
-            gaps += [{"game_id": game_id, **g} for g in minute_gaps(stints, box)]
+            gaps += [{"game_id": game_id, **g} for g in minute_gaps(stints, box, tolerance)]
             print(f"{day} {game_id}: {len(stints)} stints")
-    return {"games": new, "gaps": gaps}
+    return {"games": new, "gaps": gaps, "tolerance": tolerance}
 
 
 def main():
     result = update()
     print(f"Added {len(result['games'])} games to {LOG}")
     if result["gaps"]:
-        print(f"{len(result['gaps'])} players are more than {TOLERANCE} minutes from the box score:")
+        print(f"{len(result['gaps'])} players are more than {result['tolerance']} minutes from the box score:")
         for g in result["gaps"]:
             print(f"  {g['game_id']} {g['team']} {g['player']}: log {g['log_minutes']}, box {g['box_minutes']}")
 

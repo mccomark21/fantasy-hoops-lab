@@ -91,7 +91,7 @@ The rotation log is a record of each check-in and check-out of each NBA player i
 - `data/rotation_log.csv`: one row for each stint, with the score at the check-in and at the check-out.
 - `data/rotation_scores.csv`: one row for each play that changes the score.
 
-The log starts at the first game of the season. A run reads only the games that are not in the log, so run it again after each game day. The planning run does not update the log. The run prints each player whose stints are more than 1.5 minutes from his box-score minutes. Other tools read the log with `core/rotation.py`. The close-game settings are in `[rotation]` in `config.toml`.
+The log starts at the first game of the season. A run reads only the games that are not in the log, so run it again after each game day. The planning run does not update the log. The run prints each player whose stints are more than 1.5 minutes (`minute_tolerance`) from his box-score minutes. Other tools read the log with `core/rotation.py`. The close-game settings are in `[rotation]` in `config.toml`.
 
 The full list of draft commands is in [docs/draft/](docs/draft/README.md#usage).
 

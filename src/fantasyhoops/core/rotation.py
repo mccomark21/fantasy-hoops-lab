@@ -32,16 +32,18 @@ def read_log(path=LOG):
 
 
 def read_scores(path=SCORES):
-    """The score changes. A run that stopped can leave a game two times, so the duplicates go."""
+    """The score changes. A run that stopped can write a game two times. This function removes the duplicate rows."""
     return pd.read_csv(path, dtype={"game_id": str}).drop_duplicates()
 
 
 def close_games(stints, scores, cfg):
     """One row for each game: game_id, close (True or False). The windows are the last close_minutes of each period from the fourth."""
     margin, window = cfg["rotation"]["close_margin"], cfg["rotation"]["close_minutes"] * 60
+    by_game = {game_id: game.sort_values("sec") for game_id, game in scores.groupby("game_id")}
+    empty = scores.iloc[0:0]
     rows = []
     for game_id, periods in stints.groupby("game_id")["period"]:
-        game = scores[scores.game_id == game_id].sort_values("sec")
+        game = by_game.get(game_id, empty)
         diff = (game.home_score - game.away_score).abs().to_numpy()
         secs = game.sec.to_numpy()
         close = False

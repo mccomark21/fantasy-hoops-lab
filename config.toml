@@ -74,6 +74,7 @@ add_delay_days = 0         # days between an add and the first day that the play
 [rotation]
 close_margin = 5           # points
 close_minutes = 5          # minutes at the end of the fourth quarter and of each overtime period
+minute_tolerance = 1.5     # the fetch run prints each player whose stints differ from his box-score minutes by more than this
 
 # Weight for each category z-score. See docs/draft/category_weights.md.
 # Punted categories (FG%, FT%, TO) are not in this list.

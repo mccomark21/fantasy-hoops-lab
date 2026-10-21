@@ -16,7 +16,7 @@ def stint(game, team, opp, player, start, end, starter=False, period=None):
 
 
 def game(game_id, last=END):
-    """A game of HHH (home) against AAA. h1 starts and plays to the end. h2 comes in for the last 2 minutes."""
+    """A game of HHH (home) against AAA. h1 starts and plays to the end. h2 enters for the last 2 minutes."""
     return [stint(game_id, "HHH", "AAA", "h1", 0, last, starter=True),
             stint(game_id, "HHH", "AAA", "h2", last - 120, last),
             stint(game_id, "HHH", "AAA", "h3", 0, last - 120, starter=True),
@@ -88,7 +88,7 @@ def test_team_games_count_the_close_games():
 
 
 def test_config_has_the_close_game_settings():
-    assert load_config()["rotation"] == {"close_margin": 5, "close_minutes": 5}
+    assert load_config()["rotation"] == {"close_margin": 5, "close_minutes": 5, "minute_tolerance": 1.5}
 
 
 def test_read_the_saved_log():
