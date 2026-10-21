@@ -43,6 +43,10 @@ A reviewer checks each change against these rules. Each rule names something tha
 5. Each module starts with a docstring. The docstring says what the module does and names the files that it writes.
 6. A module that a person runs has a `main()` function and an `if __name__ == "__main__":` guard. Run it with `python -m fantasyhoops.<tool>.<module>`.
 
+## Adds planner
+
+1. A feature of the adds planner is done only when `output/adds/adds_plan.html` shows it. Output in the terminal report alone does not count. The issue lists "The page shows ..." in its acceptance criteria, and the PR has a test that checks the page HTML.
+
 ## Prose
 
 Issues, commits, PR bodies, docs, docstrings and code comments use Simplified Technical English. The key rules:
