@@ -68,7 +68,7 @@ The search is exact. It looks at each open day in order. On each day, each strea
 
 ### Aggressive plan
 
-Decision (2026-10-20): the score of the aggressive plan is the sum of the blended value of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left.
+Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left.
 
 The aggressive plan uses the same free agents and the same exact search as the schedule plan, with a different plan score:
 
