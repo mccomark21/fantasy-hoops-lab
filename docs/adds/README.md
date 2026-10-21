@@ -120,7 +120,7 @@ The stat lines come from Yahoo. The season projections file of the draft tools g
 
 ## The page
 
-The page has two main sections: the best plans for one roster spot, and the free-agent table.
+The page has two main sections: the best plans for one roster spot, and the free-agent table. A third section lists the waiver players.
 
 ### Best plans for one roster spot
 
@@ -149,6 +149,10 @@ The table shows the free agents that the run read: the free agents of the teams 
 A filter does not change Val, because Val is a value per game.
 
 A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status.
+
+### Waiver players
+
+A separate table lists the waiver players that the run read, best value first. It shows the team, the positions, the clear day, the first day that a plan can use him and Val (the same market value as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
 
 ## Core and drops
 
@@ -192,10 +196,19 @@ The planner does not keep an add back for contingency plans. The page shows the 
 | Your roster, the statuses, the adds that you used | Your team page (`/nba/<league>/<team>`) |
 | The dates of the fantasy week, the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
 | Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`): the first 6 pages of the full list, and all pages of the list filtered by NBA team |
+| Waiver players and their clear days | The waiver list (`/players?status=W`): the first 6 pages of the full list. The Roster Status cell shows the clear day, for example "W (Oct 22)". |
 | Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex?date=<day>&bimtab=A&sort=BI_A`), one page for each day of this week up to today |
 | NBA schedule and game times | `data/schedule.csv` (`fetch/espn.py`) |
 
-Only players with status FA are free agents. Players on waivers (W) are not.
+Only players with status FA are free agents. Players on waivers (W) are not. The planner reads the waiver players separately, each with his clear day:
+
+- A plan can use a waiver player from the day after his clear day. Example: a player who clears on Wed can start in a Thu window.
+- A waiver claim is not sure. A team with a higher waiver priority can claim him first. The terminal and the page mark each waiver player with W.
+- A waiver claim uses one add of the weekly limit.
+- The Roster Status cell has no year. The planner uses the year of the run day, or the next year if that date is more than 180 days before the run day.
+- A W cell without a valid date gives no clear day, for example "W" or "W (Feb 29)" in a year with no Feb 29. The planner prints a warning and skips that player.
+- The terminal list and the page show the same Val: the market value of the free-agent table.
+- The free-agent table and the replacement value use only the players with status FA.
 
 Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. See [ADR 1](../adr/0001-playwright-for-league-data.md).
 
@@ -233,6 +246,8 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Flagged player | A core player with a status that is not blank and does not make him an Out player, for example Q, D or P. |
 | Contingency plan | How to fill the slot of a flagged player who is ruled out just before his game. |
 | Trend | The adds and drops of a player across all Yahoo leagues, from Transaction Trends. |
+| Waiver player | A player with Yahoo status W. A plan can use him from the day after his clear day, as a waiver claim. |
+| Clear day | The day that a waiver player clears waivers, from the Roster Status cell, for example "W (Oct 22)". |
 
 ## Decisions
 

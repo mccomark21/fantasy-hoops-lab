@@ -117,6 +117,47 @@ def test_the_page_explains_why_there_is_no_plan():
     assert "<script" not in page.render(DATA, DAYS, GAMES, SPOTS, [], today=WEEK[0])
 
 
+CLAIM = Option(Player("Claim Guy", "CHI", ("C",), clear_day=WEEK[1]), 1.2)
+
+
+def test_the_page_lists_the_waiver_players_with_the_clear_day():
+    html = page.render(DATA, DAYS, GAMES, SPOTS, [ROW1, ROW2], OPTIONS + [CLAIM], RANKING, ["PHI"], WEEK[0],
+                       replacement=0.5)
+    shown = text(html)
+    assert "Waiver players" in shown
+    assert "Claim Guy W CHI C Tue 1/5 Wed 1/6 +0.70" in shown
+    # The free-agent table holds only the players with status FA.
+    raw = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
+    assert "Claim Guy" not in [p["name"] for p in json.loads(raw)["players"]]
+
+
+def test_the_page_has_no_waiver_section_with_no_waiver_players():
+    assert "Waiver players" not in text(render())
+
+
+def test_a_move_marks_a_waiver_claim():
+    row = SpotPlan(SPOTS[0], Plan(windows=(TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM,
+                                                      (CLAIM,)),), started_games=2, adds=1), 2)
+    shown = text(page.render(DATA, DAYS, GAMES, SPOTS, [row], [CLAIM], today=WEEK[0]))
+    assert "+Claim Guy W (CHI) – Sat & Sun" in shown
+    assert "W: a waiver claim. It is not sure" in shown
+
+
+def test_the_command_prints_the_waiver_players_and_uses_one_after_his_clear_day(monkeypatch, tmp_path, capsys):
+    # PHI plays Mon and Tue. The waiver player clears on Mon, so the plan adds him on Tue. The DEN free agent has no
+    # game. He is the replacement free agent (value 0.1), so the market value of the waiver player is +0.20.
+    claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
+    run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)])
+    out = capsys.readouterr().out
+    assert "Waiver players (a claim is not sure, and it uses an add):" in out
+    assert "Phi Claim (PHI) SF  clears Mon 01/04, first plan day Tue 01/05, Val +0.20" in out
+    # The page shows the same Val.
+    assert "Phi Claim W PHI SF Mon 1/4 Tue 1/5 +0.20" in text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
+    assert "Spot 1: PHI Tue 01/05 to Tue 01/05" in out
+    assert "1. Phi Claim W (waiver claim, not sure)" in out
+    assert command.free_agent_path(None, 25, status="W").startswith("players?status=W&")
+
+
 def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, capsys):
     published = []
     run_command(monkeypatch, tmp_path, published, publish=True)
@@ -175,6 +216,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None):
     monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
     monkeypatch.setattr(command, "read_team_free_agents", lambda yahoo, teams, view=None: [])
     monkeypatch.setattr(command, "read_market_free_agents", lambda yahoo, view=None: [])
+    monkeypatch.setattr(command, "read_waiver_list", lambda yahoo, today, view=None: [])
     monkeypatch.setattr(command, "read_week_trends", lambda yahoo, days: {})
     options = options or [option("Phi One", "PHI", 0.3)]
     monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(): options)

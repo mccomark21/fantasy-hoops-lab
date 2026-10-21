@@ -80,3 +80,12 @@ def test_game_times_from_the_schedule():
     sched = pd.DataFrame({"date": ["2027-01-04"], "team": ["BOS"], "opponent": ["NYK"], "time": ["19:30"]})
     assert game_times(sched) == {(WEEK[0], "BOS"): "19:30"}
     assert game_times(sched.drop(columns="time")) == {}
+
+
+def test_a_late_add_skips_a_waiver_player_before_his_clear_day():
+    # BOS fills all slots on Mon and Tue, with no bench player. Late (LAL) clears waivers on Mon, so a plan
+    # can use him from Tue.
+    games = {WEEK[0]: {"BOS", "LAL"}, WEEK[1]: {"BOS", "LAL"}, WEEK[2]: {"PHI"}}
+    late = Option(Player("Late", "LAL", ("SF",), clear_day=WEEK[0]), 2.0)
+    _, out = plans(roster(), games, [fa("Phi", "PHI"), late])
+    assert [(c.day, [o.player.name for o, _ in c.late_adds]) for c in out] == [(WEEK[0], []), (WEEK[1], ["Late"])]

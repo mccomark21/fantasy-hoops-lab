@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 from bs4 import BeautifulSoup
 
 from fantasyhoops.adds.readers import (Player, has_next_page, read_adds, read_free_agents, read_roster,
-                                       read_week)
+                                       read_waiver_players, read_week)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -109,6 +109,59 @@ def test_read_recent_free_agents_keeps_the_averages():
 def test_read_free_agents_skips_players_on_waivers():
     html = fixture("free_agents_phi.html").replace("<td><div>FA</div></td>", "<td><div>W</div></td>", 1)
     assert "Anfernee Simons" not in [f.player.name for f in read_free_agents(html)]
+
+
+def waiver_page(cell):
+    """The PHI page with the Roster Status cell of Anfernee Simons changed to cell, for example "W (Oct 22)"."""
+    return fixture("free_agents_phi.html").replace("<td><div>FA</div></td>", f"<td><div>{cell}</div></td>", 1)
+
+
+def test_read_waiver_players_reads_the_clear_day():
+    # The waiver list of 2026-10-21 (trimmed). The Roster Status cell shows the clear day, for example "W (Oct 22)".
+    was = read_waiver_players(fixture("waivers.html"), today=date(2026, 10, 21))
+    assert [(w.player.name, w.player.team, w.player.clear_day) for w in was] == [
+        ("Wendell Carter Jr.", "ORL", date(2026, 10, 22)), ("Devin Vassell", "SA", date(2026, 10, 23)),
+        ("Mitchell Robinson", "BOS", date(2026, 10, 23)), ("Isaiah Stewart", "MEM", date(2026, 10, 22))]
+    assert all(w.player.on_waivers for w in was)
+    carter = was[0]
+    assert (carter.games, carter.line["pts"]) == (3.0, pytest.approx(30.6 / 3))
+    assert (was[3].player.status, was[3].player.positions) == ("D", ("PF", "C"))
+
+
+def test_read_free_agents_gives_no_clear_day():
+    fas = read_free_agents(waiver_page("W (Oct 22)"))
+    assert "Anfernee Simons" not in [f.player.name for f in fas]
+    assert not any(f.player.on_waivers for f in fas)
+
+
+def test_a_clear_day_in_january_is_in_the_next_year():
+    was = read_waiver_players(waiver_page("W (Jan 2)"), today=date(2026, 12, 31))
+    assert was[0].player.clear_day == date(2027, 1, 2)
+
+
+def test_a_waiver_player_with_no_clear_day_is_skipped_with_a_warning(capsys):
+    assert read_waiver_players(waiver_page("W"), today=date(2026, 10, 21)) == []
+    assert 'Warning: the waiver list shows Anfernee Simons as "W" with no clear day' in capsys.readouterr().out
+
+
+def test_feb_29_in_a_year_with_no_feb_29_is_skipped_with_a_warning(capsys):
+    # 2026 is not a leap year. The other rows of the page stay.
+    was = read_waiver_players(waiver_page("W (Feb 29)"), today=date(2026, 2, 27))
+    assert "Anfernee Simons" not in [w.player.name for w in was]
+    assert 'Warning: the waiver list shows Anfernee Simons as "W (Feb 29)" with no clear day' in capsys.readouterr().out
+
+
+def test_a_free_agent_row_gives_no_warning(capsys):
+    read_waiver_players(fixture("free_agents_phi.html"), today=date(2026, 10, 21))
+    assert capsys.readouterr().out == ""
+
+
+def test_a_waiver_player_is_available_from_the_day_after_his_clear_day():
+    wed = date(2026, 10, 21)
+    claim = Player("A", "BOS", ("C",), clear_day=wed)
+    assert [claim.available(wed - timedelta(days=1)), claim.available(wed), claim.available(wed + timedelta(days=1))]         == [False, False, True]
+    assert Player("B", "BOS", ("C",)).available(wed)
+    assert claim.on_waivers and not Player("B", "BOS", ("C",)).on_waivers
 
 
 def test_has_next_page():

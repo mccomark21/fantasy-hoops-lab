@@ -5,14 +5,16 @@ A section shows only the parts that exist. The two main sections:
 - Best plans for one roster spot: the SpotPlans of adds/spots.py, as a table of days.
 - Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
   script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
+A third section lists the waiver players (W) with their clear days.
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
 draft board.
 """
 import html
 import json
-from datetime import date
+from datetime import date, timedelta
 
-from fantasyhoops.adds.value import REPLACEMENT_RANK
+from fantasyhoops.adds.planner import waiver_options
+from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core.common import OUT as _OUT
 
 OUT = _OUT / "adds"
@@ -35,7 +37,13 @@ def _day(d):
 
 def _player(p):
     status = f' <span class="status" title="{_e(p.status_name or p.status)}">{_e(p.status)}</span>' if p.status else ""
+    if p.on_waivers:
+        status += f' <span class="status" title="Waiver claim, not sure. Clears {_day(p.clear_day)}.">W</span>'
     return f"{_e(p.name)}{status}"
+
+
+CLAIM_NOTE = ("W: a waiver claim. It is not sure: a team with a higher waiver priority can claim him first. "
+              "A claim uses an add.")
 
 
 def _stat(value, label):
@@ -114,6 +122,8 @@ def plans_section(rows, days, spots, adds, today):
     note = ""
     if any(w.add_day == today for row in rows for w in row.added):
         note = '\n<p class="muted">An add for today helps only if his game has not started.</p>'
+    if any(w.player.player.on_waivers for row in rows for w in row.added):
+        note += f'\n<p class="muted">{CLAIM_NOTE}</p>'
     return (f'<section>{title}\n<table class="plans"><thead><tr><th></th>{head}<th class="total">Adds</th>'
             f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
             '<p class="legend">Each row is a plan for one roster spot, with different players in each row. A row can '
@@ -145,7 +155,11 @@ def free_agent_data(options, days, games, replacement):
 
 
 def free_agents_section(options, days, games, replacement):
-    """The free-agent table with its filters. A script fills the table from the data. Nothing with no options."""
+    """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
+
+    The table holds only the players with status FA. The waiver players are in waivers_section().
+    """
+    options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
         return ""
     data = json.dumps(free_agent_data(options, days, games, replacement), ensure_ascii=False).replace("</", "<\\/")
@@ -159,6 +173,31 @@ def free_agents_section(options, days, games, replacement):
             'change Val. Gms: his games on the selected days. '
             '<span class="flag">FA?</span> a value this high is unusual for a free agent.</p>\n'
             f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>')
+
+
+def waivers_section(options, replacement):
+    """The waiver players (W), best value first: the clear day, the first day for a plan and the market value.
+
+    Nothing if no option is on waivers.
+    """
+    waivers = waiver_options(options)
+    if not waivers:
+        return ""
+
+    def market(v):
+        v = market_value(v, replacement)
+        return "—" if v is None else f"{v:+.2f}"
+
+    rows = "".join(f'<tr><td class="name">{_player(o.player)}</td><td class="name">{_e(o.player.team)}</td>'
+                   f'<td class="name">{_e(",".join(o.player.positions))}</td><td>{_day(o.player.clear_day)}</td>'
+                   f'<td>{_day(o.player.clear_day + timedelta(days=1))}</td><td>{market(o.value)}</td></tr>'
+                   for o in waivers)
+    return ('<section><h2>Waiver players</h2>\n'
+            '<table class="ranking"><thead><tr><th class="name">Player</th><th class="name">Team</th>'
+            '<th class="name">Pos</th><th>Clears</th><th>First day</th><th>Val</th></tr></thead>'
+            f'<tbody>{rows}</tbody></table>\n'
+            '<p class="legend">First day: the first day that a plan can use him, the day after he clears waivers. '
+            f'Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>')
 
 
 def contingency_section(contingencies):
@@ -211,6 +250,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
         warnings_section(warnings),
         plans_section(rows, days, spots, data.adds, today),
         free_agents_section(options, days, games, replacement),
+        waivers_section(options, replacement),
         contingency_section(contingencies),
         ranking_section(ranking, read),
         method_note(),
