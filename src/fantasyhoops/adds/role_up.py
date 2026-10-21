@@ -13,7 +13,7 @@ import pandas as pd
 
 from fantasyhoops.core import rotation
 from fantasyhoops.core.common import DATA, name_key
-from fantasyhoops.core.identity import link_players
+from fantasyhoops.core.identity import link_players, yahoo_keys
 
 LOG, SCORES = rotation.LOG, rotation.SCORES
 # The files that give the Yahoo positions of the absent starters (core/identity.py).
@@ -57,14 +57,14 @@ def absences(player_games, team_games, today, cfg):
 def with_positions(found, yahoo, rosters, overrides):
     """The Absences with the Yahoo positions of each player. link_players() of core/identity.py links the names.
 
-    A row of overrides applies when its espn_name matches the ESPN name of the player.
+    yahoo_keys() of core/identity.py gives the Yahoo name of a player whose ESPN name is in an override row.
     """
     if not found:
         return []
-    ids = {name_key(n): i for n, i in zip(overrides.espn_name, overrides.player_id) if n}
-    players = pd.DataFrame({"name": [a.name for a in found],
-                            "player_id": [ids.get(name_key(a.name), f"espn:{a.name}") for a in found]})
-    pos = link_players(players, rosters, yahoo, overrides).pos
+    keys = yahoo_keys(overrides)
+    players = pd.DataFrame({"name": [keys.get(name_key(a.name), a.name) for a in found], "player_id": ""})
+    # The names are already the Yahoo names, so link_players() gets no override rows.
+    pos = link_players(players, rosters, yahoo, overrides.iloc[0:0]).pos
     return [replace(a, positions=() if p == "—" else tuple(p.split("/"))) for a, p in zip(found, pos)]
 
 
