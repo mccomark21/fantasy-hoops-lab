@@ -403,7 +403,8 @@ class _Search:
 
         The players with the highest count get the slots first, then the players with the higher value (see count())."""
         day = self.days[i].date
-        playing = sorted((o for o in players if self.plays(o, i)), key=lambda o: (-counted_games(o.rest_games, [day]), -_value(o)))
+        playing = sorted((o for o in players if self.plays(o, i)),
+                         key=lambda o: (-counted_games(o.rest_games, [day]), -_value(o)))
         base = [set(p.positions) for _, p in self.days[i].starters] + [set(p.positions) for p in self.days[i].bench]
         lineup = best_lineup(base + [set(o.player.positions) for o in playing], self.slots)
         return {playing[j - len(base)] for j in lineup if j >= len(base)}
