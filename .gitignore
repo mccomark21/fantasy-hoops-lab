@@ -14,3 +14,6 @@ output/
 
 # Saved Yahoo sign-in session (Playwright profile)
 .auth/
+
+# Claude Code agent worktrees
+.claude/worktrees/
