@@ -428,10 +428,11 @@ def main(today=None, publish=True):
         rests = read_rest_names(cfg) if chance else set()
         spots = [StreamSpot(with_rests([s.holder], rests, nights, chance)[0]) if s.holder else s
                  for s in stream_spots(data.roster, cfg, values)]
-        days = open_slots_by_day(kept_roster(data.roster, spots), games, slots)
+        kept = kept_roster(data.roster, spots)
+        days = open_slots_by_day(kept, games, slots)
         early = next_week_window(data.week, cfg["adds"].get("next_week_open_days", NEXT_WEEK_OPEN_DAYS))
         early_games = team_games(sched, early)
-        early_days = open_slots_by_day(kept_roster(data.roster, spots), early_games, slots)
+        early_days = open_slots_by_day(kept, early_games, slots)
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)

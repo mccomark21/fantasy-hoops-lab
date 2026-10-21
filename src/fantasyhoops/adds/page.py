@@ -262,11 +262,12 @@ def next_week_legend(next_days):
     """The legend of the next-week marks: one line for each day checked. Nothing with no days to check."""
     if not next_days:
         return ""
-    lines = [f'<span class="flag next">{_open_label(d.date)}</span> he plays next {_day(d.date)}, and your core '
-             f'players leave a starting slot open that he can fill ({len(d.open)} open slots).' if d.open
-             else f"Next {_day(d.date)}: your core players fill all starting slots, so no mark." for d in next_days]
-    return ('<p class="legend">' + " ".join(lines) + " He can stay on the roster with no add. The mark changes no "
-            "value and no plan.</p>\n")
+    lines = [f'<span class="flag next">{_open_label(d.date)}</span>: he has a game next {d.date:%A} '
+             f'{d.date.month}/{d.date.day}, and your core players leave a slot open that he can fill '
+             f'({len(d.open)} open slots).' if d.open
+             else f"Next {d.date:%A} {d.date.month}/{d.date.day}: your core players fill all slots. No player gets "
+                  "a mark." for d in next_days]
+    return '<p class="legend">' + " ".join(lines) + " The mark changes no value and no plan.</p>\n"
 
 
 def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None,

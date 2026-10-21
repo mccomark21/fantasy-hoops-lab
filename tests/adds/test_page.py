@@ -1,11 +1,15 @@
 import json
 import re
+import shutil
+import subprocess
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 from fantasyhoops.adds import page
 from fantasyhoops.adds import plan as command
@@ -359,13 +363,33 @@ def test_the_page_shows_the_next_week_mark_in_the_free_agent_table():
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert {p["name"]: p["next_open"] for p in data["players"]}["Phi & One"] == ["Mon open"]
     assert "p.next_open" in page.SCRIPT and 'class="flag next"' in page.SCRIPT
-    shown = text(html)
-    assert "Mon open he plays next Mon 1/11, and your core players leave a starting slot open that he can fill (2 open slots)." in shown
+    assert ('<span class="flag next">Mon open</span>: he has a game next Monday 1/11, and your core players leave a '
+            "slot open that he can fill (2 open slots).") in html
+
+
+def test_the_page_script_draws_the_next_week_badge_in_the_free_agent_row():
+    if shutil.which("node") is None:
+        pytest.skip("node is not on PATH")
+    nmon = WEEK[6] + timedelta(days=1)
+    html = render(next_days=[Day(nmon, 4, (), (), ("SF", "Util"))], next_games={nmon: {"PHI"}})
+    data = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
+    script = html.split('<script type="application/json" id="fa-data">')[1].split("<script>")[1].split("</script>")[0]
+    # A small page: the elements that the script uses, with the JSON data of the page.
+    code = (f"const DATA_TEXT = {json.dumps(data)};\n"
+            "const els = {}; const el = () => ({innerHTML: '', textContent: '', querySelectorAll: () => []});\n"
+            "global.document = {getElementById: id => id === 'fa-data' ? {textContent: DATA_TEXT}"
+            " : (els[id] = els[id] || el())};\n"
+            f"{script}\nprocess.stdout.write(els['fa-table'].innerHTML);")
+    table = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True, encoding="utf-8").stdout
+    rows = {re.match(r'<td class="name">([^<]*)', row).group(1).strip(): row
+            for row in re.findall(r"<tr>(.*?)</tr>", table) if row.startswith('<td class="name">')}
+    assert '<span class="flag next">Mon open</span>' in rows["Phi &amp; One"]
+    assert '<span class="flag next">' not in rows["Chi One"]
 
 
 def test_the_page_has_no_next_week_mark_with_no_days_to_check():
     html = render()
-    assert "next Mon" not in text(html)
+    assert "next Monday" not in text(html)
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert all(p["next_open"] == [] for p in data["players"])
 
@@ -376,14 +400,27 @@ def test_the_command_marks_the_free_agents_who_play_on_an_open_day_early_next_we
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert data["players"][0]["next_open"] == ["Wed open"]
-    assert "he plays next Wed 1/6" in text(html)
+    assert "he has a game next Wednesday 1/6" in text(html)
 
 
-def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=()):
+def test_on_the_last_day_of_the_week_the_mark_checks_the_days_after_the_planned_week(monkeypatch, tmp_path):
+    # read_league() moves data.week forward to Wed and Thu. So the mark checks Fri and Sat, not Wed.
+    league = command.LeagueData(roster=[], adds=Adds(0, 5), week=Week(13, tuple(WEEK[2:4])), next_week=True)
+    run_command(monkeypatch, tmp_path, [], publish=False, league=league,
+                extra_games=[(WEEK[2], "PHI"), (WEEK[4], "PHI")])
+    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
+    assert data["players"][0]["next_open"] == ["Fri open"]
+    assert "next Friday 1/8" in text(html) and "next Saturday 1/9" in text(html)
+
+
+def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
+                league=None):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced.
 
     rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
     extra_games: (day, team) for each more game of the schedule, for example a game next week.
+    league: the LeagueData that read_league() gives. None: week 12 (Mon and Tue), 4 of 5 adds used.
     """
     @contextmanager
     def no_yahoo(league, wait_seconds):
@@ -398,8 +435,8 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "load_config", lambda: cfg)
     monkeypatch.setattr(command, "read_schedule", lambda: sched)
     monkeypatch.setattr(command, "open_league", no_yahoo)
-    monkeypatch.setattr(command, "read_league", lambda yahoo, cfg, today: command.LeagueData(
-        roster=[], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2]))))
+    league = league or command.LeagueData(roster=[], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2])))
+    monkeypatch.setattr(command, "read_league", lambda yahoo, cfg, today: league)
     monkeypatch.setattr(command, "season_values", lambda cfg: {})
     monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
     monkeypatch.setattr(command, "read_team_free_agents", lambda yahoo, teams, view=None: [])
