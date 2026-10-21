@@ -9,7 +9,7 @@ A section shows only the parts that exist. The main sections:
   Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py).
 A third section lists the waiver players (W) with their clear days.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
-The role-up section lists the absent starters and the free agents at their positions (adds/role.py).
+The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
 draft board.
 """

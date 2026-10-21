@@ -11,8 +11,8 @@ from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.matchup import Matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
 from fantasyhoops.adds.readers import Adds, Player, Week
+from fantasyhoops.adds.role_up import Absence
 from fantasyhoops.adds.roles import Role
-from fantasyhoops.adds.role import Absence
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.spots import SpotPlan
 

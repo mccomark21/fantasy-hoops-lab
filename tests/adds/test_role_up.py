@@ -2,10 +2,10 @@ from datetime import date
 
 import pandas as pd
 
-from fantasyhoops.adds import role
+from fantasyhoops.adds import role_up as role
 from fantasyhoops.adds.planner import Option
 from fantasyhoops.adds.readers import Player
-from fantasyhoops.adds.role import Absence, absences, mark_role_ups, with_positions
+from fantasyhoops.adds.role_up import Absence, absences, mark_role_ups, with_positions
 
 CFG = {"adds": {"role_up": {"starter_games": 5, "days": 7, "games": 3}}}
 TODAY = date(2026, 11, 10)
@@ -110,3 +110,16 @@ def test_the_absent_starter_does_not_mark_himself():
 def test_read_absences_gives_none_without_the_rotation_log(monkeypatch, tmp_path):
     monkeypatch.setattr(role, "LOG", tmp_path / "rotation_log.csv")
     assert role.read_absences(TODAY, CFG) == []
+
+
+def test_read_absences_warns_and_gives_none_without_the_yahoo_files(monkeypatch, tmp_path, capsys):
+    # The rotation log exists, but data/yahoo_players.csv does not. The planner must not stop.
+    for name in ("rotation_log.csv", "rotation_scores.csv", "rosters.csv", "name_overrides.csv"):
+        (tmp_path / name).write_text("", encoding="utf-8")
+    monkeypatch.setattr(role, "LOG", tmp_path / "rotation_log.csv")
+    monkeypatch.setattr(role, "SCORES", tmp_path / "rotation_scores.csv")
+    monkeypatch.setattr(role, "IDENTITY_FILES", [tmp_path / n for n in
+                                                 ("yahoo_players.csv", "rosters.csv", "name_overrides.csv")])
+    assert role.read_absences(TODAY, CFG) == []
+    out = capsys.readouterr().out
+    assert out.count("Warning") == 1 and "yahoo_players.csv" in out

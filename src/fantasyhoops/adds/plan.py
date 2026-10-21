@@ -12,7 +12,7 @@ One planning run:
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
    read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
-   positions (adds/role.py). The mark changes no value.
+   positions (adds/role_up.py). The mark changes no value.
 6. schedule_plan(): choose the team windows for the stream spots. matchup_plan(): the same search with the
    aggressive score and the matchup values (matchup_weights()). spot_plans(): the best plans for one roster spot,
    the rows of the plan page.
@@ -44,7 +44,7 @@ from fantasyhoops.adds.roles import read_roles
 from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free_agents, read_roster,
                                        read_waiver_players, read_week)
 from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
-from fantasyhoops.adds.role import mark_role_ups, read_absences
+from fantasyhoops.adds.role_up import mark_role_ups, read_absences
 from fantasyhoops.adds.session import open_league
 from fantasyhoops.adds.spots import spot_plans
 from fantasyhoops.adds.slots import (next_week_games, open_slots_by_day, planning_window, plans_next_week,

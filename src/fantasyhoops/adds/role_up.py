@@ -16,6 +16,8 @@ from fantasyhoops.core.common import DATA, name_key
 from fantasyhoops.core.identity import link_players
 
 LOG, SCORES = rotation.LOG, rotation.SCORES
+# The files that give the Yahoo positions of the absent starters (core/identity.py).
+IDENTITY_FILES = [DATA / "yahoo_players.csv", DATA / "rosters.csv", DATA / "name_overrides.csv"]
 
 
 @dataclass(frozen=True)
@@ -75,10 +77,18 @@ def mark_role_ups(options, found):
 
 
 def read_absences(today, cfg):
-    """The absent starters with their positions, from the files in data/. [] if the rotation log is missing."""
+    """The absent starters with their positions, from the files in data/. [] if the rotation log is missing.
+
+    If the log exists but a file of IDENTITY_FILES is missing, the function prints one warning and gives [].
+    """
     if not (LOG.exists() and SCORES.exists()):
         return []
+    missing = [f.name for f in IDENTITY_FILES if not f.exists()]
+    if missing:
+        print(f"Warning: no role-up marks. These files are missing in data/: {', '.join(missing)}.")
+        return []
+    yahoo, rosters, overrides = IDENTITY_FILES
     stints, scores = rotation.read_log(LOG), rotation.read_scores(SCORES)
     found = absences(rotation.player_games(stints, scores, cfg), rotation.team_games(stints, scores, cfg), today, cfg)
-    return with_positions(found, pd.read_csv(DATA / "yahoo_players.csv"), pd.read_csv(DATA / "rosters.csv"),
-                          pd.read_csv(DATA / "name_overrides.csv", dtype=str).fillna(""))
+    return with_positions(found, pd.read_csv(yahoo), pd.read_csv(rosters),
+                          pd.read_csv(overrides, dtype=str).fillna(""))
