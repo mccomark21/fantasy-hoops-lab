@@ -1,6 +1,6 @@
 import pandas as pd
 
-from fantasyhoops.core.identity import link_players
+from fantasyhoops.core.identity import espn_keys, link_players
 
 PLAYERS = pd.DataFrame({
     "player_id": [1, 2, 3, 4, 5, 6],
@@ -72,3 +72,8 @@ def test_espn_and_yahoo_miss():
     row = linked().loc[15]
     assert pd.isna(row.team)
     assert pd.isna(row.yahoo_id) and row.pos == "—"
+
+
+def test_espn_keys_map_each_yahoo_name_to_its_espn_name():
+    # Lu Dort: the ESPN name is the projection name. Alex Sarr: the same name in both sources, so no row.
+    assert espn_keys(OVERRIDES) == {"luguentz dort": "lu dort"}

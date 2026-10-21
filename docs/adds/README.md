@@ -191,6 +191,21 @@ A filter does not change Val or Match, because they are values per game.
 
 A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status.
 
+### Role line
+
+Decision (2026-10-21): the role line is a mark only. It does not change the blended value or the plans.
+
+Each player in the free-agent table has a role line from the rotation log, for example "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 · Closes 1/2":
+
+- Min: his mean minutes in his last 5 games (L5), then his mean minutes in his games of the last 14 days (14d), then the change (L5 minus 14d).
+- Starts: his starts / his games in the last 14 days.
+- Closes: his closes / the close games of his NBA team in the last 14 days. See [close game](../glossary.md#rotation) in the glossary. A close in a blowout does not count.
+- MIN+: the change is `minutes_rise` (4) minutes or more. The mark is next to his name.
+
+The last 5 games are the last 5 games that he played. They can be older than 14 days. The 14 days end yesterday, because the log holds only final games. Early in the season, both windows hold the same games, so the change is 0.
+
+The planner links each Yahoo name to an ESPN name after `name_key()`. `data/name_overrides.csv` gives the ESPN name for a player whose names do not match. If two ESPN players have the same name, the player with games for the NBA team of the free agent wins. If neither has games for that team, the free agent gets no role line. A player who is not in the log has no role line. Without `data/rotation_log.csv`, the page has no role lines.
+
 ### Waiver players
 
 A separate table lists the waiver players that the run read, best value first. It shows the team, the positions, the clear day, the first day that a plan can use him and Val (the same market value as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
@@ -240,6 +255,7 @@ The planner does not keep an add back for contingency plans. The page shows the 
 | Waiver players and their clear days | The waiver list (`/players?status=W`): the first 6 pages of the full list. The Roster Status cell shows the clear day, for example "W (Oct 22)". |
 | Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex?date=<day>&bimtab=A&sort=BI_A`), one page for each day of this week up to today |
 | NBA schedule and game times | `data/schedule.csv` (`fetch/espn.py`) |
+| Minutes, starts and closes (the role line) | The rotation log: `data/rotation_log.csv` and `data/rotation_scores.csv` (`fetch/rotation.py`). The planning run does not update the log. Run `python -m fantasyhoops.fetch.rotation` first. |
 
 Only players with status FA are free agents. Players on waivers (W) are not. The planner reads the waiver players separately, each with his clear day:
 
@@ -267,6 +283,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `stream_spots` | The number of stream spots: 3. The empty spots count first. |
 | `add_delay_days` | The add delay. 0 for this league. |
 | `rest_chance` | The chance that a player on the rest list sits on a second night: 0.5. That game counts `1 - rest_chance` started games. 0 counts each game as 1. |
+| `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
 
 The settings of the [matchup weights](#matchup-weights) are in `[adds.matchup]`:
 
@@ -302,6 +319,7 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Trend | The adds and drops of a player across all Yahoo leagues, from Transaction Trends. |
 | Waiver player | A player with Yahoo status W. A plan can use him from the day after his clear day, as a waiver claim. |
 | Clear day | The day that a waiver player clears waivers, from the Roster Status cell, for example "W (Oct 22)". |
+| Role line | The minutes, the starts and the closes of a free agent, from the rotation log. |
 
 ## Decisions
 

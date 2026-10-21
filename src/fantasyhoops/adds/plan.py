@@ -18,7 +18,9 @@ One planning run:
 7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings,
    the aggressive plan, the comparison of the two plans and the plans for one roster spot.
 8. contingency_plans(): print a contingency plan for each game day of each flagged player.
-9. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
+9. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
+   The run does not update the log. Without data/rotation_log.csv, the page has no role lines.
+10. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
 NBA schedule: data/schedule.csv (fetch/espn.py).
 """
@@ -35,6 +37,7 @@ from fantasyhoops.adds.matchup import (matchup_lines, matchup_plan, matchup_scor
                                        matchup_weights, read_matchup, weighted_cfg)
 from fantasyhoops.adds.planner import (StreamSpot, counted_games, rank_teams, schedule_plan, teams_to_read,
                                        value_above_empty, waiver_options)
+from fantasyhoops.adds.roles import read_roles
 from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free_agents, read_roster,
                                        read_waiver_players, read_week)
 from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
@@ -437,7 +440,9 @@ def main(today=None, publish=True):
     text = page.render(data, days, games, spots, rows, options, ranking, read, today,
                        replacement=replacement, warnings=warnings, matchup=data.matchup,
                        weights=weights, match_replacement=match_replacement, nights=nights,
-                       contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies])
+                       contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies],
+                       roles=read_roles([o.player for o in options], cfg, today),
+                       minutes_rise=cfg["adds"].get("minutes_rise"))
     publish_page(page.write(text), rows, publish)
 
 

@@ -71,6 +71,9 @@ add_delay_days = 0         # days between an add and the first day that the play
 # 1 - rest_chance started games in the plans. No data gives a better value yet. 0 = count each game as 1.
 # Separate from [risk] rest_chance, so that the draft tools do not change.
 rest_chance = 0.5
+# Minutes mark on the page: his mean minutes in his last 5 games minus his mean minutes in the last 14 days.
+# A change of this number of minutes or more gets the MIN+ mark. The mark does not change the value.
+minutes_rise = 4.0         # minutes
 
 # Rotation log: python -m fantasyhoops.fetch.rotation writes data/rotation_log.csv. core/rotation.py reads it.
 # A close game: at some moment in the last close_minutes of the fourth quarter or of an overtime period,

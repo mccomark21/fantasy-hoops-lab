@@ -6,6 +6,7 @@ A section shows only the parts that exist. The main sections:
 - Matchup: the category scores of the current matchup and the weight of each category (adds/matchup.py).
 - Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
   script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
+  Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py).
 A third section lists the waiver players (W) with their clear days.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
@@ -167,15 +168,26 @@ def matchup_section(matchup, weights):
             f"<th>Weight</th></tr></thead><tbody>{rows}</tbody></table>\n{note}</section>")
 
 
-def free_agent_data(options, days, games, replacement, match_replacement=None, nights=None):
+def role_text(role):
+    """For example "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 · Closes 1/2". None with no Role (adds/roles.py)."""
+    if role is None:
+        return None
+    recent = "no games in 14d" if role.minutes_14d is None else f"{role.minutes_14d:.1f} 14d ({role.change:+.1f})"
+    return (f"Min {role.minutes_last5:.1f} L5, {recent} · Starts {role.starts}/{role.games} · "
+            f"Closes {role.closes}/{role.close_games}")
+
+
+def free_agent_data(options, days, games, replacement, match_replacement=None, nights=None, roles=None):
     """The data of the free-agent table: the days and one row for each option who plays, best value first.
 
     A value is a market value: the value minus replacement. match: the matchup value minus match_replacement, the
     matchup value of a replacement free agent. plays: his team plays on the day. fits: he plays and
     one of the open slots of the day takes one of his positions (Util takes all positions). b2b: he plays on the
     second night of a back-to-back (nights, from rest.second_nights()).
+    roles: {(name, team): Role} from adds/roles.py. role: the text of role_text(). rise: the minutes mark.
     """
     nights = nights or {}
+    roles = roles or {}
 
     def market(v, base=replacement):
         return None if v is None or base is None else round(v - base, 2)
@@ -185,25 +197,42 @@ def free_agent_data(options, days, games, replacement, match_replacement=None, n
         p = o.player
         plays = [p.team in games.get(d.date, ()) for d in days]
         fits = [on and any(s in d.open for s in (*p.positions, "Util")) for on, d in zip(plays, days)]
+        role = roles.get((p.name, p.team))
         players.append({"name": p.name, "team": p.team, "pos": list(p.positions), "status": p.status,
                         "value": market(o.value), "recent": market(o.recent_value),
                         "match": market(o.match, match_replacement),
                         "trend": o.trend.adds_today if o.trend else None, "plays": plays, "fits": fits,
-                        "b2b": [on and p.team in nights.get(d.date, ()) for on, d in zip(plays, days)]})
+                        "b2b": [on and p.team in nights.get(d.date, ()) for on, d in zip(plays, days)],
+                        "role": role_text(role), "rise": bool(role and role.rise)})
     return {"days": [{"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games,
                       "open": len(d.open)} for d in days],
             "players": players, "positions": list(POSITIONS), "flag": FLAG, "rows": FREE_AGENT_ROWS}
 
 
-def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None):
+def role_legend(roles, minutes_rise):
+    """The legend of the role line under each player. Nothing with no roles (no rotation log)."""
+    if not roles:
+        return ""
+    rise = (f' <span class="flag">MIN+</span> L5 is {minutes_rise:g} minutes or more above 14d.'
+            if minutes_rise is not None else "")
+    return ('<p class="legend">Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d), with the '
+            'change. Starts: his starts / his games in the last 14 days. Closes: his closes / the close games of his '
+            'team in the last 14 days. A close: he is on the floor at the end of a close game. '
+            f'The ESPN play-by-play gives these numbers.{rise} '
+            'They do not change Val.</p>\n')
+
+
+def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None,
+                        roles=None, minutes_rise=None):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
+    roles and minutes_rise: the Roles of adds/roles.py and [adds] minutes_rise, for the role line of each player.
     """
     options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
         return ""
-    data = free_agent_data(options, days, games, replacement, match_replacement, nights)
+    data = free_agent_data(options, days, games, replacement, match_replacement, nights, roles)
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return ('<section><h2>Free agents</h2>\n'
             '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
@@ -215,6 +244,7 @@ def free_agents_section(options, days, games, replacement, match_replacement=Non
             f'replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). Match: the same value '
             'with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. '
             '<span class="flag">FA?</span> a value this high is unusual for a free agent.</p>\n'
+            f'{role_legend(roles, minutes_rise)}'
             f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>')
 
 
@@ -278,7 +308,8 @@ def method_note():
 
 
 def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
-           warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None, nights=None):
+           warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None, nights=None,
+           roles=None, minutes_rise=None):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
@@ -288,6 +319,8 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
     warnings and contingencies: text lines. matchup, weights: the matchup.Matchup (or None) and the matchup weights
     (None: no matchup section). match_replacement: the matchup value of a replacement free agent, or None.
     nights: from rest.second_nights(), for the B2B marks.
+    roles: {(name, team): Role} from adds/roles.py, or None with no rotation log. minutes_rise: [adds] minutes_rise,
+    for the legend of the minutes mark.
     """
     today = today or date.today()
     sections = [
@@ -295,7 +328,8 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
         warnings_section(warnings),
         plans_section(rows, days, spots, data.adds, today, nights),
         matchup_section(matchup, weights),
-        free_agents_section(options, days, games, replacement, match_replacement, nights),
+        free_agents_section(options, days, games, replacement, match_replacement, nights, roles,
+                            minutes_rise),
         waivers_section(options, replacement),
         contingency_section(contingencies),
         ranking_section(ranking, read),
@@ -451,7 +485,9 @@ function render() {
     + `${th("games", "Gms")}${head}</tr></thead><tbody>` + rows.slice(0, DATA.rows).map(p =>
       `<tr><td class="name">${esc(p.name)}${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
       + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
-      + `<div class="sub">${esc(p.team)} · ${esc(p.pos.join(","))}${p.trend ? ` · ${p.trend} adds today` : ""}</div></td>`
+      + `${p.rise ? ' <span class="flag">MIN+</span>' : ""}`
+      + `<div class="sub">${esc(p.team)} · ${esc(p.pos.join(","))}${p.trend ? ` · ${p.trend} adds today` : ""}</div>`
+      + `${p.role ? `<div class="sub">${esc(p.role)}</div>` : ""}</td>`
       + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td>`
       + `<td class="${p.match < 0 ? "neg" : ""}">${fmt(p.match)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`
       + DATA.days.map((d, i) => `<td class="day${sel(i)}">${p.fits[i] ? '<span class="dot fit"></span>'
