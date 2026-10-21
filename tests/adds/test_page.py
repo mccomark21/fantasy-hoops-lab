@@ -10,6 +10,7 @@ from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.matchup import Matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
 from fantasyhoops.adds.readers import Adds, Player, Week
+from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.spots import SpotPlan
 
@@ -125,6 +126,27 @@ def test_the_opponent_name_is_not_on_the_page():
     html = render(matchup=m, weights={"pts": 1.0})
     assert "Secret" not in html and "Rival" not in html
     assert "300" in text(html)
+
+
+def test_the_free_agent_data_has_the_minutes_the_starts_and_the_closes():
+    roles = {("Phi & One", "PHI"): Role(minutes_last5=28.04, minutes_14d=22.0, games=4, starts=3, closes=1,
+                                        close_games=2, rise=True),
+             ("Star", "PHI"): Role(minutes_last5=30.0, minutes_14d=None, games=0, starts=0, closes=0, close_games=0,
+                                   rise=False)}
+    players = {p["name"]: p for p in page.free_agent_data(OPTIONS, DAYS, GAMES, 0.5, roles=roles)["players"]}
+    assert players["Phi & One"]["role"] == "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 · Closes 1/2"
+    assert players["Phi & One"]["rise"]
+    assert players["Star"]["role"] == "Min 30.0 L5, no games in 14d · Starts 0/0 · Closes 0/0"
+    assert not players["Star"]["rise"]
+    # A player who is not in the rotation log has no role text.
+    assert players["Chi One"]["role"] is None and not players["Chi One"]["rise"]
+    shown = text(render(roles=roles, minutes_rise=4.0))
+    assert "Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d)" in shown
+    assert "MIN+ L5 is 4 minutes or more above 14d" in shown
+
+
+def test_the_page_has_no_role_legend_with_no_rotation_log():
+    assert "Min: his mean minutes" not in text(render())
 
 
 def test_the_page_holds_the_free_agent_data_as_safe_json():
@@ -283,6 +305,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "read_market_free_agents", lambda yahoo, view=None: [])
     monkeypatch.setattr(command, "read_waiver_list", lambda yahoo, today, view=None: [])
     monkeypatch.setattr(command, "read_week_trends", lambda yahoo, days: {})
+    monkeypatch.setattr(command, "read_roles", lambda players, cfg, today: {})
     options = options or [option("Phi One", "PHI", 0.3)]
     monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None: options)
     monkeypatch.setattr(command, "projection_scale", lambda cfg: None)
