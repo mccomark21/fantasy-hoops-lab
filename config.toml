@@ -67,6 +67,9 @@ team = 10                  # your team ID in the league
 core = []                  # names of your core players: the planner never suggests to drop them
 stream_spots = 3           # stream spots: the empty spots, then the lowest non-core players up to this number
 add_delay_days = 0         # days between an add and the first day that the player can start
+# The time that the planner waits on each Yahoo page for the element that its reader needs (#74).
+# The planner stops with an error that names the page and the element when the element does not appear.
+page_wait = 10             # seconds
 # Chance that a player with rests_b2b ([risk] file) sits on the second night of a back-to-back. That game counts
 # 1 - rest_chance started games in the plans. No data gives a better value yet. 0 = count each game as 1.
 # Separate from [risk] rest_chance, so that the draft tools do not change.

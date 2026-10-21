@@ -331,7 +331,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
     """
     @contextmanager
-    def no_yahoo(league):
+    def no_yahoo(league, wait_seconds):
         yield None
 
     import pandas as pd
