@@ -324,7 +324,7 @@ Only players with status FA are free agents. Players on waivers (W) are not. The
 - The terminal list and the page show the same Val: the market value of the free-agent table.
 - The free-agent table and the replacement value use only the players with status FA.
 
-Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. See [ADR 1](../adr/0001-playwright-for-league-data.md).
+Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. On each page, the planner waits for the element that its reader needs, for example the player table. It does not wait for all network requests to stop, because Yahoo pages keep loading ads (#74). See [ADR 1](../adr/0001-playwright-for-league-data.md).
 
 Yahoo and ESPN use different team codes, for example SAS and SA. The planner maps the Yahoo codes to the ESPN codes of the schedule.
 
@@ -339,6 +339,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `core` | The names of your core players. |
 | `stream_spots` | The number of stream spots: 3. The empty spots count first. |
 | `add_delay_days` | The add delay. 0 for this league. |
+| `page_wait` | The seconds that the planner waits on each Yahoo page for the element that its reader needs: 10. If the element does not appear, the planner stops with an error that names the page and the element. |
 | `rest_chance` | The chance that a player on the rest list sits on a second night: 0.5. That game counts `1 - rest_chance` started games. 0 counts each game as 1. |
 | `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
 | `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |

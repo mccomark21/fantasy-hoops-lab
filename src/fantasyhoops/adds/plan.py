@@ -45,7 +45,7 @@ from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free
                                        read_waiver_players, read_week)
 from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
 from fantasyhoops.adds.role_up import mark_role_ups, read_absences
-from fantasyhoops.adds.session import open_league
+from fantasyhoops.adds.session import WAIT_SECONDS, open_league
 from fantasyhoops.adds.spots import spot_plans
 from fantasyhoops.adds.slots import (next_week_games, open_slots_by_day, planning_window, plans_next_week,
                                      roster_spots_used, team_games)
@@ -418,7 +418,7 @@ def main(today=None, publish=True):
     weights, match_empty, match_replacement = None, None, None
     games_next = None
     values = season_values(cfg)
-    with open_league(cfg["adds"]["league"]) as yahoo:
+    with open_league(cfg["adds"]["league"], cfg["adds"].get("page_wait", WAIT_SECONDS)) as yahoo:
         data = read_league(yahoo, cfg, today)
         window = planning_window(data.week, today)
         games, nights = team_games(sched, window), second_nights(sched, window)
