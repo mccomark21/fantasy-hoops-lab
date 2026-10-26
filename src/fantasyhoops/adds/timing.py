@@ -4,7 +4,9 @@ Timings.step() times one step of plan.main(). It prints the step when it starts 
 WORK counts the work of the plan searches (planner._Search): the calls of best(), cache hits included, and the
 unique states that best() computes. During a search, WORK prints the calls and the states every PROGRESS_SECONDS.
 A search step writes the counts of all its searches in one row. The other steps write empty counts.
-write() appends one row for each step to output/adds/timings.csv.
+Each step appends its row to output/adds/timings.csv when it ends, so a run that you stop (Ctrl+C) keeps the rows
+of its finished steps. The first steps end before the run knows the planning window. Their rows wait until
+Timings.window() gives it, or until a step stops the run. Then they get empty window columns.
 """
 import csv
 import time
@@ -58,16 +60,27 @@ class StepTime:
 
 
 class Timings:
-    """The step times of one planning run. on False: step() does nothing, and the run has no times."""
+    """The step times of one planning run. on False: step() does nothing, and the run writes no row.
 
-    def __init__(self, on=True, clock=time.perf_counter, work=None):
-        self.on, self.clock, self.work = on, clock, work or WORK
+    path: the timings file (default: TIMINGS at the time of the first write).
+    """
+
+    def __init__(self, on=True, clock=time.perf_counter, work=None, path=None):
+        self.on, self.clock, self.work, self.path = on, clock, work or WORK, path
         self.run_at = datetime.now().replace(microsecond=0)
-        self.steps = []
+        self.steps, self.head, self.waiting = [], None, []
+
+    def window(self, days, adds_left):
+        """Set the window columns: days, the Days of the planning window, and adds_left, the adds left. Then write
+        the rows that wait for them."""
+        self.head = {"days": len(days), "open_days": sum(bool(d.open) for d in days), "adds_left": adds_left}
+        self._flush()
 
     @contextmanager
     def step(self, name, search=False):
-        """Time the code in the with block as the step name. search: the step runs plan searches."""
+        """Time the code in the with block as the step name. search: the step runs plan searches.
+
+        A step that stops with an error (Ctrl+C too) writes no row. The rows that wait are written first."""
         if not self.on:
             yield
             return
@@ -78,6 +91,9 @@ class Timings:
         start = self.clock()
         try:
             yield
+        except BaseException:
+            self._flush(stopped=True)
+            raise
         finally:
             self.work.end()
         seconds = self.clock() - start
@@ -88,27 +104,27 @@ class Timings:
             done = StepTime(name, seconds)
             print(f"Step: {name}: {seconds:.2f} s", flush=True)
         self.steps.append(done)
+        self.waiting.append(done)
+        self._flush()
+
+    def _flush(self, stopped=False):
+        """Append the rows that wait. Without the window columns, only if stopped, with empty window columns."""
+        if not self.waiting or (self.head is None and not stopped):
+            return
+        head = self.head or {"days": "", "open_days": "", "adds_left": ""}
+        rows = [{"run_at": self.run_at.isoformat(), **head, "step": s.step, "seconds": f"{s.seconds:.2f}",
+                 "calls": "" if s.calls is None else s.calls, "states": "" if s.states is None else s.states}
+                for s in self.waiting]
+        self.waiting = []
+        append(self.path or TIMINGS, rows)
 
 
-def rows(timings, days, adds_left):
-    """The rows of timings.csv for one run. days: the Days of the planning window. adds_left: the adds left."""
-    head = {"run_at": timings.run_at.isoformat(), "days": len(days), "open_days": sum(bool(d.open) for d in days),
-            "adds_left": adds_left}
-    return [{**head, "step": s.step, "seconds": f"{s.seconds:.2f}",
-             "calls": "" if s.calls is None else s.calls, "states": "" if s.states is None else s.states}
-            for s in timings.steps]
-
-
-def write(timings, days, adds_left, path=None):
-    """Append the rows of one run to path (default: TIMINGS). Nothing if the run has no step times."""
-    path = path or TIMINGS
-    new_rows = rows(timings, days, adds_left)
-    if not new_rows:
-        return
+def append(path, rows):
+    """Append rows (dicts with the COLUMNS) to the CSV file path. The first write also writes the header."""
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
     with open(path, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=COLUMNS)
         if new:
             writer.writeheader()
-        writer.writerows(new_rows)
+        writer.writerows(rows)

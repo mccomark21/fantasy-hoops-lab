@@ -27,7 +27,7 @@ One planning run:
     ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
 11. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
-    The page shows the Run time table. The run appends one row for each step to output/adds/timings.csv.
+    The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
 Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
 NBA schedule: data/schedule.csv (fetch/espn.py).
 """
@@ -440,6 +440,7 @@ def main(today=None, publish=True, timed=True):
                  for s in stream_spots(data.roster, cfg, values)]
         kept = kept_roster(data.roster, spots)
         days = open_slots_by_day(kept, games, slots)
+        timings.window(days, data.adds.left)
         early = next_week_window(data.week, cfg["adds"].get("next_week_open_days", NEXT_WEEK_OPEN_DAYS))
         early_games = team_games(sched, early)
         early_days = open_slots_by_day(kept, early_games, slots)
@@ -512,8 +513,8 @@ def main(today=None, publish=True, timed=True):
                            next_days=early_days, next_games=early_games, timings=timings.steps)
         publish_page(page.write(text), rows, publish)
     if timed:
-        timing.write(timings, days, data.adds.left)
         print(f"Wrote the step times: {timing.TIMINGS}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plan the adds of the current fantasy week.")

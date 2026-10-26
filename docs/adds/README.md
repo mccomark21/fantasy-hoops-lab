@@ -289,7 +289,7 @@ The terminal shows each step when it starts and its time when it ends. During a 
 
 The page shows the Run time table: the step, the seconds, the calls and the states. The table has no row for the page write, because the run writes the page before that step ends.
 
-Each run appends one row for each step to `output/adds/timings.csv`. All rows of one run have the same `run_at`, so you can compare runs before and after a change.
+Each step appends its row to `output/adds/timings.csv` when it ends. If you stop a run (Ctrl+C), the file keeps the rows of the finished steps. The first steps end before the run knows the planning window. Their rows wait until the run finds the planning window. If the run stops before that, these rows get empty `days`, `open_days` and `adds_left`. All rows of one run have the same `run_at`, so you can compare runs before and after a change.
 
 | Column | Value |
 | --- | --- |

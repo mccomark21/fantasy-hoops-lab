@@ -272,7 +272,7 @@ def next_week_legend(next_days):
 
 
 def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None,
-                        roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, timings=()):
+                        roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().

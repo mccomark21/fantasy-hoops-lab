@@ -1,6 +1,8 @@
 import csv
 from datetime import date, timedelta
 
+import pytest
+
 from fantasyhoops.adds import timing
 from fantasyhoops.adds.planner import Option, StreamSpot, schedule_plan
 from fantasyhoops.adds.readers import Player
@@ -9,6 +11,18 @@ from fantasyhoops.adds.slots import open_slots_by_day
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON = date(2027, 1, 4)
 WEEK = [MON + timedelta(days=i) for i in range(7)]
+
+
+@pytest.fixture(autouse=True)
+def no_real_file(monkeypatch, tmp_path):
+    """No test writes the real output/adds/timings.csv."""
+    monkeypatch.setattr(timing, "TIMINGS", tmp_path / "real_timings.csv")
+
+
+def read_rows(path):
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return reader.fieldnames, list(reader)
 
 
 def clock(step):
@@ -85,24 +99,56 @@ def test_a_run_with_no_timers_has_no_steps(capsys):
     assert timings.steps == [] and capsys.readouterr().out == ""
 
 
-def test_write_appends_one_row_for_each_step(tmp_path):
+def test_each_step_appends_its_row_when_it_ends(tmp_path):
     days = open_slots_by_day([], {d: {"PHI"} for d in WEEK[:3]}, SLOTS)
     path = tmp_path / "timings.csv"
-    for _ in range(2):
-        timings = timing.Timings(on=True)
-        timings.steps = [timing.StepTime("schedule read", 0.123), timing.StepTime("schedule search", 2.0, 40, 12)]
-        timing.write(timings, days, 4, path)
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-    assert reader.fieldnames == timing.COLUMNS
-    assert len(rows) == 4
+    work = timing.Work()
+    timings = timing.Timings(clock=clock(0.123), work=work, path=path)
+    with timings.step("schedule read"):
+        pass
+    assert not path.exists()  # the row waits for the window columns
+    timings.window(days, 4)
+    assert len(read_rows(path)[1]) == 1
+    with timings.step("schedule search", search=True):
+        work.calls += 40
+        work.states += 12
+    columns, rows = read_rows(path)
+    assert columns == timing.COLUMNS
     assert rows[0] == {"run_at": timings.run_at.isoformat(), "days": "3", "open_days": "3", "adds_left": "4",
                        "step": "schedule read", "seconds": "0.12", "calls": "", "states": ""}
-    assert (rows[1]["calls"], rows[1]["states"]) == ("40", "12")
+    assert (rows[1]["step"], rows[1]["calls"], rows[1]["states"]) == ("schedule search", "40", "12")
     assert len(rows[0]["run_at"]) == len("2026-10-25T21:04:33")
 
 
-def test_write_writes_nothing_for_a_run_with_no_steps(tmp_path):
-    timing.write(timing.Timings(on=False), [], 0, tmp_path / "timings.csv")
+def test_a_stopped_step_keeps_the_rows_of_the_earlier_steps(tmp_path):
+    path = tmp_path / "timings.csv"
+    timings = timing.Timings(path=path)
+    with timings.step("schedule read"):
+        pass
+    timings.window([], 5)
+    with timings.step("Yahoo reads"):
+        pass
+    with pytest.raises(KeyboardInterrupt):
+        with timings.step("schedule search", search=True):
+            raise KeyboardInterrupt  # the owner stops the run with Ctrl+C
+    assert [r["step"] for r in read_rows(path)[1]] == ["schedule read", "Yahoo reads"]
+
+
+def test_a_step_that_stops_the_run_before_the_window_writes_the_waiting_rows(tmp_path):
+    path = tmp_path / "timings.csv"
+    timings = timing.Timings(path=path)
+    with timings.step("schedule read"):
+        pass
+    with pytest.raises(RuntimeError):
+        with timings.step("Yahoo reads"):
+            raise RuntimeError("no Yahoo session")
+    rows = read_rows(path)[1]
+    assert [(r["step"], r["days"], r["open_days"], r["adds_left"]) for r in rows] == [("schedule read", "", "", "")]
+
+
+def test_a_run_with_no_timers_writes_no_file(tmp_path):
+    timings = timing.Timings(on=False, path=tmp_path / "timings.csv")
+    with timings.step("schedule read"):
+        pass
+    timings.window([], 5)
     assert not (tmp_path / "timings.csv").exists()

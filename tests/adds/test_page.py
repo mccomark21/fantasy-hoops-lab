@@ -465,6 +465,18 @@ def test_a_step_that_does_not_run_writes_no_row(monkeypatch, tmp_path):
     assert all(r["calls"] == r["states"] == "" for r in rows)
 
 
+def test_a_run_that_stops_keeps_the_rows_of_the_finished_steps(monkeypatch, tmp_path):
+    def stop(*args):
+        raise KeyboardInterrupt  # the owner stops the run with Ctrl+C during the spot plans
+
+    monkeypatch.setattr(command, "spot_plans", stop)
+    with pytest.raises(KeyboardInterrupt):
+        run_command(monkeypatch, tmp_path, [], publish=False)
+    _, rows = timing_rows(tmp_path)
+    assert [r["step"] for r in rows] == STEPS[:STEPS.index("spot plans")]
+    assert {(r["days"], r["open_days"], r["adds_left"]) for r in rows} == {("2", "2", "1")}
+
+
 def test_the_page_shows_the_run_time_table(monkeypatch, tmp_path):
     run_command(monkeypatch, tmp_path, [], publish=False)
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
