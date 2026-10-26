@@ -28,6 +28,9 @@ next-week totals of the plan (next_games, next_value). The schedule score uses t
 aggressive score adds their value above an empty slot, never less than 0. In the search, each game next week is
 one more open day of the key after the last open day, so the search knows the next-week games of each spot at
 the end of the week.
+
+Run time (#85): each search counts its calls of best() and its unique states in timing.WORK. The counts change
+no plan.
 """
 import math
 from dataclasses import dataclass, replace
@@ -36,6 +39,7 @@ from functools import cache
 from itertools import combinations
 from typing import NamedTuple
 
+from fantasyhoops.adds import timing
 from fantasyhoops.adds.readers import Player, available_on
 from fantasyhoops.adds.trends import Trend
 from fantasyhoops.core.lineup import best_lineup
@@ -398,12 +402,21 @@ class _Search:
                     yield (key, *rest)
 
     def plan(self, adds_left):
-        @cache
+        work = timing.WORK
+
         def best(k, occ, adds):
+            """Count one call in timing.WORK, cache hits included, then give computed(k, occ, adds)."""
+            work.tick()
+            return computed(k, occ, adds)
+
+        @cache
+        def computed(k, occ, adds):
             """(started games, adds, value, next games, next value, moves) for open days k and later.
 
             value: the total value of the started games. next games, next value: see Plan. moves: (k, removed
-            keys, added keys). After the last open day, the open days of each key are its games next week."""
+            keys, added keys). After the last open day, the open days of each key are its games next week.
+            Each call computes one unique state, and timing.WORK counts it."""
+            work.state()
             if k == len(self.open):
                 ahead = [self.next_weight * len(key.days) for key in occ]
                 return 0, 0, 0.0, sum(ahead), sum(g * key.value for g, key in zip(ahead, occ)), ()
