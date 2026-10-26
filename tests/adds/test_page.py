@@ -1,3 +1,4 @@
+import csv
 import json
 import re
 import shutil
@@ -11,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fantasyhoops.adds import page
+from fantasyhoops.adds import page, timing
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.matchup import Matchup, matchup_weights, read_matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
@@ -414,9 +415,102 @@ def test_on_the_last_day_of_the_week_the_mark_checks_the_days_after_the_planned_
     assert "next Friday 1/8" in text(html) and "next Saturday 1/9" in text(html)
 
 
+STEPS = ["schedule read", "season values", "Yahoo reads", "absence read", "value options", "schedule search",
+         "drop trade-offs", "aggressive search", "spot plans", "contingency plans", "role read",
+         "page write and publish"]
+SEARCH_STEPS = {"schedule search", "drop trade-offs", "aggressive search", "spot plans"}
+NO_READ_STEPS = ["schedule read", "season values", "Yahoo reads", "contingency plans", "role read",
+                 "page write and publish"]
+
+
+def timing_rows(tmp_path):
+    with open(tmp_path / "timings.csv", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return reader.fieldnames, list(reader)
+
+
+def test_the_command_prints_each_step_when_it_starts_and_its_time_when_it_ends(monkeypatch, tmp_path, capsys):
+    run_command(monkeypatch, tmp_path, [], publish=False)
+    lines = capsys.readouterr().out.splitlines()
+    for name in STEPS:
+        start = lines.index(f"Step: {name} ...")
+        end = next(i for i, line in enumerate(lines) if re.fullmatch(rf"Step: {re.escape(name)}: \d+\.\d\d s.*", line))
+        assert start < end
+    assert any("timings.csv" in line for line in lines)
+
+
+def test_the_command_appends_one_row_for_each_step_to_the_timings_file(monkeypatch, tmp_path):
+    run_command(monkeypatch, tmp_path, [], publish=False)
+    run_command(monkeypatch, tmp_path, [], publish=False)
+    columns, rows = timing_rows(tmp_path)
+    assert columns == ["run_at", "days", "open_days", "adds_left", "step", "seconds", "calls", "states"]
+    assert [r["step"] for r in rows] == STEPS + STEPS
+    first = rows[:len(STEPS)]
+    assert len({r["run_at"] for r in first}) == 1
+    assert {(r["days"], r["open_days"], r["adds_left"]) for r in rows} == {("2", "2", "1")}
+    for r in rows:
+        assert re.fullmatch(r"\d+\.\d\d", r["seconds"])
+        if r["step"] in SEARCH_STEPS:  # drop trade-offs: 0 searches, because no stream spot has a holder
+            assert int(r["calls"]) >= int(r["states"]) >= (r["step"] != "drop trade-offs")
+        else:
+            assert r["calls"] == r["states"] == ""
+
+
+def test_a_step_that_does_not_run_writes_no_row(monkeypatch, tmp_path):
+    # No adds left, so the run reads no free agent and runs no search.
+    league = command.LeagueData(roster=[], adds=Adds(5, 5), week=Week(12, tuple(WEEK[:2])))
+    run_command(monkeypatch, tmp_path, [], publish=False, league=league)
+    _, rows = timing_rows(tmp_path)
+    assert [r["step"] for r in rows] == NO_READ_STEPS
+    assert all(r["calls"] == r["states"] == "" for r in rows)
+
+
+def test_the_page_shows_the_run_time_table(monkeypatch, tmp_path):
+    run_command(monkeypatch, tmp_path, [], publish=False)
+    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    table = re.search(r"<summary>Run time</summary>.*?<tbody>(.*?)</tbody>", html, re.S).group(1)
+    cells = [re.findall(r"<td[^>]*>([^<]*)</td>", row) for row in re.findall(r"<tr>(.*?)</tr>", table)]
+    assert [c[0] for c in cells] == STEPS[:-1]  # the page write ends after the page is written
+    for name, seconds, calls, states in cells:
+        assert re.fullmatch(r"\d+\.\d\d", seconds)
+        assert (calls != "" and states != "") == (name in SEARCH_STEPS)
+
+
+def test_the_page_has_no_run_time_table_with_no_step_times():
+    assert "Run time" not in render()
+    html = render(timings=[timing.StepTime("schedule search", 1.234, 1200, 300)])
+    assert "<td>1.23</td><td>1,200</td><td>300</td>" in html
+
+
+def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
+    options = [option("Phi One", "PHI", 0.3), option("Bos One", "BOS", 0.2), option("Phi Two", "PHI", 0.1, ("C",))]
+    league = command.LeagueData(roster=[], adds=Adds(2, 5), week=Week(12, tuple(WEEK[:2])))
+    found = {}
+    for timed in (True, False):
+        plans, pages = [], []
+        real_print_plan, real_render = command.print_plan, page.render
+        monkeypatch.setattr(command, "print_plan", lambda plan, *a, **kw: (plans.append(plan),
+                                                                            real_print_plan(plan, *a, **kw)))
+        monkeypatch.setattr(page, "render", lambda *a, **kw: (pages.append((a, kw)), real_render(*a, **kw))[1])
+        run_command(monkeypatch, tmp_path / str(timed), [], publish=False, options=options, league=league,
+                    timed=timed)
+        args, kw = pages[0]
+        kw.pop("timings")
+        found[timed] = (plans, args, kw)
+        monkeypatch.setattr(command, "print_plan", real_print_plan)
+        monkeypatch.setattr(page, "render", real_render)
+    assert found[True][0] and found[True][0][0] is not None
+    assert found[True] == found[False]
+    assert not (tmp_path / "False" / "timings.csv").exists()
+    # The run with no timers comes second, after the last step line of the timed run. It prints no step line.
+    assert "Step:" not in capsys.readouterr().out.split("Step: page write and publish:")[-1]
+
+
 def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
-                league=None):
+                league=None, timed=True):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced.
+
+    The page and timings.csv go in tmp_path. timed: the timed argument of plan.main().
 
     rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
     extra_games: (day, team) for each more game of the schedule, for example a game next week.
@@ -450,5 +544,6 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "empty_slot_value", lambda cfg, scale=None: -10.0)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(page, "PAGE", tmp_path / "adds_plan.html")
+    monkeypatch.setattr(timing, "TIMINGS", tmp_path / "timings.csv")
     monkeypatch.setattr(command.site, "publish", lambda *args: published.append(args))
-    command.main(today=WEEK[0], publish=publish)
+    command.main(today=WEEK[0], publish=publish, timed=timed)

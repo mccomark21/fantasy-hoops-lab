@@ -26,6 +26,8 @@ One planning run:
 10. next_week_window(): find the open slots of your kept roster on the first days of next week
     ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
 11. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
+12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
+    The page shows the Run time table. The run appends one row for each step to output/adds/timings.csv.
 Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
 NBA schedule: data/schedule.csv (fetch/espn.py).
 """
@@ -33,7 +35,7 @@ import argparse
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
-from fantasyhoops.adds import page
+from fantasyhoops.adds import page, timing
 from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
@@ -412,15 +414,23 @@ def publish_page(path, rows, publish=True):
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
 
-def main(today=None, publish=True):
+def main(today=None, publish=True, timed=True):
+    """One planning run (see the module docstring). timed False: no step times, no timings.csv and no Run time
+    table. The plans are the same."""
+    timings = timing.Timings(timed)
+    step = timings.step
     cfg = load_config()
     today = today or date.today()
-    slots, sched = cfg["league"]["slots"], read_schedule()
+    slots = cfg["league"]["slots"]
+    with step("schedule read"):
+        sched = read_schedule()
     plan, aggressive, empty, read, options, drops, warnings, rows, absences = None, None, None, [], [], [], [], [], []
     weights, match_empty, match_replacement = None, None, None
     games_next = None
-    values = season_values(cfg)
-    with open_league(cfg["adds"]["league"], cfg["adds"].get("page_wait", WAIT_SECONDS)) as yahoo:
+    with step("season values"):
+        values = season_values(cfg)
+    wait = cfg["adds"].get("page_wait", WAIT_SECONDS)
+    with step("Yahoo reads"), open_league(cfg["adds"]["league"], wait) as yahoo:
         data = read_league(yahoo, cfg, today)
         window = planning_window(data.week, today)
         games, nights = team_games(sched, window), second_nights(sched, window)
@@ -445,20 +455,28 @@ def main(today=None, publish=True):
         scale = projection_scale(cfg)
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
-        absences = read_absences(today, cfg)
-        options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg), trends), rests, nights, chance)
-        options = mark_role_ups(options, absences)
+        with step("absence read"):
+            absences = read_absences(today, cfg)
+        with step("value options"):
+            options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg), trends), rests, nights,
+                                 chance)
+            options = mark_role_ups(options, absences)
         spots = matchup_spots(spots, scale, cfg, mcfg)
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
-        plan = schedule_plan(days, games, spots, options, data.adds.left, slots, next_week=games_next,
-                             next_weight=weight)
-        drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
+        with step("schedule search", search=True):
+            plan = schedule_plan(days, games, spots, options, data.adds.left, slots, next_week=games_next,
+                                 next_weight=weight)
+        with step("drop trade-offs", search=True):
+            drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
         warnings = value_warnings(plan, data.roster, spots, cfg, values)
         empty, match_empty = empty_slot_value(cfg, scale), empty_slot_value(mcfg, scale)
-        aggressive = matchup_plan(days, games, spots, options, data.adds.left, slots, match_empty, games_next, weight)
+        with step("aggressive search", search=True):
+            aggressive = matchup_plan(days, games, spots, options, data.adds.left, slots, match_empty, games_next,
+                                      weight)
         match_replacement = replacement_value([replace(o, blended_value=o.match) for o in options
                                                if not o.player.on_waivers])
-        rows = spot_plans(data.roster, spots, games, options, data.adds.left, slots)
+        with step("spot plans", search=True):
+            rows = spot_plans(data.roster, spots, games, options, data.adds.left, slots)
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
@@ -478,17 +496,24 @@ def main(today=None, publish=True):
                    next_week=games_next)
     print_comparison(plan, aggressive, empty, match_empty)
     print_spot_plans(rows, nights)
-    contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched))
+    with step("contingency plans"):
+        contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots,
+                                          game_times(sched))
     print_contingencies(contingencies)
-    text = page.render(data, days, games, spots, rows, options, ranking, read, today,
-                       replacement=replacement, warnings=warnings, matchup=data.matchup,
-                       weights=weights, match_replacement=match_replacement, nights=nights,
-                       contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies],
-                       roles=read_roles([o.player for o in options], cfg, today),
-                       minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"),
-                       next_days=early_days, next_games=early_games)
-    publish_page(page.write(text), rows, publish)
-
+    with step("role read"):
+        roles = read_roles([o.player for o in options], cfg, today)
+    with step("page write and publish"):
+        text = page.render(data, days, games, spots, rows, options, ranking, read, today,
+                           replacement=replacement, warnings=warnings, matchup=data.matchup,
+                           weights=weights, match_replacement=match_replacement, nights=nights,
+                           contingencies=[" ".join(line.strip() for line in contingency_lines(c))
+                                          for c in contingencies],
+                           roles=roles, minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"),
+                           next_days=early_days, next_games=early_games, timings=timings.steps)
+        publish_page(page.write(text), rows, publish)
+    if timed:
+        timing.write(timings, days, data.adds.left)
+        print(f"Wrote the step times: {timing.TIMINGS}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plan the adds of the current fantasy week.")

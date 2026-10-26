@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the category totals of the current matchup with the matchup weights, the aggressive plan, the comparison of the two plans and the best plans for one roster spot. The aggressive plan uses the matchup value. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the best plans for one roster spot, the matchup weights and a free-agent table with filters. It does not show the schedule plan, the aggressive plan or the comparison.
+Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the category totals of the current matchup with the matchup weights, the aggressive plan, the comparison of the two plans and the best plans for one roster spot. The aggressive plan uses the matchup value. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the best plans for one roster spot, the matchup weights and a free-agent table with filters. It does not show the schedule plan, the aggressive plan or the comparison. The planner times each step of the run. The page shows the times in the Run time section, and the run appends them to `output/adds/timings.csv`.
 
 The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -40,7 +40,7 @@ One planning run does these steps:
 
 1. It reads your league from Yahoo.
 2. It makes the two plans for the planning window.
-3. It writes the page in `output/adds/`.
+3. It writes the page in `output/adds/`. It appends the time of each step to `output/adds/timings.csv`.
 4. It publishes the site to GitHub Pages, at `/adds/`.
 
 To write the page with no publish, add `--no-publish`:
@@ -187,7 +187,7 @@ If the matchup page has no score table, all weights are 1, and the terminal and 
 
 ## The page
 
-The page has two main sections: the best plans for one roster spot, and the free-agent table. Between them, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight. The page is public, so it does not show the name of the opponent. After the free-agent table, a section lists the waiver players. The next section lists the role-up marks (see [Role up](#role-up)).
+The page has two main sections: the best plans for one roster spot, and the free-agent table. Between them, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight. The page is public, so it does not show the name of the opponent. After the free-agent table, a section lists the waiver players. The next section lists the role-up marks (see [Role up](#role-up)). Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
 
 ### Best plans for one roster spot
 
@@ -256,6 +256,51 @@ The planner links each Yahoo name to an ESPN name after `name_key()`. `data/name
 ### Waiver players
 
 A separate table lists the waiver players that the run read, best value first. It shows the team, the positions, the clear day, the first day that a plan can use him and Val (the same market value as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
+
+### Run time
+
+Decision (2026-10-26, #85): the planner times each step of a planning run. The owner wants faster plans, and the times show which step to change. The times change no plan.
+
+| Step | What it times |
+| --- | --- |
+| schedule read | `read_schedule()` |
+| season values | `season_values()` |
+| Yahoo reads | The Yahoo session: your team, the matchup, the free-agent lists and Transaction Trends |
+| absence read | `read_absences()` |
+| value options | The values of the free agents (`value_options()`) and the role-up marks |
+| schedule search | The schedule plan (`schedule_plan()`) |
+| drop trade-offs | `drop_trade_offs()`: one search for each holder |
+| aggressive search | The aggressive plan (`matchup_plan()`) |
+| spot plans | The best plans for one roster spot: up to 2 searches for each row |
+| contingency plans | `contingency_plans()`. It does not search. |
+| role read | `read_roles()` |
+| page write and publish | The page and the publish of the site |
+
+A step that does not run has no time. For example, with no adds left, the run reads no free agent and runs no search.
+
+For each search step, the planner also counts the search work:
+
+- Calls: the calls of the search function, cache hits included.
+- States: the unique states (open day, players in the spots, adds left) that the search computes.
+
+A step with more than one search adds the counts of all its searches. A step with no search has no counts.
+
+The terminal shows each step when it starts and its time when it ends. During a search step, the terminal shows the calls and the states every 10 seconds. A search that does not end still shows that it works.
+
+The page shows the Run time table: the step, the seconds, the calls and the states. The table has no row for the page write, because the run writes the page before that step ends.
+
+Each run appends one row for each step to `output/adds/timings.csv`. All rows of one run have the same `run_at`, so you can compare runs before and after a change.
+
+| Column | Value |
+| --- | --- |
+| `run_at` | The run start, local time to the second, for example `2026-10-25T21:04:33` |
+| `days` | The days in the planning window |
+| `open_days` | The days in the planning window with an open slot |
+| `adds_left` | The adds left for the planning window |
+| `step` | The step name from the table above |
+| `seconds` | The time of the step, 2 decimals |
+| `calls` | The calls of the search, or empty |
+| `states` | The unique states of the search, or empty |
 
 ## Core and drops
 

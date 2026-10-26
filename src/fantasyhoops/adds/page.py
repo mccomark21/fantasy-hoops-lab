@@ -12,6 +12,7 @@ A section shows only the parts that exist. The main sections:
 A third section lists the waiver players (W) with their clear days.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
 The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
+The Run time table shows the time of each step of the run (adds/timing.py, #85).
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
 draft board.
 """
@@ -271,7 +272,7 @@ def next_week_legend(next_days):
 
 
 def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None,
-                        roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None):
+                        roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, timings=()):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
@@ -348,6 +349,26 @@ def contingency_section(contingencies):
     return f"<section><h2>Contingency plans</h2>\n<ul>{items}</ul></section>" if items else ""
 
 
+def timings_section(timings):
+    """The Run time table: the seconds of each step of the run, and the calls and the states of each search step.
+
+    timings: the timing.StepTimes of the run. Nothing if there are none. The page write has no row, because the
+    run writes the page before that step ends. timings.csv has its row.
+    """
+    def count(n):
+        return "" if n is None else f"{n:,}"
+    body = "".join(f'<tr><td class="name">{_e(s.step)}</td><td>{s.seconds:.2f}</td><td>{count(s.calls)}</td>'
+                   f"<td>{count(s.states)}</td></tr>" for s in timings)
+    if not body:
+        return ""
+    return ('<details class="notes"><summary>Run time</summary>\n'
+            '<table class="ranking"><thead><tr><th class="name">Step</th><th>Seconds</th><th>Calls</th>'
+            f'<th>States</th></tr></thead><tbody>{body}</tbody></table>\n'
+            '<p class="muted">Calls: the calls of the plan search, cache hits included. States: the unique states '
+            "that the search computed. A step with no search has no counts. The page write is not in the table. "
+            "output/adds/timings.csv has all the steps.</p></details>")
+
+
 def ranking_section(ranking, read):
     """The NBA teams by the open days that they cover. A * marks the teams whose free agents the planner read."""
     if not ranking:
@@ -378,7 +399,7 @@ def method_note():
 
 def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
            warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None, nights=None,
-           roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None):
+           roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, timings=()):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
@@ -392,6 +413,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
     for the legend of the minutes mark. flags: [adds.flags], for the legend of the starter and closer flags.
     next_days: the Days of the first days of next week from the core roster. next_games: {day: set of teams} of
     those days. With both, the free-agent table marks each player who fits an open slot on one of these days.
+    timings: the timing.StepTimes of the run, for the Run time table.
     """
     today = today or date.today()
     sections = [
@@ -405,6 +427,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
         role_up_section(options),
         contingency_section(contingencies),
         ranking_section(ranking, read),
+        timings_section(timings),
         method_note(),
     ]
     return HTML.replace("__TITLE__", TITLE).replace("__BODY__", "\n".join(s for s in sections if s))
