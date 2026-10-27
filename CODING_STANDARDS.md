@@ -26,6 +26,12 @@ A reviewer checks each change against these rules. Each rule names something tha
 3. A test must not fail when files that Git does not track (`data/`, `output/`, CSV files) are missing. A test that reads them calls `pytest.skip` when they are missing.
 4. A test that runs JavaScript in Node skips when `node` is not on PATH.
 
+## Lint
+
+1. `ruff check src tests` must pass in CI (the `ruff` job of `.github/workflows/tests.yml`) before the PR merges.
+2. `pyproject.toml` sets the ruff version and the rules. To run the check locally, install the `lint` extra: `python -m pip install -e ".[lint]"`.
+3. Fix each finding by hand. Do not use `--unsafe-fixes`, because a rename can change the behavior of the code.
+
 ## Docs
 
 1. The guide for a tool is `docs/<tool>/README.md`.

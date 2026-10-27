@@ -68,6 +68,8 @@ docs/
    python -m pip install -e ".[test]"
    ```
 
+   To also install ruff for the lint check (`ruff check src tests`), use `".[test,lint]"`.
+
 2. Install the browser that `fetch/yahoo.py` uses:
 
    ```

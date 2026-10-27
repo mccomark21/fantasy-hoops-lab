@@ -1313,7 +1313,6 @@ def load_simulation(df):
     if not all(f.exists() for f in files.values()):
         return df, None
     groups = pd.read_csv(files["groups"])
-    keepers = list(dict.fromkeys(groups.keeper))
     summary = pd.read_csv(files["summary"], index_col="keeper")
     combos = combo_stats(top_combos(groups), pd.read_csv(files["runs"]), summary)
     return df, (combos, summary)

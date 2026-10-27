@@ -248,7 +248,9 @@ def test_filter_bar_has_a_fit_list_for_each_color_before_the_flag_lists():
 
 
 def test_other_playoff_windows_get_their_own_page_and_label():
-    week = lambda n, d: {"name": f"wk{n}", "start": d, "end": d}
+    def week(n, d):
+        return {"name": f"wk{n}", "start": d, "end": d}
+
     cfg = {"playoffs": {"weeks": [week(19, 1), week(21, 3)], "other_windows": [[week(20, 2), week(22, 4)]]}}
     cfgs = draft_board.windows(cfg)
     assert [draft_board.weeks(c) for c in cfgs] == [["wk19", "wk21"], ["wk20", "wk22"]]
