@@ -36,4 +36,4 @@ After the spot plans step, the run crashed in the terminal print with `UnicodeEn
 1. This window had 3 adds and 5 open days. The run of 2026-10-25 that did not end had 7 days and 5 adds. Thus these runs did not reproduce the slow case.
 2. The schedule search and the aggressive search visit the same count of calls and the same count of states. Thus they likely repeat the same search work. This is an inference from the equal counts. Nobody checked it in the code.
 
-Related: [Review of issue #85](review-issue-85.md).
+Related: [Review of issue #85](review-issue-85.md), [Yahoo reads study](yahoo-reads-study.md).
