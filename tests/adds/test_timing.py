@@ -234,3 +234,24 @@ def test_a_run_with_no_timers_writes_no_file(tmp_path):
         pass
     timings.window([], 5)
     assert not (tmp_path / "timings.csv").exists()
+
+
+def test_a_work_with_a_call_limit_stops_after_the_limit():
+    work = timing.Work(limit=3)
+    for _ in range(3):
+        work.tick()
+    with pytest.raises(timing.Capped):
+        work.tick()
+    assert work.calls == 4
+
+
+def test_a_work_with_a_time_limit_stops_at_the_limit():
+    work = timing.Work(clock=clock(1.0), seconds=2.5)  # the clock reads 1 s at the start, so the stop is 3.5 s
+    work.tick()  # 2 s
+    work.tick()  # 3 s
+    with pytest.raises(timing.Capped):
+        work.tick()  # 4 s
+
+
+def test_the_work_of_a_planning_run_has_no_cap():
+    assert (timing.WORK.limit, timing.WORK.stop) == (None, None)
