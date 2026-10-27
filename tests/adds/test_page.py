@@ -8,7 +8,6 @@ from dataclasses import replace
 from datetime import date, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 

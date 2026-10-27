@@ -137,8 +137,8 @@ def read_team_free_agents(yahoo, teams, view=PROJECTED):
     """
     out = []
     for team in teams:
-        for page in range(MAX_PAGES):
-            parsed = parse(yahoo.get(free_agent_path(team, 25 * page, view)))
+        for page_number in range(MAX_PAGES):
+            parsed = parse(yahoo.get(free_agent_path(team, 25 * page_number, view)))
             out += read_free_agents(parsed, totals=view == PROJECTED)
             if not has_next_page(parsed):
                 break
@@ -195,11 +195,11 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
     elif known is None:
         known = known_values(found, found_recent, values)
     known = list(known)
-    for page in range(MARKET_PAGES):
-        parsed = parse(yahoo.get(free_agent_path(None, 25 * page, PROJECTED)))
+    for page_number in range(MARKET_PAGES):
+        parsed = parse(yahoo.get(free_agent_path(None, 25 * page_number, PROJECTED)))
         page_fas = read_free_agents(parsed, totals=True)
         if recent:
-            html = recent_yahoo.get(free_agent_path(None, 25 * page, RECENT))
+            html = recent_yahoo.get(free_agent_path(None, 25 * page_number, RECENT))
             out_recent += read_free_agents(parse(html), totals=False)
         out += page_fas
         new = unique_free_agents([f for f in page_fas if (f.player.name, f.player.team) not in seen])
@@ -209,9 +209,9 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
             bar = sorted(known, reverse=True)[REPLACEMENT_RANK - 1] if len(known) >= REPLACEMENT_RANK else None
             known += new_values
             if bar is not None and not any(v > bar for v in new_values):
-                return MarketRead(out, out_recent, page + 1, "guard")
+                return MarketRead(out, out_recent, page_number + 1, "guard")
         if not has_next_page(parsed):
-            return MarketRead(out, out_recent, page + 1, "end")
+            return MarketRead(out, out_recent, page_number + 1, "end")
     return MarketRead(out, out_recent, MARKET_PAGES, "limit")
 
 
@@ -232,8 +232,8 @@ def read_waiver_list(yahoo, today, view=PROJECTED):
     The waiver list is short (4 players on 2026-10-21), so the run does not read it for each NBA team.
     """
     out = []
-    for page in range(WAIVER_PAGES):
-        parsed = parse(yahoo.get(free_agent_path(None, 25 * page, view, status="W")))
+    for page_number in range(WAIVER_PAGES):
+        parsed = parse(yahoo.get(free_agent_path(None, 25 * page_number, view, status="W")))
         out += read_waiver_players(parsed, today, totals=view == PROJECTED)
         if not has_next_page(parsed):
             break
