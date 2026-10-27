@@ -36,10 +36,17 @@ TEAM_READY = (("table#statTable0 tbody tr[data-pos]",), ())
 # A page with no score table uses the full wait, so the wait is short: 5 times the time of that check (#93).
 # The wait was 2 s before #93.
 SCORE_WAIT_SECONDS = 0.5
+# The HTTP status of a page when Yahoo blocks the requests of the session.
+# On 2026-10-27, Yahoo gave 999 "Request denied" during spike #95. A check for 429 alone does not find that block (#107).
+BLOCK_STATUSES = (999, 429)
 
 
 class PageNotReady(RuntimeError):
     """A Yahoo page did not show the element that its reader needs before the timeout."""
+
+
+class YahooBlocked(RuntimeError):
+    """Yahoo blocked the requests of the session. The run stops, because each retry is one more Yahoo load (#107)."""
 
 
 class UnknownPage(ValueError):
@@ -59,6 +66,19 @@ def ready_selectors(path):
     raise UnknownPage(
         f"No page kind matches the Yahoo page path {path!r}. "
         "Add the page kind and the elements that its reader needs to READY in adds/session.py."
+    )
+
+
+def check_status(response, url):
+    """Raise YahooBlocked when the response of the page at url has a block status (BLOCK_STATUSES).
+
+    response: the return value of page.goto(). It is None when the page did not load a new document.
+    """
+    if response is None or response.status not in BLOCK_STATUSES:
+        return
+    raise YahooBlocked(
+        f"Yahoo blocked the requests of this session. The page {url} gave HTTP {response.status}. "
+        "The planning run stopped. Start a new run after the block ends."
     )
 
 
@@ -83,7 +103,7 @@ class League:
         except UnknownPage as error:
             raise UnknownPage(f"{error} URL: {url}") from None
         self.pages += 1
-        self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        check_status(self.page.goto(url, wait_until="domcontentloaded", timeout=60000), url)
         if not self.page.url.startswith(SITE):
             self._sign_in(url)
         # Do not wait for networkidle. Yahoo pages keep loading ads, so that wait used its full timeout on each page.
@@ -108,7 +128,7 @@ class League:
         print(f"The planner continues after the sign-in. You have {SIGN_IN_MINUTES} minutes.")
         self.page.wait_for_url(f"{SITE}/**", timeout=SIGN_IN_MINUTES * 60000)
         print("Sign-in complete. Edge keeps the new session in .auth/yahoo/.")
-        self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        check_status(self.page.goto(url, wait_until="domcontentloaded", timeout=60000), url)
 
 
 @contextmanager

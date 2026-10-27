@@ -451,6 +451,12 @@ Only players with status FA are free agents. Players on waivers (W) are not. The
 
 Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. On each page, the planner waits for the element that its reader needs, for example the player table. It does not wait for all network requests to stop, because Yahoo pages keep loading ads (#74). On a matchup page, the planner also waits up to 0.5 s for the score table. Some matchup pages have no score table, so this wait is short. Before #93, the wait was 2 s. See [ADR 1](../adr/0001-playwright-for-league-data.md).
 
+Yahoo can block the requests of the session. On 2026-10-27, Yahoo gave HTTP 999 "Request denied" after many loads (#95). When a page gives HTTP 999 or 429, the planner raises `YahooBlocked` (`adds/session.py`, #107). The message gives the status and the URL. The planning run stops at once. It does not wait for the element of the page, and it does not try again, because each retry is one more Yahoo load. What to do:
+
+1. Do not start a new run immediately.
+2. Wait until the block ends. Nobody has tested how long a block stays.
+3. Start a new run. If the run raises `YahooBlocked` again, wait longer.
+
 Yahoo and ESPN use different team codes, for example SAS and SA. The planner maps the Yahoo codes to the ESPN codes of the schedule.
 
 ### Page cache
