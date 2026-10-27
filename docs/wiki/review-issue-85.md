@@ -35,4 +35,6 @@ The second review left two optional nits open:
 
 Not checked: nobody ran the planner live, because the worktree had no `data/` folder and no Yahoo session. The first full-week run must check the step times and the 10 s progress lines.
 
+On 2026-10-26, the chief of staff ran the planner live two times at `@9f11902`. For the step times, read [Planning run timings](planning-run-timings.md).
+
 Related: [Run of issues #73 to #76](run-issues-73-to-76.md) (#74 was the first performance issue of the adds planner), [Environment gaps](environment-gaps.md).

@@ -10,6 +10,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 - [Run of issues #59 to #65](run-issues-59-to-65.md): the owner decisions of 2026-10-21 for the build of #59 to #65 (rotation log layout, merges, open questions, order).
 - [Run of issues #73 to #76](run-issues-73-to-76.md): the owner decisions of 2026-10-21 for #73 to #76 (features must show on the page, sample first for #75).
 - [Review of issue #85](review-issue-85.md): the review of 2026-10-26 of #85 (time each step of a planning run), the defaults the owner accepted, the additions in the rewrite, and the build and merge of PR #86 (`131fdc0`).
+- [Planning run timings](planning-run-timings.md): the step times of the first two live planning runs with timers on 2026-10-26, the crash of the first run on a non-UTF-8 stdout, and the equal counts of the schedule and aggressive searches.
 
 ## Decisions
 
