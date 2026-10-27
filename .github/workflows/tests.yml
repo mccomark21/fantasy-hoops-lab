@@ -33,3 +33,6 @@ jobs:
         run: python -m pip install -e ".[lint]"
       - name: Check the code with ruff
         run: ruff check src tests --output-format github
+      - name: Check the format with ruff
+        if: ${{ !cancelled() }}  # run also when the lint step fails, so that the PR shows both results
+        run: ruff format --check src tests

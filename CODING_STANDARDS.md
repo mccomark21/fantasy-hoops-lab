@@ -31,6 +31,8 @@ A reviewer checks each change against these rules. Each rule names something tha
 1. `ruff check src tests` must pass in CI (the `ruff` job of `.github/workflows/tests.yml`) before the PR merges.
 2. `pyproject.toml` sets the ruff version and the rules. To run the check locally, install the `lint` extra: `python -m pip install -e ".[lint]"`.
 3. Fix each finding by hand. Do not use `--unsafe-fixes`, because a rename can change the behavior of the code.
+4. `ruff format --check src tests` must pass in CI (the same `ruff` job) before the PR merges. To fix the format, run `ruff format src tests`.
+5. `.git-blame-ignore-revs` holds the sha of each commit that only formats the code. To make `git blame` skip these commits, run `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 
 ## Docs
 

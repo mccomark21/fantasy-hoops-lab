@@ -3,8 +3,15 @@ from datetime import date, timedelta
 import pandas as pd
 
 from fantasyhoops.adds.readers import Player, Week
-from fantasyhoops.adds.slots import (next_week_games, next_week_window, open_slots_by_day, planning_window,
-                                     plans_next_week, roster_spots_used, team_games)
+from fantasyhoops.adds.slots import (
+    next_week_games,
+    next_week_window,
+    open_slots_by_day,
+    planning_window,
+    plans_next_week,
+    roster_spots_used,
+    team_games,
+)
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON, TUE, WED = date(2027, 1, 4), date(2027, 1, 5), date(2027, 1, 6)
@@ -13,10 +20,10 @@ ROSTER = [
     Player("Guard", "BOS", ("PG", "SG"), "PG"),
     Player("Wing", "BOS", ("SF",), "SF"),
     Player("Big", "NY", ("C",), "C"),
-    Player("Hurt", "NY", ("PF",), "PF", "O", "Out"),             # Out: does not play
+    Player("Hurt", "NY", ("PF",), "PF", "O", "Out"),  # Out: does not play
     Player("Doubt", "SA", ("PF", "C"), "BN", "Q", "Questionable"),  # flagged: plays
     Player("Second big", "SA", ("C",), "BN"),
-    Player("Stashed", "BOS", ("PG",), "IL", "O", "Out"),         # on IL: does not play
+    Player("Stashed", "BOS", ("PG",), "IL", "O", "Out"),  # on IL: does not play
 ]
 # Mon: BOS and NY play. Tue: SA plays. Wed: all three teams play.
 GAMES = {MON: {"BOS", "NY", "LAL", "MIA"}, TUE: {"SA", "DAL"}, WED: {"BOS", "NY", "SA", "PHI", "GS", "OKC"}}
@@ -47,7 +54,12 @@ def test_util_takes_the_player_without_a_position_slot():
     # Wed: Big takes C and Doubt takes PF. Second big gets no position slot, so he takes Util.
     wed = by_date()[WED]
     assert [(slot, p.name) for slot, p in wed.starters] == [
-        ("PG", "Guard"), ("SF", "Wing"), ("PF", "Doubt"), ("C", "Big"), ("Util", "Second big")]
+        ("PG", "Guard"),
+        ("SF", "Wing"),
+        ("PF", "Doubt"),
+        ("C", "Big"),
+        ("Util", "Second big"),
+    ]
     assert wed.open == ("SG",)
     assert wed.bench == ()
 
@@ -81,8 +93,13 @@ def test_on_the_last_day_of_the_week_the_planner_plans_the_next_week():
 
 
 def test_team_games_reads_the_schedule():
-    sched = pd.DataFrame({"date": pd.to_datetime(["2027-01-04", "2027-01-04", "2027-01-05", "2027-01-05"]),
-                          "team": ["BOS", "NY", "SA", "DAL"], "opponent": ["NY", "BOS", "DAL", "SA"]})
+    sched = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2027-01-04", "2027-01-04", "2027-01-05", "2027-01-05"]),
+            "team": ["BOS", "NY", "SA", "DAL"],
+            "opponent": ["NY", "BOS", "DAL", "SA"],
+        }
+    )
     assert team_games(sched, [MON, TUE, WED]) == {MON: {"BOS", "NY"}, TUE: {"SA", "DAL"}, WED: set()}
 
 
@@ -105,8 +122,9 @@ def test_the_open_slots_of_next_week_come_from_the_same_roster_and_schedule():
     # The week ends on Sun 01/03. Next Mon is 01/04: BOS and NY play. Next Tue is 01/05: SA plays.
     week = Week(0, tuple(date(2026, 12, 28) + timedelta(days=i) for i in range(7)))
     days = next_week_window(week)
-    sched = pd.DataFrame({"date": pd.to_datetime(["2027-01-04", "2027-01-04", "2027-01-05"]),
-                          "team": ["BOS", "NY", "SA"]})
+    sched = pd.DataFrame(
+        {"date": pd.to_datetime(["2027-01-04", "2027-01-04", "2027-01-05"]), "team": ["BOS", "NY", "SA"]}
+    )
     found = open_slots_by_day(ROSTER, team_games(sched, days), SLOTS)
     assert [d.date for d in found] == [MON, TUE]
     assert found[0].open == ("SG", "PF", "Util")

@@ -9,6 +9,7 @@
   recent view ([adds] recent_skip_weight, #90): he then has no recent games and no value.
   A player with no projection and no recent games has no blended value and is not a candidate.
 """
+
 from fantasyhoops.adds.planner import Option
 from fantasyhoops.adds.value import line_value
 
@@ -45,9 +46,13 @@ def blended_options(free_agents, recent, scale, cfg, matchup_cfg=None):
         r = by_player.get((f.player.name, f.player.team))
         games, line = (r.games, r.line) if r else (0, {})
         blended = blend_line(f.line, line, games)
-        out.append(Option(f.player,
-                          projected_value=line_value(f.line, scale, cfg),
-                          recent_value=line_value(line, scale, cfg) if games else None,
-                          blended_value=line_value(blended, scale, cfg),
-                          matchup_value=line_value(blended, scale, matchup_cfg) if matchup_cfg else None))
+        out.append(
+            Option(
+                f.player,
+                projected_value=line_value(f.line, scale, cfg),
+                recent_value=line_value(line, scale, cfg) if games else None,
+                blended_value=line_value(blended, scale, cfg),
+                matchup_value=line_value(blended, scale, matchup_cfg) if matchup_cfg else None,
+            )
+        )
     return out

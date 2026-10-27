@@ -5,6 +5,7 @@ market.py gives the price of each player in this league's auction. surplus = dol
 The playoff schedule does not change the value. The schedule columns are for information only.
 Output: rankings.csv. board.py calls build_rankings() to get all the columns.
 """
+
 import pandas as pd
 
 from fantasyhoops.core.common import DATA, ROOT, latest_projections, load_config, name_key, weeks
@@ -35,8 +36,9 @@ def load_players(cfg):
     df["mpg"] = df.minutes / df.games
 
     yahoo = pd.read_csv(DATA / "yahoo_players.csv")
-    links = link_players(df, pd.read_csv(DATA / "rosters.csv"), yahoo,
-                         pd.read_csv(DATA / "name_overrides.csv", dtype=str).fillna(""))
+    links = link_players(
+        df, pd.read_csv(DATA / "rosters.csv"), yahoo, pd.read_csv(DATA / "name_overrides.csv", dtype=str).fillna("")
+    )
     prices = league_prices(yahoo, pd.read_csv(ROOT / cfg["market"]["drafts"]), cfg)
     links["league_price"] = links.yahoo_id.map(dict(zip(yahoo.yahoo_id, prices)))
     return df.join(links).join(load_risk(df.name, cfg))
@@ -79,19 +81,61 @@ def main():
     schedule_grid(teams, days).to_csv(OUT / "playoff_schedule.csv", index_label="team")
 
     df = build_rankings(cfg, teams)
-    cols = (["rank", "pg_rank", "name", "team", "pos", "games", "mpg", *STATS, *schedule_columns(cfg),
-             "pg_value", "value", "dollars", "yahoo_cost", "league_price", "surplus"] + ["z_" + c for c in cfg["weights"]] + ["player_id"])
+    cols = (
+        [
+            "rank",
+            "pg_rank",
+            "name",
+            "team",
+            "pos",
+            "games",
+            "mpg",
+            *STATS,
+            *schedule_columns(cfg),
+            "pg_value",
+            "value",
+            "dollars",
+            "yahoo_cost",
+            "league_price",
+            "surplus",
+        ]
+        + ["z_" + c for c in cfg["weights"]]
+        + ["player_id"]
+    )
     df[cols].round(2).to_csv(OUT / "rankings.csv", index=False)
 
     pool_size = cfg["league"]["teams"] * cfg["league"]["roster_spots"]
     top = df[df["rank"] <= pool_size + 50]
-    for col, message in [("team", "No team found (add espn_name or team to data/name_overrides.csv):"),
-                         ("yahoo_id", "No Yahoo data found (add yahoo_name to data/name_overrides.csv):")]:
+    for col, message in [
+        ("team", "No team found (add espn_name or team to data/name_overrides.csv):"),
+        ("yahoo_id", "No Yahoo data found (add yahoo_name to data/name_overrides.csv):"),
+    ]:
         missing = top[top[col].isna()]
         if len(missing):
             print(message)
             print(missing[["player_id", "name", "rank"]].to_string(index=False), "\n")
-    print(df[["rank", "pg_rank", "name", "team", "pos", "games", *weeks(cfg), "quality_games", "sched_score", "value", "dollars", "league_price", "surplus"]].head(30).round(2).to_string(index=False))
+    print(
+        df[
+            [
+                "rank",
+                "pg_rank",
+                "name",
+                "team",
+                "pos",
+                "games",
+                *weeks(cfg),
+                "quality_games",
+                "sched_score",
+                "value",
+                "dollars",
+                "league_price",
+                "surplus",
+            ]
+        ]
+        .head(30)
+        .round(2)
+        .to_string(index=False)
+    )
     print(f"\nWrote {len(df)} players to rankings.csv")
 
 

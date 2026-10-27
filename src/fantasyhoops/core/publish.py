@@ -4,6 +4,7 @@ The site has a home page at / and one folder for each tool: /draft/, /adds/.
 A publish of one tool replaces its own folder and the home page. It keeps the folders of the other tools.
 Each page of a tool gets a bar at the top with links to the home page and to the other tools.
 """
+
 import html
 import re
 import subprocess
@@ -27,8 +28,11 @@ def write_blob(repo, data):
 
 def make_tree(repo, entries):
     """entries: {name: (mode, type, sha)}. mktree needs the entries in name order."""
-    return git(repo, "mktree", data="".join(f"{mode} {kind} {sha}\t{name}\n"
-                                            for name, (mode, kind, sha) in sorted(entries.items())).encode())
+    return git(
+        repo,
+        "mktree",
+        data="".join(f"{mode} {kind} {sha}\t{name}\n" for name, (mode, kind, sha) in sorted(entries.items())).encode(),
+    )
 
 
 def published_folders(repo):
@@ -48,8 +52,11 @@ def published_folders(repo):
 
 def home_page(tools):
     """The home page: one line and one link for each tool on the site."""
-    items = "\n".join(f'<li><a href="{t}/">{html.escape(TOOLS[t][0])}</a><span>{html.escape(TOOLS[t][1])}</span></li>'
-                      for t in TOOLS if t in tools)
+    items = "\n".join(
+        f'<li><a href="{t}/">{html.escape(TOOLS[t][0])}</a><span>{html.escape(TOOLS[t][1])}</span></li>'
+        for t in TOOLS
+        if t in tools
+    )
     return HOME.replace("__TOOLS__", items)
 
 
@@ -57,8 +64,8 @@ def nav_bar(tool, tools):
     """The bar at the top of each page of a tool: a link to the home page and to each tool on the site."""
     current = ' aria-current="page"'
     links = ['<a href="../">Home</a>'] + [
-        f'<a href="../{t}/"{current if t == tool else ""}>{html.escape(TOOLS[t][0])}</a>'
-        for t in TOOLS if t in tools]
+        f'<a href="../{t}/"{current if t == tool else ""}>{html.escape(TOOLS[t][0])}</a>' for t in TOOLS if t in tools
+    ]
     return f'{NAV_STYLE}<nav class="site-nav">{" · ".join(links)}</nav>'
 
 
@@ -85,9 +92,15 @@ def publish(repo, tool, index, others=()):
     tools = {*folders, tool}
     pages = {"index.html": index.read_bytes(), **{o.name: o.read_bytes() for o in others}}
     pages = {n: with_nav_bar(d, tool, tools) if n.endswith(".html") else d for n, d in pages.items()}
-    folders[tool] = ("040000", "tree", make_tree(repo, {n: ("100644", "blob", write_blob(repo, d)) for n, d in pages.items()}))
-    root = {name: ("100644", "blob", write_blob(repo, data))
-            for name, data in {".nojekyll": b"", "index.html": home_page(folders).encode()}.items()}
+    folders[tool] = (
+        "040000",
+        "tree",
+        make_tree(repo, {n: ("100644", "blob", write_blob(repo, d)) for n, d in pages.items()}),
+    )
+    root = {
+        name: ("100644", "blob", write_blob(repo, data))
+        for name, data in {".nojekyll": b"", "index.html": home_page(folders).encode()}.items()
+    }
     commit = git(repo, "commit-tree", make_tree(repo, {**root, **folders}), "-m", f"Publish the {tool} pages")
     git(repo, "push", "--force", "origin", f"{commit}:refs/heads/{BRANCH}")
 

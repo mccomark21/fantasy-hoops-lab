@@ -8,6 +8,7 @@ prices to plan.
 Each roster player gets his S and Q flags (as on the draft board) and one square for each playoff day: green = he
 plays and starts, red = he plays but the best lineup of your core benches him, gray = a stream player who plays.
 """
+
 import json
 
 import pandas as pd
@@ -69,10 +70,29 @@ def best_rosters(runs, info, top_groups, days, playoffs, cfg):
         roster.loc[roster.player == keeper, "role"] = "Keeper"
         squares = day_squares(roster.to_dict("records"), days, playoffs, cfg)
         roster = roster.assign(days=roster.player.map(squares))
-        cols = ["player", "role", "pos", "team", "price", "dollars", "no_team", "two_game", "s_flag", "q_flag",
-                "s_note", "q_note", "x_note", "days"]
-        best[keeper] = {"group": group, "playoff_score": round(top.playoff_score), "rr_win_pct": round(top.rr_win_pct, 1),
-                        "spent": int(roster.price.sum()), "players": roster[cols].round(1).to_dict("records")}
+        cols = [
+            "player",
+            "role",
+            "pos",
+            "team",
+            "price",
+            "dollars",
+            "no_team",
+            "two_game",
+            "s_flag",
+            "q_flag",
+            "s_note",
+            "q_note",
+            "x_note",
+            "days",
+        ]
+        best[keeper] = {
+            "group": group,
+            "playoff_score": round(top.playoff_score),
+            "rr_win_pct": round(top.rr_win_pct, 1),
+            "spent": int(roster.price.sum()),
+            "players": roster[cols].round(1).to_dict("records"),
+        }
     return best
 
 
@@ -84,17 +104,22 @@ def report_data(cfg):
     runs = pd.read_csv(OUT / "simulation_runs.csv")
     days = playoff_schedule(read_schedule(), cfg)[1]
     board, playoffs = make_playoffs(load_board(cfg), days, cfg)
-    info = board.set_index("name")[["pos", "team", "dollars", "prod", "no_team", "two_game", "s_flag", "q_flag",
-                                    "s_note", "q_note", "x_note"]]
+    info = board.set_index("name")[
+        ["pos", "team", "dollars", "prod", "no_team", "two_game", "s_flag", "q_flag", "s_note", "q_note", "x_note"]
+    ]
     top_groups = {k: g[g["size"] >= 3].head(TOP_GROUPS) for k, g in groups.groupby("keeper", sort=False)}
     return {
         "runs": int(runs.groupby("keeper").run.nunique().iloc[0]),
         "summary": summary.round(1).to_dict("records"),
-        "players": {k: g.drop(columns="keeper").round(1).to_dict("records")
-                    for k, g in players.groupby("keeper", sort=False)},
-        "best": best_rosters(runs, info, {k: g.group.iloc[0] for k, g in top_groups.items() if len(g)},
-                             days, playoffs, cfg),
-        "dates": [[f"{d:%a %b} {d.day}" for d in pd.date_range(w["start"], w["end"])] for w in cfg["playoffs"]["weeks"]],
+        "players": {
+            k: g.drop(columns="keeper").round(1).to_dict("records") for k, g in players.groupby("keeper", sort=False)
+        },
+        "best": best_rosters(
+            runs, info, {k: g.group.iloc[0] for k, g in top_groups.items() if len(g)}, days, playoffs, cfg
+        ),
+        "dates": [
+            [f"{d:%a %b} {d.day}" for d in pd.date_range(w["start"], w["end"])] for w in cfg["playoffs"]["weeks"]
+        ],
         "groups": {k: g.drop(columns="keeper").round(1).to_dict("records") for k, g in top_groups.items()},
     }
 
@@ -102,10 +127,13 @@ def report_data(cfg):
 def main():
     missing = [f for f in ["summary", "players", "groups", "runs"] if not (OUT / f"simulation_{f}.csv").exists()]
     if missing:
-        raise SystemExit("output/draft/ does not have the auction simulator files. Run python -m fantasyhoops.draft.auction first.")
+        raise SystemExit(
+            "output/draft/ does not have the auction simulator files. Run python -m fantasyhoops.draft.auction first."
+        )
     data = report_data(load_config())
-    (OUT / "keeper_report.html").write_text(HTML.replace("__DATA__", json.dumps(data, ensure_ascii=False)),
-                                            encoding="utf-8")
+    (OUT / "keeper_report.html").write_text(
+        HTML.replace("__DATA__", json.dumps(data, ensure_ascii=False)), encoding="utf-8"
+    )
     print(f"Wrote keeper_report.html to {OUT}")
 
 

@@ -9,6 +9,7 @@ projections file of the draft tools: pg_value of core/valuation.py, and the rank
 draft board). The free-agent values use the same category scale (adds/value.py), so the numbers compare.
 A player who is not in the projections file has the lowest value.
 """
+
 from dataclasses import dataclass
 
 import pandas as pd
@@ -26,6 +27,7 @@ NO_VALUE = float("-inf")  # the value of a holder who is not in the projections 
 @dataclass(frozen=True)
 class SeasonValue:
     """The season value of a player: rank = his rank by pg_value (1 = best), value = his pg_value."""
+
     rank: int
     value: float
 
@@ -69,7 +71,7 @@ def choose_stream_spots(roster, cfg, values):
     empty = cfg["league"]["roster_spots"] - roster_spots_used(roster)
     candidates = [p for p in roster if not p.on_il and not is_core(p, cfg)]
     candidates.sort(key=lambda p: (season_value(p, values) is not None, _value(p, values)))
-    holders = candidates[:max(0, cfg["adds"]["stream_spots"] - empty)]
+    holders = candidates[: max(0, cfg["adds"]["stream_spots"] - empty)]
     return [StreamSpot()] * empty + [StreamSpot(Option(p, _value(p, values))) for p in holders]
 
 
@@ -93,6 +95,7 @@ class Drop:
     list starts on a second night of a back-to-back.
     season: the SeasonValue of the holder, or None if he is not in the projections file.
     """
+
     window: object
     holder: object
     season: SeasonValue | None
@@ -102,11 +105,16 @@ class Drop:
         """For example "Drop Quickley (rank 90, season value -0.52) -> PHX Thu 01/07 to Sun 01/10: +2 started
         games this week." """
         w = self.window
-        season = (f"rank {self.season.rank}, season value {self.season.value:+.2f}" if self.season
-                  else "not in the projections file")
+        season = (
+            f"rank {self.season.rank}, season value {self.season.value:+.2f}"
+            if self.season
+            else "not in the projections file"
+        )
         games = "game" if self.gain == 1 else "games"
-        return (f"Drop {self.holder.name} ({season}) -> {w.team} {w.add_day:%a %m/%d} to {w.last_day:%a %m/%d}: "
-                f"{games_text(self.gain, sign=True)} started {games} this week.")
+        return (
+            f"Drop {self.holder.name} ({season}) -> {w.team} {w.add_day:%a %m/%d} to {w.last_day:%a %m/%d}: "
+            f"{games_text(self.gain, sign=True)} started {games} this week."
+        )
 
 
 def drop_trade_offs(plan, roster, spots, games, free_agents, adds_left, slots, values):
@@ -122,13 +130,14 @@ def drop_trade_offs(plan, roster, spots, games, free_agents, adds_left, slots, v
         added = [w for w in plan.windows if w.spot == s and w.add_day is not None]
         if not spot.holder or not added:
             continue
-        others = spots[:s] + spots[s + 1:]
+        others = spots[:s] + spots[s + 1 :]
         days = open_slots_by_day(kept_roster(roster, others), games, slots)
         kept = schedule_plan(days, games, others, free_agents, adds_left, slots)
         kept_starts = kept.started_games + _roster_starts(kept_roster(roster, others), games, slots, spots) - base
         gain = round(plan.started_games - kept_starts, DIGITS)
-        out.append(Drop(window=added[0], holder=spot.holder.player, season=season_value(spot.holder.player, values),
-                        gain=gain))
+        out.append(
+            Drop(window=added[0], holder=spot.holder.player, season=season_value(spot.holder.player, values), gain=gain)
+        )
     return out
 
 
@@ -139,8 +148,11 @@ def _roster_starts(roster, games, slots, spots=()):
     the same count as in the plan. Each other player counts each game as 1.
     """
     rests = {s.holder.player: s.holder.rest_games for s in spots if s.holder}
-    return sum(counted_games(rests.get(p, ()), [d.date])
-               for d in open_slots_by_day(roster, games, slots) for _, p in d.starters)
+    return sum(
+        counted_games(rests.get(p, ()), [d.date])
+        for d in open_slots_by_day(roster, games, slots)
+        for _, p in d.starters
+    )
 
 
 def value_warnings(plan, roster, spots, cfg, values):
@@ -162,9 +174,11 @@ def value_warnings(plan, roster, spots, cfg, values):
         for o in w.options if w.add_day is not None else ():
             if o.value is not None and o.value > lowest and o.player not in seen:
                 seen.add(o.player)
-                out.append(f"Warning: {o.player.name} ({o.player.team}) has a value of {o.value:+.2f}. "
-                           f"Your lowest {kind}, {player.name}, has a season value of {lowest:+.2f}. "
-                           f"You can make {o.player.name} core.")
+                out.append(
+                    f"Warning: {o.player.name} ({o.player.team}) has a value of {o.value:+.2f}. "
+                    f"Your lowest {kind}, {player.name}, has a season value of {lowest:+.2f}. "
+                    f"You can make {o.player.name} core."
+                )
     return out
 
 
@@ -178,7 +192,10 @@ def print_stream_spots(spots, values):
             continue
         p = spot.holder.player
         season = season_value(p, values)
-        about = (f"rank {season.rank}, season value {season.value:+.2f}" if season
-                 else "not in the projections file, so he has the lowest value")
+        about = (
+            f"rank {season.rank}, season value {season.value:+.2f}"
+            if season
+            else "not in the projections file, so he has the lowest value"
+        )
         status = f" {p.status}" if p.status else ""
         print(f"  Spot {n}: {p.name}{status} ({p.team}, {about}). The plan can drop him.")

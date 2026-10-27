@@ -4,6 +4,7 @@ The selectors are in .scratch/yahoo/NOTES.md (local only) and in the fixtures in
 The readers of a player list page take the HTML or a page from parse(). Parse a page one time with parse(),
 then give it to read_free_agents() or read_waiver_players() and to has_next_page() (#93).
 """
+
 import re
 from dataclasses import dataclass, replace
 from datetime import date, datetime
@@ -35,6 +36,7 @@ class Player:
     status_name: the full status, for example "Questionable". "" for a healthy player.
     clear_day: the day that he clears waivers, for a player on waivers (W). None for all other players.
     """
+
     name: str
     team: str
     positions: tuple
@@ -66,6 +68,7 @@ class Player:
 @dataclass(frozen=True)
 class Week:
     """The current fantasy week: its number and its days, first to last."""
+
     number: int
     days: tuple
 
@@ -81,6 +84,7 @@ class Week:
 @dataclass(frozen=True)
 class Adds:
     """The adds that you used this week and the adds that the league gives each week."""
+
     used: int
     limit: int
 
@@ -99,6 +103,7 @@ class FreeAgent:
     A row of the list with stat1=S_AL14 (the last 14 days) has the same fields: games is the games in the last
     14 days, and line is the per-game averages of those games.
     """
+
     player: Player
     games: float
     line: dict
@@ -143,8 +148,11 @@ def read_roster(html):
     rows = _soup(html).select("table#statTable0 tbody tr")
     if not rows:
         raise ValueError("The team page has no roster table (table#statTable0).")
-    return [read_player(row.select_one(".ysf-player-name"), row["data-pos"])
-            for row in rows if row.select_one(".ysf-player-name a.name")]
+    return [
+        read_player(row.select_one(".ysf-player-name"), row["data-pos"])
+        for row in rows
+        if row.select_one(".ysf-player-name a.name")
+    ]
 
 
 def read_adds(html):
@@ -212,14 +220,15 @@ def read_waiver_players(html, today, totals=True):
     A W cell without a valid clear day: the plans cannot tell when he is free. The function prints a warning
     and skips him. today: the day of the run, for the year of the clear day. totals and html: see read_free_agents().
     """
+
     def keep(cell, player):
         if not cell.startswith("W"):
             return False, None
         day = clear_day(cell, today)
         if day is None:
-            print(f'Warning: the waiver list shows {player.name} as "{cell}" with no clear day. '
-                  "The planner skips him.")
+            print(f'Warning: the waiver list shows {player.name} as "{cell}" with no clear day. The planner skips him.')
         return day is not None, day
+
     return _read_list(html, totals, keep)
 
 

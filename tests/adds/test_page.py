@@ -26,8 +26,11 @@ from fantasyhoops.core.common import load_config
 MON = date(2027, 1, 4)
 WEEK = [MON + timedelta(days=i) for i in range(7)]
 DAYS = [Day(d, 5, (), (), ("PG", "Util") if i in (0, 1, 3, 5) else ()) for i, d in enumerate(WEEK)]
-DATA = command.LeagueData(roster=[Player("Hurt Guy", "BOS", ("PG",), status="O")], adds=Adds(used=1, limit=5),
-                          week=Week(number=12, days=tuple(WEEK)))
+DATA = command.LeagueData(
+    roster=[Player("Hurt Guy", "BOS", ("PG",), status="O")],
+    adds=Adds(used=1, limit=5),
+    week=Week(number=12, days=tuple(WEEK)),
+)
 
 
 def option(name, team, value, positions=("SF",), status="", recent=None):
@@ -40,20 +43,44 @@ PHI, CHI = option("Phi & One", "PHI", 0.31), option("Chi One", "CHI", -0.40, ("P
 # PHI plays Mon, Tue and Sat. CHI plays Sat and Sun. MIA plays Mon.
 GAMES = {WEEK[0]: {"PHI", "MIA"}, WEEK[1]: {"PHI"}, WEEK[5]: {"PHI", "CHI"}, WEEK[6]: {"CHI"}}
 # Row 1: the empty spot, PHI from Mon, then CHI on Sun. Row 2: the spot of Old Streamer, PHI from Tue.
-ROW1 = SpotPlan(SPOTS[0], Plan(windows=(
-    TeamWindow(0, "PHI", WEEK[0], WEEK[5], (WEEK[0], WEEK[1], WEEK[5]), PHI, (PHI,)),
-    TeamWindow(0, "CHI", WEEK[6], WEEK[6], (WEEK[6],), CHI, (CHI,))), started_games=4, adds=2), 4)
-ROW2 = SpotPlan(SPOTS[1], Plan(windows=(
-    TeamWindow(0, "MIA", None, WEEK[0], (WEEK[0],), HOLDER, ()),
-    TeamWindow(0, "PHI", WEEK[1], WEEK[6], (WEEK[1], WEEK[5]), PHI, (PHI,))), started_games=3, adds=1), 2)
+ROW1 = SpotPlan(
+    SPOTS[0],
+    Plan(
+        windows=(
+            TeamWindow(0, "PHI", WEEK[0], WEEK[5], (WEEK[0], WEEK[1], WEEK[5]), PHI, (PHI,)),
+            TeamWindow(0, "CHI", WEEK[6], WEEK[6], (WEEK[6],), CHI, (CHI,)),
+        ),
+        started_games=4,
+        adds=2,
+    ),
+    4,
+)
+ROW2 = SpotPlan(
+    SPOTS[1],
+    Plan(
+        windows=(
+            TeamWindow(0, "MIA", None, WEEK[0], (WEEK[0],), HOLDER, ()),
+            TeamWindow(0, "PHI", WEEK[1], WEEK[6], (WEEK[1], WEEK[5]), PHI, (PHI,)),
+        ),
+        started_games=3,
+        adds=1,
+    ),
+    2,
+)
 RANKING = [TeamRank("PHI", (WEEK[0], WEEK[1], WEEK[5]), 6), TeamRank("DAL", (WEEK[3],), 2)]
-OPTIONS = [PHI, CHI, option("Hurt FA", "PHI", 2.0, status="O"), option("Star", "PHI", 2.5, ("C",), recent=2.0),
-           option("No Value", "PHI", None)]
+OPTIONS = [
+    PHI,
+    CHI,
+    option("Hurt FA", "PHI", 2.0, status="O"),
+    option("Star", "PHI", 2.5, ("C",), recent=2.0),
+    option("No Value", "PHI", None),
+]
 
 
 def render(**kw):
-    return page.render(DATA, DAYS, GAMES, SPOTS, [ROW1, ROW2], OPTIONS, RANKING, ["PHI"], WEEK[0],
-                       replacement=0.5, **kw)
+    return page.render(
+        DATA, DAYS, GAMES, SPOTS, [ROW1, ROW2], OPTIONS, RANKING, ["PHI"], WEEK[0], replacement=0.5, **kw
+    )
 
 
 def text(html):
@@ -133,9 +160,16 @@ def test_the_page_shows_the_matchup_weights_from_the_live_score_table():
     # The matchup page of 2026-10-21 (#73). The week has 6 days, and the planning window is 2026-10-21 to 10-25.
     # The margins are the first values of config.toml (#59), fixed here so that a change to config.toml has no effect.
     cats = ("pts", "reb", "ast", "threes", "blk", "stl")
-    cfg = {"weights": {c: 1.0 for c in cats}, "adds": {"matchup": {
-        "close": {"pts": 40, "reb": 15, "ast": 10, "threes": 5, "blk": 3, "stl": 3},
-        "large": {"pts": 120, "reb": 45, "ast": 30, "threes": 15, "blk": 9, "stl": 9}, "min_weight": 0.5}}}
+    cfg = {
+        "weights": {c: 1.0 for c in cats},
+        "adds": {
+            "matchup": {
+                "close": {"pts": 40, "reb": 15, "ast": 10, "threes": 5, "blk": 3, "stl": 3},
+                "large": {"pts": 120, "reb": 45, "ast": 30, "threes": 15, "blk": 9, "stl": 9},
+                "min_weight": 0.5,
+            }
+        },
+    }
     fixture = Path(__file__).parent / "fixtures" / "matchup_scores_live.html"
     m = read_matchup(fixture.read_text(encoding="utf-8"), team=10)
     html = render(matchup=m, weights=matchup_weights(m, cfg, share_left=5 / 6))
@@ -154,10 +188,22 @@ def test_the_opponent_name_is_not_on_the_page():
 
 
 def test_the_free_agent_data_has_the_minutes_the_starts_and_the_closes():
-    roles = {("Phi & One", "PHI"): Role(minutes_last5=28.04, minutes_14d=22.0, games=4, starts=3, closes=1,
-                                        close_games=2, rise=True, starter="Regular", closer="New"),
-             ("Star", "PHI"): Role(minutes_last5=30.0, minutes_14d=None, games=0, starts=0, closes=0, close_games=0,
-                                   rise=False)}
+    roles = {
+        ("Phi & One", "PHI"): Role(
+            minutes_last5=28.04,
+            minutes_14d=22.0,
+            games=4,
+            starts=3,
+            closes=1,
+            close_games=2,
+            rise=True,
+            starter="Regular",
+            closer="New",
+        ),
+        ("Star", "PHI"): Role(
+            minutes_last5=30.0, minutes_14d=None, games=0, starts=0, closes=0, close_games=0, rise=False
+        ),
+    }
     players = {p["name"]: p for p in page.free_agent_data(OPTIONS, DAYS, GAMES, 0.5, roles=roles)["players"]}
     assert players["Phi & One"]["role"] == "Min 28.0 L5, 22.0 14d (+6.0) · Starts 3/4 (Regular) · Closes 1/2 (New)"
     assert players["Phi & One"]["rise"]
@@ -174,10 +220,30 @@ def test_the_free_agent_data_has_the_minutes_the_starts_and_the_closes():
 
 
 def test_the_page_shows_the_starter_flag_and_the_closer_flag_in_the_html():
-    roles = {("Phi & One", "PHI"): Role(minutes_last5=20.0, minutes_14d=20.0, games=5, starts=1, closes=0,
-                                        close_games=4, rise=False, starter="Inconsistent", closer=None),
-             ("Star", "PHI"): Role(minutes_last5=30.0, minutes_14d=30.0, games=5, starts=5, closes=4, close_games=4,
-                                   rise=False, starter="New", closer="Regular")}
+    roles = {
+        ("Phi & One", "PHI"): Role(
+            minutes_last5=20.0,
+            minutes_14d=20.0,
+            games=5,
+            starts=1,
+            closes=0,
+            close_games=4,
+            rise=False,
+            starter="Inconsistent",
+            closer=None,
+        ),
+        ("Star", "PHI"): Role(
+            minutes_last5=30.0,
+            minutes_14d=30.0,
+            games=5,
+            starts=5,
+            closes=4,
+            close_games=4,
+            rise=False,
+            starter="New",
+            closer="Regular",
+        ),
+    }
     html = render(roles=roles, minutes_rise=4.0)
     assert "Starts 1/5 (Inconsistent) · Closes 0/4" in html
     assert "Closes 0/4 (" not in html  # no closer flag: no word after the closes
@@ -197,8 +263,9 @@ def test_the_page_holds_the_free_agent_data_as_safe_json():
 
 
 def test_the_page_explains_why_there_is_no_plan():
-    assert "No adds left this week (5 of 5 used)" in text(page.render(
-        command.LeagueData([], Adds(5, 5), DATA.week), DAYS, GAMES, SPOTS, [], today=WEEK[0]))
+    assert "No adds left this week (5 of 5 used)" in text(
+        page.render(command.LeagueData([], Adds(5, 5), DATA.week), DAYS, GAMES, SPOTS, [], today=WEEK[0])
+    )
     assert "No stream spots" in text(page.render(DATA, DAYS, GAMES, [], [], today=WEEK[0]))
     assert "No free agent that the planner read" in text(page.render(DATA, DAYS, GAMES, SPOTS, [], today=WEEK[0]))
     # No options: no free-agent table and no script.
@@ -209,8 +276,9 @@ CLAIM = Option(Player("Claim Guy", "CHI", ("C",), clear_day=WEEK[1]), 1.2)
 
 
 def test_the_page_lists_the_waiver_players_with_the_clear_day():
-    html = page.render(DATA, DAYS, GAMES, SPOTS, [ROW1, ROW2], OPTIONS + [CLAIM], RANKING, ["PHI"], WEEK[0],
-                       replacement=0.5)
+    html = page.render(
+        DATA, DAYS, GAMES, SPOTS, [ROW1, ROW2], OPTIONS + [CLAIM], RANKING, ["PHI"], WEEK[0], replacement=0.5
+    )
     shown = text(html)
     assert "Waiver players" in shown
     assert "Claim Guy W CHI C Tue 1/5 Wed 1/6 +0.70" in shown
@@ -224,8 +292,15 @@ def test_the_page_has_no_waiver_section_with_no_waiver_players():
 
 
 def test_a_move_marks_a_waiver_claim():
-    row = SpotPlan(SPOTS[0], Plan(windows=(TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM,
-                                                      (CLAIM,)),), started_games=2, adds=1), 2)
+    row = SpotPlan(
+        SPOTS[0],
+        Plan(
+            windows=(TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM, (CLAIM,)),),
+            started_games=2,
+            adds=1,
+        ),
+        2,
+    )
     shown = text(page.render(DATA, DAYS, GAMES, SPOTS, [row], [CLAIM], today=WEEK[0]))
     assert "+Claim Guy W (CHI) – Sat & Sun" in shown
     assert "W: a waiver claim. It is not sure" in shown
@@ -267,10 +342,15 @@ def test_the_command_prints_the_comparison_and_shows_the_plans_for_one_roster_sp
     out = capsys.readouterr().out
     assert "Schedule plan: 2 started games with 1 add" in out
     assert "Aggressive plan: 1 started game with 1 add" in out
-    lines = [line.split() for line in out[out.index("Comparison:"):].splitlines()[1:7]]
-    assert lines == [["Schedule", "Aggressive"], ["Adds", "1", "1"], ["Started", "games", "2", "1"],
-                     ["Blended", "value", "-12.00", "-1.00"], ["Value", "above", "an", "empty", "slot", "+8.00", "+9.00"],
-                     ["Matchup", "value", "above", "empty", "+8.00", "+9.00"]]
+    lines = [line.split() for line in out[out.index("Comparison:") :].splitlines()[1:7]]
+    assert lines == [
+        ["Schedule", "Aggressive"],
+        ["Adds", "1", "1"],
+        ["Started", "games", "2", "1"],
+        ["Blended", "value", "-12.00", "-1.00"],
+        ["Value", "above", "an", "empty", "slot", "+8.00", "+9.00"],
+        ["Matchup", "value", "above", "empty", "+8.00", "+9.00"],
+    ]
     # The read_league() of this test gives no matchup scores, so all weights are 1.
     assert "the planner did not find the category scores" in out
     # Each row of the page has different players: the PHI player first (2 games), then the BOS player (1 game).
@@ -292,8 +372,9 @@ def test_the_page_marks_the_second_game_of_each_back_to_back():
     # PHI plays Mon and Tue, so Tue is a second night. CHI plays Sat and Sun, so Sun is a second night.
     nights = {WEEK[1]: {"PHI"}, WEEK[6]: {"CHI"}}
     rows = plan_rows(render(nights=nights))
-    marks = [[bool(re.search(r'class="b2b"', cell)) for cell in re.findall(r"<td[^>]*>.*?</td>", row)[:7]]
-             for row in rows]
+    marks = [
+        [bool(re.search(r'class="b2b"', cell)) for cell in re.findall(r"<td[^>]*>.*?</td>", row)[:7]] for row in rows
+    ]
     assert marks[0] == [False, True, False, False, False, False, True]
     assert marks[1] == [False, True, False, False, False, False, False]
     assert "second game of a back-to-back" in text(render(nights=nights))
@@ -309,7 +390,8 @@ def test_a_fractional_gain_shows_one_decimal():
 
 
 def test_the_command_counts_a_second_night_of_a_player_on_the_rest_list_as_less_than_1_game(
-        monkeypatch, tmp_path, capsys):
+    monkeypatch, tmp_path, capsys
+):
     # PHI plays Mon and Tue. Phi One is on the rest list, and [adds] rest_chance is 0.5.
     run_command(monkeypatch, tmp_path, [], publish=False, rests={"phi one"})
     out = capsys.readouterr().out
@@ -342,7 +424,9 @@ def test_the_command_marks_the_role_up_free_agents_in_the_window_options(monkeyp
     lines = out.splitlines()
     assert next(line for line in lines if "1. Phi One" in line).endswith("role up: Star Wing absent")
     assert not next(line for line in lines if "2. Phi Guard" in line).endswith("absent")
-    assert "Star Wing is absent. Role up: Phi One (PHI)." in text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
+    assert "Star Wing is absent. Role up: Phi One (PHI)." in text(
+        (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    )
 
 
 def test_the_free_agent_data_marks_a_game_on_an_open_day_early_next_week():
@@ -351,8 +435,9 @@ def test_the_free_agent_data_marks_a_game_on_an_open_day_early_next_week():
     early = [Day(nmon, 4, (), (), ("PG",)), Day(ntue, 6, (), (), ())]
     early_games = {nmon: {"PHI"}, ntue: {"PHI", "CHI"}}
     guard = option("Phi Guard", "PHI", 0.4, ("PG",))
-    data = page.free_agent_data([guard, PHI, CHI], DAYS, GAMES, replacement=0.5, next_days=early,
-                                next_games=early_games)
+    data = page.free_agent_data(
+        [guard, PHI, CHI], DAYS, GAMES, replacement=0.5, next_days=early, next_games=early_games
+    )
     # Phi Guard fills the open PG slot on Mon. Phi & One (SF) does not fit it. Chi One plays only on Tue (no open slot).
     assert [p["next_open"] for p in data["players"]] == [["Mon open"], [], []]
 
@@ -364,8 +449,10 @@ def test_the_page_shows_the_next_week_mark_in_the_free_agent_table():
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert {p["name"]: p["next_open"] for p in data["players"]}["Phi & One"] == ["Mon open"]
     assert "p.next_open" in page.SCRIPT and 'class="flag next"' in page.SCRIPT
-    assert ('<span class="flag next">Mon open</span>: he has a game next Monday 1/11, and your core players leave a '
-            "slot open that he can fill (2 open slots).") in html
+    assert (
+        '<span class="flag next">Mon open</span>: he has a game next Monday 1/11, and your core players leave a '
+        "slot open that he can fill (2 open slots)."
+    ) in html
 
 
 def test_the_page_script_draws_the_next_week_badge_in_the_free_agent_row():
@@ -376,14 +463,19 @@ def test_the_page_script_draws_the_next_week_badge_in_the_free_agent_row():
     data = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
     script = html.split('<script type="application/json" id="fa-data">')[1].split("<script>")[1].split("</script>")[0]
     # A small page: the elements that the script uses, with the JSON data of the page.
-    code = (f"const DATA_TEXT = {json.dumps(data)};\n"
-            "const els = {}; const el = () => ({innerHTML: '', textContent: '', querySelectorAll: () => []});\n"
-            "global.document = {getElementById: id => id === 'fa-data' ? {textContent: DATA_TEXT}"
-            " : (els[id] = els[id] || el())};\n"
-            f"{script}\nprocess.stdout.write(els['fa-table'].innerHTML);")
+    code = (
+        f"const DATA_TEXT = {json.dumps(data)};\n"
+        "const els = {}; const el = () => ({innerHTML: '', textContent: '', querySelectorAll: () => []});\n"
+        "global.document = {getElementById: id => id === 'fa-data' ? {textContent: DATA_TEXT}"
+        " : (els[id] = els[id] || el())};\n"
+        f"{script}\nprocess.stdout.write(els['fa-table'].innerHTML);"
+    )
     table = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True, encoding="utf-8").stdout
-    rows = {re.match(r'<td class="name">([^<]*)', row).group(1).strip(): row
-            for row in re.findall(r"<tr>(.*?)</tr>", table) if row.startswith('<td class="name">')}
+    rows = {
+        re.match(r'<td class="name">([^<]*)', row).group(1).strip(): row
+        for row in re.findall(r"<tr>(.*?)</tr>", table)
+        if row.startswith('<td class="name">')
+    }
     assert '<span class="flag next">Mon open</span>' in rows["Phi &amp; One"]
     assert '<span class="flag next">' not in rows["Chi One"]
 
@@ -407,22 +499,47 @@ def test_the_command_marks_the_free_agents_who_play_on_an_open_day_early_next_we
 def test_on_the_last_day_of_the_week_the_mark_checks_the_days_after_the_planned_week(monkeypatch, tmp_path):
     # read_league() moves data.week forward to Wed and Thu. So the mark checks Fri and Sat, not Wed.
     league = command.LeagueData(roster=[], adds=Adds(0, 5), week=Week(13, tuple(WEEK[2:4])), next_week=True)
-    run_command(monkeypatch, tmp_path, [], publish=False, league=league,
-                extra_games=[(WEEK[2], "PHI"), (WEEK[4], "PHI")])
+    run_command(
+        monkeypatch, tmp_path, [], publish=False, league=league, extra_games=[(WEEK[2], "PHI"), (WEEK[4], "PHI")]
+    )
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert data["players"][0]["next_open"] == ["Fri open"]
     assert "next Friday 1/8" in text(html) and "next Saturday 1/9" in text(html)
 
 
-STEPS = ["schedule read", "season values", "Yahoo reads", "absence read", "value options", "schedule search",
-         "drop trade-offs", "aggressive search", "spot plans", "contingency plans", "role read",
-         "page write and publish"]
+STEPS = [
+    "schedule read",
+    "season values",
+    "Yahoo reads",
+    "absence read",
+    "value options",
+    "schedule search",
+    "drop trade-offs",
+    "aggressive search",
+    "spot plans",
+    "contingency plans",
+    "role read",
+    "page write and publish",
+]
 SEARCH_STEPS = {"schedule search", "drop trade-offs", "aggressive search", "spot plans"}
-NO_READ_STEPS = ["schedule read", "season values", "Yahoo reads", "contingency plans", "role read",
-                 "page write and publish"]
-YAHOO_PARTS = ["browser start", "league and matchup pages", "projected pass", "recent pass", "market pages",
-               "waiver list", "trends"]
+NO_READ_STEPS = [
+    "schedule read",
+    "season values",
+    "Yahoo reads",
+    "contingency plans",
+    "role read",
+    "page write and publish",
+]
+YAHOO_PARTS = [
+    "browser start",
+    "league and matchup pages",
+    "projected pass",
+    "recent pass",
+    "market pages",
+    "waiver list",
+    "trends",
+]
 
 
 def rows_of(steps, parts):
@@ -461,7 +578,7 @@ def test_the_command_appends_one_row_for_each_step_to_the_timings_file(monkeypat
     columns, rows = timing_rows(tmp_path)
     assert columns == ["run_at", "days", "open_days", "adds_left", "step", "seconds", "calls", "states", "pages"]
     assert [r["step"] for r in rows] == ROWS + ROWS
-    first = rows[:len(ROWS)]
+    first = rows[: len(ROWS)]
     assert len({r["run_at"] for r in first}) == 1
     assert {(r["days"], r["open_days"], r["adds_left"]) for r in rows} == {("2", "2", "1")}
     for r in rows:
@@ -484,34 +601,65 @@ def test_a_step_that_does_not_run_writes_no_row(monkeypatch, tmp_path):
 
 
 def test_each_sub_step_of_the_yahoo_reads_counts_its_pages(monkeypatch, tmp_path, capsys):
-    pages = {"league": 2, ("team", command.PROJECTED): 5, ("market", command.PROJECTED): 3,
-             ("waiver", command.PROJECTED): 1, ("team", command.RECENT): 4, ("market", command.RECENT): 3,
-             ("waiver", command.RECENT): 1, "trends": 3}
+    pages = {
+        "league": 2,
+        ("team", command.PROJECTED): 5,
+        ("market", command.PROJECTED): 3,
+        ("waiver", command.PROJECTED): 1,
+        ("team", command.RECENT): 4,
+        ("market", command.RECENT): 3,
+        ("waiver", command.RECENT): 1,
+        "trends": 3,
+    }
     yahoo = run_command(monkeypatch, tmp_path, [], publish=False, pages=pages)
     # The team lists in both views, each market page in both views, the waiver list in both views (#92).
     market = [f"market {command.PROJECTED}", f"market {command.RECENT}"] * 3
-    assert yahoo.paths == ["league"] * 2 + [f"team {command.PROJECTED}"] * 5 + [f"team {command.RECENT}"] * 4 \
-        + market + [f"waiver {command.PROJECTED}", f"waiver {command.RECENT}"] + ["trends"] * 3
+    assert (
+        yahoo.paths
+        == ["league"] * 2
+        + [f"team {command.PROJECTED}"] * 5
+        + [f"team {command.RECENT}"] * 4
+        + market
+        + [f"waiver {command.PROJECTED}", f"waiver {command.RECENT}"]
+        + ["trends"] * 3
+    )
     _, rows = timing_rows(tmp_path)
     found = {r["step"]: r["pages"] for r in rows if r["step"].startswith("Yahoo reads")}
-    assert found == {"Yahoo reads": "22", "Yahoo reads: browser start": "0",
-                     "Yahoo reads: league and matchup pages": "2", "Yahoo reads: projected pass": "5",
-                     "Yahoo reads: market pages": "6", "Yahoo reads: waiver list": "2",
-                     "Yahoo reads: recent pass": "4", "Yahoo reads: trends": "3"}
+    assert found == {
+        "Yahoo reads": "22",
+        "Yahoo reads: browser start": "0",
+        "Yahoo reads: league and matchup pages": "2",
+        "Yahoo reads: projected pass": "5",
+        "Yahoo reads: market pages": "6",
+        "Yahoo reads: waiver list": "2",
+        "Yahoo reads: recent pass": "4",
+        "Yahoo reads: trends": "3",
+    }
     out = capsys.readouterr().out
     assert re.search(r"Step: Yahoo reads: \d+\.\d\d s, 22 pages", out)
     assert re.search(r"  Yahoo reads: market pages: \d+\.\d\d s, 6 pages", out)
 
 
 def test_an_old_timings_file_stays_readable(monkeypatch, tmp_path):
-    old = ("run_at,days,open_days,adds_left,step,seconds,calls,states\n"
-           "2026-10-26T09:00:00,2,2,1,schedule search,1.50,40,12\n")
+    old = (
+        "run_at,days,open_days,adds_left,step,seconds,calls,states\n"
+        "2026-10-26T09:00:00,2,2,1,schedule search,1.50,40,12\n"
+    )
     (tmp_path / "timings.csv").write_text(old, encoding="utf-8")
     run_command(monkeypatch, tmp_path, [], publish=False)
     columns, rows = timing_rows(tmp_path)
     assert columns == timing.COLUMNS
-    assert rows[0] == {"run_at": "2026-10-26T09:00:00", "days": "2", "open_days": "2", "adds_left": "1",
-                       "step": "schedule search", "seconds": "1.50", "calls": "40", "states": "12", "pages": ""}
+    assert rows[0] == {
+        "run_at": "2026-10-26T09:00:00",
+        "days": "2",
+        "open_days": "2",
+        "adds_left": "1",
+        "step": "schedule search",
+        "seconds": "1.50",
+        "calls": "40",
+        "states": "12",
+        "pages": "",
+    }
     assert [r["step"] for r in rows[1:]] == ROWS
 
 
@@ -523,7 +671,7 @@ def test_a_run_that_stops_keeps_the_rows_of_the_finished_steps(monkeypatch, tmp_
     with pytest.raises(KeyboardInterrupt):
         run_command(monkeypatch, tmp_path, [], publish=False)
     _, rows = timing_rows(tmp_path)
-    assert [r["step"] for r in rows] == ROWS[:ROWS.index("spot plans")]
+    assert [r["step"] for r in rows] == ROWS[: ROWS.index("spot plans")]
     assert {(r["days"], r["open_days"], r["adds_left"]) for r in rows} == {("2", "2", "1")}
 
 
@@ -551,8 +699,12 @@ def test_the_page_has_no_run_time_table_with_no_step_times():
 
 
 def test_the_run_time_table_shows_the_pages_of_the_yahoo_reads_and_its_sub_steps():
-    html = render(timings=[timing.StepTime("Yahoo reads", 31.34, pages=33),
-                           timing.StepTime("Yahoo reads: market pages", 7.5, pages=12, parent="Yahoo reads")])
+    html = render(
+        timings=[
+            timing.StepTime("Yahoo reads", 31.34, pages=33),
+            timing.StepTime("Yahoo reads: market pages", 7.5, pages=12, parent="Yahoo reads"),
+        ]
+    )
     assert '<td class="name">Yahoo reads</td><td>31.34</td><td></td><td></td><td>33</td>' in html
     assert '<td class="name sub">market pages</td><td>7.50</td><td></td><td></td><td>12</td>' in html
 
@@ -564,11 +716,11 @@ def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
     for timed in (True, False):
         plans, pages = [], []
         real_print_plan, real_render = command.print_plan, page.render
-        monkeypatch.setattr(command, "print_plan", lambda plan, *a, **kw: (plans.append(plan),
-                                                                            real_print_plan(plan, *a, **kw)))
+        monkeypatch.setattr(
+            command, "print_plan", lambda plan, *a, **kw: (plans.append(plan), real_print_plan(plan, *a, **kw))
+        )
         monkeypatch.setattr(page, "render", lambda *a, **kw: (pages.append((a, kw)), real_render(*a, **kw))[1])
-        run_command(monkeypatch, tmp_path / str(timed), [], publish=False, options=options, league=league,
-                    timed=timed)
+        run_command(monkeypatch, tmp_path / str(timed), [], publish=False, options=options, league=league, timed=timed)
         args, kw = pages[0]
         kw.pop("timings")
         found[timed] = (plans, args, kw)
@@ -612,15 +764,23 @@ def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path, sett
     for once in (True, False):
         plans, pages, inputs = [], [], []
         real_print_plan, real_render, real_parse = command.print_plan, page.render, command.parse
-        monkeypatch.setattr(command, "print_plan", lambda plan, *a, **kw: (plans.append(plan),
-                                                                            real_print_plan(plan, *a, **kw)))
+        monkeypatch.setattr(
+            command, "print_plan", lambda plan, *a, **kw: (plans.append(plan), real_print_plan(plan, *a, **kw))
+        )
         monkeypatch.setattr(page, "render", lambda *a, **kw: (pages.append((a, kw)), real_render(*a, **kw))[1])
         if not once:
             # The read before #93: each reader gets the HTML and parses it again.
             monkeypatch.setattr(command, "parse", lambda html: html)
-        yahoo = run_command(monkeypatch, tmp_path / str(once), [], publish=False, league=league, yahoo=ListPages(),
-                            settings=settings,
-                            options=lambda fas, recent: (inputs.append((fas, recent)), options_of(fas, recent))[1])
+        yahoo = run_command(
+            monkeypatch,
+            tmp_path / str(once),
+            [],
+            publish=False,
+            league=league,
+            yahoo=ListPages(),
+            settings=settings,
+            options=lambda fas, recent: (inputs.append((fas, recent)), options_of(fas, recent))[1],
+        )
         args, kw = pages[0]
         kw.pop("timings")
         found[once] = (plans, args, kw, inputs, yahoo.paths)
@@ -637,9 +797,25 @@ def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path, sett
     assert found[True] == found[False]
 
 
-def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
-                league=None, timed=True, pages=None, yahoo=None, settings=None, free_agents=None, market=None,
-                today=None, cache=False):
+def run_command(
+    monkeypatch,
+    tmp_path,
+    published,
+    publish,
+    options=None,
+    rests=None,
+    absences=(),
+    extra_games=(),
+    league=None,
+    timed=True,
+    pages=None,
+    yahoo=None,
+    settings=None,
+    free_agents=None,
+    market=None,
+    today=None,
+    cache=False,
+):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
     The page, timings.csv and the page cache (cache/) go in tmp_path. timed: the timed argument of plan.main().
@@ -668,6 +844,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
 
     def reader(name, result):
         """A fake reader that opens the pages of name (and of its view) and gives result."""
+
         def read(league, *args, **kw):
             view = command.RECENT if command.RECENT in (*args, *kw.values()) else command.PROJECTED
             key, path = ((name, view), f"{name} {view}") if name in ("team", "market", "waiver") else (name, name)
@@ -676,14 +853,18 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
             if isinstance(result, dict):
                 return list(result.get(view, ()))
             return result() if callable(result) else result
+
         return read
 
     import pandas as pd
+
     games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
     sched = pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
-    cfg = {"league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
-           "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
-           "weights": {"pts": 1.0}}
+    cfg = {
+        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
+        "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
+        "weights": {"pts": 1.0},
+    }
     monkeypatch.setattr(command, "read_rest_names", lambda cfg: set(rests or ()))
     monkeypatch.setattr(command, "load_config", lambda: cfg)
     monkeypatch.setattr(command, "read_schedule", lambda: sched)
@@ -700,8 +881,13 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "read_roles", lambda players, cfg, today: {})
     options = options or [option("Phi One", "PHI", 0.3)]
     if free_agents is None:
-        monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None, scale=None:
-                            options(fas, recent) if callable(options) else options)
+        monkeypatch.setattr(
+            command,
+            "value_options",
+            lambda fas, cfg, recent=(), matchup_cfg=None, scale=None: (
+                options(fas, recent) if callable(options) else options
+            ),
+        )
     scale = pd.DataFrame({"pts": [10.0, 5.0]}, index=["mean", "std"]) if free_agents is not None else None
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "empty_slot_value", lambda cfg, scale=None: -10.0)
@@ -720,6 +906,7 @@ def market_reader(pages, result=None):
     Page by page, it opens the projected page, then the recent page if the run reads the recent view.
     result: the MarketRead that it gives. None: a MarketRead with no free agents.
     """
+
     def read(league, recent=True, *args, **kw):
         projected, recent_pages = pages.get(("market", command.PROJECTED), 0), pages.get(("market", command.RECENT), 0)
         for n in range(max(projected, recent_pages if recent else 0)):
@@ -728,6 +915,7 @@ def market_reader(pages, result=None):
             if recent and n < recent_pages:
                 league.get(f"market {command.RECENT}")
         return result or command.MarketRead([], [], max(projected, 1), "end")
+
     return read
 
 
@@ -758,8 +946,9 @@ def test_below_the_setting_the_run_reads_no_page_of_the_recent_view(monkeypatch,
 
 @pytest.mark.parametrize("weight", [0.0, 1 / 14])
 def test_at_or_above_the_setting_the_run_reads_both_views(monkeypatch, tmp_path, weight):
-    yahoo = run_command(monkeypatch, tmp_path, [], publish=False, settings={"recent_skip_weight": weight},
-                        yahoo=FakeLeague(PHI_PAGE))
+    yahoo = run_command(
+        monkeypatch, tmp_path, [], publish=False, settings={"recent_skip_weight": weight}, yahoo=FakeLeague(PHI_PAGE)
+    )
     projected = [path for path in yahoo.paths if f"stat1={command.PROJECTED}" in path]
     recent = [path for path in yahoo.paths if f"stat1={command.RECENT}" in path]
     assert len(projected) == 4  # the lists of PHI and BOS, the market list and the waiver list
@@ -778,12 +967,19 @@ def _plans(monkeypatch, tmp_path, recent, settings):
     """The printed plans and the page.render() arguments of one run: (plans, args, skip line, other keywords)."""
     plans, pages = [], []
     real_print_plan, real_render = command.print_plan, page.render
-    monkeypatch.setattr(command, "print_plan", lambda plan, *a, **kw: (plans.append(plan),
-                                                                        real_print_plan(plan, *a, **kw)))
+    monkeypatch.setattr(
+        command, "print_plan", lambda plan, *a, **kw: (plans.append(plan), real_print_plan(plan, *a, **kw))
+    )
     monkeypatch.setattr(page, "render", lambda *a, **kw: (pages.append((a, kw)), real_render(*a, **kw))[1])
     projected, _ = _free_agents()
-    run_command(monkeypatch, tmp_path, [], publish=False, settings=settings,
-                free_agents={command.PROJECTED: projected, command.RECENT: recent})
+    run_command(
+        monkeypatch,
+        tmp_path,
+        [],
+        publish=False,
+        settings=settings,
+        free_agents={command.PROJECTED: projected, command.RECENT: recent},
+    )
     monkeypatch.setattr(command, "print_plan", real_print_plan)
     monkeypatch.setattr(page, "render", real_render)
     args, kw = pages[0]
@@ -805,16 +1001,24 @@ def test_the_plans_with_the_recent_view_skipped_are_the_plans_with_recent_weight
     assert [o.value for o in read[1][5]] != [o.value for o in args[5]]
 
 
-SKIP_LINE = ("The run skipped the recent view (last 14 days). The most games of one team from 14 days ago to today "
-             "is 1, so w is 0.07 at most. This is below [adds] recent_skip_weight (0.3). The values use the projection "
-             "only. A player with no projection is not a candidate.")
+SKIP_LINE = (
+    "The run skipped the recent view (last 14 days). The most games of one team from 14 days ago to today "
+    "is 1, so w is 0.07 at most. This is below [adds] recent_skip_weight (0.3). The values use the projection "
+    "only. A player with no projection is not a candidate."
+)
 
 
 @pytest.mark.parametrize("settings", [{}, SKIP])
 def test_the_page_and_the_terminal_show_the_market_read(monkeypatch, tmp_path, capsys, settings):
     # The fake market read of run_command() reads 2 pages, and page 2 is the last page of the list.
-    run_command(monkeypatch, tmp_path, [], publish=False, settings=settings,
-                pages={("market", command.PROJECTED): 2, ("market", command.RECENT): 2})
+    run_command(
+        monkeypatch,
+        tmp_path,
+        [],
+        publish=False,
+        settings=settings,
+        pages={("market", command.PROJECTED): 2, ("market", command.RECENT): 2},
+    )
     line = "Market: 2 of 3 pages. Page 2 was the last page of the list."
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
     section = html.split("<h2>Free agents</h2>")[1]
@@ -826,17 +1030,28 @@ def test_the_market_free_agents_of_each_view_reach_the_free_agent_lists(monkeypa
     projected = FreeAgent(Player("Market One", "PHI", ("SF",)), 3, {"pts": 14.0})
     recent = FreeAgent(Player("Market One", "PHI", ("SF",)), 5, {"pts": 22.0})
     inputs = []
-    run_command(monkeypatch, tmp_path, [], publish=False, market=command.MarketRead([projected], [recent], 1, "end"),
-                options=lambda fas, rec: (inputs.append((list(fas), list(rec))), options_of(fas, rec))[1])
+    run_command(
+        monkeypatch,
+        tmp_path,
+        [],
+        publish=False,
+        market=command.MarketRead([projected], [recent], 1, "end"),
+        options=lambda fas, rec: (inputs.append((list(fas), list(rec))), options_of(fas, rec))[1],
+    )
     # The last call of value_options() gives the options of the plans: the free agents of each view.
     assert inputs[-1] == ([projected], [recent])
 
 
 def test_the_page_shows_why_the_market_read_stopped():
-    lines = [command.market_line(command.MarketRead([], [], 2, "guard")),
-             command.market_line(command.MarketRead([], [], 3, "limit"))]
-    assert lines == ["Market: 2 of 3 pages. Page 2 had no new player above the replacement value (the free agent at "
-                     "rank 15 of the players read before it).", "Market: 3 of 3 pages (the limit)."]
+    lines = [
+        command.market_line(command.MarketRead([], [], 2, "guard")),
+        command.market_line(command.MarketRead([], [], 3, "limit")),
+    ]
+    assert lines == [
+        "Market: 2 of 3 pages. Page 2 had no new player above the replacement value (the free agent at "
+        "rank 15 of the players read before it).",
+        "Market: 3 of 3 pages (the limit).",
+    ]
     for line in lines:
         html = page.render(DATA, DAYS, GAMES, SPOTS, [], [PHI], today=MON, market=line)
         assert f'<p class="legend" id="market-read">{line}</p>' in html
@@ -845,8 +1060,14 @@ def test_the_page_shows_why_the_market_read_stopped():
 
 def test_the_page_and_the_terminal_say_that_the_run_skipped_the_recent_view(monkeypatch, tmp_path, capsys):
     projected, recent = _free_agents()
-    run_command(monkeypatch, tmp_path, [], publish=False, settings=SKIP,
-                free_agents={command.PROJECTED: projected, command.RECENT: recent})
+    run_command(
+        monkeypatch,
+        tmp_path,
+        [],
+        publish=False,
+        settings=SKIP,
+        free_agents={command.PROJECTED: projected, command.RECENT: recent},
+    )
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
     section = html.split("<h2>Free agents</h2>")[1]
     assert SKIP_LINE in text(section.split('id="fa-table"')[0])  # above the free-agent table
@@ -855,8 +1076,9 @@ def test_the_page_and_the_terminal_say_that_the_run_skipped_the_recent_view(monk
 
 def test_a_run_with_the_recent_view_has_no_skip_line(monkeypatch, tmp_path, capsys):
     projected, recent = _free_agents()
-    run_command(monkeypatch, tmp_path, [], publish=False,
-                free_agents={command.PROJECTED: projected, command.RECENT: recent})
+    run_command(
+        monkeypatch, tmp_path, [], publish=False, free_agents={command.PROJECTED: projected, command.RECENT: recent}
+    )
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
     assert "<h2>Free agents</h2>" in html
     assert "skipped the recent view" not in text(html)
@@ -867,8 +1089,11 @@ def test_a_run_with_the_recent_view_has_no_skip_line(monkeypatch, tmp_path, caps
 # The same-day cache of Yahoo pages (#91). BOTH: the run reads both views (no skip).
 BOTH = {"recent_skip_weight": 0.0}
 # The recent view of PHI with the Q players marked O.
-PHI_RECENT_OUT = (Path(__file__).parent / "fixtures" / "free_agents_phi_recent.html").read_text(
-    encoding="utf-8").replace('title="Questionable">Q<', 'title="Out">O<')
+PHI_RECENT_OUT = (
+    (Path(__file__).parent / "fixtures" / "free_agents_phi_recent.html")
+    .read_text(encoding="utf-8")
+    .replace('title="Questionable">Q<', 'title="Out">O<')
+)
 
 
 class ViewPages(FakeLeague):
@@ -901,8 +1126,7 @@ def test_a_second_run_on_the_same_day_reads_the_recent_view_from_the_cache(monke
     _, rows = timing_rows(tmp_path)
     recent = [r["pages"] for r in rows if r["step"] == "Yahoo reads: recent pass"]
     assert recent == ["2", "0"]  # the page count counts only the pages from Yahoo
-    line = re.search(r"The recent view: 3 pages from the cache of \d{4}-\d\d-\d\d \d\d:\d\d\.",
-                     capsys.readouterr().out)
+    line = re.search(r"The recent view: 3 pages from the cache of \d{4}-\d\d-\d\d \d\d:\d\d\.", capsys.readouterr().out)
     assert line
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
     assert f'<p class="legend" id="cache-read">{line.group(0)}</p>' in html
@@ -910,11 +1134,13 @@ def test_a_second_run_on_the_same_day_reads_the_recent_view_from_the_cache(monke
 
 def test_a_run_on_the_next_day_reads_the_recent_view_from_yahoo(monkeypatch, tmp_path):
     run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True)
-    tuesday = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True,
-                          today=WEEK[1])
+    tuesday = run_command(
+        monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True, today=WEEK[1]
+    )
     projected = [p for p in tuesday.paths if f"stat1={command.PROJECTED}" in p and "status=W" not in p]
-    assert projected and _recent_lists(tuesday.paths) == [p.replace(command.PROJECTED, command.RECENT)
-                                                          for p in projected]
+    assert projected and _recent_lists(tuesday.paths) == [
+        p.replace(command.PROJECTED, command.RECENT) for p in projected
+    ]
     assert [d.name for d in (tmp_path / "cache" / "day").iterdir()] == [f"{WEEK[1]:%Y-%m-%d}"]
 
 
@@ -929,6 +1155,7 @@ def test_the_status_comes_from_the_projected_view_of_this_run(monkeypatch, tmp_p
     import pandas as pd
 
     from fantasyhoops.adds.blend import blended_options
+
     scale, cfg = pd.DataFrame({"pts": [10.0, 5.0]}, index=["mean", "std"]), {"weights": {"pts": 1.0}}
     recents, renders = [], []
 
@@ -939,10 +1166,19 @@ def test_the_status_comes_from_the_projected_view_of_this_run(monkeypatch, tmp_p
     real_render = page.render
     monkeypatch.setattr(page, "render", lambda *a, **kw: (renders.append(a), real_render(*a, **kw))[1])
     # The first run caches a recent view in which the Q players are O.
-    run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(PHI_RECENT_OUT),
-                cache=True, options=options)
-    second = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True,
-                         options=options)
+    run_command(
+        monkeypatch,
+        tmp_path,
+        [],
+        publish=False,
+        settings=BOTH,
+        yahoo=ViewPages(PHI_RECENT_OUT),
+        cache=True,
+        options=options,
+    )
+    second = run_command(
+        monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True, options=options
+    )
     assert _recent_lists(second.paths) == []
     cached = {f.player.status for f in recents[-1]}
     assert "O" in cached and "Q" not in cached  # the recent view came from the cache

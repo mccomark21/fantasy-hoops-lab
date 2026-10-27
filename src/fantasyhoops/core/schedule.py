@@ -4,6 +4,7 @@ The playoff-week rules are here: the week value table, quality (low-volume) days
 The settings are [playoffs], [quality_games] and avoid_week_games in [flags]. The callers write the files.
 A player who rests on back-to-backs (rests_b2b) gets the schedule of his team without the second nights.
 """
+
 import pandas as pd
 
 from fantasyhoops.core.common import DATA, weeks
@@ -53,7 +54,9 @@ def _summarize(counts, cfg):
     # Average week value with no quality bonus (a 2-game week costs more than 1 game)
     out["week_score"] = out[week_names].apply(lambda col: col.map(lambda g: _week_value(g, cfg))).mean(axis=1)
     short = out[week_names].le(cfg["flags"]["avoid_week_games"])
-    out["short_weeks"] = [", ".join(f"{out.at[i, w]}-game {w}" for w in week_names if row[w]) for i, row in short.iterrows()]
+    out["short_weeks"] = [
+        ", ".join(f"{out.at[i, w]}-game {w}" for w in week_names if row[w]) for i, row in short.iterrows()
+    ]
     return out
 
 
@@ -74,8 +77,10 @@ def playoff_schedule(sched, cfg):
     """
     day_games = sched.groupby("date").size() // 2
     sched = sched.sort_values(["team", "date"])
-    sched = sched.assign(quality=sched.date.map(day_games) <= cfg["quality_games"]["max_games_per_day"],
-                         b2b=sched.groupby("team").date.diff().eq(pd.Timedelta(days=1)))
+    sched = sched.assign(
+        quality=sched.date.map(day_games) <= cfg["quality_games"]["max_games_per_day"],
+        b2b=sched.groupby("team").date.diff().eq(pd.Timedelta(days=1)),
+    )
 
     counts, days = {"q_season": sched.groupby("team").quality.sum()}, []
     for week, q_name in zip(cfg["playoffs"]["weeks"], _q_cols(cfg)):
@@ -85,9 +90,17 @@ def playoff_schedule(sched, cfg):
         counts[q_name] = in_week.groupby("team").quality.sum()
         counts["b2b_" + name] = in_week.groupby("team").b2b.sum()
         counts["b2b_" + q_name] = in_week[in_week.b2b].groupby("team").quality.sum()
-        days += [{"date": date, "week": name, "nba_games": day_games[date], "quality": games.quality.iloc[0],
-                  "teams": games.team.tolist(), "b2b": games.team[games.b2b].tolist()}
-                  for date, games in in_week.groupby("date")]
+        days += [
+            {
+                "date": date,
+                "week": name,
+                "nba_games": day_games[date],
+                "quality": games.quality.iloc[0],
+                "teams": games.team.tolist(),
+                "b2b": games.team[games.b2b].tolist(),
+            }
+            for date, games in in_week.groupby("date")
+        ]
     teams = _summarize(pd.DataFrame(counts).fillna(0).astype(int), cfg)
 
     # Schedule score: average playoff week value with the quality bonus, divided by the league average.
@@ -136,8 +149,10 @@ def schedule_grid(teams, days):
 
     The column name has the number of NBA games that day. Q = quality game, x = other game.
     """
-    grid = {f"{d.week} {d.date:%a %m-%d} ({d.nba_games})": pd.Series("Q" if d.quality else "x", index=d.teams)
-            for d in days.itertuples()}
+    grid = {
+        f"{d.week} {d.date:%a %m-%d} ({d.nba_games})": pd.Series("Q" if d.quality else "x", index=d.teams)
+        for d in days.itertuples()
+    }
     out = pd.DataFrame(grid).fillna("")
     out["games"] = teams.playoff_games
     out["quality"] = teams.quality_games

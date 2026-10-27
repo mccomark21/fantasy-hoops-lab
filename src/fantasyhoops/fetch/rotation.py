@@ -9,6 +9,7 @@ Output (the run adds rows):
   data/rotation_scores.csv  - one row for each play that changes the score
 The reader for other tools is fantasyhoops.core.rotation.
 """
+
 import csv
 from collections import defaultdict
 from datetime import datetime
@@ -19,8 +20,22 @@ from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.rotation import LOG, SCORES, period_bounds
 from fantasyhoops.fetch.espn import API, get_json, local_date
 
-LOG_COLUMNS = ["game_id", "date", "team", "opponent", "player_id", "player", "starter", "period",
-               "in_sec", "out_sec", "in_team_score", "in_opp_score", "out_team_score", "out_opp_score"]
+LOG_COLUMNS = [
+    "game_id",
+    "date",
+    "team",
+    "opponent",
+    "player_id",
+    "player",
+    "starter",
+    "period",
+    "in_sec",
+    "out_sec",
+    "in_team_score",
+    "in_opp_score",
+    "out_team_score",
+    "out_opp_score",
+]
 SCORE_COLUMNS = ["game_id", "sec", "home_score", "away_score"]
 LINEUP = 5
 # A player on the bench can get these. They do not show that he is on the floor.
@@ -65,7 +80,7 @@ def _period_lineup(plays, last_lineup, team_of):
     for team, last in last_lineup.items():
         on = [pid for pid, how in first.items() if how == "on" and team_of.get(pid) == team]
         rest = [pid for pid in last if pid not in first]
-        lineup[team] = on + rest[:max(0, LINEUP - len(on))]
+        lineup[team] = on + rest[: max(0, LINEUP - len(on))]
     return lineup
 
 
@@ -89,8 +104,12 @@ def game_stints(summary):
         for row in stats["athletes"]:
             pid = row["athlete"]["id"]
             text = row["stats"][col] if row.get("stats") else ""
-            box[pid] = {"player": row["athlete"]["displayName"], "team": abbr[team_id],
-                        "minutes": int(text) if text.isdigit() else 0, "starter": row["starter"]}
+            box[pid] = {
+                "player": row["athlete"]["displayName"],
+                "team": abbr[team_id],
+                "minutes": int(text) if text.isdigit() else 0,
+                "starter": row["starter"],
+            }
             team_of[pid] = team_id
             if row["starter"]:
                 starters[team_id].append(pid)
@@ -120,11 +139,24 @@ def game_stints(summary):
             return  # a stint of 0 seconds, for example a substitution at 12:00
         team = team_of[pid]
         out_team, out_opp = team_score(pid)
-        stints.append({"game_id": game_id, "date": date, "team": abbr[team], "opponent": abbr[other[team]],
-                       "player_id": pid, "player": box[pid]["player"], "starter": box[pid]["starter"],
-                       "period": period, "in_sec": in_sec, "out_sec": sec,
-                       "in_team_score": in_team, "in_opp_score": in_opp,
-                       "out_team_score": out_team, "out_opp_score": out_opp})
+        stints.append(
+            {
+                "game_id": game_id,
+                "date": date,
+                "team": abbr[team],
+                "opponent": abbr[other[team]],
+                "player_id": pid,
+                "player": box[pid]["player"],
+                "starter": box[pid]["starter"],
+                "period": period,
+                "in_sec": in_sec,
+                "out_sec": sec,
+                "in_team_score": in_team,
+                "in_opp_score": in_opp,
+                "out_team_score": out_team,
+                "out_opp_score": out_opp,
+            }
+        )
 
     lineup = {team: starters[team] for team in side}
     for period in range(1, max(by_period) + 1):
@@ -144,7 +176,9 @@ def game_stints(summary):
             new = {"home": play["homeScore"], "away": play["awayScore"]}
             if new != score:
                 score = new
-                scores.append({"game_id": game_id, "sec": sec, "home_score": score["home"], "away_score": score["away"]})
+                scores.append(
+                    {"game_id": game_id, "sec": sec, "home_score": score["home"], "away_score": score["away"]}
+                )
         lineup = {team: [pid for pid in open_ if team_of[pid] == team] for team in side}
         for pid in list(open_):
             check_out(pid, start + length)
@@ -159,8 +193,14 @@ def minute_gaps(stints, box, tolerance):
     gaps = []
     for pid in sorted(set(played) | {p for p, b in box.items() if b["minutes"]}, key=lambda p: box[p]["player"]):
         if abs(played[pid] - box[pid]["minutes"]) > tolerance:
-            gaps.append({"player": box[pid]["player"], "team": box[pid]["team"],
-                         "log_minutes": round(played[pid], 1), "box_minutes": box[pid]["minutes"]})
+            gaps.append(
+                {
+                    "player": box[pid]["player"],
+                    "team": box[pid]["team"],
+                    "log_minutes": round(played[pid], 1),
+                    "box_minutes": box[pid]["minutes"],
+                }
+            )
     return gaps
 
 
@@ -172,8 +212,11 @@ def season_dates(scoreboard, today, since=None):
 
 def finished_games(scoreboard, season):
     """The ESPN event IDs of the final regular-season games on a scoreboard."""
-    return [e["id"] for e in scoreboard["events"]
-            if e["season"]["year"] == season and e["season"]["type"] == 2 and e["status"]["type"]["completed"]]
+    return [
+        e["id"]
+        for e in scoreboard["events"]
+        if e["season"]["year"] == season and e["season"]["type"] == 2 and e["status"]["type"]["completed"]
+    ]
 
 
 def logged_games(log=LOG):

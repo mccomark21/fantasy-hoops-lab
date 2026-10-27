@@ -16,11 +16,14 @@ def page(rows):
     body = "".join(
         f'<tr><td></td><td><div class="ysf-player-name"><a class="name" title="{n}">{n}</a>'
         f'<span class="D-b"><span class="Fz-xxs">PHI - C</span></span></div></td><td></td><td>FA</td>'
-        f'<td>1%</td><td>1%</td><td>{a}</td><td>{d}</td><td>0</td><td>{a + d}</td><td></td></tr>'
-        for n, a, d in rows)
-    return ('<table class="Tst-table"><thead><tr><th></th><th>Player</th><th></th><th>Roster Status</th>'
-            '<th>% Ros</th><th>% Start</th><th>Adds</th><th>Drops</th><th>Trades</th><th>Total</th><th></th>'
-            f'</tr></thead><tbody>{body}</tbody></table>')
+        f"<td>1%</td><td>1%</td><td>{a}</td><td>{d}</td><td>0</td><td>{a + d}</td><td></td></tr>"
+        for n, a, d in rows
+    )
+    return (
+        '<table class="Tst-table"><thead><tr><th></th><th>Player</th><th></th><th>Roster Status</th>'
+        "<th>% Ros</th><th>% Start</th><th>Adds</th><th>Drops</th><th>Trades</th><th>Total</th><th></th>"
+        f"</tr></thead><tbody>{body}</tbody></table>"
+    )
 
 
 class Pages:
@@ -116,15 +119,18 @@ def _entry_file(tmp_path):
     return next(f for f in (tmp_path / DAY / "2027-01-04").iterdir() if f.suffix == ".json")
 
 
-@pytest.mark.parametrize("bad", [
-    "not json",
-    "[1, 2]",
-    '{"path": "players?z", "read_at": "2027-01-04T09:00:00", "html": "<p>x</p>"}',
-    '{"path": "players?a", "read_at": "not a time", "html": "<p>x</p>"}',
-    '{"path": "players?a", "html": "<p>x</p>"}',
-    '{"path": "players?a", "read_at": "2027-01-04T09:00:00", "html": 3}',
-    '{"path": "players?a", "read_at": 5, "html": "<p>x</p>"}',
-])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "not json",
+        "[1, 2]",
+        '{"path": "players?z", "read_at": "2027-01-04T09:00:00", "html": "<p>x</p>"}',
+        '{"path": "players?a", "read_at": "not a time", "html": "<p>x</p>"}',
+        '{"path": "players?a", "html": "<p>x</p>"}',
+        '{"path": "players?a", "read_at": "2027-01-04T09:00:00", "html": 3}',
+        '{"path": "players?a", "read_at": 5, "html": "<p>x</p>"}',
+    ],
+)
 def test_a_bad_entry_is_a_miss(tmp_path, bad):
     yahoo = Pages()
     PageCache(MON, folder=tmp_path).recent(yahoo).get("players?a")

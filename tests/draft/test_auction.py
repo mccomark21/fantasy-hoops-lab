@@ -10,10 +10,12 @@ ANY = "PG/SG/SF/PF/C"
 
 def config(teams=2, spots=5, budget=100, noise=0.0, slots=(), core=None):
     """core = spots by default: your bot has no stream spots."""
-    return {"league": {"teams": teams, "slots": list(slots), "adds": 0},
-            "auction": {"budget": budget, "min_bid": 1, "spots": spots},
-            "simulation": {"noise": noise, "core": core or spots, "playoff_weight": 1.0, "fit_limits": [0.5, 1.5]},
-            "risk": {"missed_week": {"med": 0.0, "high": 0.5}, "missing_tier": "med", "rest_chance": 1.0}}
+    return {
+        "league": {"teams": teams, "slots": list(slots), "adds": 0},
+        "auction": {"budget": budget, "min_bid": 1, "spots": spots},
+        "simulation": {"noise": noise, "core": core or spots, "playoff_weight": 1.0, "fit_limits": [0.5, 1.5]},
+        "risk": {"missed_week": {"med": 0.0, "high": 0.5}, "missing_tier": "med", "rest_chance": 1.0},
+    }
 
 
 def pool(*players):
@@ -74,8 +76,13 @@ def test_bot_prices_move_from_league_price_to_yahoo_cost_as_the_room_cools():
 
 
 def test_your_keeper_costs_league_price_and_takes_one_spot():
-    players = pool(("Keeper", ANY, 30, 40.4, 10), ("A", ANY, 60, 50, 50), ("B", ANY, 60, 30, 30),
-                   ("C", ANY, 1, 20, 20), ("D", ANY, 1, 10, 10))
+    players = pool(
+        ("Keeper", ANY, 30, 40.4, 10),
+        ("A", ANY, 60, 50, 50),
+        ("B", ANY, 60, 30, 30),
+        ("C", ANY, 1, 20, 20),
+        ("D", ANY, 1, 10, 10),
+    )
     sales = run_auction(players, config(spots=2), np.random.default_rng(0), keeper="Keeper")
     # $100 - $40 = $60 for 1 spot: you win A at $51. The bot buys the rest.
     assert sales[sales.team == 0].values.tolist() == [["Keeper", 0, 40], ["A", 0, 51]]
@@ -140,10 +147,18 @@ def test_simulate_gives_the_playoff_score_of_your_core():
     # B is your stream spot and does not count.
     days = pd.DataFrame({"week": "wk1", "quality": False, "teams": [["BOS"], ["BOS"]]})
     cfg = with_face_offs(config(spots=3, core=2, slots=["C"]))
-    players = pool(("K", ANY, 15, 10, 10), ("A", ANY, 30, 20, 20), ("B", ANY, 0, 1, 1),
-                   ("C", ANY, 5, 18, 18), ("D", ANY, 1, 9, 9), ("E", ANY, 1, 8, 8))
+    players = pool(
+        ("K", ANY, 15, 10, 10),
+        ("A", ANY, 30, 20, 20),
+        ("B", ANY, 0, 1, 1),
+        ("C", ANY, 5, 18, 18),
+        ("D", ANY, 1, 9, 9),
+        ("E", ANY, 1, 8, 8),
+    )
     players = players.assign(team="BOS", prod=[3.0, 5.0, 9.0, 1.0, 1.0, 1.0], stats=[[1.0, 1.0]] * 6, value=1.0)
-    scores = simulate(players, cfg, "K", runs=3, rng=np.random.default_rng(0), playoffs=Playoffs(days, 0.0, cfg, [0.0, 0.0]))[0]
+    scores = simulate(
+        players, cfg, "K", runs=3, rng=np.random.default_rng(0), playoffs=Playoffs(days, 0.0, cfg, [0.0, 0.0])
+    )[0]
     assert scores.playoff.tolist() == [16] * 3  # (3 + 5) x 2 days
 
 
@@ -152,11 +167,15 @@ def test_simulate_plays_the_playoff_face_offs():
     days = pd.DataFrame({"week": "wk1", "quality": False, "teams": [["BOS"]]})
     cfg = with_face_offs(config(spots=1))
     players = pool(("A", ANY, 30, 20, 20), ("B", ANY, 5, 18, 18)).assign(
-        team=["BOS", "NY"], prod=[5.0, 5.0], stats=[[100.0, 100.0], [100.0, 100.0]], value=[10.0, 1.0])
+        team=["BOS", "NY"], prod=[5.0, 5.0], stats=[[100.0, 100.0], [100.0, 100.0]], value=[10.0, 1.0]
+    )
     playoffs = Playoffs(days, 0.0, cfg, [0.0, 0.0])
     scores = simulate(players, cfg, None, runs=4, rng=np.random.default_rng(0), playoffs=playoffs)[0]
     assert scores[["made_playoffs", "rr_win_pct", "title"]].to_dict("list") == {
-        "made_playoffs": [True] * 4, "rr_win_pct": [100.0] * 4, "title": [True] * 4}
+        "made_playoffs": [True] * 4,
+        "rr_win_pct": [100.0] * 4,
+        "title": [True] * 4,
+    }
 
 
 def test_a_high_risk_core_misses_playoff_weeks_in_some_runs():
@@ -164,7 +183,8 @@ def test_a_high_risk_core_misses_playoff_weeks_in_some_runs():
     days = pd.DataFrame({"week": "wk1", "quality": False, "teams": [["BOS"]]})
     cfg = with_face_offs(config(spots=1))
     players = pool(("A", ANY, 30, 20, 20), ("B", ANY, 5, 18, 18)).assign(
-        team="BOS", prod=[5.0, 5.0], stats=[[100.0, 100.0], [100.0, 100.0]], value=[10.0, 1.0], inj_risk=["high", None])
+        team="BOS", prod=[5.0, 5.0], stats=[[100.0, 100.0], [100.0, 100.0]], value=[10.0, 1.0], inj_risk=["high", None]
+    )
     playoffs = Playoffs(days, 0.0, cfg, [0.0, 0.0])
     scores = simulate(players, cfg, None, runs=200, rng=np.random.default_rng(0), playoffs=playoffs)[0]
     assert 0.3 < scores.title.mean() < 0.7

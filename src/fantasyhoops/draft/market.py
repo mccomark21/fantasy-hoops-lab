@@ -14,6 +14,7 @@ Yahoo average costs come from all Yahoo leagues. This league spends more (teams 
      So the bought players add up to more than teams x budget (about $2,970, not $2,800).
 The past drafts are in data/draft_results.csv (columns year and cost). Keeper rows are in the curve.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -41,6 +42,6 @@ def league_prices(yahoo, drafts, cfg):
     anchor = np.fmax(yahoo.yahoo_cost, yahoo.yahoo_value)
     ranked = yahoo.assign(anchor=anchor)[anchor.notna()].sort_values(["anchor", "yahoo_rank"], ascending=[False, True])
     prices = pd.Series(0.0, index=yahoo.index)
-    top = ranked.index[:len(curve)]
-    prices[top] = np.fmax(curve[:len(top)], anchor[top])
+    top = ranked.index[: len(curve)]
+    prices[top] = np.fmax(curve[: len(top)], anchor[top])
     return prices

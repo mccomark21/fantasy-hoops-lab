@@ -37,11 +37,14 @@ def test_min_bid_is_the_lowest_price():
 
 
 def test_prices_follow_the_yahoo_order():
-    yahoo = pd.DataFrame({
-        "yahoo_cost": [3.0, 7.0, None, 1.0, 1.0, 5.0],
-        "yahoo_value": [None, 6, None, 1, 1, 2],
-        "yahoo_rank": [4, 1, 3, 6, 5, 2],
-    }, index=[10, 11, 12, 13, 14, 15])
+    yahoo = pd.DataFrame(
+        {
+            "yahoo_cost": [3.0, 7.0, None, 1.0, 1.0, 5.0],
+            "yahoo_value": [None, 6, None, 1, 1, 2],
+            "yahoo_rank": [4, 1, 3, 6, 5, 2],
+        },
+        index=[10, 11, 12, 13, 14, 15],
+    )
     prices = league_prices(yahoo, drafts([8, 6, 4, 2]), CFG)
 
     assert prices.index.tolist() == yahoo.index.tolist()
@@ -50,20 +53,24 @@ def test_prices_follow_the_yahoo_order():
 
 
 def test_a_projected_value_above_the_average_cost_moves_the_player_up():
-    yahoo = pd.DataFrame({
-        "yahoo_cost": [7.0, 3.5, 0.5, 2.0, 0.2],
-        "yahoo_value": [6, 3, 5, 1, None],
-        "yahoo_rank": [1, 2, 3, 4, 5],
-    })
+    yahoo = pd.DataFrame(
+        {
+            "yahoo_cost": [7.0, 3.5, 0.5, 2.0, 0.2],
+            "yahoo_value": [6, 3, 5, 1, None],
+            "yahoo_rank": [1, 2, 3, 4, 5],
+        }
+    )
     # Order by the higher number: 7, 5 (cost only 0.5), 3.5, 2. The last player is not bought.
     assert league_prices(yahoo, drafts([8, 6, 4, 2]), CFG).tolist() == [8, 4, 6, 2, 0]
 
 
 def test_a_bought_player_does_not_go_below_his_yahoo_number():
-    yahoo = pd.DataFrame({
-        "yahoo_cost": [30.0, 20.0, 1.0, 1.0, 1.0],
-        "yahoo_value": [25, 15, 5, 3, 2],
-        "yahoo_rank": [1, 2, 3, 4, 5],
-    })
+    yahoo = pd.DataFrame(
+        {
+            "yahoo_cost": [30.0, 20.0, 1.0, 1.0, 1.0],
+            "yahoo_value": [25, 15, 5, 3, 2],
+            "yahoo_rank": [1, 2, 3, 4, 5],
+        }
+    )
     # The curve gives 8, 6, 4, 2. Yahoo says 5 and 3 for the last two bought players.
     assert league_prices(yahoo, drafts([8, 6, 4, 2]), CFG).tolist() == [30, 20, 5, 3, 0]

@@ -1,0 +1,5 @@
+# Commits that only format the code. git blame skips them with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# ruff format src tests (#104)
+07bdc447d1b2902ea55b107670e421cd7fe55931

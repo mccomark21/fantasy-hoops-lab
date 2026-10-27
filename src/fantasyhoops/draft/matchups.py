@@ -9,6 +9,7 @@
   5. Bracket: 1 v 8, 4 v 5, 2 v 7, 3 v 6. The final is in the last playoff week.
 Team 0 is your team.
 """
+
 import math
 
 import numpy as np
@@ -22,7 +23,7 @@ def face_offs(totals, season_values, rng, cfg):
     totals: the week totals of each team (a DataFrame with one row for each week). season_values: an array.
     """
     weeks = [w["name"] for w in cfg["playoffs"]["weeks"]]
-    seeds = [int(t) for t in np.argsort(-season_values, kind="stable")[:cfg["league"]["playoff_teams"]]]
+    seeds = [int(t) for t in np.argsort(-season_values, kind="stable")[: cfg["league"]["playoff_teams"]]]
     if 0 not in seeds:
         return {"made_playoffs": False, "rr_win_pct": math.nan, "title": False}
 

@@ -8,6 +8,7 @@ core/rotation.py reads the log (data/rotation_log.csv and data/rotation_scores.c
 - Starter flag and closer flag: core/role_flags.py, over his last games and the last close games of his team.
 The role is a mark only. It does not change the blended value or the plans. This module writes no file.
 """
+
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -26,6 +27,7 @@ OVERRIDES = DATA / "name_overrides.csv"
 @dataclass(frozen=True)
 class Role:
     """The role of one player. minutes_14d is None if he has no game in the last 14 days."""
+
     minutes_last5: float
     minutes_14d: float | None
     games: int  # his games in the last 14 days
@@ -86,9 +88,17 @@ def player_roles(players, stints, scores, cfg, today, overrides=None):
         last5 = float(mine.minutes.tail(LAST_GAMES).mean())
         mean14 = float(recent.minutes.mean()) if len(recent) else None
         starter, closer = role_flags(games, pid, player[1], cfg["adds"]["flags"])
-        out[player] = Role(minutes_last5=last5, minutes_14d=mean14, games=len(recent), starts=int(recent.started.sum()),
-                           closes=int(recent[recent.game_id.isin(close)].closed.sum()), close_games=len(close),
-                           rise=mean14 is not None and last5 - mean14 >= rise, starter=starter, closer=closer)
+        out[player] = Role(
+            minutes_last5=last5,
+            minutes_14d=mean14,
+            games=len(recent),
+            starts=int(recent.started.sum()),
+            closes=int(recent[recent.game_id.isin(close)].closed.sum()),
+            close_games=len(close),
+            rise=mean14 is not None and last5 - mean14 >= rise,
+            starter=starter,
+            closer=closer,
+        )
     return out
 
 

@@ -4,6 +4,7 @@ In one auction, the core of a team is its best [simulation] core players by valu
 The benchmark of the run is the per-category mean of the top [category_balance] top_teams teams,
 ranked by the total weighted z-score of the core. main() in auction.py averages the runs and the keepers.
 """
+
 import pandas as pd
 
 CATS = ["pts", "reb", "ast", "threes", "stl", "blk"]  # the columns of category_benchmark.csv

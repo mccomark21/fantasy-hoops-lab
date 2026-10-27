@@ -1,19 +1,20 @@
 """Team score in the fantasy playoffs: the production of your starters on each playoff day.
 
-  1. Production of a player: the weighted per-game stats, each divided by the standard deviation of the
-     player pool, x (games / full_season). A player who misses games gives less in an average playoff game.
-  2. Each playoff day, the best legal lineup of your core starts: the position slots (config.toml [league] slots)
-     + Util. A player on the bench or a player whose team does not play adds nothing that day.
-  3. Streamers: your stream spots (auction spots - [simulation] core) are empty at the start of each week.
-     On a busy day, each add puts a free agent in an empty starting slot. He comes from the team that plays
-     the most games in the rest of the week, and he replaces a streamer who does not play that day.
-     A streamer stays until the end of the week. There are no adds on a quality day, because few free
-     agents play. A streamer gives the production of an average waiver player (the first 14 after the pool).
-  4. Absences (config.toml [risk]): a player with rests_b2b sits on the second night of a back-to-back with the
-     chance rest_chance. In one simulated run (draw()), a player also misses each playoff week with the chance of
-     his inj_risk tier. His production on the days that he plays goes up to keep his expected production the same,
-     because the projected games already hold the average cost of injuries. The draw changes the spread only.
+1. Production of a player: the weighted per-game stats, each divided by the standard deviation of the
+   player pool, x (games / full_season). A player who misses games gives less in an average playoff game.
+2. Each playoff day, the best legal lineup of your core starts: the position slots (config.toml [league] slots)
+   + Util. A player on the bench or a player whose team does not play adds nothing that day.
+3. Streamers: your stream spots (auction spots - [simulation] core) are empty at the start of each week.
+   On a busy day, each add puts a free agent in an empty starting slot. He comes from the team that plays
+   the most games in the rest of the week, and he replaces a streamer who does not play that day.
+   A streamer stays until the end of the week. There are no adds on a quality day, because few free
+   agents play. A streamer gives the production of an average waiver player (the first 14 after the pool).
+4. Absences (config.toml [risk]): a player with rests_b2b sits on the second night of a back-to-back with the
+   chance rest_chance. In one simulated run (draw()), a player also misses each playoff week with the chance of
+   his inj_risk tier. His production on the days that he plays goes up to keep his expected production the same,
+   because the projected games already hold the average cost of injuries. The draw changes the spread only.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -32,7 +33,7 @@ def make_playoffs(rankings, days, cfg):
     std = ranked.iloc[:pool_size][weights.index].std()
     stats = rankings[weights.index].mul((rankings.games / g["full_season"]).clip(upper=1), axis=0)
     players = rankings.assign(prod=(stats / std * weights).sum(axis=1), stats=stats.values.tolist())
-    waiver = ranked.index[pool_size:pool_size + league["teams"]]
+    waiver = ranked.index[pool_size : pool_size + league["teams"]]
     return players, Playoffs(days, players.loc[waiver, "prod"].mean(), cfg, stats.loc[waiver].mean().tolist())
 
 
@@ -60,7 +61,9 @@ class Playoffs:
         roster is your core players: a list of dicts with team, prod and pos. Optional: rests_b2b (1 if the player
         rests on back-to-backs) and out (the set of days that he misses, from draw()).
         """
-        return sum(sum(p["prod"] for p in lineup) + streams * self.streamer for _, lineup, streams in self._days(roster))
+        return sum(
+            sum(p["prod"] for p in lineup) + streams * self.streamer for _, lineup, streams in self._days(roster)
+        )
 
     def week_totals(self, roster):
         """Expected category totals for each playoff week: one row for each week, one column for each category.
@@ -99,8 +102,11 @@ class Playoffs:
             if quality:
                 count["holes"] += size - len(lineup)
         keys = ["started", "lost", "holes"]
-        return {"weeks": weeks, "total": {k: sum(w[k] for w in weeks.values()) for k in keys},
-                "finals": {k: weeks[self.weeks[-1]][k] for k in keys}}
+        return {
+            "weeks": weeks,
+            "total": {k: sum(w[k] for w in weeks.values()) for k in keys},
+            "finals": {k: weeks[self.weeks[-1]][k] for k in keys},
+        }
 
     def draw(self, roster, rng):
         """The roster in one simulated run: each player gets out, the set of days that he misses.
@@ -115,8 +121,11 @@ class Playoffs:
             tier = p.get("inj_risk")
             chance = risk["missed_week"][tier if isinstance(tier, str) else risk["missing_tier"]]
             weeks = {w for w in self.weeks if rng.random() < chance}
-            out = {i for i, (week, _, _, rest) in enumerate(self.days)
-                   if week in weeks or (self._rests(p, rest) and rng.random() < risk["rest_chance"])}
+            out = {
+                i
+                for i, (week, _, _, rest) in enumerate(self.days)
+                if week in weeks or (self._rests(p, rest) and rng.random() < risk["rest_chance"])
+            }
             scale = 1 / (1 - chance)
             player = {**p, "out": out, "prod": p["prod"] * scale}
             if "stats" in p:
@@ -139,7 +148,11 @@ class Playoffs:
             streams = min(empty, sum(team in teams for team in held))
             if not quality:
                 left = self._games_left(i)
-                while streams < empty and adds > 0 and (len(held) < self.stream_spots or any(t not in teams for t in held)):
+                while (
+                    streams < empty
+                    and adds > 0
+                    and (len(held) < self.stream_spots or any(t not in teams for t in held))
+                ):
                     if len(held) == self.stream_spots:
                         held.remove(min((t for t in held if t not in teams), key=lambda t: left.get(t, 0)))
                     held.append(max(sorted(teams), key=lambda t: left[t]))

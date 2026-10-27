@@ -7,11 +7,13 @@ from fantasyhoops.draft.benchmark import run_benchmark
 
 
 def config(teams=3, core=2, top=2, weights=None):
-    return {"league": {"teams": teams, "slots": [], "adds": 0},
-            "auction": {"budget": 100, "min_bid": 1, "spots": core + 1},
-            "simulation": {"noise": 0.0, "core": core, "playoff_weight": 1.0, "fit_limits": [0.5, 1.5]},
-            "weights": weights or {"pts": 1.0, "reb": 0.5},
-            "category_balance": {"top_teams": top, "band": 0.5}}
+    return {
+        "league": {"teams": teams, "slots": [], "adds": 0},
+        "auction": {"budget": 100, "min_bid": 1, "spots": core + 1},
+        "simulation": {"noise": 0.0, "core": core, "playoff_weight": 1.0, "fit_limits": [0.5, 1.5]},
+        "weights": weights or {"pts": 1.0, "reb": 0.5},
+        "category_balance": {"top_teams": top, "band": 0.5},
+    }
 
 
 def pool(*players):
@@ -24,8 +26,17 @@ def sales(*teams):
     return pd.DataFrame([(n, t, 1) for t, names in enumerate(teams) for n in names], columns=["name", "team", "price"])
 
 
-PLAYERS = pool(("A", 9, 4, 2), ("B", 8, 2, 4), ("C", 7, 1, 1), ("D", 6, 3, 0), ("E", 5, 0, 2), ("F", 4, 1, 3),
-               ("G", 3, 0, 0), ("H", 2, 1, 1), ("I", 1, 0, 1))
+PLAYERS = pool(
+    ("A", 9, 4, 2),
+    ("B", 8, 2, 4),
+    ("C", 7, 1, 1),
+    ("D", 6, 3, 0),
+    ("E", 5, 0, 2),
+    ("F", 4, 1, 3),
+    ("G", 3, 0, 0),
+    ("H", 2, 1, 1),
+    ("I", 1, 0, 1),
+)
 
 
 def test_benchmark_is_the_mean_wz_of_the_top_teams_cores():
@@ -61,8 +72,7 @@ def test_a_team_with_fewer_players_than_the_core_uses_all_its_players():
 
 def test_a_keeper_is_in_the_core_of_its_team():
     # Your keeper Z is the first sale of team 0 in run_auction. The keeper has the best value, so it is in the core.
-    players = pool(("Z", 9, 5, 0), ("P1", 5, 1, 0), ("P2", 4, 1, 0), ("P3", 3, 1, 0), ("P4", 2, 1, 0),
-                   ("P5", 1, 1, 0))
+    players = pool(("Z", 9, 5, 0), ("P1", 5, 1, 0), ("P2", 4, 1, 0), ("P3", 3, 1, 0), ("P4", 2, 1, 0), ("P5", 1, 1, 0))
     cfg = config(teams=2, core=2, top=1)
     pricing = players.assign(pos="PG/SG/SF/PF/C", dollars=10.0, league_price=10.0, yahoo_cost=10.0)
     sold = run_auction(pricing, cfg, np.random.default_rng(0), keeper="Z")
@@ -79,6 +89,7 @@ def test_simulate_adds_the_benchmark_of_each_run_when_the_pool_has_z_columns():
     scores, _ = _auctions(players, cfg, None, 3, np.random.default_rng(0), None)
     assert {"bench_pts", "bench_reb"} <= set(scores.columns)
     assert len(scores) == 3
-    plain, _ = _auctions(players[["name", "pos", "dollars", "league_price", "yahoo_cost"]], cfg, None, 1,
-                         np.random.default_rng(0), None)
+    plain, _ = _auctions(
+        players[["name", "pos", "dollars", "league_price", "yahoo_cost"]], cfg, None, 1, np.random.default_rng(0), None
+    )
     assert not any(c.startswith("bench_") for c in plain.columns)

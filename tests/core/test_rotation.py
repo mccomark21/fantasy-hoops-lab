@@ -2,7 +2,16 @@ import pandas as pd
 import pytest
 
 from fantasyhoops.core.common import load_config
-from fantasyhoops.core.rotation import LOG, SCORES, close_games, period_bounds, player_games, read_log, read_scores, team_games
+from fantasyhoops.core.rotation import (
+    LOG,
+    SCORES,
+    close_games,
+    period_bounds,
+    player_games,
+    read_log,
+    read_scores,
+    team_games,
+)
 
 CFG = {"rotation": {"close_margin": 5, "close_minutes": 5}}
 END = 2880  # the end of the fourth quarter, in seconds
@@ -10,17 +19,28 @@ WINDOW = END - 300  # 5:00 left in the fourth quarter
 
 
 def stint(game, team, opp, player, start, end, starter=False, period=None):
-    return {"game_id": game, "date": pd.Timestamp("2026-10-21"), "team": team, "opponent": opp, "player_id": player,
-            "player": player.upper(), "starter": starter, "period": period or min(4, int(start // 720) + 1),
-            "in_sec": start, "out_sec": end}
+    return {
+        "game_id": game,
+        "date": pd.Timestamp("2026-10-21"),
+        "team": team,
+        "opponent": opp,
+        "player_id": player,
+        "player": player.upper(),
+        "starter": starter,
+        "period": period or min(4, int(start // 720) + 1),
+        "in_sec": start,
+        "out_sec": end,
+    }
 
 
 def game(game_id, last=END):
     """A game of HHH (home) against AAA. h1 starts and plays to the end. h2 enters for the last 2 minutes."""
-    return [stint(game_id, "HHH", "AAA", "h1", 0, last, starter=True),
-            stint(game_id, "HHH", "AAA", "h2", last - 120, last),
-            stint(game_id, "HHH", "AAA", "h3", 0, last - 120, starter=True),
-            stint(game_id, "AAA", "HHH", "a1", 0, last, starter=True)]
+    return [
+        stint(game_id, "HHH", "AAA", "h1", 0, last, starter=True),
+        stint(game_id, "HHH", "AAA", "h2", last - 120, last),
+        stint(game_id, "HHH", "AAA", "h3", 0, last - 120, starter=True),
+        stint(game_id, "AAA", "HHH", "a1", 0, last, starter=True),
+    ]
 
 
 def scores(game_id, rows):
@@ -57,7 +77,9 @@ def test_a_close_margin_before_the_window_does_not_count():
 def test_the_settings_change_the_definition():
     rows = [(100, 7, 0)]
     assert not is_close(rows)
-    assert close_games(pd.DataFrame(game("1")), scores("1", rows), {"rotation": {"close_margin": 7, "close_minutes": 5}}).close.all()
+    assert close_games(
+        pd.DataFrame(game("1")), scores("1", rows), {"rotation": {"close_margin": 7, "close_minutes": 5}}
+    ).close.all()
 
 
 def test_overtime_is_a_close_game():

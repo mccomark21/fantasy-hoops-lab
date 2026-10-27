@@ -19,6 +19,7 @@ Output: for each keeper in config.toml [simulation], your title percent, your pl
 you win most. Also output/draft/category_benchmark.csv, the category benchmark of the strong teams (benchmark.py).
 The auctions run in parallel, one process for each CPU core.
 """
+
 import os
 from concurrent.futures import ProcessPoolExecutor
 from itertools import repeat
@@ -59,8 +60,11 @@ def run_auction(pool, cfg, rng, keeper=None, playoffs=None):
     noise = cfg["simulation"]["noise"]
     min_bid, slots = a["min_bid"], cfg["league"]["slots"]
     scale = core_scale(pool.dollars, cfg)
-    pool = pool.assign(league_price=pool.league_price.fillna(0), yahoo_cost=pool.yahoo_cost.fillna(0),
-                       positions=pool.pos.str.split("/").map(set))
+    pool = pool.assign(
+        league_price=pool.league_price.fillna(0),
+        yahoo_cost=pool.yahoo_cost.fillna(0),
+        positions=pool.pos.str.split("/").map(set),
+    )
     money = np.full(teams, a["budget"])
     spots = np.full(teams, a["spots"])
     rosters = [[] for _ in range(teams)]
@@ -207,12 +211,28 @@ def main():
     rankings = build_rankings(cfg)
     players, playoffs = make_playoffs(rankings, playoff_schedule(read_schedule(), cfg)[1], cfg)
     z = ["z_" + cat for cat in cfg["weights"]]
-    pool = players[["name", "pos", "dollars", "league_price", "yahoo_cost", "team", "prod", "stats", "value",
-                    "inj_risk", "rests_b2b", *z]]
+    pool = players[
+        [
+            "name",
+            "pos",
+            "dollars",
+            "league_price",
+            "yahoo_cost",
+            "team",
+            "prod",
+            "stats",
+            "value",
+            "inj_risk",
+            "rests_b2b",
+            *z,
+        ]
+    ]
     missing = sorted((set(sim["keepers"]) | set(sim.get("other_keepers", []))) - set(pool.name) - {NO_KEEPER})
     if missing:
-        raise SystemExit(f"The rankings do not have these keepers: {', '.join(missing)}. "
-                         "Change keepers in [simulation] in config.toml.")
+        raise SystemExit(
+            f"The rankings do not have these keepers: {', '.join(missing)}. "
+            "Change keepers in [simulation] in config.toml."
+        )
 
     # The auctions run in CHUNKS parts, each with its own seed, on all CPU cores. The number of parts does not
     # change with the CPU count, so each PC gets the same results. Each keeper gets the same seeds, so each
@@ -224,8 +244,17 @@ def main():
         for keeper in sim["keepers"]:
             seeds = np.random.SeedSequence(sim["seed"]).spawn(CHUNKS)
             kept = None if keeper == NO_KEEPER else keeper
-            results = list(executor.map(_auctions, repeat(pool), repeat(cfg), repeat(kept), parts,
-                                        [np.random.default_rng(seed) for seed in seeds], repeat(playoffs)))
+            results = list(
+                executor.map(
+                    _auctions,
+                    repeat(pool),
+                    repeat(cfg),
+                    repeat(kept),
+                    parts,
+                    [np.random.default_rng(seed) for seed in seeds],
+                    repeat(playoffs),
+                )
+            )
             scores = pd.concat([r[0] for r in results], ignore_index=True)
             bench = scores.filter(like="bench_")
             benches.append(bench)
@@ -233,21 +262,27 @@ def main():
             mine = pd.concat([r[1].assign(run=r[1].run + start) for r, start in zip(results, starts)])
             won = _wins(mine[mine.name != keeper], sim["runs"])
             all_runs.append(mine.join(scores, on="run").rename(columns={"name": "player"}).assign(keeper=keeper))
-            summary[keeper] = {"cost": 0 if kept is None else keeper_price(keeper, pool.set_index("name").league_price[keeper], cfg),
-                               "title_pct": 100 * scores.title.mean(),
-                               "playoffs_pct": 100 * scores.made_playoffs.mean(),
-                               "rr_win_pct": scores.rr_win_pct.mean(),
-                               "playoff_score": scores.playoff.median(),
-                               "dollars": scores.dollars.median()}
+            summary[keeper] = {
+                "cost": 0 if kept is None else keeper_price(keeper, pool.set_index("name").league_price[keeper], cfg),
+                "title_pct": 100 * scores.title.mean(),
+                "playoffs_pct": 100 * scores.made_playoffs.mean(),
+                "rr_win_pct": scores.rr_win_pct.mean(),
+                "playoff_score": scores.playoff.median(),
+                "dollars": scores.dollars.median(),
+            }
             print(f"\nKeeper {keeper}: players that you win most often")
             print(won.head(15).round(0).to_string())
 
     print(f"\nIn {sim['runs']} auctions:")
-    print("  title_pct: you win the title. playoffs_pct: you are in the top "
-          f"{cfg['league']['playoff_teams']} by season value.")
+    print(
+        "  title_pct: you win the title. playoffs_pct: you are in the top "
+        f"{cfg['league']['playoff_teams']} by season value."
+    )
     print("  rr_win_pct: your win percent against the other playoff teams in each playoff week (when you are in).")
-    print(f"  playoff_score: the median playoff score of your core ({sim['core']} players) and your streamers, "
-          "with injuries and rest days.")
+    print(
+        f"  playoff_score: the median playoff score of your core ({sim['core']} players) and your streamers, "
+        "with injuries and rest days."
+    )
     print("  dollars: the median sum of your dollars.")
     summary = pd.DataFrame(summary).T.rename_axis("keeper")
     print(summary.round(1).to_string())
@@ -267,8 +302,10 @@ def write_results(summary, runs, players):
     groups.round(2).to_csv(OUT / "simulation_groups.csv", index=False)
     cols = ["keeper", "run", "player", "price", "core", "title", "made_playoffs", "rr_win_pct", "playoff", "dollars"]
     runs[cols].rename(columns={"playoff": "playoff_score"}).round(2).to_csv(OUT / "simulation_runs.csv", index=False)
-    print("\nWrote simulation_summary.csv, simulation_players.csv, simulation_groups.csv and simulation_runs.csv "
-          f"to {OUT}")
+    print(
+        "\nWrote simulation_summary.csv, simulation_players.csv, simulation_groups.csv and simulation_runs.csv "
+        f"to {OUT}"
+    )
 
 
 def write_benchmark(bench):

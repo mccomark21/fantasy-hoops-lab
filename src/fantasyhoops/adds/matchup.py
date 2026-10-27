@@ -10,6 +10,7 @@
 - matchup_plan(): the aggressive plan with the matchup values in the plan score.
 With all categories tied, all weights are 1, and the matchup value equals the blended value.
 """
+
 import math
 import re
 from dataclasses import dataclass, replace
@@ -27,6 +28,7 @@ from fantasyhoops.draft.rankings import STATS
 @dataclass(frozen=True)
 class Matchup:
     """The category scores of the current matchup: {stat key: total} for your team and for your opponent."""
+
     opponent: str
     mine: dict
     theirs: dict
@@ -91,9 +93,12 @@ def matchup_weights(matchup, cfg, share_left):
     if matchup is None:
         return {cat: 1.0 for cat in cfg["weights"]}
     m = cfg["adds"]["matchup"]
-    return {cat: category_weight(matchup.margin(cat), m["close"][cat] * share_left, m["large"][cat] * share_left,
-                                 m["min_weight"])
-            for cat in cfg["weights"]}
+    return {
+        cat: category_weight(
+            matchup.margin(cat), m["close"][cat] * share_left, m["large"][cat] * share_left, m["min_weight"]
+        )
+        for cat in cfg["weights"]
+    }
 
 
 def weighted_cfg(cfg, weights):
@@ -130,9 +135,14 @@ def matchup_spots(spots, scale, cfg, matchup_cfg, projections=None):
     if projections is None:
         projections = pd.read_csv(latest_projections(cfg))
     lines = season_lines(projections, scale, cfg)
-    return [StreamSpot(replace(s.holder, matchup_value=line_value(lines.get(name_key(s.holder.player.name)), scale,
-                                                                  matchup_cfg)))
-            if s.holder else s for s in spots]
+    return [
+        StreamSpot(
+            replace(s.holder, matchup_value=line_value(lines.get(name_key(s.holder.player.name)), scale, matchup_cfg))
+        )
+        if s.holder
+        else s
+        for s in spots
+    ]
 
 
 def _finite(value):
@@ -154,12 +164,29 @@ def matchup_plan(days, games, spots, free_agents, adds_left, slots, empty_value,
         original[o.player] = o
         return new
 
-    plan = aggressive_plan(days, games, [StreamSpot(scored(s.holder)) if s.holder else s for s in spots],
-                           [scored(o) for o in free_agents], adds_left, slots, empty_value, next_week, next_weight)
-    windows = tuple(replace(w, player=original.get(w.player.player, w.player),
-                            options=tuple(original.get(o.player, o) for o in w.options)) for w in plan.windows)
-    value = sum(counted_games(w.player.rest_games, w.started) * (w.player.value if _finite(w.player.value) else 0.0)
-                for w in windows)
+    plan = aggressive_plan(
+        days,
+        games,
+        [StreamSpot(scored(s.holder)) if s.holder else s for s in spots],
+        [scored(o) for o in free_agents],
+        adds_left,
+        slots,
+        empty_value,
+        next_week,
+        next_weight,
+    )
+    windows = tuple(
+        replace(
+            w,
+            player=original.get(w.player.player, w.player),
+            options=tuple(original.get(o.player, o) for o in w.options),
+        )
+        for w in plan.windows
+    )
+    value = sum(
+        counted_games(w.player.rest_games, w.started) * (w.player.value if _finite(w.player.value) else 0.0)
+        for w in windows
+    )
     next_games, next_value = next_week_totals(windows, next_week, next_weight)
     return replace(plan, windows=windows, value=value, next_games=next_games, next_value=next_value)
 
@@ -170,8 +197,11 @@ def matchup_score(plan, empty_value):
     empty_value: the value of an empty slot with the matchup weights. A player with no finite matchup value counts as
     an empty slot.
     """
-    return sum(counted_games(w.player.rest_games, w.started)
-               * ((w.player.match if _finite(w.player.match) else empty_value) - empty_value) for w in plan.windows)
+    return sum(
+        counted_games(w.player.rest_games, w.started)
+        * ((w.player.match if _finite(w.player.match) else empty_value) - empty_value)
+        for w in plan.windows
+    )
 
 
 def matchup_lines(matchup, weights):
@@ -181,6 +211,8 @@ def matchup_lines(matchup, weights):
     names = {key: name for name, key in STAT_COLUMNS.items()}
     out = [f"Matchup against {matchup.opponent} (you - opponent, weight):"]
     for cat in weights:
-        out.append(f"  {names.get(cat, cat):<5} {matchup.mine.get(cat, 0):>6g} - {matchup.theirs.get(cat, 0):<6g} "
-                   f"margin {matchup.margin(cat):+g}, weight {weights[cat]:.2f}")
+        out.append(
+            f"  {names.get(cat, cat):<5} {matchup.mine.get(cat, 0):>6g} - {matchup.theirs.get(cat, 0):<6g} "
+            f"margin {matchup.margin(cat):+g}, weight {weights[cat]:.2f}"
+        )
     return out

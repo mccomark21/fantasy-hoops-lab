@@ -32,6 +32,7 @@ def clock(step):
     def read():
         now[0] += step
         return now[0]
+
     return read
 
 
@@ -46,8 +47,7 @@ def test_a_step_prints_its_start_and_its_time(capsys):
     timings = timing.Timings(clock=clock(1.5), work=timing.Work())
     with timings.step("schedule read"):
         print("inside")
-    assert capsys.readouterr().out.splitlines() == ["Step: schedule read ...", "inside",
-                                                    "Step: schedule read: 1.50 s"]
+    assert capsys.readouterr().out.splitlines() == ["Step: schedule read ...", "inside", "Step: schedule read: 1.50 s"]
     assert timings.steps == [timing.StepTime("schedule read", 1.5)]
 
 
@@ -114,8 +114,17 @@ def test_each_step_appends_its_row_when_it_ends(tmp_path):
         work.states += 12
     columns, rows = read_rows(path)
     assert columns == timing.COLUMNS
-    assert rows[0] == {"run_at": timings.run_at.isoformat(), "days": "3", "open_days": "3", "adds_left": "4",
-                       "step": "schedule read", "seconds": "0.12", "calls": "", "states": "", "pages": ""}
+    assert rows[0] == {
+        "run_at": timings.run_at.isoformat(),
+        "days": "3",
+        "open_days": "3",
+        "adds_left": "4",
+        "step": "schedule read",
+        "seconds": "0.12",
+        "calls": "",
+        "states": "",
+        "pages": "",
+    }
     assert (rows[1]["step"], rows[1]["calls"], rows[1]["states"]) == ("schedule search", "40", "12")
     assert len(rows[0]["run_at"]) == len("2026-10-25T21:04:33")
 
@@ -177,12 +186,16 @@ def test_each_sub_step_gets_a_row_after_its_step_with_its_seconds_and_its_pages(
         timing.StepTime("Yahoo reads: browser start", 1.0, pages=0, parent="Yahoo reads"),
         timing.StepTime("Yahoo reads: market pages", 2.0, pages=12, parent="Yahoo reads"),
         timing.StepTime("Yahoo reads: waiver list", 1.0, pages=1, parent="Yahoo reads"),
-        timing.StepTime("role read", 1.0)]
+        timing.StepTime("role read", 1.0),
+    ]
     rows = read_rows(path)[1]
     assert [(r["step"], r["seconds"], r["pages"]) for r in rows] == [
-        ("Yahoo reads", "9.00", "13"), ("Yahoo reads: browser start", "1.00", "0"),
-        ("Yahoo reads: market pages", "2.00", "12"), ("Yahoo reads: waiver list", "1.00", "1"),
-        ("role read", "1.00", "")]
+        ("Yahoo reads", "9.00", "13"),
+        ("Yahoo reads: browser start", "1.00", "0"),
+        ("Yahoo reads: market pages", "2.00", "12"),
+        ("Yahoo reads: waiver list", "1.00", "1"),
+        ("role read", "1.00", ""),
+    ]
     out = capsys.readouterr().out.splitlines()
     assert "Step: Yahoo reads: 9.00 s, 13 pages" in out
     assert "  Yahoo reads: market pages: 2.00 s, 12 pages" in out
@@ -215,16 +228,27 @@ def test_a_stopped_step_writes_no_row_for_its_sub_steps(tmp_path):
 
 def test_a_file_with_the_old_header_gets_the_new_header_and_keeps_its_rows(tmp_path):
     path = tmp_path / "timings.csv"
-    path.write_text("run_at,days,open_days,adds_left,step,seconds,calls,states\n"
-                    "2026-10-26T09:00:00,2,2,1,Yahoo reads,31.34,,\n", encoding="utf-8")
+    path.write_text(
+        "run_at,days,open_days,adds_left,step,seconds,calls,states\n2026-10-26T09:00:00,2,2,1,Yahoo reads,31.34,,\n",
+        encoding="utf-8",
+    )
     timings = timing.Timings(path=path)
     timings.window([], 5)
     with timings.step("role read"):
         pass
     columns, rows = read_rows(path)
     assert columns == timing.COLUMNS
-    assert rows[0] == {"run_at": "2026-10-26T09:00:00", "days": "2", "open_days": "2", "adds_left": "1",
-                       "step": "Yahoo reads", "seconds": "31.34", "calls": "", "states": "", "pages": ""}
+    assert rows[0] == {
+        "run_at": "2026-10-26T09:00:00",
+        "days": "2",
+        "open_days": "2",
+        "adds_left": "1",
+        "step": "Yahoo reads",
+        "seconds": "31.34",
+        "calls": "",
+        "states": "",
+        "pages": "",
+    }
     assert rows[1]["step"] == "role read"
 
 

@@ -25,8 +25,10 @@ def plans(roster, games, free_agents, spots=1, adds=5, times=None):
 
 def roster(flag="Q", bench=("PG",)):
     """5 BOS starters (the SF has the status flag) and bench players of BOS with the positions in bench."""
-    starters = [Player(f"P{i}", "BOS", (pos,), status=flag if pos == "SF" else "")
-                for i, pos in enumerate(["PG", "SG", "SF", "PF", "C"])]
+    starters = [
+        Player(f"P{i}", "BOS", (pos,), status=flag if pos == "SF" else "")
+        for i, pos in enumerate(["PG", "SG", "SF", "PF", "C"])
+    ]
     return starters + [Player(f"B{i}", "BOS", (pos,)) for i, pos in enumerate(bench)]
 
 

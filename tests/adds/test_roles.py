@@ -9,17 +9,34 @@ from fantasyhoops.adds.roles import player_roles, read_roles
 from fantasyhoops.core.common import load_config
 from fantasyhoops.core.rotation import LOG, SCORES
 
-FLAGS = {"window_games": 10, "min_games": 5, "new_games": 3, "close_window": 8, "min_close_games": 4,
-         "new_closes": 2, "regular_share": 0.7, "some_share": 0.2}
+FLAGS = {
+    "window_games": 10,
+    "min_games": 5,
+    "new_games": 3,
+    "close_window": 8,
+    "min_close_games": 4,
+    "new_closes": 2,
+    "regular_share": 0.7,
+    "some_share": 0.2,
+}
 CFG = {"rotation": {"close_margin": 5, "close_minutes": 5}, "adds": {"minutes_rise": 4.0, "flags": FLAGS}}
 END = 2880  # the end of the fourth quarter, in seconds
 TODAY = date(2026, 11, 20)
 
 
 def stint(game, day, team, opp, pid, name, start, end, starter=False):
-    return {"game_id": game, "date": pd.Timestamp(day), "team": team, "opponent": opp, "player_id": pid,
-            "player": name, "starter": starter, "period": min(4, int(start // 720) + 1), "in_sec": start,
-            "out_sec": end}
+    return {
+        "game_id": game,
+        "date": pd.Timestamp(day),
+        "team": team,
+        "opponent": opp,
+        "player_id": pid,
+        "player": name,
+        "starter": starter,
+        "period": min(4, int(start // 720) + 1),
+        "in_sec": start,
+        "out_sec": end,
+    }
 
 
 def team_game(game, day, minutes, starter=False, closes=False):
@@ -27,9 +44,11 @@ def team_game(game, day, minutes, starter=False, closes=False):
     sec = minutes * 60
     start = END - sec if closes else 0
     # The log has one stint for each period. One stint of 4 periods is enough here, but its period must be 4.
-    return [stint(game, day, "PHI", "BOS", "1", "Joe Fa", start, start + sec, starter),
-            {**stint(game, day, "PHI", "BOS", "9", "Other Guy", 0, END, True), "period": 4},
-            {**stint(game, day, "BOS", "PHI", "8", "Bos Guy", 0, END, True), "period": 4}]
+    return [
+        stint(game, day, "PHI", "BOS", "1", "Joe Fa", start, start + sec, starter),
+        {**stint(game, day, "PHI", "BOS", "9", "Other Guy", 0, END, True), "period": 4},
+        {**stint(game, day, "BOS", "PHI", "8", "Bos Guy", 0, END, True), "period": 4},
+    ]
 
 
 def score(game, margin):
@@ -39,10 +58,15 @@ def score(game, margin):
 
 # Joe Fa: 2 old games at 10 minutes, then 5 games from Nov 8. He starts and closes g5 and g6.
 # g5 (3 points) and g7 (2 points) are close games. g6 (20 points) is a blowout.
-GAMES = [("g1", "2026-10-25", 10, False, False), ("g2", "2026-10-28", 10, False, False),
-         ("g3", "2026-11-08", 12, False, False), ("g4", "2026-11-10", 14, False, False),
-         ("g5", "2026-11-14", 30, True, True), ("g6", "2026-11-16", 32, True, True),
-         ("g7", "2026-11-18", 34, True, False)]
+GAMES = [
+    ("g1", "2026-10-25", 10, False, False),
+    ("g2", "2026-10-28", 10, False, False),
+    ("g3", "2026-11-08", 12, False, False),
+    ("g4", "2026-11-10", 14, False, False),
+    ("g5", "2026-11-14", 30, True, True),
+    ("g6", "2026-11-16", 32, True, True),
+    ("g7", "2026-11-18", 34, True, False),
+]
 MARGINS = {"g1": 20, "g2": 20, "g3": 20, "g4": 20, "g5": 3, "g6": 20, "g7": 2}
 
 
@@ -125,8 +149,9 @@ def test_a_player_who_is_not_in_the_log_has_no_role():
 
 def test_the_names_match_after_name_key_and_the_overrides():
     assert role(name="Joe Fa Jr.") is not None
-    overrides = pd.DataFrame({"player_id": ["5"], "name": ["Joseph Fa"], "espn_name": ["Joe Fa"],
-                              "yahoo_name": ["Joey Fa"], "team": [""]})
+    overrides = pd.DataFrame(
+        {"player_id": ["5"], "name": ["Joseph Fa"], "espn_name": ["Joe Fa"], "yahoo_name": ["Joey Fa"], "team": [""]}
+    )
     assert role(name="Joey Fa") is None
     assert role(name="Joey Fa", overrides=overrides) is not None
 

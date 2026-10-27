@@ -4,6 +4,7 @@ The page shows one day (date=). It has no view for a week, so "this week" is the
 the week up to today. Each page shows 50 players only. A player who is not on the page of a day counts 0 adds
 that day. The trend is evidence and the last tiebreak of the options. It never changes the plan score.
 """
+
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -15,6 +16,7 @@ from fantasyhoops.adds.readers import read_player
 @dataclass(frozen=True)
 class Trend:
     """The adds and drops of one player across all Yahoo leagues: today and in the days of this week up to today."""
+
     adds_today: int
     adds_week: int
     drops_today: int = 0
@@ -67,8 +69,12 @@ def week_trends(pages):
     out = {}
     for name in set().union(*days):
         today = days[0].get(name, (0, 0))
-        out[name] = Trend(adds_today=today[0], adds_week=sum(d.get(name, (0, 0))[0] for d in days),
-                          drops_today=today[1], drops_week=sum(d.get(name, (0, 0))[1] for d in days))
+        out[name] = Trend(
+            adds_today=today[0],
+            adds_week=sum(d.get(name, (0, 0))[0] for d in days),
+            drops_today=today[1],
+            drops_week=sum(d.get(name, (0, 0))[1] for d in days),
+        )
     return out
 
 
@@ -79,5 +85,4 @@ def read_week_trends(yahoo, days, old=None):
     (#91). None: yahoo. The page of today always comes from yahoo, because it changes during the day.
     """
     days = sorted(days, reverse=True)
-    return week_trends([(yahoo if n == 0 or old is None else old(d)).get(trends_path(d))
-                        for n, d in enumerate(days)])
+    return week_trends([(yahoo if n == 0 or old is None else old(d)).get(trends_path(d)) for n, d in enumerate(days)])

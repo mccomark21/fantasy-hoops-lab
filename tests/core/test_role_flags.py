@@ -5,8 +5,16 @@ from fantasyhoops.core.common import load_config
 from fantasyhoops.core.role_flags import INCONSISTENT, NEW, REGULAR, closer_flag, flag, role_flags, starter_flag
 
 # The approved rule of #75.
-SETTINGS = {"window_games": 10, "min_games": 5, "new_games": 3, "close_window": 8, "min_close_games": 4,
-            "new_closes": 2, "regular_share": 0.7, "some_share": 0.2}
+SETTINGS = {
+    "window_games": 10,
+    "min_games": 5,
+    "new_games": 3,
+    "close_window": 8,
+    "min_close_games": 4,
+    "new_closes": 2,
+    "regular_share": 0.7,
+    "some_share": 0.2,
+}
 
 
 def pattern(text):
@@ -15,19 +23,28 @@ def pattern(text):
 
 
 def starter(text):
-    return flag(pattern(text), SETTINGS["window_games"], SETTINGS["min_games"], SETTINGS["new_games"],
-                SETTINGS["regular_share"], SETTINGS["some_share"])
+    return flag(
+        pattern(text),
+        SETTINGS["window_games"],
+        SETTINGS["min_games"],
+        SETTINGS["new_games"],
+        SETTINGS["regular_share"],
+        SETTINGS["some_share"],
+    )
 
 
-@pytest.mark.parametrize("text, expected", [
-    ("S S S S S S S S S S", REGULAR),
-    ("S S - S S S - S S -", REGULAR),
-    ("- - - - - - - S S S", NEW),
-    ("- S - - S - S - - S", INCONSISTENT),
-    ("- - - - S - - - - -", None),
-    ("- - S S S", NEW),
-    ("- S S", None),
-])
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("S S S S S S S S S S", REGULAR),
+        ("S S - S S S - S S -", REGULAR),
+        ("- - - - - - - S S S", NEW),
+        ("- S - - S - S - - S", INCONSISTENT),
+        ("- - - - S - - - - -", None),
+        ("- - S S S", NEW),
+        ("- S S", None),
+    ],
+)
 def test_the_starter_flag_of_the_sample_patterns(text, expected):
     assert starter(text) == expected
 
@@ -51,18 +68,27 @@ def test_the_shares_are_inclusive():
 
 
 def closer(text):
-    return flag(pattern(text), SETTINGS["close_window"], SETTINGS["min_close_games"], SETTINGS["new_closes"],
-                SETTINGS["regular_share"], SETTINGS["some_share"])
+    return flag(
+        pattern(text),
+        SETTINGS["close_window"],
+        SETTINGS["min_close_games"],
+        SETTINGS["new_closes"],
+        SETTINGS["regular_share"],
+        SETTINGS["some_share"],
+    )
 
 
-@pytest.mark.parametrize("text, expected", [
-    ("S S S S S S - S", REGULAR),
-    ("- - - - - - S S", NEW),
-    ("- S - - S - - -", INCONSISTENT),
-    ("- - - - - - - -", None),
-    ("- - S S", NEW),
-    ("S S S", None),
-])
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("S S S S S S - S", REGULAR),
+        ("- - - - - - S S", NEW),
+        ("- S - - S - - -", INCONSISTENT),
+        ("- - - - - - - -", None),
+        ("- - S S", NEW),
+        ("S S S", None),
+    ],
+)
 def test_the_closer_flag_uses_its_own_window_and_minimum(text, expected):
     assert closer(text) == expected
 
@@ -75,10 +101,28 @@ def games_frame():
         close = n in (1, 2, 3, 5, 6, 7, 8)
         joe = n <= 6
         if joe:
-            rows.append({"game_id": game, "date": day, "team": "PHI", "player_id": "1", "started": n >= 4,
-                         "close_game": close, "closed": close and n in (5, 6)})
-        rows.append({"game_id": game, "date": day, "team": "PHI", "player_id": "9", "started": True,
-                     "close_game": close, "closed": close})
+            rows.append(
+                {
+                    "game_id": game,
+                    "date": day,
+                    "team": "PHI",
+                    "player_id": "1",
+                    "started": n >= 4,
+                    "close_game": close,
+                    "closed": close and n in (5, 6),
+                }
+            )
+        rows.append(
+            {
+                "game_id": game,
+                "date": day,
+                "team": "PHI",
+                "player_id": "9",
+                "started": True,
+                "close_game": close,
+                "closed": close,
+            }
+        )
     return pd.DataFrame(rows).sample(frac=1, random_state=1)  # the order of the rows must not matter
 
 

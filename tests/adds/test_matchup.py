@@ -5,17 +5,27 @@ import pandas as pd
 import pytest
 
 from fantasyhoops.adds.blend import blended_options
-from fantasyhoops.adds.matchup import (Matchup, category_weight, matchup_plan, matchup_score, matchup_spots,
-                                       matchup_weights, read_matchup, weighted_cfg)
+from fantasyhoops.adds.matchup import (
+    Matchup,
+    category_weight,
+    matchup_plan,
+    matchup_score,
+    matchup_spots,
+    matchup_weights,
+    read_matchup,
+    weighted_cfg,
+)
 from fantasyhoops.adds.planner import Option, StreamSpot, aggressive_plan
 from fantasyhoops.adds.readers import FreeAgent, Player
 from fantasyhoops.adds.slots import open_slots_by_day
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CATS = ("pts", "reb", "ast", "threes", "blk", "stl")
-MATCHUP_CFG = {"close": {"pts": 40, "reb": 15, "ast": 10, "threes": 5, "blk": 3, "stl": 3},
-               "large": {"pts": 120, "reb": 45, "ast": 30, "threes": 15, "blk": 9, "stl": 9},
-               "min_weight": 0.5}
+MATCHUP_CFG = {
+    "close": {"pts": 40, "reb": 15, "ast": 10, "threes": 5, "blk": 3, "stl": 3},
+    "large": {"pts": 120, "reb": 45, "ast": 30, "threes": 15, "blk": 9, "stl": 9},
+    "min_weight": 0.5,
+}
 CFG = {"weights": {c: 1.0 for c in CATS}, "adds": {"matchup": MATCHUP_CFG}}
 # A scale with mean 0 and std 1, so the value of a line is the weighted sum of its stats.
 SCALE = pd.DataFrame({c: [0.0, 1.0] for c in CATS}, index=["mean", "std"])
@@ -65,8 +75,11 @@ def test_a_player_link_that_ends_in_your_team_id_is_not_your_team_link():
         return f"<tr><td>{links}</td><td>{pts}</td>" + "<td>0</td>" * 5 + "</tr>"
 
     mine = row('<a href="https://basketball.fantasysports.yahoo.com/nba/22820/10">Mine</a>', 5)
-    theirs = row('<a href="https://sports.yahoo.com/nba/players/10">A Player</a>'
-                 '<a href="https://basketball.fantasysports.yahoo.com/nba/22820/4">Theirs</a>', 9)
+    theirs = row(
+        '<a href="https://sports.yahoo.com/nba/players/10">A Player</a>'
+        '<a href="https://basketball.fantasysports.yahoo.com/nba/22820/4">Theirs</a>',
+        9,
+    )
     html = f"<table><thead><tr>{head}</tr></thead><tbody>{mine}{theirs}</tbody></table>"
     m = read_matchup(html, team=10)
     assert m.mine["pts"] == 5 and m.theirs["pts"] == 9
@@ -120,10 +133,21 @@ def test_a_large_lead_lowers_the_matchup_value_of_a_player_who_adds_that_categor
 
 def test_the_matchup_value_of_a_holder_comes_from_his_season_projection():
     # Season totals in 10 games. Per game: 10 pts, 10 reb, 10 ast, 1 3PM, 1 stl, 1 blk.
-    projections = pd.DataFrame({"first_name": ["Old"], "last_name": ["Streamer"], "games": [10],
-                                "field_goals": [40], "threes": [10], "free_throws": [10],
-                                "offensive_rebounds": [50], "defensive_rebounds": [50], "assists": [100],
-                                "steals": [10], "blocks": [10]})
+    projections = pd.DataFrame(
+        {
+            "first_name": ["Old"],
+            "last_name": ["Streamer"],
+            "games": [10],
+            "field_goals": [40],
+            "threes": [10],
+            "free_throws": [10],
+            "offensive_rebounds": [50],
+            "defensive_rebounds": [50],
+            "assists": [100],
+            "steals": [10],
+            "blocks": [10],
+        }
+    )
     holder = Option(Player("Old Streamer", "MIA", ("C",)), 6.0)
     mcfg = weighted_cfg(CFG, {c: 1.0 for c in CATS} | {"pts": 0.5})
     spots = matchup_spots([StreamSpot(), StreamSpot(holder)], SCALE, CFG, mcfg, projections)
@@ -137,10 +161,21 @@ def test_the_matchup_value_of_a_holder_comes_from_his_season_projection():
 def test_two_players_with_the_same_name_give_the_line_of_the_player_with_the_higher_value():
     # drops.rank_players() keeps the player with the higher season value for a shared name key. So the matchup
     # value must come from the same player: here the second row (20 pts a game), not the first (5 pts a game).
-    projections = pd.DataFrame({"first_name": ["Same", "Same"], "last_name": ["Name", "Name"], "games": [10, 10],
-                                "field_goals": [25, 100], "threes": [0, 0], "free_throws": [0, 0],
-                                "offensive_rebounds": [0, 0], "defensive_rebounds": [0, 0], "assists": [0, 0],
-                                "steals": [0, 0], "blocks": [0, 0]})
+    projections = pd.DataFrame(
+        {
+            "first_name": ["Same", "Same"],
+            "last_name": ["Name", "Name"],
+            "games": [10, 10],
+            "field_goals": [25, 100],
+            "threes": [0, 0],
+            "free_throws": [0, 0],
+            "offensive_rebounds": [0, 0],
+            "defensive_rebounds": [0, 0],
+            "assists": [0, 0],
+            "steals": [0, 0],
+            "blocks": [0, 0],
+        }
+    )
     holder = Option(Player("Same Name", "MIA", ("C",)), 20.0)
     mcfg = weighted_cfg(CFG, {c: 1.0 for c in CATS} | {"pts": 0.5})
     (spot,) = matchup_spots([StreamSpot(holder)], SCALE, CFG, mcfg, projections)
@@ -194,6 +229,7 @@ def test_the_matchup_score_counts_a_holder_with_no_value_as_an_empty_slot():
 
 def test_config_has_a_close_and_a_large_margin_for_each_category():
     from fantasyhoops.core.common import load_config
+
     cfg = load_config()
     m = cfg["adds"]["matchup"]
     assert set(m["close"]) == set(m["large"]) == set(cfg["weights"])

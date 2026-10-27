@@ -46,6 +46,7 @@ One planning run:
 Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
 NBA schedule: data/schedule.csv (fetch/espn.py).
 """
+
 import argparse
 from contextlib import ExitStack
 from dataclasses import dataclass, replace
@@ -57,25 +58,66 @@ from fantasyhoops.adds import page, timing
 from fantasyhoops.adds.cache import PageCache
 from fantasyhoops.adds.blend import RECENT_DAYS, blended_options, recent_weight
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
-from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
-                                     season_values, value_warnings)
-from fantasyhoops.adds.matchup import (matchup_lines, matchup_plan, matchup_score, matchup_spots,
-                                       matchup_weights, read_matchup, weighted_cfg)
-from fantasyhoops.adds.planner import (StreamSpot, counted_games, rank_teams, schedule_plan, teams_to_read,
-                                       value_above_empty, waiver_options)
+from fantasyhoops.adds.drops import (
+    choose_stream_spots,
+    drop_trade_offs,
+    kept_roster,
+    print_stream_spots,
+    season_values,
+    value_warnings,
+)
+from fantasyhoops.adds.matchup import (
+    matchup_lines,
+    matchup_plan,
+    matchup_score,
+    matchup_spots,
+    matchup_weights,
+    read_matchup,
+    weighted_cfg,
+)
+from fantasyhoops.adds.planner import (
+    StreamSpot,
+    counted_games,
+    rank_teams,
+    schedule_plan,
+    teams_to_read,
+    value_above_empty,
+    waiver_options,
+)
 from fantasyhoops.adds.roles import read_roles
-from fantasyhoops.adds.readers import (Adds, has_next_page, parse, read_adds, read_free_agents, read_roster,
-                                       read_waiver_players, read_week)
+from fantasyhoops.adds.readers import (
+    Adds,
+    has_next_page,
+    parse,
+    read_adds,
+    read_free_agents,
+    read_roster,
+    read_waiver_players,
+    read_week,
+)
 from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
 from fantasyhoops.adds.role_up import mark_role_ups, read_absences
 from fantasyhoops.adds.session import WAIT_SECONDS, open_league
 from fantasyhoops.adds.spots import spot_plans
-from fantasyhoops.adds.slots import (NEXT_WEEK_OPEN_DAYS, next_week_games, next_week_window, open_slots_by_day,
-                                     planning_window, plans_next_week, roster_spots_used, team_games)
+from fantasyhoops.adds.slots import (
+    NEXT_WEEK_OPEN_DAYS,
+    next_week_games,
+    next_week_window,
+    open_slots_by_day,
+    planning_window,
+    plans_next_week,
+    roster_spots_used,
+    team_games,
+)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
-from fantasyhoops.adds.value import (REPLACEMENT_RANK, empty_slot_value, market_value, projection_scale,
-                                     replacement_value)
+from fantasyhoops.adds.value import (
+    REPLACEMENT_RANK,
+    empty_slot_value,
+    market_value,
+    projection_scale,
+    replacement_value,
+)
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
@@ -97,6 +139,7 @@ class LeagueData:
     next_week: True if today is the last day of the current week, so that the run plans the next week.
     matchup: the matchup.Matchup of the week to plan, or None if the matchup page shows no category scores.
     """
+
     roster: list
     adds: object
     week: object
@@ -117,8 +160,13 @@ def read_league(yahoo, cfg, today):
         matchup_page = yahoo.get(f"matchup?week={week.number + 1}&mid1={team}")
         week = read_week(matchup_page)
         adds = Adds(used=0, limit=adds.limit)
-    return LeagueData(roster=read_roster(team_page), adds=adds, week=week, next_week=next_week,
-                      matchup=read_matchup(matchup_page, team))
+    return LeagueData(
+        roster=read_roster(team_page),
+        adds=adds,
+        week=week,
+        next_week=next_week,
+        matchup=read_matchup(matchup_page, team),
+    )
 
 
 def free_agent_path(team, offset=0, view=PROJECTED, status="FA"):
@@ -153,6 +201,7 @@ class MarketRead:
     pages: the market pages that the run read in each view. stop: "guard", "limit" (MARKET_PAGES) or "end" (the
     last page of the list).
     """
+
     projected: list
     recent: list
     pages: int
@@ -173,8 +222,7 @@ def known_values(found, found_recent, values):
     return _playing_values(values(unique_free_agents(list(found)), list(found_recent)))
 
 
-def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), values=None, known=None,
-                            recent_yahoo=None):
+def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), values=None, known=None, recent_yahoo=None):
     """Read the full free-agent list, MARKET_PAGES pages at most, best Yahoo rank first. Give a MarketRead.
 
     recent: False if the run skips the recent view (#90). The run then reads only the projected view.
@@ -219,8 +267,10 @@ def market_line(market):
     """The line of the page and the terminal that says how many market pages the run read and why it stopped."""
     head = f"Market: {market.pages} of {MARKET_PAGES} pages"
     if market.stop == "guard":
-        return (f"{head}. Page {market.pages} had no new player above the replacement value (the free agent at rank "
-                f"{REPLACEMENT_RANK} of the players read before it).")
+        return (
+            f"{head}. Page {market.pages} had no new player above the replacement value (the free agent at rank "
+            f"{REPLACEMENT_RANK} of the players read before it)."
+        )
     if market.stop == "end":
         return f"{head}. Page {market.pages} was the last page of the list."
     return f"{head} (the limit)."
@@ -260,10 +310,12 @@ def skips_recent_view(limit, cfg):
 
 def recent_skip_line(most, limit, cfg):
     """The line of the page and the terminal that says that the run skipped the recent view, and why."""
-    return (f"The run skipped the recent view (last {RECENT_DAYS} days). The most games of one team from "
-            f"{RECENT_DAYS} days ago to today is {most}, so w is {limit:.2f} at most. This is below [adds] "
-            f"recent_skip_weight ({cfg['adds'].get('recent_skip_weight', RECENT_SKIP_WEIGHT)}). The values use the "
-            "projection only. A player with no projection is not a candidate.")
+    return (
+        f"The run skipped the recent view (last {RECENT_DAYS} days). The most games of one team from "
+        f"{RECENT_DAYS} days ago to today is {most}, so w is {limit:.2f} at most. This is below [adds] "
+        f"recent_skip_weight ({cfg['adds'].get('recent_skip_weight', RECENT_SKIP_WEIGHT)}). The values use the "
+        "projection only. A player with no projection is not a candidate."
+    )
 
 
 def unique_free_agents(free_agents):
@@ -341,10 +393,14 @@ def print_open_slots(data, days, cfg):
     il = sum(p.on_il for p in roster)
     if data.next_week:
         print(f"Today is the last day of week {week.number - 1}. The planner plans the next week.")
-    print(f"Yahoo league {cfg['adds']['league']}, team {cfg['adds']['team']}. "
-          f"Week {week.number}: {_day(week.start)} to {_day(week.end)}.")
-    print(f"Adds: {adds.used} of {adds.limit} used, {adds.left} left. "
-          f"Roster spots: {roster_spots_used(roster)} of {cfg['league']['roster_spots']} used (IL: {il}).")
+    print(
+        f"Yahoo league {cfg['adds']['league']}, team {cfg['adds']['team']}. "
+        f"Week {week.number}: {_day(week.start)} to {_day(week.end)}."
+    )
+    print(
+        f"Adds: {adds.used} of {adds.limit} used, {adds.left} left. "
+        f"Roster spots: {roster_spots_used(roster)} of {cfg['league']['roster_spots']} used (IL: {il})."
+    )
     out = [_player(p) for p in roster if p.out]
     print(f"Out (does not play): {', '.join(out) or 'none'}")
     if not days:
@@ -355,8 +411,10 @@ def print_open_slots(data, days, cfg):
     width = max([len(_player(p)) for p in roster] + [10])
     for day in days:
         print()
-        print(f"{_day(day.date)}  {day.nba_games} NBA games  open slots: {len(day.open)}"
-              + (f" ({', '.join(day.open)})" if day.open else ""))
+        print(
+            f"{_day(day.date)}  {day.nba_games} NBA games  open slots: {len(day.open)}"
+            + (f" ({', '.join(day.open)})" if day.open else "")
+        )
         for slot, p in day.starters:
             print(f"  {slot:<5} {_player(p):<{width}}  {p.team:<4}  {','.join(p.positions)}")
         for p in day.bench:
@@ -375,8 +433,10 @@ def print_ranking(ranking, read):
     print("NBA teams by open days covered" + (" (* = free agents read):" if read else ":"))
     for r in ranking[:RANKING_ROWS]:
         mark = "*" if r.team in read else " "
-        print(f"  {mark} {r.team:<4}  {_count(len(r.open_days), 'open day') + ',':<12} "
-              f"{_count(r.open_slots, 'open slot'):<13} ({_days(r.open_days)})")
+        print(
+            f"  {mark} {r.team:<4}  {_count(len(r.open_days), 'open day') + ',':<12} "
+            f"{_count(r.open_slots, 'open slot'):<13} ({_days(r.open_days)})"
+        )
     if len(ranking) > RANKING_ROWS:
         print(f"  ... {len(ranking) - RANKING_ROWS} more teams play on an open day.")
 
@@ -394,12 +454,15 @@ def print_waivers(options, replacement):
     print("Waiver players (a claim is not sure, and it uses an add):")
     for o in waivers:
         p = o.player
-        print(f"  {p.name} ({p.team}) {','.join(p.positions)}  clears {_day(p.clear_day)}, "
-              f"first plan day {_day(p.clear_day + timedelta(days=1))}, Val {_signed(market_value(o.value, replacement))}")
+        print(
+            f"  {p.name} ({p.team}) {','.join(p.positions)}  clears {_day(p.clear_day)}, "
+            f"first plan day {_day(p.clear_day + timedelta(days=1))}, Val {_signed(market_value(o.value, replacement))}"
+        )
 
 
-def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule plan", notes=True, nights=None,
-               next_week=None):
+def print_plan(
+    plan, spots, adds, today, drops=(), warnings=(), title="Schedule plan", notes=True, nights=None, next_week=None
+):
     """Print a plan: each team window with its add day, its started games and its options.
 
     drops: the Drops of drops.drop_trade_offs(). Each one prints below its window. warnings: lines to print last.
@@ -409,8 +472,10 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
     """
     print()
     if not spots:
-        print("Schedule plan: no stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
-              "There are no adds to plan.")
+        print(
+            "Schedule plan: no stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
+            "There are no adds to plan."
+        )
         return
     if not adds.left:
         print(f"Schedule plan: no adds left this week ({adds.used} of {adds.limit} used). There are no adds to plan.")
@@ -418,19 +483,25 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
     if plan is None:
         print(f"Schedule plan: {len(spots)} stream spots, but no open day. There are no adds to plan.")
         return
-    print(f"{title}: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')} "
-          f"({_count(len(spots), 'stream spot')}, {_count(adds.left, 'add')} left). "
-          f"Blended value of the started games: {_signed(plan.value)}.")
+    print(
+        f"{title}: {_count(plan.started_games, 'started game')} with {_count(plan.adds, 'add')} "
+        f"({_count(len(spots), 'stream spot')}, {_count(adds.left, 'add')} left). "
+        f"Blended value of the started games: {_signed(plan.value)}."
+    )
     if not plan.windows:
         print("  No free agent of the teams read gives a started game.")
     for w in plan.windows:
         if w.add_day:
-            print(f"  Spot {w.spot + 1}: {w.team} {_day(w.add_day)} to {_day(w.last_day)}, "
-                  f"latest add day {_day(w.add_day)}. Started games: {_counted(w)} "
-                  f"({_days(w.started, w.team, nights)}).")
+            print(
+                f"  Spot {w.spot + 1}: {w.team} {_day(w.add_day)} to {_day(w.last_day)}, "
+                f"latest add day {_day(w.add_day)}. Started games: {_counted(w)} "
+                f"({_days(w.started, w.team, nights)})."
+            )
         else:
-            print(f"  Spot {w.spot + 1}: {w.player.player.name} ({w.team}) holds the spot to {_day(w.last_day)}. "
-                  f"Started games: {_counted(w)} ({_days(w.started, w.team, nights)}).")
+            print(
+                f"  Spot {w.spot + 1}: {w.player.player.name} ({w.team}) holds the spot to {_day(w.last_day)}. "
+                f"Started games: {_counted(w)} ({_days(w.started, w.team, nights)})."
+            )
         for d in drops:
             if d.window == w:
                 print(f"      {d.text()}")
@@ -438,30 +509,42 @@ def print_plan(plan, spots, adds, today, drops=(), warnings=(), title="Schedule 
         for n, o in enumerate(w.options, 1):
             p = o.player
             role = f"  role up: {', '.join(o.role_up)} absent" if o.role_up else ""
-            print(f"      {n}. {_player(p):<{width}}  {','.join(p.positions):<9}  "
-                  f"value: projected {_signed(o.projected_value)}, recent {_signed(o.recent_value)}, "
-                  f"blended {_signed(o.value)}, matchup {_signed(o.match)}{_next_games(p.team, next_week)}  "
-                  f"{_trend(o.trend)}{role}")
+            print(
+                f"      {n}. {_player(p):<{width}}  {','.join(p.positions):<9}  "
+                f"value: projected {_signed(o.projected_value)}, recent {_signed(o.recent_value)}, "
+                f"blended {_signed(o.value)}, matchup {_signed(o.match)}{_next_games(p.team, next_week)}  "
+                f"{_trend(o.trend)}{role}"
+            )
     if next_week is not None and plan.windows:
         last = {w.spot: w for w in plan.windows}.values()  # the window of each spot on the last day of the week
         games = sum(next_week.get(w.team, 0) for w in last if not w.player.player.out)
-        print(f"  Next week: the last players in the stream spots have {_count(games, 'game')}. "
-              "They can stay on the roster with no add.")
+        print(
+            f"  Next week: the last players in the stream spots have {_count(games, 'game')}. "
+            "They can stay on the roster with no add."
+        )
     if not notes:
         return
     if any(w.add_day == today for w in plan.windows):
         print("  Note: an add for today helps only if his game has not started.")
     if plan.windows:
-        print("  The add day is the latest day that keeps all the started games of the window. "
-              "You can wait until then for injury news.")
-        print("  Adds: the adds across all Yahoo leagues, from Transaction Trends. Each day shows the 50 most added "
-              "players. A dash: not on the pages of this week.")
+        print(
+            "  The add day is the latest day that keeps all the started games of the window. "
+            "You can wait until then for injury news."
+        )
+        print(
+            "  Adds: the adds across all Yahoo leagues, from Transaction Trends. Each day shows the 50 most added "
+            "players. A dash: not on the pages of this week."
+        )
     if any(w.player.rest_games for w in plan.windows):
-        print("  A game of a player on the rest list on a second night of a back-to-back (b2b) counts "
-              "1 - [adds] rest_chance started games.")
+        print(
+            "  A game of a player on the rest list on a second night of a back-to-back (b2b) counts "
+            "1 - [adds] rest_chance started games."
+        )
     if drops:
-        print("  A drop is a suggestion. The plan score counts only the started games of this week. "
-              "The rank and the season value show the season cost.")
+        print(
+            "  A drop is a suggestion. The plan score counts only the started games of this week. "
+            "The rank and the season value show the season cost."
+        )
     for line in warnings:
         print(f"  {line}")
 
@@ -474,8 +557,10 @@ def print_role_ups(absences, options):
     for a in absences:
         names = [o.player.name for o in options if a.name in o.role_up and not o.player.out]
         print(f"Role up: {a.name} ({a.team}) is absent. Free agents at his positions: {', '.join(names) or 'none'}.")
-    print("  Absent: he started most of his recent games, then missed the last games of his team in the rotation log. "
-          "The mark changes no value.")
+    print(
+        "  Absent: he started most of his recent games, then missed the last games of his team in the rotation log. "
+        "The mark changes no value."
+    )
 
 
 def print_comparison(plan, aggressive, empty_value, match_empty=None):
@@ -488,23 +573,35 @@ def print_comparison(plan, aggressive, empty_value, match_empty=None):
     match_empty = empty_value if match_empty is None else match_empty
     if plan is None or aggressive is None:
         return
-    rows = [("Adds", plan.adds, aggressive.adds),
-            ("Started games", games_text(plan.started_games), games_text(aggressive.started_games)),
-            ("Blended value", _signed(plan.value), _signed(aggressive.value)),
-            ("Value above an empty slot", _signed(value_above_empty(plan, empty_value)),
-             _signed(value_above_empty(aggressive, empty_value))),
-            ("Matchup value above empty", _signed(matchup_score(plan, match_empty)),
-             _signed(matchup_score(aggressive, match_empty)))]
+    rows = [
+        ("Adds", plan.adds, aggressive.adds),
+        ("Started games", games_text(plan.started_games), games_text(aggressive.started_games)),
+        ("Blended value", _signed(plan.value), _signed(aggressive.value)),
+        (
+            "Value above an empty slot",
+            _signed(value_above_empty(plan, empty_value)),
+            _signed(value_above_empty(aggressive, empty_value)),
+        ),
+        (
+            "Matchup value above empty",
+            _signed(matchup_score(plan, match_empty)),
+            _signed(matchup_score(aggressive, match_empty)),
+        ),
+    ]
     print()
     print("Comparison:")
     print(f"  {'':<26}{'Schedule':>10}{'Aggressive':>12}")
     for label, a, b in rows:
         print(f"  {label:<26}{a:>10}{b:>12}")
-    print("  Blended value: the sum of the blended values of the started games. A free agent usually has a value "
-          "below 0, so more started games can give a lower sum.")
+    print(
+        "  Blended value: the sum of the blended values of the started games. A free agent usually has a value "
+        "below 0, so more started games can give a lower sum."
+    )
     print(f"  Value above an empty slot: an empty slot has a value of {empty_value:+.2f}.")
-    print(f"  Matchup value above empty: the score of the aggressive plan for this week, with the matchup weights. "
-          f"An empty slot has a matchup value of {match_empty:+.2f}.")
+    print(
+        f"  Matchup value above empty: the score of the aggressive plan for this week, with the matchup weights. "
+        f"An empty slot has a matchup value of {match_empty:+.2f}."
+    )
 
 
 def print_spot_plans(rows, nights=None):
@@ -517,8 +614,10 @@ def print_spot_plans(rows, nights=None):
         drop = f", drop {row.spot.holder.player.name}" if row.spot.holder else ""
         print(f"  {n}. {games_text(row.gain, sign=True)} started games with {_count(row.plan.adds, 'add')}{drop}")
         for w in row.added:
-            print(f"      +{_player(w.player.player)} ({w.team}) {_days(w.started, w.team, nights)}, "
-                  f"latest add day {_day(w.add_day)}")
+            print(
+                f"      +{_player(w.player.player)} ({w.team}) {_days(w.started, w.team, nights)}, "
+                f"latest add day {_day(w.add_day)}"
+            )
 
 
 def publish_page(path, rows, publish=True):
@@ -526,8 +625,10 @@ def publish_page(path, rows, publish=True):
     print()
     print(f"Wrote the plan page: {path}")
     if rows:
-        print(f"Plan page: best plan for one roster spot: {games_text(rows[0].gain, sign=True)} started games with "
-              f"{_count(rows[0].plan.adds, 'add')}.")
+        print(
+            f"Plan page: best plan for one roster spot: {games_text(rows[0].gain, sign=True)} started games with "
+            f"{_count(rows[0].plan.adds, 'add')}."
+        )
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
@@ -566,8 +667,10 @@ def main(today=None, publish=True, timed=True, cache=True):
         games, nights = team_games(sched, window), second_nights(sched, window)
         chance = cfg["adds"].get("rest_chance", DEFAULT_REST_CHANCE)
         rests = read_rest_names(cfg) if chance else set()
-        spots = [StreamSpot(with_rests([s.holder], rests, nights, chance)[0]) if s.holder else s
-                 for s in stream_spots(data.roster, cfg, values)]
+        spots = [
+            StreamSpot(with_rests([s.holder], rests, nights, chance)[0]) if s.holder else s
+            for s in stream_spots(data.roster, cfg, values)
+        ]
         kept = kept_roster(data.roster, spots)
         days = open_slots_by_day(kept, games, slots)
         timings.window(days, data.adds.left)
@@ -591,14 +694,17 @@ def main(today=None, publish=True, timed=True, cache=True):
             recent_pages = pages.recent(yahoo)
             with part("recent pass", yahoo):
                 team_recent = [] if skip else read_team_free_agents(recent_pages, read, RECENT)
+
             # The values of the team lists are outside the sub-steps, so the rows stay comparable with #89.
             # Only the guard's values of the new players of each page are in the "market pages" row.
             def guard_values(fas, rec):
                 return value_options(fas, cfg, rec, scale=scale)
+
             known = known_values(team_fas, team_recent, guard_values)
             with part("market pages", yahoo):
-                market = read_market_free_agents(yahoo, not skip, team_fas, team_recent, guard_values, known,
-                                                 recent_pages)
+                market = read_market_free_agents(
+                    yahoo, not skip, team_fas, team_recent, guard_values, known, recent_pages
+                )
             market_text = market_line(market)
             with part("waiver list", yahoo):
                 waivers = read_waiver_list(yahoo, today)
@@ -607,31 +713,36 @@ def main(today=None, publish=True, timed=True, cache=True):
             if not skip:
                 recent = unique_free_agents(team_recent + market.recent + waivers_recent)
             with part("trends", yahoo):
-                trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week),
-                                          lambda day: pages.trends(yahoo, day))
+                trends = read_week_trends(
+                    yahoo, trend_days(data.week, today, data.next_week), lambda day: pages.trends(yahoo, day)
+                )
     if read:
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
         with step("absence read"):
             absences = read_absences(today, cfg)
         with step("value options"):
-            options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg, scale), trends), rests,
-                                 nights, chance)
+            options = with_rests(
+                with_trends(value_options(free_agents, cfg, recent, mcfg, scale), trends), rests, nights, chance
+            )
             options = mark_role_ups(options, absences)
         spots = matchup_spots(spots, scale, cfg, mcfg)
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
         with step("schedule search", search=True):
-            plan = schedule_plan(days, games, spots, options, data.adds.left, slots, next_week=games_next,
-                                 next_weight=weight)
+            plan = schedule_plan(
+                days, games, spots, options, data.adds.left, slots, next_week=games_next, next_weight=weight
+            )
         with step("drop trade-offs", search=True):
             drops = drop_trade_offs(plan, data.roster, spots, games, options, data.adds.left, slots, values)
         warnings = value_warnings(plan, data.roster, spots, cfg, values)
         empty, match_empty = empty_slot_value(cfg, scale), empty_slot_value(mcfg, scale)
         with step("aggressive search", search=True):
-            aggressive = matchup_plan(days, games, spots, options, data.adds.left, slots, match_empty, games_next,
-                                      weight)
-        match_replacement = replacement_value([replace(o, blended_value=o.match) for o in options
-                                               if not o.player.on_waivers])
+            aggressive = matchup_plan(
+                days, games, spots, options, data.adds.left, slots, match_empty, games_next, weight
+            )
+        match_replacement = replacement_value(
+            [replace(o, blended_value=o.match) for o in options if not o.player.on_waivers]
+        )
         with step("spot plans", search=True):
             rows = spot_plans(data.roster, spots, games, options, data.adds.left, slots)
     print_open_slots(data, days, cfg)
@@ -654,25 +765,53 @@ def main(today=None, publish=True, timed=True, cache=True):
         print()
         print("Aggressive plan: the same as the schedule plan.")
     elif aggressive is not None:
-        print_plan(aggressive, spots, data.adds, today, title="Aggressive plan", notes=False, nights=nights,
-                   next_week=games_next)
+        print_plan(
+            aggressive,
+            spots,
+            data.adds,
+            today,
+            title="Aggressive plan",
+            notes=False,
+            nights=nights,
+            next_week=games_next,
+        )
     print_comparison(plan, aggressive, empty, match_empty)
     print_spot_plans(rows, nights)
     with step("contingency plans"):
-        contingencies = contingency_plans(days, games, plan, len(spots), options, data.adds.left, slots,
-                                          game_times(sched))
+        contingencies = contingency_plans(
+            days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched)
+        )
     print_contingencies(contingencies)
     with step("role read"):
         roles = read_roles([o.player for o in options], cfg, today)
     with step("page write and publish"):
-        text = page.render(data, days, games, spots, rows, options, ranking, read, today,
-                           replacement=replacement, warnings=warnings, matchup=data.matchup,
-                           weights=weights, match_replacement=match_replacement, nights=nights,
-                           contingencies=[" ".join(line.strip() for line in contingency_lines(c))
-                                          for c in contingencies],
-                           roles=roles, minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"),
-                           next_days=early_days, next_games=early_games, timings=timings.steps,
-                           recent_skip=skip_line, market=market_text, cache=cache_text)
+        text = page.render(
+            data,
+            days,
+            games,
+            spots,
+            rows,
+            options,
+            ranking,
+            read,
+            today,
+            replacement=replacement,
+            warnings=warnings,
+            matchup=data.matchup,
+            weights=weights,
+            match_replacement=match_replacement,
+            nights=nights,
+            contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies],
+            roles=roles,
+            minutes_rise=cfg["adds"].get("minutes_rise"),
+            flags=cfg["adds"].get("flags"),
+            next_days=early_days,
+            next_games=early_games,
+            timings=timings.steps,
+            recent_skip=skip_line,
+            market=market_text,
+            cache=cache_text,
+        )
         publish_page(page.write(text), rows, publish)
     if timed:
         print(f"Wrote the step times: {timing.TIMINGS}")
@@ -682,7 +821,8 @@ if __name__ == "__main__":
     use_utf8_output()
     parser = argparse.ArgumentParser(description="Plan the adds of the current fantasy week.")
     parser.add_argument("--no-publish", action="store_true", help="Write the plan page, but do not publish it.")
-    parser.add_argument("--no-cache", action="store_true",
-                        help="Read each page from Yahoo, and write it over the cached page.")
+    parser.add_argument(
+        "--no-cache", action="store_true", help="Read each page from Yahoo, and write it over the cached page."
+    )
     args = parser.parse_args()
     main(publish=not args.no_publish, cache=not args.no_cache)

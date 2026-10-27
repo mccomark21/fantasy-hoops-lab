@@ -19,6 +19,7 @@ The inputs (search_inputs()):
 A case that passes the cap (timing.Capped) ends as "capped". That is a result: the search with these inputs does
 not end under the cap.
 """
+
 import argparse
 import csv
 import random
@@ -28,42 +29,157 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from fantasyhoops.adds import timing
-from fantasyhoops.adds.planner import (Option, StreamSpot, aggressive_plan, rank_teams, schedule_plan,
-                                       teams_to_read)
+from fantasyhoops.adds.planner import Option, StreamSpot, aggressive_plan, rank_teams, schedule_plan, teams_to_read
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
 from fantasyhoops.core.common import OUT, ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
 
 BENCH = OUT / "adds" / "bench.csv"
-COLUMNS = ["run_at", "commit", "seed", "search", "days", "open_days", "adds", "spots", "free_agents", "calls",
-           "states", "seconds", "capped"]
+COLUMNS = [
+    "run_at",
+    "commit",
+    "seed",
+    "search",
+    "days",
+    "open_days",
+    "adds",
+    "spots",
+    "free_agents",
+    "calls",
+    "states",
+    "seconds",
+    "capped",
+]
 
 SEED = 1
 WEEK = [date(2026, 10, 26) + timedelta(days=i) for i in range(7)]
 # The teams that play on each day of WEEK, from data/schedule.csv: 18, 8, 24, 6, 20, 14 and 8 teams.
-GAMES = {d: frozenset(teams) for d, teams in zip(WEEK, [
-    ["ATL", "BOS", "CHA", "CHI", "CLE", "DAL", "DEN", "GS", "HOU", "IND", "MEM", "MIA", "MIL", "MIN", "OKC", "PHX",
-     "UTAH", "WSH"],
-    ["BKN", "BOS", "DET", "LAL", "NY", "POR", "SA", "SAC"],
-    ["ATL", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GS", "HOU", "IND", "LAC", "LAL", "MIA", "MIL", "MIN", "NO",
-     "NY", "OKC", "ORL", "PHI", "SA", "TOR", "UTAH", "WSH"],
-    ["ATL", "CLE", "MEM", "NO", "POR", "SAC"],
-    ["BKN", "BOS", "CHA", "CHI", "DAL", "DEN", "DET", "GS", "HOU", "IND", "LAC", "LAL", "MIA", "MIN", "NY", "ORL",
-     "PHI", "PHX", "TOR", "WSH"],
-    ["ATL", "CHA", "CLE", "HOU", "MEM", "MIL", "MIN", "NO", "OKC", "PHI", "POR", "SA", "SAC", "UTAH"],
-    ["BKN", "BOS", "GS", "IND", "LAC", "LAL", "ORL", "TOR"],
-])}
+GAMES = {
+    d: frozenset(teams)
+    for d, teams in zip(
+        WEEK,
+        [
+            [
+                "ATL",
+                "BOS",
+                "CHA",
+                "CHI",
+                "CLE",
+                "DAL",
+                "DEN",
+                "GS",
+                "HOU",
+                "IND",
+                "MEM",
+                "MIA",
+                "MIL",
+                "MIN",
+                "OKC",
+                "PHX",
+                "UTAH",
+                "WSH",
+            ],
+            ["BKN", "BOS", "DET", "LAL", "NY", "POR", "SA", "SAC"],
+            [
+                "ATL",
+                "CHA",
+                "CHI",
+                "CLE",
+                "DAL",
+                "DEN",
+                "DET",
+                "GS",
+                "HOU",
+                "IND",
+                "LAC",
+                "LAL",
+                "MIA",
+                "MIL",
+                "MIN",
+                "NO",
+                "NY",
+                "OKC",
+                "ORL",
+                "PHI",
+                "SA",
+                "TOR",
+                "UTAH",
+                "WSH",
+            ],
+            ["ATL", "CLE", "MEM", "NO", "POR", "SAC"],
+            [
+                "BKN",
+                "BOS",
+                "CHA",
+                "CHI",
+                "DAL",
+                "DEN",
+                "DET",
+                "GS",
+                "HOU",
+                "IND",
+                "LAC",
+                "LAL",
+                "MIA",
+                "MIN",
+                "NY",
+                "ORL",
+                "PHI",
+                "PHX",
+                "TOR",
+                "WSH",
+            ],
+            ["ATL", "CHA", "CLE", "HOU", "MEM", "MIL", "MIN", "NO", "OKC", "PHI", "POR", "SA", "SAC", "UTAH"],
+            ["BKN", "BOS", "GS", "IND", "LAC", "LAL", "ORL", "TOR"],
+        ],
+    )
+}
 TEAMS = sorted(set().union(*GAMES.values()))
 # The games of each team from 2026-11-02 to 2026-11-08, from data/schedule.csv (slots.next_week_games()).
-NEXT_WEEK = {"ATL": 4, "BKN": 4, "BOS": 4, "CHA": 3, "CHI": 3, "CLE": 4, "DAL": 4, "DEN": 3, "DET": 3, "GS": 3,
-             "HOU": 3, "IND": 3, "LAC": 3, "LAL": 4, "MEM": 3, "MIA": 4, "MIL": 4, "MIN": 4, "NO": 4, "NY": 3,
-             "OKC": 4, "ORL": 3, "PHI": 4, "PHX": 4, "POR": 4, "SA": 4, "SAC": 4, "TOR": 3, "UTAH": 4, "WSH": 4}
+NEXT_WEEK = {
+    "ATL": 4,
+    "BKN": 4,
+    "BOS": 4,
+    "CHA": 3,
+    "CHI": 3,
+    "CLE": 4,
+    "DAL": 4,
+    "DEN": 3,
+    "DET": 3,
+    "GS": 3,
+    "HOU": 3,
+    "IND": 3,
+    "LAC": 3,
+    "LAL": 4,
+    "MEM": 3,
+    "MIA": 4,
+    "MIL": 4,
+    "MIN": 4,
+    "NO": 4,
+    "NY": 3,
+    "OKC": 4,
+    "ORL": 3,
+    "PHI": 4,
+    "PHX": 4,
+    "POR": 4,
+    "SA": 4,
+    "SAC": 4,
+    "TOR": 3,
+    "UTAH": 4,
+    "WSH": 4,
+}
 # The roster without the stream spots. ROSTER fills all 6 starting slots on Wed and Fri and leaves the other 5
 # days of WEEK open.
-ROSTER = [Player("R1", "LAL", ("PG",)), Player("R2", "NY", ("SG",)), Player("R3", "PHI", ("SF",)),
-          Player("R4", "DET", ("PF",)), Player("R5", "TOR", ("C",)), Player("R6", "ORL", ("SF", "PF")),
-          Player("R7", "LAC", ("PG", "SG"))]
+ROSTER = [
+    Player("R1", "LAL", ("PG",)),
+    Player("R2", "NY", ("SG",)),
+    Player("R3", "PHI", ("SF",)),
+    Player("R4", "DET", ("PF",)),
+    Player("R5", "TOR", ("C",)),
+    Player("R6", "ORL", ("SF", "PF")),
+    Player("R7", "LAC", ("PG", "SG")),
+]
 # The position sets of the free agents, each one equally likely. The size of the search depends on the base keys
 # of each open day, so this list is the calibration (#100): with 7 days, 5 open days and 3 adds, the calls fall in
 # the range of the live runs of 2026-10-26 (275,995 to 613,874). With ("SG",) and ("SF",) too, the calls were
@@ -77,6 +193,7 @@ EMPTY_VALUE = -4.0  # the value of an empty slot for the aggressive score. Each 
 @dataclass(frozen=True)
 class Inputs:
     """The arguments of schedule_plan() for one case, without adds_left."""
+
     days: list
     games: dict
     spots: list
@@ -89,6 +206,7 @@ class Inputs:
 @dataclass(frozen=True)
 class Case:
     """One benchmark case. search: "schedule" or "aggressive". days: the days of the window (D). adds: adds left (A)."""
+
     search: str
     days: int
     adds: int
@@ -100,6 +218,7 @@ CASES = [Case(s, d, a) for s in ("schedule", "aggressive") for d in (5, 7) for a
 @dataclass(frozen=True)
 class Result:
     """The result of one case. capped: the search passed the cap. plan: None for a capped case."""
+
     case: Case
     open_days: int
     spots: int
@@ -122,10 +241,19 @@ def search_inputs(days=7, seed=SEED, cfg=None):
     teams = teams_to_read(rank_teams(day_list, games))
     homes = [t for t in teams for _ in range(TEAM_FREE_AGENTS)]
     homes += [rng.choice(TEAMS) for _ in range(MARKET_FREE_AGENTS)]
-    free_agents = [Option(Player(f"FA{n}", team, rng.choice(POSITIONS)), round(rng.gauss(-1.0, 1.0), 2))
-                   for n, team in enumerate(homes)]
-    return Inputs(day_list, games, [StreamSpot()] * cfg["adds"]["stream_spots"], free_agents, slots, NEXT_WEEK,
-                  cfg["adds"].get("next_week_weight", 0.0))
+    free_agents = [
+        Option(Player(f"FA{n}", team, rng.choice(POSITIONS)), round(rng.gauss(-1.0, 1.0), 2))
+        for n, team in enumerate(homes)
+    ]
+    return Inputs(
+        day_list,
+        games,
+        [StreamSpot()] * cfg["adds"]["stream_spots"],
+        free_agents,
+        slots,
+        NEXT_WEEK,
+        cfg["adds"].get("next_week_weight", 0.0),
+    )
 
 
 def run_case(case, seed=SEED, limit=None, seconds=None, cfg=None):
@@ -144,23 +272,59 @@ def run_case(case, seed=SEED, limit=None, seconds=None, cfg=None):
         capped = True
     finally:
         timing.WORK = saved
-    return Result(case, sum(bool(d.open) for d in inputs.days), len(inputs.spots), len(inputs.free_agents),
-                  work.calls, work.states, time.perf_counter() - start, capped, plan)
+    return Result(
+        case,
+        sum(bool(d.open) for d in inputs.days),
+        len(inputs.spots),
+        len(inputs.free_agents),
+        work.calls,
+        work.states,
+        time.perf_counter() - start,
+        capped,
+        plan,
+    )
 
 
 def rows(results, seed, run_at, commit):
     """The bench.csv rows (dicts with the COLUMNS) of results."""
-    return [{"run_at": run_at, "commit": commit, "seed": seed, "search": r.case.search, "days": r.case.days,
-             "open_days": r.open_days, "adds": r.case.adds, "spots": r.spots, "free_agents": r.free_agents,
-             "calls": r.calls, "states": r.states, "seconds": f"{r.seconds:.2f}", "capped": r.capped}
-            for r in results]
+    return [
+        {
+            "run_at": run_at,
+            "commit": commit,
+            "seed": seed,
+            "search": r.case.search,
+            "days": r.case.days,
+            "open_days": r.open_days,
+            "adds": r.case.adds,
+            "spots": r.spots,
+            "free_agents": r.free_agents,
+            "calls": r.calls,
+            "states": r.states,
+            "seconds": f"{r.seconds:.2f}",
+            "capped": r.capped,
+        }
+        for r in results
+    ]
 
 
 def table(results):
     """The text table of results, one line for each case."""
     head = ["search", "D", "open days", "A", "S", "free agents", "calls", "states", "seconds", "capped"]
-    body = [[r.case.search, r.case.days, r.open_days, r.case.adds, r.spots, r.free_agents, f"{r.calls:,}",
-             f"{r.states:,}", f"{r.seconds:.2f}", "capped" if r.capped else "no"] for r in results]
+    body = [
+        [
+            r.case.search,
+            r.case.days,
+            r.open_days,
+            r.case.adds,
+            r.spots,
+            r.free_agents,
+            f"{r.calls:,}",
+            f"{r.states:,}",
+            f"{r.seconds:.2f}",
+            "capped" if r.capped else "no",
+        ]
+        for r in results
+    ]
     widths = [max(len(str(x)) for x in col) for col in zip(head, *body)]
     return "\n".join("  ".join(str(x).rjust(w) for x, w in zip(line, widths)) for line in [head, *body])
 
@@ -179,8 +343,9 @@ def append(path, new_rows):
 def commit():
     """The short commit of the checkout, or "" if git does not give it."""
     try:
-        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True,
-                              check=True).stdout.strip()
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return ""
 
@@ -188,8 +353,12 @@ def commit():
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Benchmark the plan searches on fixed synthetic inputs (#100).")
     parser.add_argument("--seed", type=int, default=SEED, help="the seed of the free agents")
-    parser.add_argument("--max-calls", type=int, default=55_000_000,
-                        help="the cap on the calls of one case (55 million is about 10 minutes at 90k calls/s)")
+    parser.add_argument(
+        "--max-calls",
+        type=int,
+        default=55_000_000,
+        help="the cap on the calls of one case (55 million is about 10 minutes at 90k calls/s)",
+    )
     parser.add_argument("--max-seconds", type=float, default=600.0, help="the cap on the seconds of one case")
     args = parser.parse_args(argv)
     cfg, run_at, results = load_config(), datetime.now().replace(microsecond=0).isoformat(), []
@@ -197,8 +366,11 @@ def main(argv=None):
         print(f"Start: {case.search} D={case.days} A={case.adds} ...", flush=True)
         r = run_case(case, args.seed, args.max_calls, args.max_seconds, cfg)
         end = "capped" if r.capped else "done"
-        print(f"End: {case.search} D={case.days} A={case.adds}: {end}, {r.seconds:.2f} s, {r.calls:,} calls, "
-              f"{r.states:,} states", flush=True)
+        print(
+            f"End: {case.search} D={case.days} A={case.adds}: {end}, {r.seconds:.2f} s, {r.calls:,} calls, "
+            f"{r.states:,} states",
+            flush=True,
+        )
         results.append(r)
     print()
     print(table(results))

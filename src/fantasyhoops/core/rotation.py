@@ -8,6 +8,7 @@ A close game: at some moment in the last close_minutes of the fourth quarter or 
 the margin is close_margin points or fewer. A close: the player is on the floor at the end of a close game.
 The settings are in [rotation] in config.toml.
 """
+
 import pandas as pd
 
 from fantasyhoops.core.common import DATA
@@ -69,13 +70,18 @@ def player_games(stints, scores, cfg):
     stints = stints.assign(sec=stints.out_sec - stints.in_sec)
     end = stints.groupby("game_id").out_sec.transform("max")
     stints = stints.assign(at_end=stints.out_sec == end)
-    games = (stints.groupby(["game_id", "date", "team", "opponent", "player_id", "player"], as_index=False)
-             .agg(started=("starter", "any"), sec=("sec", "sum"), at_end=("at_end", "any")))
-    games = games.merge(close_games(stints, scores, cfg).rename(columns={"close": "close_game"}), on="game_id", how="left")
+    games = stints.groupby(["game_id", "date", "team", "opponent", "player_id", "player"], as_index=False).agg(
+        started=("starter", "any"), sec=("sec", "sum"), at_end=("at_end", "any")
+    )
+    games = games.merge(
+        close_games(stints, scores, cfg).rename(columns={"close": "close_game"}), on="game_id", how="left"
+    )
     games["close_game"] = games.close_game.fillna(False).astype(bool)
     games["minutes"] = (games.pop("sec") / 60).round(1)
     games["closed"] = games.close_game & games.pop("at_end")
-    return games[["game_id", "date", "team", "opponent", "player_id", "player", "started", "minutes", "close_game", "closed"]]
+    return games[
+        ["game_id", "date", "team", "opponent", "player_id", "player", "started", "minutes", "close_game", "closed"]
+    ]
 
 
 def team_games(stints, scores, cfg):

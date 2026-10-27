@@ -5,14 +5,17 @@ from fantasyhoops.core.schedule import join_teams, playoff_schedule
 
 # One playoff week. A day with 1 NBA game is a low-volume (quality) day. 4 teams, so a day can have 2 games.
 CFG = {
-    "playoffs": {"weeks": [{"name": "wk1", "start": "2027-03-01", "end": "2027-03-07"}],
-                 "week_value": {"2": 0.5, "3": 1.0, "4": 1.4}},
+    "playoffs": {
+        "weeks": [{"name": "wk1", "start": "2027-03-01", "end": "2027-03-07"}],
+        "week_value": {"2": 0.5, "3": 1.0, "4": 1.4},
+    },
     "quality_games": {"max_games_per_day": 1, "bonus": 0.1},
     "flags": {"avoid_week_games": 2},
 }
 GAMES = [
     ("2027-02-28", "A", "B"),  # before the playoffs: counts only in q_season
-    ("2027-03-01", "A", "B"), ("2027-03-01", "C", "D"),  # 2 games: not a quality day
+    ("2027-03-01", "A", "B"),
+    ("2027-03-01", "C", "D"),  # 2 games: not a quality day
     ("2027-03-02", "A", "C"),
     ("2027-03-03", "A", "B"),
     ("2027-03-04", "B", "D"),

@@ -5,6 +5,7 @@ Requirement: pip install playwright, then playwright install chromium.
 Output:
   data/yahoo_players.csv - one row for each player in the top 500 of Yahoo
 """
+
 import csv
 
 from playwright.sync_api import sync_playwright
@@ -56,18 +57,20 @@ def main():
     players = []
     for r in auction:
         cells = r["cells"]
-        players.append({
-            "yahoo_id": r["id"],
-            "name": r["name"],
-            "team": r["team"],
-            "positions": r["positions"],
-            "status": r["status"],
-            "yahoo_rank": number(cells[0]),
-            "pct_drafted": number(cells[3]),
-            "yahoo_cost": number(cells[4]),
-            "yahoo_value": number(cells[5]),
-            "adp": adp.get(r["id"], ""),
-        })
+        players.append(
+            {
+                "yahoo_id": r["id"],
+                "name": r["name"],
+                "team": r["team"],
+                "positions": r["positions"],
+                "status": r["status"],
+                "yahoo_rank": number(cells[0]),
+                "pct_drafted": number(cells[3]),
+                "yahoo_cost": number(cells[4]),
+                "yahoo_value": number(cells[5]),
+                "adp": adp.get(r["id"], ""),
+            }
+        )
 
     DATA.mkdir(exist_ok=True)
     with open(DATA / "yahoo_players.csv", "w", newline="", encoding="utf-8") as f:

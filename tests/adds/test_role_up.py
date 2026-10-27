@@ -14,15 +14,33 @@ BOS_DAYS = ["2026-11-01", "2026-11-03", "2026-11-05", "2026-11-07", "2026-11-09"
 
 
 def team_games(team="BOS", days=BOS_DAYS):
-    return pd.DataFrame({"game_id": [f"{team}{d}" for d in days], "date": pd.to_datetime(days), "team": team,
-                         "opponent": "NY", "close_game": False})
+    return pd.DataFrame(
+        {
+            "game_id": [f"{team}{d}" for d in days],
+            "date": pd.to_datetime(days),
+            "team": team,
+            "opponent": "NY",
+            "close_game": False,
+        }
+    )
 
 
 def player_games(name, days, started, team="BOS"):
     """The games of one player. started: True or False for each game."""
-    return pd.DataFrame({"game_id": [f"{team}{d}" for d in days], "date": pd.to_datetime(days), "team": team,
-                         "opponent": "NY", "player_id": name.lower(), "player": name, "started": started,
-                         "minutes": 30.0, "close_game": False, "closed": False})
+    return pd.DataFrame(
+        {
+            "game_id": [f"{team}{d}" for d in days],
+            "date": pd.to_datetime(days),
+            "team": team,
+            "opponent": "NY",
+            "player_id": name.lower(),
+            "player": name,
+            "started": started,
+            "minutes": 30.0,
+            "close_game": False,
+            "closed": False,
+        }
+    )
 
 
 def find(pgames, tgames=None, today=TODAY, cfg=CFG):
@@ -74,15 +92,36 @@ def test_the_games_of_other_teams_do_not_count_as_missed_games():
 
 
 def test_with_positions_gives_each_absent_starter_his_yahoo_positions():
-    yahoo = pd.DataFrame({"yahoo_id": [1, 2], "name": ["Star Wing", "Alex Sarr"], "team": ["BOS", "WAS"],
-                          "positions": ["SF,PF", "PF,C"], "status": "", "yahoo_rank": [1, 2], "pct_drafted": 100,
-                          "yahoo_cost": 1.0, "yahoo_value": 1, "adp": 1.0})
+    yahoo = pd.DataFrame(
+        {
+            "yahoo_id": [1, 2],
+            "name": ["Star Wing", "Alex Sarr"],
+            "team": ["BOS", "WAS"],
+            "positions": ["SF,PF", "PF,C"],
+            "status": "",
+            "yahoo_rank": [1, 2],
+            "pct_drafted": 100,
+            "yahoo_cost": 1.0,
+            "yahoo_value": 1,
+            "adp": 1.0,
+        }
+    )
     rosters = pd.DataFrame({"espn_name": ["Star Wing", "Alexandre Sarr"], "team": ["BOS", "WSH"]})
     # The override gives the Yahoo name of a player whose ESPN name does not match.
-    overrides = pd.DataFrame({"player_id": ["9"], "name": ["Alexandre Sarr"], "espn_name": ["Alexandre Sarr"],
-                              "yahoo_name": ["Alex Sarr"], "team": [""]})
-    found = [Absence("Star Wing", "BOS", date(2026, 11, 7), 2), Absence("Alexandre Sarr", "WSH", date(2026, 11, 7), 1),
-             Absence("Nobody Known", "BOS", date(2026, 11, 7), 1)]
+    overrides = pd.DataFrame(
+        {
+            "player_id": ["9"],
+            "name": ["Alexandre Sarr"],
+            "espn_name": ["Alexandre Sarr"],
+            "yahoo_name": ["Alex Sarr"],
+            "team": [""],
+        }
+    )
+    found = [
+        Absence("Star Wing", "BOS", date(2026, 11, 7), 2),
+        Absence("Alexandre Sarr", "WSH", date(2026, 11, 7), 1),
+        Absence("Nobody Known", "BOS", date(2026, 11, 7), 1),
+    ]
     assert [a.positions for a in with_positions(found, yahoo, rosters, overrides)] == [("SF", "PF"), ("PF", "C"), ()]
 
 
@@ -118,8 +157,9 @@ def test_read_absences_warns_and_gives_none_without_the_yahoo_files(monkeypatch,
         (tmp_path / name).write_text("", encoding="utf-8")
     monkeypatch.setattr(role, "LOG", tmp_path / "rotation_log.csv")
     monkeypatch.setattr(role, "SCORES", tmp_path / "rotation_scores.csv")
-    monkeypatch.setattr(role, "IDENTITY_FILES", [tmp_path / n for n in
-                                                 ("yahoo_players.csv", "rosters.csv", "name_overrides.csv")])
+    monkeypatch.setattr(
+        role, "IDENTITY_FILES", [tmp_path / n for n in ("yahoo_players.csv", "rosters.csv", "name_overrides.csv")]
+    )
     assert role.read_absences(TODAY, CFG) == []
     out = capsys.readouterr().out
     assert out.count("Warning") == 1 and "yahoo_players.csv" in out

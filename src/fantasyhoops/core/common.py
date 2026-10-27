@@ -1,4 +1,5 @@
 """Paths, config, playoff week names and name helpers that more than one script uses."""
+
 import re
 import tomllib
 import unicodedata
@@ -31,4 +32,3 @@ def name_key(name):
     text = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
     text = re.sub(r"[^a-z ]", "", text.replace("-", " "))
     return " ".join(w for w in text.split() if w not in {"jr", "sr", "ii", "iii", "iv"})
-
