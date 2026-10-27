@@ -153,6 +153,17 @@ If Yahoo has no projection for a player, but he has recent games, the blended li
 
 The planner reads each free-agent list twice: with `stat1=S_PS7` (the projection for the next 7 days, as totals) and with `stat1=S_AL14` (the averages of the last 14 days). It matches the players of the two lists by name and NBA team.
 
+### Skip of the recent view
+
+Early in the season, the weight w of the recent line is small, but the recent view costs almost half of the Yahoo pages of a run (#90). So the run can skip the recent view:
+
+1. Before the recent view, the run gets the largest possible w from `data/schedule.csv`: the most games that one NBA team played from 14 days ago to today, ÷ 14. These 15 days hold the window of `S_AL14` with or without today.
+2. If this w is below `recent_skip_weight` in `[adds]`, the run reads no page of the recent view.
+3. Each option then has no recent value, and the blended line is the projected line. A player with no projection is not a candidate, also when he has recent games.
+4. The page shows a line above the free-agent table: the most games of one team, the largest possible w and the setting. The terminal prints the same line. The Recent column is empty.
+
+A player who changed teams in those days can have more games than one team. The run ignores this case. With 0.3, the run skips the recent view while no team played more than 4 games in those days.
+
 Next to each free agent, the page also shows:
 
 - The recent value: the value of the last-14-day line alone.
@@ -294,6 +305,8 @@ The run reads the market pages and the waiver list once in each view. Each view 
 
 A page is one call of `League.get()` (`adds/session.py`). A sign-in opens the same page again, but the page counts one time. The pages of the Yahoo reads are the sum of the pages of its sub-steps. A sub-step that does not run has no row. For example, with no adds left, the run reads no free agent, so only the browser start and the league and matchup pages have rows.
 
+With the [skip of the recent view](#skip-of-the-recent-view), the recent pass row stays with 0 pages. The market pages and the waiver list rows then hold the pages of the projected view only (#90).
+
 For each search step, the planner also counts the search work:
 
 - Calls: the calls of the search function, cache hits included.
@@ -419,6 +432,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
 | `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |
 | `next_week_open_days` | The first days of next week that the page checks for open slots: 2. 0 turns off the next-week mark. See [Next-week mark](#next-week-mark). |
+| `recent_skip_weight` | The run skips the recent view while the largest possible weight of the recent line is below this value: 0.3. 0 never skips. See [Skip of the recent view](#skip-of-the-recent-view). |
 | `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
 | `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |
 | `role_up.games` | The role-up mark stays for this number of missed games: 3. |

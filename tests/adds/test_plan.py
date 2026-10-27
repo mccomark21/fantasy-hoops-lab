@@ -1,11 +1,12 @@
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
+import pandas as pd
 from bs4 import BeautifulSoup
 
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds import readers
-from fantasyhoops.adds.plan import print_plan
+from fantasyhoops.adds.plan import print_plan, recent_weight_limit, skips_recent_view
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamWindow
 from fantasyhoops.adds.readers import Adds, Player
 
@@ -54,3 +55,24 @@ def test_the_read_of_each_list_page_parses_the_page_one_time(monkeypatch):
         yahoo = Pages(name)
         assert read(yahoo)
         assert yahoo.pages and len(parses) == yahoo.pages, name
+
+
+def _schedule(games):
+    """A schedule with one row for each (day, team) game."""
+    return pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
+
+
+def test_the_weight_limit_counts_the_games_of_the_busiest_team_from_14_days_ago_to_today():
+    def day(n):
+        return MON - timedelta(days=n)
+    games = [(day(15), "PHI"), (day(14), "PHI"), (day(7), "PHI"), (day(0), "PHI"), (MON + timedelta(days=1), "PHI"),
+             (day(3), "BOS"), (day(2), "BOS")]
+    assert recent_weight_limit(_schedule(games), MON) == (3, 3 / 14)
+    assert recent_weight_limit(_schedule([]), MON) == (0, 0.0)
+
+
+def test_the_run_skips_the_recent_view_only_below_the_setting():
+    assert skips_recent_view(4 / 14, {"adds": {"recent_skip_weight": 0.3}})
+    assert not skips_recent_view(0.3, {"adds": {"recent_skip_weight": 0.3}})
+    assert not skips_recent_view(5 / 14, {"adds": {"recent_skip_weight": 0.3}})
+    assert not skips_recent_view(0.0, {"adds": {}})  # no setting: never skip

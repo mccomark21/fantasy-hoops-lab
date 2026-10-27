@@ -273,13 +273,15 @@ def next_week_legend(next_days):
 
 
 def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None,
-                        roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None):
+                        roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, recent_skip=None):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
     roles and minutes_rise: the Roles of adds/roles.py and [adds] minutes_rise, for the role line of each player.
     flags: [adds.flags], for the legend of the starter flag and the closer flag.
     next_days and next_games: the first days of next week, for the next-week marks (see free_agent_data()).
+    recent_skip: the line that says that the run skipped the recent view (plan.recent_skip_line(), #90). It shows
+    above the table. None: the run read the recent view, and no line shows.
     """
     options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
@@ -287,7 +289,8 @@ def free_agents_section(options, days, games, replacement, match_replacement=Non
     data = free_agent_data(options, days, games, replacement, match_replacement, nights, roles, next_days,
                            next_games)
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    return ('<section><h2>Free agents</h2>\n'
+    skip = f'<p class="skip">{_e(recent_skip)}</p>' if recent_skip else ""
+    return ('<section><h2>Free agents</h2>' + skip + '\n'
             '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
             '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
             '</label>\n<p class="count" id="fa-count"></p>\n<table class="fa" id="fa-table"></table>\n'
@@ -409,7 +412,7 @@ def method_note():
 
 def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
            warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None, nights=None,
-           roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, timings=()):
+           roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, timings=(), recent_skip=None):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
@@ -424,6 +427,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
     next_days: the Days of the first days of next week from the core roster. next_games: {day: set of teams} of
     those days. With both, the free-agent table marks each player who fits an open slot on one of these days.
     timings: the timing.StepTimes of the run, for the Run time table.
+    recent_skip: the line that says that the run skipped the recent view, or None (free_agents_section()).
     """
     today = today or date.today()
     sections = [
@@ -432,7 +436,7 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
         plans_section(rows, days, spots, data.adds, today, nights),
         matchup_section(matchup, weights),
         free_agents_section(options, days, games, replacement, match_replacement, nights, roles,
-                            minutes_rise, flags, next_days, next_games),
+                            minutes_rise, flags, next_days, next_games, recent_skip),
         waivers_section(options, replacement),
         role_up_section(options),
         contingency_section(contingencies),
@@ -510,6 +514,7 @@ sup.b2b { font-size: 9px; font-weight: 700; color: var(--bad); margin-left: 1px;
   .plans thead small, .plans .long { display: none; }
 }
 .legend { font-size: 12px; margin-top: 6px; }
+.skip { font-size: 13px; color: var(--fg); border-left: 3px solid var(--warn); padding-left: 8px; }
 .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
 .filters .label { width: 100%; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 button.chip { font: inherit; font-size: 13px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
