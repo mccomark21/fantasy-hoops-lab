@@ -160,7 +160,7 @@ Early in the season, the weight w of the recent line is small, but the recent vi
 1. Before the recent view, the run gets the largest possible w from `data/schedule.csv`: the most games that one NBA team played from 14 days ago to today, ÷ 14. These 15 days hold the window of `S_AL14` with or without today.
 2. If this w is below `recent_skip_weight` in `[adds]`, the run reads no page of the recent view.
 3. Each option then has no recent value, and the blended line is the projected line. A player with no projection is not a candidate, also when he has recent games.
-4. The page shows a line above the free-agent table: the most games of one team, the largest possible w and the setting. The terminal prints the same line. The Recent column is empty.
+4. The page shows a line above the free-agent table: the most games of one team, the largest possible w and the setting. The terminal prints the same line. The Recent column shows "—" for each player.
 
 A player who changed teams in those days can have more games than one team. The run ignores this case. With 0.3, the run skips the recent view while no team played more than 4 games in those days.
 

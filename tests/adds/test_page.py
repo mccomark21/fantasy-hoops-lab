@@ -785,7 +785,7 @@ def test_the_plans_with_the_recent_view_skipped_are_the_plans_with_recent_weight
 
 SKIP_LINE = ("The run skipped the recent view (last 14 days). The most games of one team from 14 days ago to today "
              "is 1, so w is 0.07 at most. This is below [adds] recent_skip_weight (0.3). The values use the projection "
-             "only.")
+             "only. A player with no projection is not a candidate.")
 
 
 def test_the_page_and_the_terminal_say_that_the_run_skipped_the_recent_view(monkeypatch, tmp_path, capsys):

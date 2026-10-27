@@ -179,8 +179,9 @@ def skips_recent_view(limit, cfg):
 def recent_skip_line(most, limit, cfg):
     """The line of the page and the terminal that says that the run skipped the recent view, and why."""
     return (f"The run skipped the recent view (last {RECENT_DAYS} days). The most games of one team from "
-            f"{RECENT_DAYS} days ago to today is {most}, so w is {limit:.2f} at most. This is below [adds] recent_skip_weight "
-            f"({cfg['adds'].get('recent_skip_weight', RECENT_SKIP_WEIGHT)}). The values use the projection only.")
+            f"{RECENT_DAYS} days ago to today is {most}, so w is {limit:.2f} at most. This is below [adds] "
+            f"recent_skip_weight ({cfg['adds'].get('recent_skip_weight', RECENT_SKIP_WEIGHT)}). The values use the "
+            "projection only. A player with no projection is not a candidate.")
 
 
 def unique_free_agents(free_agents):
