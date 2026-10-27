@@ -14,4 +14,4 @@ def use_utf8_output(*streams):
     for stream in streams or (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
-            reconfigure(encoding="utf-8")
+            reconfigure(encoding="utf-8", errors=stream.errors)  # without errors=, reconfigure() resets it to strict

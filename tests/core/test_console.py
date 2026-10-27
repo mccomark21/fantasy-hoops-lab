@@ -1,3 +1,4 @@
+"""Tests of core/console.py: the UTF-8 helper, and a check that each command calls it first in its __main__ block (#87)."""
 import ast
 import io
 import os
@@ -22,6 +23,14 @@ def test_helper_lets_a_cp1252_stream_print_a_name_with_c_caron():
     print("Vasilije Micič", file=stream)
     stream.flush()
     assert raw.getvalue().decode("utf-8") == "Vasilije Micič\n"
+
+
+def test_helper_keeps_the_error_mode_of_each_stream():
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="cp1252", errors="backslashreplace")
+    assert stream.errors == "backslashreplace"
+    use_utf8_output(stream)
+    assert stream.encoding == "utf-8"
+    assert stream.errors == "backslashreplace"
 
 
 def test_helper_skips_a_stream_without_reconfigure():
