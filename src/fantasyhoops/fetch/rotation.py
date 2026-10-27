@@ -15,6 +15,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from fantasyhoops.core.common import load_config
+from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.rotation import LOG, SCORES, period_bounds
 from fantasyhoops.fetch.espn import API, get_json, local_date
 
@@ -229,4 +230,5 @@ def main():
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     main()

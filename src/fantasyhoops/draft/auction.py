@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 from fantasyhoops.core.common import load_config
+from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.lineup import open_slots
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
 from fantasyhoops.draft import OUT
@@ -282,4 +283,5 @@ def write_benchmark(bench):
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     main()

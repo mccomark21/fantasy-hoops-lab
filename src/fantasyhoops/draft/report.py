@@ -13,6 +13,7 @@ import json
 import pandas as pd
 
 from fantasyhoops.core.common import load_config
+from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
 from fantasyhoops.draft import OUT
 from fantasyhoops.draft.board import load as load_board
@@ -375,4 +376,5 @@ select(best.keeper);
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     main()

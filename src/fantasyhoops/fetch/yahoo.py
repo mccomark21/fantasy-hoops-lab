@@ -10,6 +10,7 @@ import csv
 from playwright.sync_api import sync_playwright
 
 from fantasyhoops.core.common import DATA
+from fantasyhoops.core.console import use_utf8_output
 
 PAGE = "https://basketball.fantasysports.yahoo.com/nba/draftanalysis?type={type}&pos=ALL&sort=DA_AP&count=500"
 
@@ -77,4 +78,5 @@ def main():
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     main()
