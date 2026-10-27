@@ -76,6 +76,15 @@ Each window shows its window options: the best 3 free agents on that team who fi
 
 The search is exact. It looks at each open day in order. On each day, each stream spot keeps its player or gets a free agent who starts that day. The search does not know which players the plan dropped earlier in the week. A dropped player goes on waivers, so the plan then takes a different free agent with the same team and positions, if one exists.
 
+Since 2026-10-27 (#110), the search skips the dominated free agents of each open day. A group of free agents with the same open days, positions and rest days is dominated when an earlier group meets all 4 conditions:
+
+1. It plays on each open day of the dominated group, and on at least as many days next week.
+2. It has each position of the dominated group.
+3. On each of those days, its count is at least the count of the dominated group. A day with no rest count counts 1.
+4. It has at least one free agent for each stream spot, and its value for the last stream spot is at least the best value of the dominated group.
+
+The skip must change no plan. The tests compare the plans with and without the skip. The search is faster, because it tries fewer adds on each day. The schedule plan always skips. The aggressive plan skips only when no player has a rest count on an open day and no player has a value below an empty slot. With a rest count, the aggressive search has its old speed.
+
 ### Aggressive plan
 
 Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left. Since 2026-10-21 (#59), the score uses the [matchup value](#matchup-weights).
