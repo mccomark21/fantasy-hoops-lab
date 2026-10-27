@@ -10,6 +10,7 @@ One planning run:
    read_market_free_agents(): read the first MARKET_PAGES pages of the full free-agent list (the free-agent market).
    read_waiver_list(): read the players on waivers (W), each with his clear day.
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
+   Each list page parses one time (readers.parse()), for the players and for the "Next 25" link (#93).
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
    read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
    positions (adds/role_up.py). The mark changes no value.
@@ -48,7 +49,7 @@ from fantasyhoops.adds.matchup import (matchup_lines, matchup_plan, matchup_scor
 from fantasyhoops.adds.planner import (StreamSpot, counted_games, rank_teams, schedule_plan, teams_to_read,
                                        value_above_empty, waiver_options)
 from fantasyhoops.adds.roles import read_roles
-from fantasyhoops.adds.readers import (Adds, has_next_page, read_adds, read_free_agents, read_roster,
+from fantasyhoops.adds.readers import (Adds, has_next_page, parse, read_adds, read_free_agents, read_roster,
                                        read_waiver_players, read_week)
 from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
 from fantasyhoops.adds.role_up import mark_role_ups, read_absences
@@ -119,9 +120,9 @@ def read_team_free_agents(yahoo, teams, view=PROJECTED):
     out = []
     for team in teams:
         for page in range(MAX_PAGES):
-            html = yahoo.get(free_agent_path(team, 25 * page, view))
-            out += read_free_agents(html, totals=view == PROJECTED)
-            if not has_next_page(html):
+            parsed = parse(yahoo.get(free_agent_path(team, 25 * page, view)))
+            out += read_free_agents(parsed, totals=view == PROJECTED)
+            if not has_next_page(parsed):
                 break
     return out
 
@@ -130,9 +131,9 @@ def read_market_free_agents(yahoo, view=PROJECTED):
     """The FreeAgents of the first MARKET_PAGES pages of the full free-agent list, best Yahoo rank first."""
     out = []
     for page in range(MARKET_PAGES):
-        html = yahoo.get(free_agent_path(None, 25 * page, view))
-        out += read_free_agents(html, totals=view == PROJECTED)
-        if not has_next_page(html):
+        parsed = parse(yahoo.get(free_agent_path(None, 25 * page, view)))
+        out += read_free_agents(parsed, totals=view == PROJECTED)
+        if not has_next_page(parsed):
             break
     return out
 
@@ -144,9 +145,9 @@ def read_waiver_list(yahoo, today, view=PROJECTED):
     """
     out = []
     for page in range(MARKET_PAGES):
-        html = yahoo.get(free_agent_path(None, 25 * page, view, status="W"))
-        out += read_waiver_players(html, today, totals=view == PROJECTED)
-        if not has_next_page(html):
+        parsed = parse(yahoo.get(free_agent_path(None, 25 * page, view, status="W")))
+        out += read_waiver_players(parsed, today, totals=view == PROJECTED)
+        if not has_next_page(parsed):
             break
     return out
 

@@ -62,13 +62,21 @@ def test_get_waits_for_the_element_of_the_page_and_not_for_networkidle():
 def test_get_of_the_matchup_page_waits_for_the_day_links_and_the_score_rows():
     page = FakePage()
     League(page, 22820, wait_seconds=7).get("matchup?mid1=10")
-    assert page.waits == [(DAYS, "attached", 7000), (SCORES, "attached", SCORE_WAIT_SECONDS * 1000)]
+    assert page.waits == [(DAYS, "attached", 7000), (SCORES, "attached", 500)]
 
 
 def test_get_of_a_matchup_page_with_no_score_table_gives_the_page():
     # The next-week page on the last day of a week and the page before the first games have no score table.
     page = FakePage(missing={SCORES})
     assert League(page, 22820).get("matchup?week=2&mid1=10") == "<html>page</html>"
+
+
+def test_a_matchup_page_with_no_score_table_waits_less_than_the_old_2_s_for_it():
+    # #93: the wait was 2 s. In the live check of 2026-10-21, the score table appeared 0.1 s or less after the day links.
+    page = FakePage(missing={SCORES})
+    League(page, 22820).get("matchup?week=2&mid1=10")
+    score_waits = [timeout for selector, _, timeout in page.waits if selector == SCORES]
+    assert score_waits == [SCORE_WAIT_SECONDS * 1000] == [500]
 
 
 def test_get_of_a_matchup_page_with_no_day_links_raises_an_error():
