@@ -13,6 +13,10 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 - [Planning run timings](planning-run-timings.md): the step times of the first two live planning runs with timers on 2026-10-26, the crash of the first run on a non-UTF-8 stdout, and the equal counts of the schedule and aggressive searches.
 - [Yahoo reads study](yahoo-reads-study.md): the study of 2026-10-26 of the Yahoo reads step by three agents (page depth, the two views, page loads), with a correction of a claim about page depth.
 
+## Ideas
+
+- [Bluesky streaming posts](bluesky-streaming-posts.md): the owner idea of 2026-10-26 for weekly streaming images on Bluesky, the owner decisions, and the studies of that day (feasibility, sources without login, an availability estimate, platform defaults).
+
 ## Decisions
 
 - [Adds build decisions](adds-build-decisions.md): the decisions of 2026-10-20 in the adds build (aggressive score, NA and suspended players, next week on the last day, 3 stream spots), with links to the guide.
