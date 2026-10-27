@@ -354,6 +354,23 @@ Decision (2026-10-26, #89): a `timings.csv` with an older header gets the new he
 | `states` | The unique states of the search, or empty |
 | `pages` | The Yahoo pages of the Yahoo reads and of each of its sub-steps. Empty for the other steps. |
 
+#### Search benchmark
+
+Decision (2026-10-26, #100): a benchmark measures the size of the plan searches on fixed inputs. It shows how the search grows with the adds left (A) and the days of the window (D). It changes no plan.
+
+Run it with `python -m fantasyhoops.adds.bench`. It reads no Yahoo page, no `data/` file and no `output/` file. `src/fantasyhoops/adds/bench.py` builds the inputs from a seed:
+
+- The games of the week of 2026-10-26 to 2026-11-01, copied from `data/schedule.csv`. A window of D days is the last D days of that week.
+- A fixed roster of 7 players. It leaves 5 of the 7 days open.
+- 3 empty stream spots (`[adds] stream_spots`).
+- 19 free agents for each read team and 75 market free agents, with random positions and values.
+
+The benchmark runs 12 cases: A = 3, 4 and 5, D = 5 and 7, for the schedule search and for the aggressive search. The terminal shows each case when it starts and when it ends, then a table. The run appends the rows to `output/adds/bench.csv`, with `run_at`, the commit and the seed.
+
+Each case has a cap: `--max-calls` (default 55,000,000, about 10 minutes at 90,000 calls each second) and `--max-seconds` (default 600). A case that passes the cap ends as "capped". That is a result: the search with these inputs does not end under the cap. A planning run has no cap.
+
+`tests/adds/test_bench.py` runs the fast cases in CI. Each case has a ceiling on its calls and its states, about 2 times the counts when the test was written. A change that makes the search much larger fails the test.
+
 ## Core and drops
 
 - The core list in `config.toml` holds the players that the planner never suggests to drop. The rule also holds for a core player who is Out.

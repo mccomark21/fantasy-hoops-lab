@@ -12,6 +12,8 @@ Each step appends its row to output/adds/timings.csv when it ends, so a run that
 of its finished steps. The first steps end before the run knows the planning window. Their rows wait until
 Timings.window() gives it, or until a step stops the run. Then they get empty window columns.
 A timings file with an older header gets the new header at the next write. Its old rows get empty new columns.
+A Work with a cap (limit, seconds) raises Capped in tick() when the search passes the cap. The benchmark (#100,
+adds/bench.py) uses it. WORK has no cap, so a planning run never stops for it.
 """
 import csv
 import time
@@ -26,15 +28,22 @@ COLUMNS = ["run_at", "days", "open_days", "adds_left", "step", "seconds", "calls
 PROGRESS_SECONDS = 10  # the time between two progress lines of a search
 
 
+class Capped(Exception):
+    """A search passed the cap of its Work. The search does not end under the cap."""
+
+
 class Work:
     """The counts of the plan searches. tick() counts one call of best(). state() counts one computed state.
 
     When a step is open (begin()), tick() prints the calls and the states every PROGRESS_SECONDS.
     clock: a function that gives seconds, for the tests.
+    limit: the most calls. seconds: the most seconds from the start of this Work, by clock. When the calls or the
+    time pass the cap, tick() raises Capped. None: no cap. Each cap check costs time, so leave seconds None in CI.
     """
 
-    def __init__(self, clock=time.monotonic):
+    def __init__(self, clock=time.monotonic, limit=None, seconds=None):
         self.clock, self.calls, self.states, self.step, self.next_print = clock, 0, 0, None, None
+        self.limit, self.stop = limit, None if seconds is None else clock() + seconds
 
     def begin(self, step):
         self.step, self.next_print = step, self.clock() + PROGRESS_SECONDS
@@ -44,6 +53,10 @@ class Work:
 
     def tick(self):
         self.calls += 1
+        if self.limit is not None and self.calls > self.limit:
+            raise Capped(f"The search passed {self.limit:,} calls.")
+        if self.stop is not None and self.clock() >= self.stop:
+            raise Capped(f"The search passed its time limit at {self.calls:,} calls.")
         if self.next_print is not None and self.clock() >= self.next_print:
             self.next_print += PROGRESS_SECONDS
             print(f"  {self.step}: {self.calls:,} calls, {self.states:,} states so far", flush=True)
