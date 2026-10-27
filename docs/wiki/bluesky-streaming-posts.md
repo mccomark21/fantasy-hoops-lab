@@ -6,6 +6,12 @@ Code facts on this page are as of `mccomark21/fantasy-hoops-lab@969b1fa`.
 
 The prototype scripts and the sample card of 2026-10-26 were throwaway files in a session scratchpad. They are not in the repo. The numbers below come from the agent reports of that day.
 
+## Paused
+
+On 2026-10-26, the owner paused the work on the Bluesky posts, to focus on the personal adds planner. Main was at `mccomark21/fantasy-hoops-lab@1a74dd8`.
+
+The last open step: the owner gets a free balldontlie API key. With the key, we can check whether `/v1/games` gives future games. See item 3 of "Unclear on 2026-10-26" below.
+
 ## The idea and the owner decisions
 
 The owner prefers free GitHub Actions to run the job. AWS is also available.
