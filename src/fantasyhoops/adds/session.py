@@ -18,7 +18,8 @@ WAIT_SECONDS = 10  # default of [adds] page_wait in config.toml
 
 # The elements that the readers of each page kind need, by the start of the page path (#74).
 # Each page kind has required elements and optional elements. A required element that does not appear raises
-# PageNotReady. An optional element gets SCORE_WAIT_SECONDS, and then get() reads the page as it is.
+# PageNotReady. An optional element gets SCORE_WAIT_SECONDS after the required elements appear, and then get()
+# reads the page as it is.
 # The team page path is the team ID, so a path that starts with a digit is a team page.
 # Each selector names table rows, because a table can be in the page before its rows are.
 READY = [
@@ -31,7 +32,9 @@ READY = [
 # readers.read_roster() reads data-pos. A script on the page adds data-pos about 0.1 s after the table appears.
 TEAM_READY = (("table#statTable0 tbody tr[data-pos]",), ())
 # In the live check of 2026-10-21, the score table appeared 0.1 s or less after the day links.
-SCORE_WAIT_SECONDS = 2
+# A page with no score table uses the full wait, so the wait is short: 5 times the time of that check (#93).
+# The wait was 2 s before #93.
+SCORE_WAIT_SECONDS = 0.5
 
 
 class PageNotReady(RuntimeError):
@@ -89,7 +92,7 @@ class League:
                                    "The reader of this page needs that element.") from None
         for selector in optional:
             try:
-                self.page.wait_for_selector(selector, state="attached", timeout=SCORE_WAIT_SECONDS * 1000)
+                self.page.wait_for_selector(selector, state="attached", timeout=int(SCORE_WAIT_SECONDS * 1000))
             except PlaywrightTimeout:
                 pass  # The page has no such element. The reader gets the page as it is.
         return self.page.content()

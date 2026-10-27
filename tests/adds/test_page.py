@@ -581,8 +581,60 @@ def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
     assert "Step:" not in capsys.readouterr().out.split("Step: page write and publish:")[-1]
 
 
+class ListPages:
+    """A fake session.League that gives the HTML of the fixtures for the free-agent lists and the waiver list."""
+
+    def __init__(self):
+        self.pages, self.paths = 0, []
+
+    def get(self, path):
+        self.pages += 1
+        self.paths.append(path)
+        if "status=W" in path:
+            name = "waivers.html"
+        elif "eteam=" not in path:
+            name = "free_agents.html"  # it has a "Next 25" link, so the run reads all MARKET_PAGES pages
+        else:
+            name = "free_agents_phi_recent.html" if command.RECENT in path else "free_agents_phi.html"
+        return (Path(__file__).parent / "fixtures" / name).read_text(encoding="utf-8")
+
+
+def options_of(fas, recent):
+    """An Option for each free agent, with values from his projected points and his recent points."""
+    points = {f.player.name: f.line.get("pts", 0.0) for f in recent}
+    return [Option(f.player, f.line.get("pts", 0.0) / 10 - 1, recent_value=points.get(f.player.name)) for f in fas]
+
+
+def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path):
+    league = command.LeagueData(roster=[], adds=Adds(2, 5), week=Week(12, tuple(WEEK[:2])))
+    found = {}
+    for once in (True, False):
+        plans, pages, inputs = [], [], []
+        real_print_plan, real_render, real_parse = command.print_plan, page.render, command.parse
+        monkeypatch.setattr(command, "print_plan", lambda plan, *a, **kw: (plans.append(plan),
+                                                                            real_print_plan(plan, *a, **kw)))
+        monkeypatch.setattr(page, "render", lambda *a, **kw: (pages.append((a, kw)), real_render(*a, **kw))[1])
+        if not once:
+            # The read before #93: each reader gets the HTML and parses it again.
+            monkeypatch.setattr(command, "parse", lambda html: html)
+        yahoo = run_command(monkeypatch, tmp_path / str(once), [], publish=False, league=league, yahoo=ListPages(),
+                            options=lambda fas, recent: (inputs.append((fas, recent)), options_of(fas, recent))[1])
+        args, kw = pages[0]
+        kw.pop("timings")
+        found[once] = (plans, args, kw, inputs, yahoo.paths)
+        for name, real in (("print_plan", real_print_plan), ("parse", real_parse)):
+            monkeypatch.setattr(command, name, real)
+        monkeypatch.setattr(page, "render", real_render)
+    plans, _, _, inputs, paths = found[True]
+    assert plans and plans[0].windows
+    fas, recent = inputs[0]
+    assert fas and recent
+    assert len(paths) == 2 * (2 + command.MARKET_PAGES + 1)  # 2 views of 2 team pages, the market and the waivers
+    assert found[True] == found[False]
+
+
 def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
-                league=None, timed=True, pages=None):
+                league=None, timed=True, pages=None, yahoo=None):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
     The page and timings.csv go in tmp_path. timed: the timed argument of plan.main().
@@ -592,8 +644,11 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
     extra_games: (day, team) for each more game of the schedule, for example a game next week.
     league: the LeagueData that read_league() gives. None: week 12 (Mon and Tue), 4 of 5 adds used.
+    yahoo: a fake League with the HTML of the list pages. The run then uses the real readers of the lists, and options
+    is a function of the free agents and the recent free agents. None: a FakeLeague and fake readers of the lists.
     """
-    yahoo = FakeLeague()
+    lists = yahoo is None
+    yahoo = yahoo or FakeLeague()
     pages = pages or {}
 
     @contextmanager
@@ -623,13 +678,15 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "read_league", reader("league", league))
     monkeypatch.setattr(command, "season_values", lambda cfg: {})
     monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
-    monkeypatch.setattr(command, "read_team_free_agents", reader("team", list))
-    monkeypatch.setattr(command, "read_market_free_agents", reader("market", list))
-    monkeypatch.setattr(command, "read_waiver_list", reader("waiver", list))
+    if lists:
+        monkeypatch.setattr(command, "read_team_free_agents", reader("team", list))
+        monkeypatch.setattr(command, "read_market_free_agents", reader("market", list))
+        monkeypatch.setattr(command, "read_waiver_list", reader("waiver", list))
     monkeypatch.setattr(command, "read_week_trends", reader("trends", dict))
     monkeypatch.setattr(command, "read_roles", lambda players, cfg, today: {})
     options = options or [option("Phi One", "PHI", 0.3)]
-    monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None: options)
+    monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None:
+                        options(fas, recent) if callable(options) else options)
     monkeypatch.setattr(command, "projection_scale", lambda cfg: None)
     monkeypatch.setattr(command, "empty_slot_value", lambda cfg, scale=None: -10.0)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))

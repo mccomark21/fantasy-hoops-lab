@@ -1,5 +1,10 @@
 from datetime import date
+from pathlib import Path
 
+from bs4 import BeautifulSoup
+
+from fantasyhoops.adds import plan as command
+from fantasyhoops.adds import readers
 from fantasyhoops.adds.plan import print_plan
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamWindow
 from fantasyhoops.adds.readers import Adds, Player
@@ -17,3 +22,35 @@ def test_each_window_option_shows_its_games_next_week(capsys):
     assert "next week 4 games" in next(line for line in lines if "First" in line)
     assert "next week 4 games" in next(line for line in lines if "Second" in line)
     assert any("Next week: the last players in the stream spots have 4 games" in line for line in lines)
+
+
+class Pages:
+    """A fake session.League that gives the HTML of one fixture for each page and counts the pages."""
+
+    def __init__(self, name):
+        self.html = (Path(__file__).parent / "fixtures" / name).read_text(encoding="utf-8")
+        self.pages = 0
+
+    def get(self, path):
+        self.pages += 1
+        return self.html
+
+
+def test_the_read_of_each_list_page_parses_the_page_one_time(monkeypatch):
+    parses = []
+
+    class CountedSoup(BeautifulSoup):
+        def __init__(self, *args, **kw):
+            parses.append(1)
+            super().__init__(*args, **kw)
+
+    monkeypatch.setattr(readers, "BeautifulSoup", CountedSoup)
+    reads = [(lambda y: command.read_team_free_agents(y, ["PHI", "BOS"]), "free_agents_phi.html"),
+             (lambda y: command.read_team_free_agents(y, ["PHI"], command.RECENT), "free_agents_phi_recent.html"),
+             (command.read_market_free_agents, "free_agents.html"),  # a "Next 25" link on each page: 6 pages
+             (lambda y: command.read_waiver_list(y, date(2026, 10, 21)), "waivers.html")]
+    for read, name in reads:
+        parses.clear()
+        yahoo = Pages(name)
+        assert read(yahoo)
+        assert yahoo.pages and len(parses) == yahoo.pages, name

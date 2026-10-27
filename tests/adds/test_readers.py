@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 from bs4 import BeautifulSoup
 
-from fantasyhoops.adds.readers import (Player, has_next_page, read_adds, read_free_agents, read_roster,
+from fantasyhoops.adds import readers
+from fantasyhoops.adds.readers import (Player, has_next_page, parse, read_adds, read_free_agents, read_roster,
                                        read_waiver_players, read_week)
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -167,6 +168,38 @@ def test_a_waiver_player_is_available_from_the_day_after_his_clear_day():
 def test_has_next_page():
     assert has_next_page(fixture("free_agents.html"))
     assert not has_next_page(fixture("free_agents_phi.html"))
+
+
+@pytest.mark.parametrize("name, totals, next_page", [
+    ("free_agents.html", True, True),
+    ("free_agents_phi.html", True, False),
+    ("free_agents_phi_recent.html", False, False),
+])
+def test_a_parsed_free_agent_page_gives_the_same_players_and_next_page_as_the_html(name, totals, next_page):
+    html = fixture(name)
+    parsed = parse(html)
+    assert read_free_agents(parsed, totals) == read_free_agents(html, totals)
+    assert read_free_agents(parsed, totals)
+    assert has_next_page(parsed) == has_next_page(html) == next_page
+
+
+def test_a_parsed_waiver_page_gives_the_same_players_and_next_page_as_the_html():
+    html, today = fixture("waivers.html"), date(2026, 10, 21)
+    parsed = parse(html)
+    assert read_waiver_players(parsed, today) == read_waiver_players(html, today)
+    assert read_waiver_players(parsed, today)
+    assert has_next_page(parsed) == has_next_page(html)
+
+
+def test_the_readers_of_a_parsed_page_do_not_parse_it_again(monkeypatch):
+    html = fixture("free_agents.html")
+    parsed = parse(html)
+    calls = []
+    monkeypatch.setattr(readers, "parse", lambda html: calls.append(html) or parse(html))
+    read_free_agents(parsed)
+    read_waiver_players(parsed, date(2026, 10, 21))
+    has_next_page(parsed)
+    assert calls == []
 
 
 def test_read_free_agents_with_no_table():

@@ -1,6 +1,8 @@
 """Readers for the Yahoo league pages: HTML in, data out. They do not open a browser (see adds/session.py).
 
 The selectors are in .scratch/yahoo/NOTES.md (local only) and in the fixtures in tests/adds/fixtures/.
+The readers of a player list page take the HTML or a page from parse(). Parse a page one time with parse(),
+then give it to read_free_agents() or read_waiver_players() and to has_next_page() (#93).
 """
 import re
 from dataclasses import dataclass, replace
@@ -106,8 +108,14 @@ class FreeAgent:
 STAT_COLUMNS = {"PTS": "pts", "REB": "reb", "AST": "ast", "3PTM": "threes", "BLK": "blk", "ST": "stl"}
 
 
-def _soup(html):
+def parse(html):
+    """The parsed page of the HTML. A reader can take this page in place of the HTML, so a page parses one time."""
     return BeautifulSoup(html, "html.parser")
+
+
+def _soup(html):
+    """The parsed page: html as it is if parse() gave it, else parse(html)."""
+    return html if isinstance(html, BeautifulSoup) else parse(html)
 
 
 def read_player(block, slot=""):
@@ -174,6 +182,7 @@ def read_free_agents(html, totals=True):
 
     The page shows TOTALS for the next 7 days. This function divides them by GP* to get a per-game line.
     totals: False for a page with per-game averages (stat1=S_AL14). The function then does not divide.
+    html: the HTML of the page or the page from parse().
     """
     # Players on waivers (W) are not free agents.
     return _read_list(html, totals, lambda cell, player: (cell == "FA", None))
@@ -201,7 +210,7 @@ def read_waiver_players(html, today, totals=True):
 
     The Roster Status cell shows the clear day, for example "W (Oct 22)" (seen on 2026-10-21).
     A W cell without a valid clear day: the plans cannot tell when he is free. The function prints a warning
-    and skips him. today: the day of the run, for the year of the clear day. totals: see read_free_agents().
+    and skips him. today: the day of the run, for the year of the clear day. totals and html: see read_free_agents().
     """
     def keep(cell, player):
         if not cell.startswith("W"):
@@ -242,5 +251,8 @@ def _read_list(html, totals, keep):
 
 
 def has_next_page(html):
-    """True if a page of a Yahoo player list has a "Next 25" link. The last page has no such link."""
+    """True if a page of a Yahoo player list has a "Next 25" link. The last page has no such link.
+
+    html: the HTML of the page or the page from parse().
+    """
     return any(a.get_text(strip=True) == "Next 25" for a in _soup(html).select("a"))
