@@ -14,10 +14,15 @@ One planning run:
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
    The order: the team lists in both views, each market page in both views, then the waiver list in both views.
    Each list page parses one time (readers.parse()), for the players and for the "Next 25" link (#93).
+   The recent view does not change during a day. Its team lists and market pages come from the same-day cache in
+   output/adds/cache/ if an earlier run of the day read them (adds/cache.py, #91). The waiver list and the
+   projected view always come from Yahoo. --no-cache: each page comes from Yahoo and replaces the cached page.
    recent_weight_limit() gives the largest possible blend weight w from data/schedule.csv. While it is below
    [adds] recent_skip_weight, the run skips the recent view (#90). The values then use the projection only, and the
    page and the terminal say so (recent_skip_line()).
-5. read_week_trends(): read Transaction Trends for each day of this week up to today.
+5. read_week_trends(): read Transaction Trends for each day of this week up to today. The page of a day before
+   today comes from the cache if a run read it before: yesterday's page until the end of today, an older page for
+   good. The page of today comes from Yahoo (#91).
    read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
    positions (adds/role_up.py). The mark changes no value.
 6. schedule_plan(): choose the team windows for the stream spots. matchup_plan(): the same search with the
@@ -33,6 +38,7 @@ One planning run:
 10. next_week_window(): find the open slots of your kept roster on the first days of next week
     ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
 11. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
+    The page and the terminal show how many pages came from the cache (PageCache.line()).
 12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
     The Yahoo reads step also times its sub-steps and counts their Yahoo pages (#89): browser start, league and
@@ -48,6 +54,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from fantasyhoops.adds import page, timing
+from fantasyhoops.adds.cache import PageCache
 from fantasyhoops.adds.blend import RECENT_DAYS, blended_options, recent_weight
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
@@ -166,7 +173,8 @@ def known_values(found, found_recent, values):
     return _playing_values(values(unique_free_agents(list(found)), list(found_recent)))
 
 
-def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), values=None, known=None):
+def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), values=None, known=None,
+                            recent_yahoo=None):
     """Read the full free-agent list, MARKET_PAGES pages at most, best Yahoo rank first. Give a MarketRead.
 
     recent: False if the run skips the recent view (#90). The run then reads only the projected view.
@@ -177,7 +185,9 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
     read before that page. With fewer than REPLACEMENT_RANK free agents with a value before the page, the guard does
     not stop the read. A player who is also on an earlier list is not new.
     known: known_values() of found. None: the function computes it.
+    recent_yahoo: the reader of the pages in the recent view, for example cache.PageCache.recent() (#91). None: yahoo.
     """
+    recent_yahoo = recent_yahoo or yahoo
     out, out_recent = [], []
     seen = {(f.player.name, f.player.team) for f in found}
     if not values:
@@ -189,7 +199,8 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
         parsed = parse(yahoo.get(free_agent_path(None, 25 * page, PROJECTED)))
         page_fas = read_free_agents(parsed, totals=True)
         if recent:
-            out_recent += read_free_agents(parse(yahoo.get(free_agent_path(None, 25 * page, RECENT))), totals=False)
+            html = recent_yahoo.get(free_agent_path(None, 25 * page, RECENT))
+            out_recent += read_free_agents(parse(html), totals=False)
         out += page_fas
         new = unique_free_agents([f for f in page_fas if (f.player.name, f.player.team) not in seen])
         seen |= {(f.player.name, f.player.team) for f in new}
@@ -524,9 +535,10 @@ def publish_page(path, rows, publish=True):
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
 
-def main(today=None, publish=True, timed=True):
+def main(today=None, publish=True, timed=True, cache=True):
     """One planning run (see the module docstring). timed False: no step times, no timings.csv and no Run time
-    table. The plans are the same."""
+    table. The plans are the same. cache False (--no-cache): the run reads each page from Yahoo and writes it over
+    the cached page (adds/cache.py)."""
     timings = timing.Timings(timed)
     step = timings.step
     cfg = load_config()
@@ -537,6 +549,8 @@ def main(today=None, publish=True, timed=True):
     plan, aggressive, empty, read, options, drops, warnings, rows, absences = None, None, None, [], [], [], [], [], []
     weights, match_empty, match_replacement = None, None, None
     games_next, recent, skip_line, market_text = None, [], None, None
+    pages = PageCache(today, use=cache)
+    pages.remove_old_days()
     with step("season values"):
         values = season_values(cfg)
     # The category scale of the values. The read is outside every step, as before #92, so the rows stay comparable.
@@ -572,15 +586,19 @@ def main(today=None, publish=True, timed=True):
             # The list order of unique_free_agents() stays: team lists, market, waivers (#92).
             with part("projected pass", yahoo):
                 team_fas = read_team_free_agents(yahoo, read)
+            # The recent view does not change during a day, so its team lists and market pages use the cache (#91).
+            # The FA status and the injury flags come only from the projected view of this run (blend.py).
+            recent_pages = pages.recent(yahoo)
             with part("recent pass", yahoo):
-                team_recent = [] if skip else read_team_free_agents(yahoo, read, RECENT)
+                team_recent = [] if skip else read_team_free_agents(recent_pages, read, RECENT)
             # The values of the team lists are outside the sub-steps, so the rows stay comparable with #89.
             # Only the guard's values of the new players of each page are in the "market pages" row.
             def guard_values(fas, rec):
                 return value_options(fas, cfg, rec, scale=scale)
-            known =known_values(team_fas, team_recent, guard_values)
+            known = known_values(team_fas, team_recent, guard_values)
             with part("market pages", yahoo):
-                market = read_market_free_agents(yahoo, not skip, team_fas, team_recent, guard_values, known)
+                market = read_market_free_agents(yahoo, not skip, team_fas, team_recent, guard_values, known,
+                                                 recent_pages)
             market_text = market_line(market)
             with part("waiver list", yahoo):
                 waivers = read_waiver_list(yahoo, today)
@@ -589,7 +607,8 @@ def main(today=None, publish=True, timed=True):
             if not skip:
                 recent = unique_free_agents(team_recent + market.recent + waivers_recent)
             with part("trends", yahoo):
-                trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
+                trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week),
+                                          lambda day: pages.trends(yahoo, day))
     if read:
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
@@ -618,7 +637,8 @@ def main(today=None, publish=True, timed=True):
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
-    for line in (market_text, skip_line):
+    cache_text = pages.line()
+    for line in (market_text, skip_line, cache_text):
         if line:
             print()
             print(line)
@@ -652,7 +672,7 @@ def main(today=None, publish=True, timed=True):
                                           for c in contingencies],
                            roles=roles, minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"),
                            next_days=early_days, next_games=early_games, timings=timings.steps,
-                           recent_skip=skip_line, market=market_text)
+                           recent_skip=skip_line, market=market_text, cache=cache_text)
         publish_page(page.write(text), rows, publish)
     if timed:
         print(f"Wrote the step times: {timing.TIMINGS}")
@@ -662,4 +682,7 @@ if __name__ == "__main__":
     use_utf8_output()
     parser = argparse.ArgumentParser(description="Plan the adds of the current fantasy week.")
     parser.add_argument("--no-publish", action="store_true", help="Write the plan page, but do not publish it.")
-    main(publish=not parser.parse_args().no_publish)
+    parser.add_argument("--no-cache", action="store_true",
+                        help="Read each page from Yahoo, and write it over the cached page.")
+    args = parser.parse_args()
+    main(publish=not args.no_publish, cache=not args.no_cache)
