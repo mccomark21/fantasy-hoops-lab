@@ -638,7 +638,7 @@ def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path, sett
 
 
 def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
-                league=None, timed=True, pages=None, yahoo=None, settings=None, free_agents=None):
+                league=None, timed=True, pages=None, yahoo=None, settings=None, free_agents=None, market=None):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
     The page and timings.csv go in tmp_path. timed: the timed argument of plan.main().
@@ -653,6 +653,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     settings: more [adds] settings, for example {"recent_skip_weight": 0.3}.
     free_agents: {view: FreeAgents} that the fake team reader gives. The run then values them with the real
     value_options() and a scale of pts only, and the market and waiver readers give no free agents.
+    market: the MarketRead that the fake market reader gives. None: no market free agents.
     """
     lists = yahoo is None
     yahoo = yahoo or FakeLeague()
@@ -690,7 +691,7 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
     if lists:
         monkeypatch.setattr(command, "read_team_free_agents", reader("team", free_agents or list))
-        monkeypatch.setattr(command, "read_market_free_agents", market_reader(pages))
+        monkeypatch.setattr(command, "read_market_free_agents", market_reader(pages, market))
         monkeypatch.setattr(command, "read_waiver_list", reader("waiver", list))
     monkeypatch.setattr(command, "read_week_trends", reader("trends", dict))
     monkeypatch.setattr(command, "read_roles", lambda players, cfg, today: {})
@@ -709,10 +710,11 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     return yahoo
 
 
-def market_reader(pages):
-    """A fake read_market_free_agents() with no free agents. It opens the market pages of pages (see run_command()).
+def market_reader(pages, result=None):
+    """A fake read_market_free_agents(). It opens the market pages of pages (see run_command()).
 
     Page by page, it opens the projected page, then the recent page if the run reads the recent view.
+    result: the MarketRead that it gives. None: a MarketRead with no free agents.
     """
     def read(league, recent=True, *args, **kw):
         projected, recent_pages = pages.get(("market", command.PROJECTED), 0), pages.get(("market", command.RECENT), 0)
@@ -721,7 +723,7 @@ def market_reader(pages):
                 league.get(f"market {command.PROJECTED}")
             if recent and n < recent_pages:
                 league.get(f"market {command.RECENT}")
-        return command.MarketRead([], [], max(projected, 1), "end")
+        return result or command.MarketRead([], [], max(projected, 1), "end")
     return read
 
 
@@ -814,6 +816,16 @@ def test_the_page_and_the_terminal_show_the_market_read(monkeypatch, tmp_path, c
     section = html.split("<h2>Free agents</h2>")[1]
     assert line in text(section.split('id="fa-table"')[0])  # above the free-agent table
     assert line in capsys.readouterr().out
+
+
+def test_the_market_free_agents_of_each_view_reach_the_free_agent_lists(monkeypatch, tmp_path):
+    projected = FreeAgent(Player("Market One", "PHI", ("SF",)), 3, {"pts": 14.0})
+    recent = FreeAgent(Player("Market One", "PHI", ("SF",)), 5, {"pts": 22.0})
+    inputs = []
+    run_command(monkeypatch, tmp_path, [], publish=False, market=command.MarketRead([projected], [recent], 1, "end"),
+                options=lambda fas, rec: (inputs.append((list(fas), list(rec))), options_of(fas, rec))[1])
+    # The last call of value_options() gives the options of the plans: the free agents of each view.
+    assert inputs[-1] == ([projected], [recent])
 
 
 def test_the_page_shows_why_the_market_read_stopped():

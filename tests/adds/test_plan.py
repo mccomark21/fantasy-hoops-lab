@@ -194,6 +194,10 @@ def test_the_guard_uses_the_blended_value_and_the_projected_value_without_the_re
     with_recent = command.read_market_free_agents(SyntheticPages(monkeypatch, lists), True, found, found_recent,
                                                   blended)
     assert (with_recent.pages, with_recent.stop) == (2, "guard")  # Hot is above the bar by his blended value
+    # The run gives the values of the team lists to the market read (known), as main() does. The result is the same.
+    known = command.known_values(found, found_recent, blended)
+    assert command.read_market_free_agents(SyntheticPages(monkeypatch, lists), True, found, found_recent, blended,
+                                           known) == with_recent
     # While the run skips the recent view (#90), the blended value is the projected value: Hot (0.4) is below 2.0.
     skipped = command.read_market_free_agents(SyntheticPages(monkeypatch, lists), False, found, [], blended)
     assert (skipped.pages, skipped.stop, skipped.recent) == (1, "guard", [])

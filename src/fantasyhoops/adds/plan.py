@@ -157,7 +157,16 @@ def _playing_values(options):
     return [o.value for o in options if o.value is not None and not o.player.out]
 
 
-def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), values=None):
+def known_values(found, found_recent, values):
+    """The values of the free agents of found (each player one time) who play and have a value.
+
+    found, found_recent, values: see read_market_free_agents(). The run computes them before the market read, so the
+    "market pages" sub-step does not time this work (#92).
+    """
+    return _playing_values(values(unique_free_agents(list(found)), list(found_recent)))
+
+
+def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), values=None, known=None):
     """Read the full free-agent list, MARKET_PAGES pages at most, best Yahoo rank first. Give a MarketRead.
 
     recent: False if the run skips the recent view (#90). The run then reads only the projected view.
@@ -167,10 +176,15 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
     The guard (#92): the run stops after a page with no new player above the replacement value of the free agents
     read before that page. With fewer than REPLACEMENT_RANK free agents with a value before the page, the guard does
     not stop the read. A player who is also on an earlier list is not new.
+    known: known_values() of found. None: the function computes it.
     """
     out, out_recent = [], []
     seen = {(f.player.name, f.player.team) for f in found}
-    known = _playing_values(values(unique_free_agents(list(found)), list(found_recent))) if values else []
+    if not values:
+        known = []
+    elif known is None:
+        known = known_values(found, found_recent, values)
+    known = list(known)
     for page in range(MARKET_PAGES):
         parsed = parse(yahoo.get(free_agent_path(None, 25 * page, PROJECTED)))
         page_fas = read_free_agents(parsed, totals=True)
@@ -525,6 +539,8 @@ def main(today=None, publish=True, timed=True):
     games_next, recent, skip_line, market_text = None, [], None, None
     with step("season values"):
         values = season_values(cfg)
+    # The category scale of the values. The read is outside every step, as before #92, so the rows stay comparable.
+    scale = projection_scale(cfg)
     wait = cfg["adds"].get("page_wait", WAIT_SECONDS)
     part = timings.part
     with step("Yahoo reads"), ExitStack() as browser:
@@ -558,10 +574,13 @@ def main(today=None, publish=True, timed=True):
                 team_fas = read_team_free_agents(yahoo, read)
             with part("recent pass", yahoo):
                 team_recent = [] if skip else read_team_free_agents(yahoo, read, RECENT)
-            scale = projection_scale(cfg)
+            # The values of the team lists are outside the sub-steps, so the rows stay comparable with #89.
+            # Only the guard's values of the new players of each page are in the "market pages" row.
+            def guard_values(fas, rec):
+                return value_options(fas, cfg, rec, scale=scale)
+            known =known_values(team_fas, team_recent, guard_values)
             with part("market pages", yahoo):
-                market = read_market_free_agents(yahoo, not skip, team_fas, team_recent,
-                                                 lambda fas, rec: value_options(fas, cfg, rec, scale=scale))
+                market = read_market_free_agents(yahoo, not skip, team_fas, team_recent, guard_values, known)
             market_text = market_line(market)
             with part("waiver list", yahoo):
                 waivers = read_waiver_list(yahoo, today)
