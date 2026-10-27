@@ -49,6 +49,12 @@ To write the page with no publish, add `--no-publish`:
 python -m fantasyhoops.adds.plan --no-publish
 ```
 
+A second run on the same day takes some pages from the same-day cache in `output/adds/cache/` (see [Data](#data)). To read each page from Yahoo, add `--no-cache`. The run then writes each page over the cached page:
+
+```
+python -m fantasyhoops.adds.plan --no-cache
+```
+
 You can run the planner on any day. Run it before the week starts for the full plans. Run it again during the week after an injury or a new free agent. Each run plans only the days that are left, with the adds that are left.
 
 On the last day of a fantasy week, the planner plans the next week. The planning window is the whole next week, and all the adds of the weekly limit are left (5).
@@ -429,6 +435,28 @@ Only players with status FA are free agents. Players on waivers (W) are not. The
 Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. On each page, the planner waits for the element that its reader needs, for example the player table. It does not wait for all network requests to stop, because Yahoo pages keep loading ads (#74). On a matchup page, the planner also waits up to 0.5 s for the score table. Some matchup pages have no score table, so this wait is short. Before #93, the wait was 2 s. See [ADR 1](../adr/0001-playwright-for-league-data.md).
 
 Yahoo and ESPN use different team codes, for example SAS and SA. The planner maps the Yahoo codes to the ESPN codes of the schedule.
+
+### Page cache
+
+Some Yahoo pages do not change during a day. The run keeps them in `output/adds/cache/` (`adds/cache.py`, #91). The key of a page is its page path. A later run takes a page from the cache, and it does not open that page in Edge.
+
+| Page | Kept |
+|---|---|
+| The team-filtered lists and the market pages in the recent view (`S_AL14`) | Until the end of the day of the read |
+| Transaction Trends of a day before today | For good |
+
+The run never takes these pages from the cache:
+
+- The team page and the matchup pages.
+- The waiver list, in both views.
+- All lists in the projected view. They give the FA status and the injury flags of each player.
+- Transaction Trends of today.
+
+The FA status and the injury flags of each option come only from the projected view of the run. A player who became a free agent after the cached read has no recent line until the next day. His blended line is then his projected line.
+
+At the start of each run, the run deletes the entries of the recent view of earlier days. The Transaction Trends entries stay.
+
+When a page comes from the cache, the page and the terminal say so above the free-agent table, for example "The recent view: 14 pages from the cache of 2026-10-26 09:14." The time is the earliest read time of the cached recent pages. The page count of the Run time table counts only the pages from Yahoo. While the run skips the recent view (#90), only the Transaction Trends pages of earlier days come from the cache.
 
 ## Configuration
 

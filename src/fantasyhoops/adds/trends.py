@@ -72,6 +72,11 @@ def week_trends(pages):
     return out
 
 
-def read_week_trends(yahoo, days):
-    """{player name: Trend} from Yahoo: one page of Transaction Trends for each day, today (the last day) first."""
-    return week_trends([yahoo.get(trends_path(d)) for d in sorted(days, reverse=True)])
+def read_week_trends(yahoo, days, old=None):
+    """{player name: Trend} from Yahoo: one page of Transaction Trends for each day, today (the last day) first.
+
+    old: the reader of the pages of the days before today, for example cache.PageCache.kept() (#91). None: yahoo.
+    The page of today always comes from yahoo, because it changes during the day.
+    """
+    days = sorted(days, reverse=True)
+    return week_trends([(yahoo if n == 0 or old is None else old).get(trends_path(d)) for n, d in enumerate(days)])

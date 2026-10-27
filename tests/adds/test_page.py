@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from fantasyhoops.adds import cache as page_cache
 from fantasyhoops.adds import page, timing
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.matchup import Matchup, matchup_weights, read_matchup
@@ -638,10 +639,13 @@ def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path, sett
 
 
 def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
-                league=None, timed=True, pages=None, yahoo=None, settings=None, free_agents=None, market=None):
+                league=None, timed=True, pages=None, yahoo=None, settings=None, free_agents=None, market=None,
+                today=None, cache=False):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
-    The page and timings.csv go in tmp_path. timed: the timed argument of plan.main().
+    The page, timings.csv and the page cache (cache/) go in tmp_path. timed: the timed argument of plan.main().
+    today: the date of the run (default: WEEK[0]). cache: the cache argument of plan.main(). The default is False,
+    because the fake readers open the same path for each page, and a cache would give the second page.
     pages: the pages that each fake reader opens, by "league", "trends" or (reader, view). The readers are "team",
     "market" and "waiver". None: no reader opens a page.
 
@@ -705,8 +709,9 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(page, "PAGE", tmp_path / "adds_plan.html")
     monkeypatch.setattr(timing, "TIMINGS", tmp_path / "timings.csv")
+    monkeypatch.setattr(page_cache, "CACHE", tmp_path / "cache")
     monkeypatch.setattr(command.site, "publish", lambda *args: published.append(args))
-    command.main(today=WEEK[0], publish=publish, timed=timed)
+    command.main(today=today or WEEK[0], publish=publish, timed=timed, cache=cache)
     return yahoo
 
 
@@ -858,3 +863,89 @@ def test_a_run_with_the_recent_view_has_no_skip_line(monkeypatch, tmp_path, caps
     assert "skipped the recent view" not in text(html)
     assert 'class="skip"' not in html
     assert "skipped the recent view" not in capsys.readouterr().out
+
+
+# The same-day cache of Yahoo pages (#91). BOTH: the run reads both views (no skip).
+BOTH = {"recent_skip_weight": 0.0}
+# The recent view of PHI with the Q players marked O.
+PHI_RECENT_OUT = (Path(__file__).parent / "fixtures" / "free_agents_phi_recent.html").read_text(
+    encoding="utf-8").replace('title="Questionable">Q<', 'title="Out">O<')
+
+
+class ViewPages(FakeLeague):
+    """A fake League: the recent view gives recent_html, all other pages PHI_PAGE. No page has a next page."""
+
+    def __init__(self, recent_html=PHI_PAGE):
+        super().__init__(PHI_PAGE)
+        self.recent_html = recent_html
+
+    def get(self, path):
+        html = super().get(path)
+        return self.recent_html if command.RECENT in path else html
+
+
+def _recent_lists(paths):
+    """The paths of the team-filtered lists and the market pages in the recent view (not the waiver list)."""
+    return [p for p in paths if f"stat1={command.RECENT}" in p and "status=W" not in p]
+
+
+def test_a_second_run_on_the_same_day_reads_the_recent_view_from_the_cache(monkeypatch, tmp_path, capsys):
+    first = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True)
+    assert len(_recent_lists(first.paths)) == 3  # PHI, BOS and the market page
+    assert "from the cache" not in capsys.readouterr().out
+    assert 'id="cache-read"' not in (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    second = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True)
+    assert _recent_lists(second.paths) == []
+    # The run never takes the league pages, the projected view or the waiver list from the cache.
+    assert second.paths == [p for p in first.paths if p not in _recent_lists(first.paths)]
+    assert [p for p in second.paths if "status=W" in p and command.RECENT in p]
+    _, rows = timing_rows(tmp_path)
+    recent = [r["pages"] for r in rows if r["step"] == "Yahoo reads: recent pass"]
+    assert recent == ["2", "0"]  # the page count counts only the pages from Yahoo
+    line = re.search(r"The recent view: 3 pages from the cache of \d{4}-\d\d-\d\d \d\d:\d\d\.",
+                     capsys.readouterr().out)
+    assert line
+    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    assert f'<p class="legend" id="cache-read">{line.group(0)}</p>' in html
+
+
+def test_a_run_on_the_next_day_reads_the_recent_view_from_yahoo(monkeypatch, tmp_path):
+    run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True)
+    tuesday = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True,
+                          today=WEEK[1])
+    projected = [p for p in tuesday.paths if f"stat1={command.PROJECTED}" in p and "status=W" not in p]
+    assert projected and _recent_lists(tuesday.paths) == [p.replace(command.PROJECTED, command.RECENT)
+                                                          for p in projected]
+    assert [d.name for d in (tmp_path / "cache" / "day").iterdir()] == [f"{WEEK[1]:%Y-%m-%d}"]
+
+
+def test_no_cache_reads_each_page_from_yahoo(monkeypatch, tmp_path, capsys):
+    first = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True)
+    bypass = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=False)
+    assert bypass.paths == first.paths
+    assert "from the cache" not in capsys.readouterr().out
+
+
+def test_the_status_comes_from_the_projected_view_of_this_run(monkeypatch, tmp_path):
+    import pandas as pd
+
+    from fantasyhoops.adds.blend import blended_options
+    scale, cfg = pd.DataFrame({"pts": [10.0, 5.0]}, index=["mean", "std"]), {"weights": {"pts": 1.0}}
+    recents, renders = [], []
+
+    def options(fas, recent):
+        recents.append(recent)
+        return blended_options(fas, recent, scale, cfg)
+
+    real_render = page.render
+    monkeypatch.setattr(page, "render", lambda *a, **kw: (renders.append(a), real_render(*a, **kw))[1])
+    # The first run caches a recent view in which the Q players are O.
+    run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(PHI_RECENT_OUT),
+                cache=True, options=options)
+    second = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True,
+                         options=options)
+    assert _recent_lists(second.paths) == []
+    cached = {f.player.status for f in recents[-1]}
+    assert "O" in cached and "Q" not in cached  # the recent view came from the cache
+    statuses = {o.player.status for o in renders[-1][5]}
+    assert "Q" in statuses and "O" not in statuses
