@@ -176,6 +176,20 @@ The page shows the market value: the blended value above a replacement free agen
 
 The planner itself uses the values on the scale of the projections. A market value is the same value minus one number, so it does not change the order of the players or of the plans.
 
+### Market read
+
+The market pages are the pages of the full free-agent list, best Yahoo rank first. They give the free agents of the teams that the run does not read. They also set the replacement value. The run reads 3 market pages at most (`MARKET_PAGES`, #92). Before #92, the limit was 6 pages.
+
+1. The run reads the team-filtered lists in both views first.
+2. Then it reads the market pages one at a time. It reads each page in both views before the guard checks it.
+3. The guard stops the read after a page with no new player above the replacement value of the free agents read before that page. A player who is also on a team-filtered list or on an earlier market page is not new.
+4. The guard uses the blended value. While the run skips the recent view, the blended value is the projected value.
+5. With fewer than 15 free agents with a value before a page, the guard does not stop the read. The guard counts the same players as the replacement value: the players who play and have a value.
+
+The page shows a line above the free-agent table: the market pages that the run read and why the read stopped. For example, "Market: 2 of 3 pages. Page 2 had no new player above the replacement value ..." or "Market: 3 of 3 pages (the limit)." The terminal prints the same line.
+
+The [Yahoo reads study](../wiki/yahoo-reads-study.md) of 2026-10-26 found the 15 best market values on market page 3 or earlier. That is the evidence of one run on one day. The run never reads a market page after page 3, also when the guard does not stop the read.
+
 The stat lines come from Yahoo. The season projections file of the draft tools gives only the category scale: the mean and the standard deviation of each category in the player pool. So the values are on the same scale as the per-game value on the draft board. A streamer usually has a value below 0, because the pool holds the drafted players.
 
 ### Matchup weights
@@ -217,7 +231,7 @@ The rows can all use the same spot. Usually that is the spot whose player loses 
 
 ### Free-agent table
 
-The table shows the free agents that the run read: the free agents of the teams that the schedule plan reads, and the first 6 pages (150 players) of the full free-agent list. It shows the 10 best players for the filters.
+The table shows the free agents that the run read: the free agents of the teams that the schedule plan reads, and the first 3 pages (75 players) at most of the full free-agent list (see [Market read](#market-read)). It shows the 10 best players for the filters.
 
 - Days: select one day or more. The table shows the players who play on all the selected days. Each day shows your open slots and the NBA games of that day.
 - Positions: select one position or more. The table shows the players with one of the selected positions.
@@ -296,12 +310,12 @@ Decision (2026-10-26, #89): the Yahoo reads step also times its sub-steps and co
 | browser start | The start of Edge with the saved profile (`open_league()`). It opens no Yahoo page. |
 | league and matchup pages | `read_league()`: your team page and 1 or 2 matchup pages |
 | projected pass | `read_team_free_agents()` in the projected view: the free-agent lists of the read teams |
-| market pages | `read_market_free_agents()` in both views |
-| waiver list | `read_waiver_list()` in both views |
 | recent pass | `read_team_free_agents()` in the recent view |
+| market pages | `read_market_free_agents()` in both views, page by page (see [Market read](#market-read)) |
+| waiver list | `read_waiver_list()` in both views |
 | trends | `read_week_trends()`: Transaction Trends |
 
-The run reads the market pages and the waiver list once in each view. Each view has a timed block, and the sub-step adds the seconds and the pages of its two blocks. The timers do not change the order of the reads. The sub-steps do not time the work between the reads or the close of Edge. So the seconds of the sub-steps add to less than the seconds of the Yahoo reads.
+Since #92, the run reads the team lists in both views before the market pages, because the guard of the market read needs their blended values. The market pages and the waiver list rows each hold the pages of both views. The timers do not change the order of the reads. The sub-steps do not time the work between the reads or the close of Edge. So the seconds of the sub-steps add to less than the seconds of the Yahoo reads.
 
 A page is one call of `League.get()` (`adds/session.py`). A sign-in opens the same page again, but the page counts one time. The pages of the Yahoo reads are the sum of the pages of its sub-steps. A sub-step that does not run has no row. For example, with no adds left, the run reads no free agent, so only the browser start and the league and matchup pages have rows.
 
@@ -396,8 +410,8 @@ Limits:
 |---|---|
 | Your roster, the statuses, the adds that you used | Your team page (`/nba/<league>/<team>`) |
 | The dates of the fantasy week, the category totals of the matchup | The matchup page of the current week (`/nba/<league>/matchup?mid1=<team>`) |
-| Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`): the first 6 pages of the full list, and all pages of the list filtered by NBA team |
-| Waiver players and their clear days | The waiver list (`/players?status=W`): the first 6 pages of the full list. The Roster Status cell shows the clear day, for example "W (Oct 22)". |
+| Free agents: positions, status, projected and recent stats | The free-agent list (`/players?status=FA`): the first 3 pages at most of the full list (see [Market read](#market-read)), and all pages of the list filtered by NBA team |
+| Waiver players and their clear days | The waiver list (`/players?status=W`): the first 6 pages of the full list (`WAIVER_PAGES`). The Roster Status cell shows the clear day, for example "W (Oct 22)". |
 | Trend: adds and drops across Yahoo | Transaction Trends (`/nba/<league>/buzzindex?date=<day>&bimtab=A&sort=BI_A`), one page for each day of this week up to today |
 | NBA schedule and game times | `data/schedule.csv` (`fetch/espn.py`) |
 | Minutes, starts and closes (the role line) | The rotation log: `data/rotation_log.csv` and `data/rotation_scores.csv` (`fetch/rotation.py`). The planning run does not update the log. Run `python -m fantasyhoops.fetch.rotation` first. |
