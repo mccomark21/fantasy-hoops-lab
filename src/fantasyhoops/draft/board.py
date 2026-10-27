@@ -8,6 +8,7 @@ The stat columns are the categories in [weights]. Positions are the Yahoo positi
 The HTML page also has the team builder (#8): the team bar, the + and Fit columns and the My team tab.
 With the category benchmark (#39) it also has the category panel above the team table and the Need column.
 """
+
 import copy
 import json
 from datetime import date
@@ -49,7 +50,9 @@ def load(cfg):
     df["s_flag"] = [grade(g, f["good_playoff_games"], f["poor_playoff_games"]) for g in df.playoff_games]
     df["q_flag"] = [grade(q, f["good_quality_games"], f["poor_quality_games"]) for q in df.quality_games]
     rests = df.get("rests_b2b", pd.Series(0, index=df.index)).fillna(0).astype(bool)
-    df["s_note"] = df.playoff_games.astype(str) + " playoff games" + rests.map({True: " (rests on back-to-backs)", False: ""})
+    df["s_note"] = (
+        df.playoff_games.astype(str) + " playoff games" + rests.map({True: " (rests on back-to-backs)", False: ""})
+    )
     df["q_note"] = df.quality_games.astype(str) + " quality games"
     df["x_note"] = df.short_weeks
     return df
@@ -63,11 +66,18 @@ def legend(cfg):
         avg = f"{poor + 1}" if good - poor == 2 else f"{poor + 1}–{good - 1}"
         return f"{name}. Green: {good}+. Gray: {avg}. Yellow: {poor} or fewer."
 
-    lg = [("S", "good", rule("playoff games", f["good_playoff_games"], f["poor_playoff_games"])),
-          ("Q", "good", rule("quality games", f["good_quality_games"], f["poor_quality_games"]))]
+    lg = [
+        ("S", "good", rule("playoff games", f["good_playoff_games"], f["poor_playoff_games"])),
+        ("Q", "good", rule("quality games", f["good_quality_games"], f["poor_quality_games"])),
+    ]
     if f["avoid_week_games"]:
-        lg.append(("X", "bad", f"a playoff week with {f['avoid_week_games']} games or fewer. "
-                               "The X replaces the S and Q flags."))
+        lg.append(
+            (
+                "X",
+                "bad",
+                f"a playoff week with {f['avoid_week_games']} games or fewer. The X replaces the S and Q flags.",
+            )
+        )
     return lg
 
 
@@ -78,8 +88,10 @@ def short_legend(cfg):
     def rule(name, good, poor):
         return f"{name}: green {good}+, yellow ≤{poor}"
 
-    lg = [("S", "good", rule("Games", f["good_playoff_games"], f["poor_playoff_games"])),
-          ("Q", "good", rule("Quality", f["good_quality_games"], f["poor_quality_games"]))]
+    lg = [
+        ("S", "good", rule("Games", f["good_playoff_games"], f["poor_playoff_games"])),
+        ("Q", "good", rule("Quality", f["good_quality_games"], f["poor_quality_games"])),
+    ]
     if f["avoid_week_games"]:
         lg.append(("X", "bad", f"A week of ≤{f['avoid_week_games']} games"))
     return lg
@@ -106,8 +118,10 @@ def write_markdown(df, cfg):
     head = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
 
     lines = [
-        f"# {TITLE}", "",
-        f"All {len(df)} players in the projections, sorted by custom rank. Made {date.today():%Y-%m-%d} by `fantasyhoops.draft.board`.", "",
+        f"# {TITLE}",
+        "",
+        f"All {len(df)} players in the projections, sorted by custom rank. Made {date.today():%Y-%m-%d} by `fantasyhoops.draft.board`.",
+        "",
         *[f"- {letter} = {text}" for letter, _, text in legend(cfg)],
         f"- **Stats:** {' / '.join(label for _, label in categories(cfg))} for each game.",
         f"- **Playoffs** and **Quality:** the playoff games and the quality games for each week ({', '.join(weeks(cfg))}). The last week is the finals.",
@@ -169,8 +183,12 @@ def html_columns(cfg, need=False):
     q_scale = f["good_quality_games"] - f["poor_quality_games"]
 
     def stat(cat):
-        return lambda r: td(f"{getattr(r, cat):.1f}", v=f"{getattr(r, 'z_' + cat):.3f}",
-                            style=shade(getattr(r, "z_" + cat), 2.5), title=f"z = {getattr(r, 'z_' + cat):+.2f}")
+        return lambda r: td(
+            f"{getattr(r, cat):.1f}",
+            v=f"{getattr(r, 'z_' + cat):.3f}",
+            style=shade(getattr(r, "z_" + cat), 2.5),
+            title=f"z = {getattr(r, 'z_' + cat):+.2f}",
+        )
 
     return [
         ("+", False, False, add_cell),
@@ -187,17 +205,50 @@ def html_columns(cfg, need=False):
         ("Pos", False, True, lambda r: td(r.pos)),
         ("Value", True, False, lambda r: td(f"{r.value:.2f}")),
         ("$", True, False, lambda r: td(f"${r.dollars:.0f}", v=f"{r.dollars:.2f}")),
-        ("League $", True, False, lambda r: td("—", v="-999") if pd.isna(r.league_price)
-         else td(f"${r.league_price:.0f}", v=f"{r.league_price:.2f}")),
-        ("Diff", True, False, lambda r: td("—", v="-999") if pd.isna(r.surplus)
-         else td(f"{r.surplus:+.0f}", v=f"{r.surplus:.2f}", style=shade(r.surplus, 15))),
+        (
+            "League $",
+            True,
+            False,
+            lambda r: (
+                td("—", v="-999")
+                if pd.isna(r.league_price)
+                else td(f"${r.league_price:.0f}", v=f"{r.league_price:.2f}")
+            ),
+        ),
+        (
+            "Diff",
+            True,
+            False,
+            lambda r: (
+                td("—", v="-999")
+                if pd.isna(r.surplus)
+                else td(f"{r.surplus:+.0f}", v=f"{r.surplus:.2f}", style=shade(r.surplus, 15))
+            ),
+        ),
         ("Sched", True, False, lambda r: td(f"{r.sched_score:.2f}", style=shade(r.sched_score - 1, 0.2))),
-        ("Playoffs", True, False, lambda r: td(r.games_wk, v=f"{r.week_score:.3f}",
-                                                    style=shade(r.week_score - 1.2, 0.2), title=f"{r.playoff_games} games")),
+        (
+            "Playoffs",
+            True,
+            False,
+            lambda r: td(
+                r.games_wk,
+                v=f"{r.week_score:.3f}",
+                style=shade(r.week_score - 1.2, 0.2),
+                title=f"{r.playoff_games} games",
+            ),
+        ),
         # Finals quality games break ties
-        ("Quality", True, False, lambda r: td(r.quality_wk, v=f"{r.quality_games + 0.01 * r.finals_quality:.2f}",
-                                                    style=shade(r.quality_games - q_mid, q_scale),
-                                                    title=f"{r.quality_games} quality games")),
+        (
+            "Quality",
+            True,
+            False,
+            lambda r: td(
+                r.quality_wk,
+                v=f"{r.quality_games + 0.01 * r.finals_quality:.2f}",
+                style=shade(r.quality_games - q_mid, q_scale),
+                title=f"{r.quality_games} quality games",
+            ),
+        ),
         ("Games", True, False, lambda r: td(r.games, style=shade(r.games - t["low_games"], 15))),
         *[(label, True, False, stat(cat)) for cat, label in categories(cfg)],
     ]
@@ -209,8 +260,11 @@ def add_cell(r):
     The page turns off + for a player on your team, and X for a player on your team.
     """
     i, name = int(r.player_id), escape(r.name)
-    return td(f'<button type="button" class="add" data-id="{i}" aria-label="Add {name} to my team">+</button>'
-              f'<button type="button" class="take" data-id="{i}" aria-label="Mark {name} taken">×</button>', cls="add")
+    return td(
+        f'<button type="button" class="add" data-id="{i}" aria-label="Add {name} to my team">+</button>'
+        f'<button type="button" class="take" data-id="{i}" aria-label="Mark {name} taken">×</button>',
+        cls="add",
+    )
 
 
 def row_open(r):
@@ -231,9 +285,12 @@ def html_table(df, cfg, need=False):
     sticky = {"Player": ' class="name"'}
     ths = "".join(f'<th data-num="{int(num)}"{sticky.get(h, "")}>{h}</th>' for h, num, _, _ in cols)
     rows = [row_open(r) + "".join(fn(r) for *_, fn in cols) + "</tr>" for r in df.itertuples()]
-    return (f"<style>{style}</style>\n"
-            f'<div class="wrap"><table>\n<thead><tr>{ths}</tr></thead>\n<tbody>\n'
-            + "\n".join(rows) + "\n</tbody>\n</table></div>")
+    return (
+        f"<style>{style}</style>\n"
+        f'<div class="wrap"><table>\n<thead><tr>{ths}</tr></thead>\n<tbody>\n'
+        + "\n".join(rows)
+        + "\n</tbody>\n</table></div>"
+    )
 
 
 def dropdown(key, label, items):
@@ -242,10 +299,14 @@ def dropdown(key, label, items):
     key: the filter name that the page reads (data-dd). items: (value, label html, title) for each check box.
     All boxes on = no filter. The page shows only the rows that match the boxes that are on.
     """
-    boxes = "".join(f'<label title="{escape(t)}"><input type="checkbox" value="{escape(v)}" checked> {h}</label>'
-                    for v, h, t in items)
-    return (f'<details class="dd" data-dd="{key}"><summary>{label}</summary><div class="dd-panel">'
-            f'<label class="all"><input type="checkbox" data-all checked> Select all</label>{boxes}</div></details>')
+    boxes = "".join(
+        f'<label title="{escape(t)}"><input type="checkbox" value="{escape(v)}" checked> {h}</label>'
+        for v, h, t in items
+    )
+    return (
+        f'<details class="dd" data-dd="{key}"><summary>{label}</summary><div class="dd-panel">'
+        f'<label class="all"><input type="checkbox" data-all checked> Select all</label>{boxes}</div></details>'
+    )
 
 
 def filter_bar(df):
@@ -255,16 +316,24 @@ def filter_bar(df):
     pos = dropdown("pos", "Position", [(p, p, p) for p in ("PG", "SG", "SF", "PF", "C")])
     flags = "".join(
         dropdown(f, names[f], [(g, f"{flag_html(f.upper(), g)} {c}", f"{names[f]}: {c}") for g, c in colors.items()])
-        for f in names)
-    fit = dropdown("fit", "Fit", [
-        ("good", '<span class="fit-key g-good">≥90%</span>', "Fit: 90% or more of his games add to your starts"),
-        ("warn", '<span class="fit-key g-warn">70–89%</span>', "Fit: 70% to 89%"),
-        ("bad", '<span class="fit-key g-bad">&lt;70%</span>', "Fit: less than 70%")])
-    return (f'<div class="filters"><input id="search" type="search" placeholder="Search players" aria-label="Search players">'
-            f'{pos}{fit}{flags}'
-            '<span id="combo" hidden><span></span><button type="button" aria-label="Clear the combo">Clear</button></span>'
-            '<button type="button" id="show-taken" aria-pressed="false" title="Show the players that you marked taken">'
-            'Show taken</button><span id="count"></span></div>')
+        for f in names
+    )
+    fit = dropdown(
+        "fit",
+        "Fit",
+        [
+            ("good", '<span class="fit-key g-good">≥90%</span>', "Fit: 90% or more of his games add to your starts"),
+            ("warn", '<span class="fit-key g-warn">70–89%</span>', "Fit: 70% to 89%"),
+            ("bad", '<span class="fit-key g-bad">&lt;70%</span>', "Fit: less than 70%"),
+        ],
+    )
+    return (
+        f'<div class="filters"><input id="search" type="search" placeholder="Search players" aria-label="Search players">'
+        f"{pos}{fit}{flags}"
+        '<span id="combo" hidden><span></span><button type="button" aria-label="Clear the combo">Clear</button></span>'
+        '<button type="button" id="show-taken" aria-pressed="false" title="Show the players that you marked taken">'
+        'Show taken</button><span id="count"></span></div>'
+    )
 
 
 def top_combos(groups, top=10):
@@ -282,8 +351,10 @@ def combo_stats(combos, runs, summary):
     runs: simulation_runs.csv. summary: simulation_summary.csv, indexed by keeper.
     """
     core = runs[runs.core]
-    prices = {keeper: [dict(zip(r.player, r.price)) for _, r in rows.groupby("run")]
-              for keeper, rows in core.groupby("keeper")}
+    prices = {
+        keeper: [dict(zip(r.player, r.price)) for _, r in rows.groupby("run")]
+        for keeper, rows in core.groupby("keeper")
+    }
 
     def price(keeper, group):
         names = group.split(" + ")
@@ -291,8 +362,9 @@ def combo_stats(combos, runs, summary):
         return float(pd.Series(totals).median()) if totals else float("nan")
 
     base = combos.keeper.map(summary.title_pct)
-    return combos.assign(base=base, edge=combos.title_pct - base,
-                         price=[price(k, g) for k, g in zip(combos.keeper, combos.group)])
+    return combos.assign(
+        base=base, edge=combos.title_pct - base, price=[price(k, g) for k, g in zip(combos.keeper, combos.group)]
+    )
 
 
 POSITIONS = ("PG", "SG", "SF", "PF", "C")
@@ -315,14 +387,16 @@ def combo_cells(names, df, cfg):
 
     def totals(counts, good, poor):
         cls = "g-" + grade(sum(counts) / n, good, poor)
-        return td(f'{"-".join(map(str, counts))} <b>{sum(counts)}</b>', v=sum(counts), cls=cls)
+        return td(f"{'-'.join(map(str, counts))} <b>{sum(counts)}</b>", v=sum(counts), cls=cls)
 
     league = rows.league_price.sum(min_count=1)
-    return [td(pills, v=len(covered & set(POSITIONS)), cls="pos"),
-            td(f"${rows.dollars.sum():.0f}", v=f"{rows.dollars.sum():.2f}"),
-            td("—", v="-999") if pd.isna(league) else td(f"${league:.0f}", v=f"{league:.2f}"),
-            totals(games, f["good_playoff_games"], f["poor_playoff_games"]),
-            totals(quality, f["good_quality_games"], f["poor_quality_games"])]
+    return [
+        td(pills, v=len(covered & set(POSITIONS)), cls="pos"),
+        td(f"${rows.dollars.sum():.0f}", v=f"{rows.dollars.sum():.2f}"),
+        td("—", v="-999") if pd.isna(league) else td(f"${league:.0f}", v=f"{league:.2f}"),
+        totals(games, f["good_playoff_games"], f["poor_playoff_games"]),
+        totals(quality, f["good_quality_games"], f["poor_quality_games"]),
+    ]
 
 
 def grade(n, good, poor):
@@ -330,9 +404,19 @@ def grade(n, good, poor):
     return "good" if n >= good else "warn" if n <= poor else "avg"
 
 
-COMBO_HEADS = [("Combo", False), ("Size", True), ("Positions", True), ("Title %", True), ("Edge", True),
-               ("Auctions", True), ("Median price", True), ("$", True), ("League $", True),
-               ("Playoffs", True), ("Quality", True)]
+COMBO_HEADS = [
+    ("Combo", False),
+    ("Size", True),
+    ("Positions", True),
+    ("Title %", True),
+    ("Edge", True),
+    ("Auctions", True),
+    ("Median price", True),
+    ("$", True),
+    ("League $", True),
+    ("Playoffs", True),
+    ("Quality", True),
+]
 
 
 def keeper_line(keeper, summary):
@@ -341,8 +425,10 @@ def keeper_line(keeper, summary):
         return ""
     k = summary.loc[keeper]
     cost = "" if keeper == "No keeper" else f"Keeper cost ${k.cost:.0f} · "
-    return (f'<p class="summary">{cost}Title {k.title_pct:.1f}% · Playoffs {k.playoffs_pct:.1f}% · '
-            f"Round-robin win {k.rr_win_pct:.1f}% in all auctions with this keeper.</p>")
+    return (
+        f'<p class="summary">{cost}Title {k.title_pct:.1f}% · Playoffs {k.playoffs_pct:.1f}% · '
+        f"Round-robin win {k.rr_win_pct:.1f}% in all auctions with this keeper.</p>"
+    )
 
 
 def combo_panel(combos, summary, df, cfg):
@@ -356,32 +442,47 @@ def combo_panel(combos, summary, df, cfg):
         body = []
         for g in rows.itertuples():
             names = g.group.split(" + ")
-            button = (f'<button type="button" data-players="{escape("|".join(names))}" aria-pressed="false">'
-                      f"{escape(g.group)}</button>")
+            button = (
+                f'<button type="button" data-players="{escape("|".join(names))}" aria-pressed="false">'
+                f"{escape(g.group)}</button>"
+            )
             pos, *totals = combo_cells(names, df, cfg)
-            cells = [td(button), td(g.size), pos,
-                     td(f"{g.title_pct:.0f}% ±{g.se:.0f}", v=f"{g.low:.2f}", title=f"Low end: {g.low:.0f}%"),
-                     td("—", v="-999") if pd.isna(g.edge) else td(f"{g.edge:+.0f}", v=f"{g.edge:.2f}", style=shade(g.edge, 20)),
-                     td(g.runs),
-                     td("—", v="-999") if pd.isna(g.price) else td(f"${g.price:.0f}", v=f"{g.price:.2f}"),
-                     *totals]
+            cells = [
+                td(button),
+                td(g.size),
+                pos,
+                td(f"{g.title_pct:.0f}% ±{g.se:.0f}", v=f"{g.low:.2f}", title=f"Low end: {g.low:.0f}%"),
+                td("—", v="-999")
+                if pd.isna(g.edge)
+                else td(f"{g.edge:+.0f}", v=f"{g.edge:.2f}", style=shade(g.edge, 20)),
+                td(g.runs),
+                td("—", v="-999") if pd.isna(g.price) else td(f"${g.price:.0f}", v=f"{g.price:.2f}"),
+                *totals,
+            ]
             hidden = "" if g.size in SIZES_SHOWN else " hidden"
             body.append(f'<tr data-size="{g.size}"{hidden}>{"".join(cells)}</tr>')
-        blocks.append(f'<div data-keeper="{escape(keeper)}"{" hidden" if i else ""}>{keeper_line(keeper, summary)}'
-                      f'<div class="scroll"><table class="combo-table"><thead><tr>{heads}</tr></thead>'
-                      f'<tbody>{"".join(body)}</tbody></table></div></div>')
+        blocks.append(
+            f'<div data-keeper="{escape(keeper)}"{" hidden" if i else ""}>{keeper_line(keeper, summary)}'
+            f'<div class="scroll"><table class="combo-table"><thead><tr>{heads}</tr></thead>'
+            f"<tbody>{''.join(body)}</tbody></table></div></div>"
+        )
     sizes = sorted(combos["size"].unique())
-    buttons = "".join(f'<button type="button" data-size="{n}" aria-pressed="{str(n in SIZES_SHOWN).lower()}">{n}</button>'
-                      for n in sizes)
-    return ('<div class="combos"><p>Combos of 2 to 4 players in your core in the auction simulator (auction.py). '
-            "Title %: your title percent in the auctions with the combo, ± its standard error. "
-            "The list is sorted by the low end (title % − 2 × error). Edge: title % minus the keeper title % in all "
-            "auctions. Median price: the total price that you pay for the combo in the simulator. "
-            "$ and League $: the totals for the combo players. Positions: the positions that the combo players cover. "
-            "Games are colored by the S and Q flag rules for each player. "
-            "A combo goes with titles. It does not cause them. Click a combo to show only its players on the board.</p>"
-            f'<div class="filters"><span class="sizes" role="group" aria-label="Combo size">Size {buttons}</span></div>'
-            + "".join(blocks) + "</div>")
+    buttons = "".join(
+        f'<button type="button" data-size="{n}" aria-pressed="{str(n in SIZES_SHOWN).lower()}">{n}</button>'
+        for n in sizes
+    )
+    return (
+        '<div class="combos"><p>Combos of 2 to 4 players in your core in the auction simulator (auction.py). '
+        "Title %: your title percent in the auctions with the combo, ± its standard error. "
+        "The list is sorted by the low end (title % − 2 × error). Edge: title % minus the keeper title % in all "
+        "auctions. Median price: the total price that you pay for the combo in the simulator. "
+        "$ and League $: the totals for the combo players. Positions: the positions that the combo players cover. "
+        "Games are colored by the S and Q flag rules for each player. "
+        "A combo goes with titles. It does not cause them. Click a combo to show only its players on the board.</p>"
+        f'<div class="filters"><span class="sizes" role="group" aria-label="Combo size">Size {buttons}</span></div>'
+        + "".join(blocks)
+        + "</div>"
+    )
 
 
 MAIN_PAGE = "draft_board.html"
@@ -397,14 +498,20 @@ def tab_bar(keepers=None, pages=None, page=MAIN_PAGE):
     parts = []
     if keepers:
         tabs = [("board", "Board"), ("combos", "Core combos")]
-        parts.append('<span role="tablist">' + "".join(
-            f'<button type="button" role="tab" data-tab="{k}" aria-selected="{str(not i).lower()}">{name}</button>'
-            for i, (k, name) in enumerate(tabs)) + "</span>")
+        parts.append(
+            '<span role="tablist">'
+            + "".join(
+                f'<button type="button" role="tab" data-tab="{k}" aria-selected="{str(not i).lower()}">{name}</button>'
+                for i, (k, name) in enumerate(tabs)
+            )
+            + "</span>"
+        )
         opts = "".join(f'<option value="{escape(k)}">{escape(k)}</option>' for k in keepers)
         parts.append(f'<label>Keeper <select id="keeper" aria-label="Keeper">{opts}</select></label>')
     if pages and len(pages) > 1:
-        opts = "".join(f'<option value="{f}"{" selected" if f == page else ""}>{escape(label)}</option>'
-                       for label, f in pages)
+        opts = "".join(
+            f'<option value="{f}"{" selected" if f == page else ""}>{escape(label)}</option>' for label, f in pages
+        )
         parts.append(f'<label>Playoffs <select id="window" aria-label="Playoff weeks">{opts}</select></label>')
     return f'<nav class="tabs">{"".join(parts)}</nav>' if parts else ""
 
@@ -422,11 +529,15 @@ def windows(cfg):
 def pages(cfgs):
     """(label, file) for each playoff window. The first window is the main page. Example: ("Weeks 20–22",
     "draft_board_wk20-wk22.html")."""
+
     def label(c):
         ws = weeks(c)
         return f"Weeks {ws[0].removeprefix('wk')}–{ws[-1].removeprefix('wk')}"
-    return [(label(c), MAIN_PAGE if i == 0 else f"draft_board_{weeks(c)[0]}-{weeks(c)[-1]}.html")
-            for i, c in enumerate(cfgs)]
+
+    return [
+        (label(c), MAIN_PAGE if i == 0 else f"draft_board_{weeks(c)[0]}-{weeks(c)[-1]}.html")
+        for i, c in enumerate(cfgs)
+    ]
 
 
 def positions(pos, slots):
@@ -445,22 +556,51 @@ def team_data(df, days, cfg, benchmark=None):
     tb, slots = cfg.get("team_builder", {}), cfg["league"]["slots"]
     category, wz = category_data(df, cfg, benchmark)
     rests = df.get("rests_b2b", pd.Series(0, index=df.index)).fillna(0).astype(int)
-    players = [{"id": int(r.player_id), "name": r.name, "team": None if getattr(r, "no_team", False) else r.team,
-                "pos": positions(r.pos, slots), "rank": int(r.rank), "value": round(float(r.value), 4),
-                "rests_b2b": int(rest),
-                "league_price": None if pd.isna(r.league_price) else int(round(r.league_price)),
-                "dollars": round(float(r.dollars), 2)}
-               for r, rest in zip(df.itertuples(), rests)]
+    players = [
+        {
+            "id": int(r.player_id),
+            "name": r.name,
+            "team": None if getattr(r, "no_team", False) else r.team,
+            "pos": positions(r.pos, slots),
+            "rank": int(r.rank),
+            "value": round(float(r.value), 4),
+            "rests_b2b": int(rest),
+            "league_price": None if pd.isna(r.league_price) else int(round(r.league_price)),
+            "dollars": round(float(r.dollars), 2),
+        }
+        for r, rest in zip(df.itertuples(), rests)
+    ]
     if wz is not None:
         for player, row in zip(players, wz):
             player["wz"] = row
-    day_list = [] if days is None else [
-        {"date": f"{d.date:%Y-%m-%d}", "week": d.week, "nba_games": int(d.nba_games), "quality": bool(d.quality),
-         "teams": list(d.teams), "b2b": list(d.b2b)} for d in days.itertuples()]
-    return {"slots": list(slots), "util": 1, "budget": cfg["auction"]["budget"], "spots": cfg["auction"]["spots"],
-            "keeper_prices": cfg.get("simulation", {}).get("keeper_prices", {}),
-            "core_max_rank": tb.get("core_max_rank", 75), "weak_week_started": tb.get("weak_week_started", 0),
-            "weeks": weeks(cfg), "days": day_list, "players": players, "category": category}
+    day_list = (
+        []
+        if days is None
+        else [
+            {
+                "date": f"{d.date:%Y-%m-%d}",
+                "week": d.week,
+                "nba_games": int(d.nba_games),
+                "quality": bool(d.quality),
+                "teams": list(d.teams),
+                "b2b": list(d.b2b),
+            }
+            for d in days.itertuples()
+        ]
+    )
+    return {
+        "slots": list(slots),
+        "util": 1,
+        "budget": cfg["auction"]["budget"],
+        "spots": cfg["auction"]["spots"],
+        "keeper_prices": cfg.get("simulation", {}).get("keeper_prices", {}),
+        "core_max_rank": tb.get("core_max_rank", 75),
+        "weak_week_started": tb.get("weak_week_started", 0),
+        "weeks": weeks(cfg),
+        "days": day_list,
+        "players": players,
+        "category": category,
+    }
 
 
 # The team engine (#8 Contracts): scoreCore(core, data) and fit(core, player, data).
@@ -498,9 +638,11 @@ CATEGORY_ENGINE = Path(__file__).parent / "category_need.js"
 
 def category_panel():
     """The category panel above the team table: one column for each category. The page fills the head and the rows."""
-    return ('<div class="cat-panel" aria-label="Category balance"><table id="cats" class="plain team-table">'
-            '<thead></thead><tbody></tbody></table>'
-            '<p id="cats-note" class="muted"></p></div>')
+    return (
+        '<div class="cat-panel" aria-label="Category balance"><table id="cats" class="plain team-table">'
+        "<thead></thead><tbody></tbody></table>"
+        '<p id="cats-note" class="muted"></p></div>'
+    )
 
 
 def script_json(data):
@@ -528,15 +670,24 @@ def write_html(df, cfg, sim=None, days=None, page=MAIN_PAGE, windows=None, bench
     has_category = data["category"] is not None
     table = html_table(df, cfg, need=True) if has_category else html_table(df, cfg)
     store = "draft-board-team" if page == MAIN_PAGE else "draft-board-team-" + page.removesuffix(".html")
-    html = (HTML.replace("__TITLE__", TITLE).replace("__NOTE__", note).replace("__FLAGS__", flags)
-            .replace("__WEEKS__", ", ".join(weeks(cfg))).replace("__LOW__", str(t["low_games"]))
-            .replace("__TABS__", tabs).replace("__COMBOS__", combos)
-            .replace("__FILTERS__", filter_bar(df)).replace("__BODY__", table)
-            .replace("__CATEGORY__", category_panel() if has_category else "")
-            .replace("__STORE__", json.dumps(store)).replace("__MAIN_PAGE__", json.dumps(MAIN_PAGE))
-            # Last, so that no other placeholder can match text in the data or in the engine
-            .replace("__TEAM_DATA__", script_json(data)).replace("__ENGINE__", engine_js())
-            .replace("__CATEGORY_ENGINE__", CATEGORY_ENGINE.read_text(encoding="utf-8") if has_category else ""))
+    html = (
+        HTML.replace("__TITLE__", TITLE)
+        .replace("__NOTE__", note)
+        .replace("__FLAGS__", flags)
+        .replace("__WEEKS__", ", ".join(weeks(cfg)))
+        .replace("__LOW__", str(t["low_games"]))
+        .replace("__TABS__", tabs)
+        .replace("__COMBOS__", combos)
+        .replace("__FILTERS__", filter_bar(df))
+        .replace("__BODY__", table)
+        .replace("__CATEGORY__", category_panel() if has_category else "")
+        .replace("__STORE__", json.dumps(store))
+        .replace("__MAIN_PAGE__", json.dumps(MAIN_PAGE))
+        # Last, so that no other placeholder can match text in the data or in the engine
+        .replace("__TEAM_DATA__", script_json(data))
+        .replace("__ENGINE__", engine_js())
+        .replace("__CATEGORY_ENGINE__", CATEGORY_ENGINE.read_text(encoding="utf-8") if has_category else "")
+    )
     (OUT / page).write_text(html, encoding="utf-8")
 
 

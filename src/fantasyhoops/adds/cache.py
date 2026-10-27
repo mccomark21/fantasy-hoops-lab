@@ -12,6 +12,7 @@ pages, the waiver list, a list in the projected view or the Transaction Trends p
 A page from the cache opens no Yahoo page, so the page count of the timers (adds/timing.py) does not count it.
 The cache is only a speed-up. A bad entry is a miss, and a failed write prints a warning. Neither stops the run.
 """
+
 import hashlib
 import json
 import os
@@ -117,8 +118,9 @@ class PageCache:
         """The line of the page and the terminal that says which pages came from the cache. None with no page."""
         parts = []
         if self.hits[RECENT]:
-            parts.append(f"The recent view: {_pages(self.hits[RECENT])} from the cache of "
-                         f"{self.recent_time:%Y-%m-%d %H:%M}.")
+            parts.append(
+                f"The recent view: {_pages(self.hits[RECENT])} from the cache of {self.recent_time:%Y-%m-%d %H:%M}."
+            )
         if self.hits[TRENDS]:
             parts.append(f"Transaction Trends: {_pages(self.hits[TRENDS])} of earlier days from the cache.")
         return " ".join(parts) or None

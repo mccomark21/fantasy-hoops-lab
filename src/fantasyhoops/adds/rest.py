@@ -5,6 +5,7 @@ window counts too. The rest list is the rests_b2b column of the [risk] file of c
 tools. For a player on the list, one game on a second night counts 1 - [adds] rest_chance started games.
 The draft tools do not change: there, rests_b2b changes only the playoff columns. The module writes no files.
 """
+
 from dataclasses import replace
 from datetime import timedelta
 

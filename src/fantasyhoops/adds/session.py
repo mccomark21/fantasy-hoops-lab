@@ -4,6 +4,7 @@ This module only opens pages and returns their HTML. It never submits a form or 
 The readers in adds/readers.py read the HTML. Only one process can use the saved profile at a time.
 Requirement: Microsoft Edge and pip install playwright. Edge is the browser, so "playwright install" is not necessary.
 """
+
 from contextlib import contextmanager
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
@@ -55,8 +56,10 @@ def ready_selectors(path):
             return required, optional
     if path[:1].isdigit():
         return TEAM_READY
-    raise UnknownPage(f"No page kind matches the Yahoo page path {path!r}. "
-                      "Add the page kind and the elements that its reader needs to READY in adds/session.py.")
+    raise UnknownPage(
+        f"No page kind matches the Yahoo page path {path!r}. "
+        "Add the page kind and the elements that its reader needs to READY in adds/session.py."
+    )
 
 
 class League:
@@ -88,8 +91,10 @@ class League:
             try:
                 self.page.wait_for_selector(selector, state="attached", timeout=self.wait_seconds * 1000)
             except PlaywrightTimeout:
-                raise PageNotReady(f"The Yahoo page {url} did not show the element {selector} in {self.wait_seconds} s. "
-                                   "The reader of this page needs that element.") from None
+                raise PageNotReady(
+                    f"The Yahoo page {url} did not show the element {selector} in {self.wait_seconds} s. "
+                    "The reader of this page needs that element."
+                ) from None
         for selector in optional:
             try:
                 self.page.wait_for_selector(selector, state="attached", timeout=int(SCORE_WAIT_SECONDS * 1000))

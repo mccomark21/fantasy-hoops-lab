@@ -12,6 +12,7 @@ The windows count games, not days. The check order is New, then Regular, then In
 - No flag: less than some_share, or fewer games than min_games (min_close_games).
 The caller gives the settings: [adds.flags] in config.toml.
 """
+
 NEW = "New"
 REGULAR = "Regular"
 INCONSISTENT = "Inconsistent"
@@ -36,17 +37,32 @@ def flag(history, window, min_games, new_games, regular_share, some_share):
 def starter_flag(games, player_id, settings):
     """The starter flag of the player with this ESPN player_id. games: the frame of player_games()."""
     mine = games[games.player_id == player_id].sort_values("date")
-    return flag(mine.started.tolist(), settings["window_games"], settings["min_games"], settings["new_games"],
-                settings["regular_share"], settings["some_share"])
+    return flag(
+        mine.started.tolist(),
+        settings["window_games"],
+        settings["min_games"],
+        settings["new_games"],
+        settings["regular_share"],
+        settings["some_share"],
+    )
 
 
 def closer_flag(games, player_id, team, settings):
     """The closer flag of the player over the close games of team, his current NBA team."""
-    close = (games[(games.team == team) & games.close_game][["game_id", "date"]]
-             .drop_duplicates("game_id").sort_values("date"))
+    close = (
+        games[(games.team == team) & games.close_game][["game_id", "date"]]
+        .drop_duplicates("game_id")
+        .sort_values("date")
+    )
     closed = set(games[(games.player_id == player_id) & games.closed].game_id)
-    return flag([g in closed for g in close.game_id], settings["close_window"], settings["min_close_games"],
-                settings["new_closes"], settings["regular_share"], settings["some_share"])
+    return flag(
+        [g in closed for g in close.game_id],
+        settings["close_window"],
+        settings["min_close_games"],
+        settings["new_closes"],
+        settings["regular_share"],
+        settings["some_share"],
+    )
 
 
 def role_flags(games, player_id, team, settings):

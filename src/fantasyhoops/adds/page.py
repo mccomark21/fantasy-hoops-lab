@@ -17,6 +17,7 @@ reads and their Yahoo pages below the Yahoo reads row (#89).
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
 draft board.
 """
+
 import html
 import json
 from datetime import date, timedelta
@@ -53,8 +54,9 @@ def _player(p):
     return f"{_e(p.name)}{status}"
 
 
-CLAIM_NOTE = ("W: a waiver claim. It is not sure: a team with a higher waiver priority can claim him first. "
-              "A claim uses an add.")
+CLAIM_NOTE = (
+    "W: a waiver claim. It is not sure: a team with a higher waiver priority can claim him first. A claim uses an add."
+)
 
 
 def _stat(value, label):
@@ -68,13 +70,12 @@ def header(data, days, spots, today):
     if data.next_week:
         lines.append(f"<p>Today is the last day of week {week.number - 1}. This page plans the next week.</p>")
     window = f" Planning window: {_day(days[0].date)} to {_day(days[-1].date)}." if days else ""
-    lines.append(f"<p>Week {week.number}: {_day(week.start)} to {_day(week.end)}.{window} "
-                 f"Made on {_day(today)}.</p>")
+    lines.append(f"<p>Week {week.number}: {_day(week.start)} to {_day(week.end)}.{window} Made on {_day(today)}.</p>")
     stats = [_stat(f"{adds.left} of {adds.limit}", "adds left"), _stat(len(spots), "stream spots")]
     lines.append(f'<div class="stats">{"".join(stats)}</div>')
     out = [p.name + (f" ({p.status})" if p.status else "") for p in data.roster if p.out]
     if out:
-        lines.append(f'<p>Out (does not play): {_e(", ".join(out))}.</p>')
+        lines.append(f"<p>Out (does not play): {_e(', '.join(out))}.</p>")
     return "\n".join(lines)
 
 
@@ -97,8 +98,10 @@ def _day_head(d):
 
 def _moves(row):
     """The moves of a SpotPlan: one line for each add, then the drop."""
-    lines = [f'<div>+{_player(w.player.player)} ({_e(w.team)}) <span>– {_and([f"{d:%a}" for d in w.started])}</span>'
-             f"</div>" for w in row.added]
+    lines = [
+        f"<div>+{_player(w.player.player)} ({_e(w.team)}) <span>– {_and([f'{d:%a}' for d in w.started])}</span></div>"
+        for w in row.added
+    ]
     if row.spot.holder:
         lines.append(f"<div><span>drop {_e(row.spot.holder.player.name)}</span></div>")
     return "".join(lines)
@@ -112,11 +115,15 @@ def plans_section(rows, days, spots, adds, today, nights=None):
     nights = nights or {}
     title = "<h2>Best plans for one roster spot</h2>"
     if not spots:
-        return (f"<section>{title}\n<p>No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
-                "There are no adds to plan.</p></section>")
+        return (
+            f"<section>{title}\n<p>No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
+            "There are no adds to plan.</p></section>"
+        )
     if not adds.left:
-        return (f"<section>{title}\n<p>No adds left this week ({adds.used} of {adds.limit} used). "
-                "There are no adds to plan.</p></section>")
+        return (
+            f"<section>{title}\n<p>No adds left this week ({adds.used} of {adds.limit} used). "
+            "There are no adds to plan.</p></section>"
+        )
     if not days:
         return f"<section>{title}\n<p>The fantasy week is over. There are no days to plan.</p></section>"
     if not rows:
@@ -130,23 +137,26 @@ def plans_section(rows, days, spots, adds, today, nights=None):
             started = sum(d.date in w.started for w in row.added)
             add = "<i>+</i>" if any(w.add_day == d.date for w in row.added) else ""
             b2b = B2B if any(d.date in w.started and w.team in nights.get(d.date, ()) for w in row.added) else ""
-            cells.append(f'<td class="on"><b>{started}{add}{b2b}</b></td>' if started
-                         else f"<td>{add or '·'}</td>")
-        body.append(f'<tr><th>{n}</th>{"".join(cells)}<td class="total">{row.plan.adds}</td>'
-                    f'<td class="total">{games_text(row.gain, sign=True)}</td>'
-                    f'<td class="moves">{_moves(row)}</td></tr>')
+            cells.append(f'<td class="on"><b>{started}{add}{b2b}</b></td>' if started else f"<td>{add or '·'}</td>")
+        body.append(
+            f'<tr><th>{n}</th>{"".join(cells)}<td class="total">{row.plan.adds}</td>'
+            f'<td class="total">{games_text(row.gain, sign=True)}</td>'
+            f'<td class="moves">{_moves(row)}</td></tr>'
+        )
     note = ""
     if any(w.add_day == today for row in rows for w in row.added):
         note = '\n<p class="muted">An add for today helps only if his game has not started.</p>'
     if any(w.player.player.on_waivers for row in rows for w in row.added):
         note += f'\n<p class="muted">{CLAIM_NOTE}</p>'
-    return (f'<section>{title}\n<table class="plans"><thead><tr><th></th>{head}<th class="total">Adds</th>'
-            f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
-            '<p class="legend">Each row is a plan for one roster spot, with different players in each row. A row can '
-            'use more than one add in the same spot. A cell shows a started game of a new player. '
-            f'<i>+</i> marks a latest add day. {B2B} marks the second game of a back-to-back. Gms: the started games '
-            'of the new players minus the started games that the dropped player loses. A game of a player on the rest '
-            f"list on a second night counts less than 1.</p>{note}</section>")
+    return (
+        f'<section>{title}\n<table class="plans"><thead><tr><th></th>{head}<th class="total">Adds</th>'
+        f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
+        '<p class="legend">Each row is a plan for one roster spot, with different players in each row. A row can '
+        "use more than one add in the same spot. A cell shows a started game of a new player. "
+        f"<i>+</i> marks a latest add day. {B2B} marks the second game of a back-to-back. Gms: the started games "
+        "of the new players minus the started games that the dropped player loses. A game of a player on the rest "
+        f"list on a second night counts less than 1.</p>{note}</section>"
+    )
 
 
 def matchup_section(matchup, weights):
@@ -158,19 +168,27 @@ def matchup_section(matchup, weights):
     if weights is None:
         return ""
     title = "<h2>Matchup</h2>"
-    note = ('<p class="legend">Weight: the matchup weight of the category. A close category keeps weight 1. '
-            "A large lead or deficit lowers the weight. Match in the free-agent table uses these weights.</p>")
+    note = (
+        '<p class="legend">Weight: the matchup weight of the category. A close category keeps weight 1. '
+        "A large lead or deficit lowers the weight. Match in the free-agent table uses these weights.</p>"
+    )
     if matchup is None:
-        return (f"<section>{title}\n<p>The planner did not find the category scores on the matchup page. "
-                "All weights are 1.</p></section>")
+        return (
+            f"<section>{title}\n<p>The planner did not find the category scores on the matchup page. "
+            "All weights are 1.</p></section>"
+        )
     names = {key: name for name, key in STAT_COLUMNS.items()}
-    rows = "".join(f'<tr><td class="name">{_e(names.get(c, c))}</td><td>{matchup.mine.get(c, 0):g}</td>'
-                   f"<td>{matchup.theirs.get(c, 0):g}</td><td>{matchup.margin(c):+g}</td><td>{w:.2f}</td></tr>"
-                   for c, w in weights.items())
+    rows = "".join(
+        f'<tr><td class="name">{_e(names.get(c, c))}</td><td>{matchup.mine.get(c, 0):g}</td>'
+        f"<td>{matchup.theirs.get(c, 0):g}</td><td>{matchup.margin(c):+g}</td><td>{w:.2f}</td></tr>"
+        for c, w in weights.items()
+    )
     # The page is public (ADR 2), so it does not show the name of the opponent.
-    return (f"<section>{title}\n<p>The category totals of your team and your opponent in this matchup.</p>\n"
-            '<table class="ranking"><thead><tr><th class="name">Cat</th><th>You</th><th>Opp</th><th>Margin</th>'
-            f"<th>Weight</th></tr></thead><tbody>{rows}</tbody></table>\n{note}</section>")
+    return (
+        f"<section>{title}\n<p>The category totals of your team and your opponent in this matchup.</p>\n"
+        '<table class="ranking"><thead><tr><th class="name">Cat</th><th>You</th><th>Opp</th><th>Margin</th>'
+        f"<th>Weight</th></tr></thead><tbody>{rows}</tbody></table>\n{note}</section>"
+    )
 
 
 def role_text(role):
@@ -181,8 +199,10 @@ def role_text(role):
     recent = "no games in 14d" if role.minutes_14d is None else f"{role.minutes_14d:.1f} 14d ({role.change:+.1f})"
     starter = f" ({role.starter})" if role.starter else ""
     closer = f" ({role.closer})" if role.closer else ""
-    return (f"Min {role.minutes_last5:.1f} L5, {recent} · Starts {role.starts}/{role.games}{starter} · "
-            f"Closes {role.closes}/{role.close_games}{closer}")
+    return (
+        f"Min {role.minutes_last5:.1f} L5, {recent} · Starts {role.starts}/{role.games}{starter} · "
+        f"Closes {role.closes}/{role.close_games}{closer}"
+    )
 
 
 def _fits(player, day, games):
@@ -195,8 +215,9 @@ def _open_label(d):
     return f"{d:%a} open"
 
 
-def free_agent_data(options, days, games, replacement, match_replacement=None, nights=None, roles=None,
-                    next_days=(), next_games=None):
+def free_agent_data(
+    options, days, games, replacement, match_replacement=None, nights=None, roles=None, next_days=(), next_games=None
+):
     """The data of the free-agent table: the days and one row for each option who plays, best value first.
 
     A value is a market value: the value minus replacement. match: the matchup value minus match_replacement, the
@@ -220,61 +241,102 @@ def free_agent_data(options, days, games, replacement, match_replacement=None, n
         plays = [p.team in games.get(d.date, ()) for d in days]
         fits = [_fits(p, d, games) for d in days]
         role = roles.get((p.name, p.team))
-        players.append({"name": p.name, "team": p.team, "pos": list(p.positions), "status": p.status,
-                        "value": market(o.value), "recent": market(o.recent_value),
-                        "match": market(o.match, match_replacement),
-                        "trend": o.trend.adds_today if o.trend else None, "plays": plays, "fits": fits,
-                        "b2b": [on and p.team in nights.get(d.date, ()) for on, d in zip(plays, days)],
-                        "role": role_text(role), "rise": bool(role and role.rise),
-                        "role_up": list(o.role_up),
-                        "next_open": [_open_label(d.date) for d in next_days if _fits(p, d, next_games)]})
-    return {"days": [{"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games,
-                      "open": len(d.open)} for d in days],
-            "players": players, "positions": list(POSITIONS), "flag": FLAG, "rows": FREE_AGENT_ROWS}
+        players.append(
+            {
+                "name": p.name,
+                "team": p.team,
+                "pos": list(p.positions),
+                "status": p.status,
+                "value": market(o.value),
+                "recent": market(o.recent_value),
+                "match": market(o.match, match_replacement),
+                "trend": o.trend.adds_today if o.trend else None,
+                "plays": plays,
+                "fits": fits,
+                "b2b": [on and p.team in nights.get(d.date, ()) for on, d in zip(plays, days)],
+                "role": role_text(role),
+                "rise": bool(role and role.rise),
+                "role_up": list(o.role_up),
+                "next_open": [_open_label(d.date) for d in next_days if _fits(p, d, next_games)],
+            }
+        )
+    return {
+        "days": [
+            {"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games, "open": len(d.open)}
+            for d in days
+        ],
+        "players": players,
+        "positions": list(POSITIONS),
+        "flag": FLAG,
+        "rows": FREE_AGENT_ROWS,
+    }
 
 
 def flag_legend(flags):
     """The legend of the starter flag and the closer flag. flags: [adds.flags] in config.toml. Nothing with None."""
     if not flags:
         return ""
-    return (f' The word after Starts is the starter flag, from his last {flags["window_games"]} games '
-            f'({flags["min_games"]} or more). The word after Closes is the closer flag, from the last '
-            f'{flags["close_window"]} close games of his team ({flags["min_close_games"]} or more). A close game '
-            f'that he did not play counts as not closed. New: he started each of his last {flags["new_games"]} '
-            f'games (closed each of the last {flags["new_closes"]} close games), and fewer than half of the '
-            f'earlier games in the window. Regular: {flags["regular_share"]:.0%} or more. Inconsistent: '
-            f'{flags["some_share"]:.0%} or more. No word: less, or too few games.')
+    return (
+        f" The word after Starts is the starter flag, from his last {flags['window_games']} games "
+        f"({flags['min_games']} or more). The word after Closes is the closer flag, from the last "
+        f"{flags['close_window']} close games of his team ({flags['min_close_games']} or more). A close game "
+        f"that he did not play counts as not closed. New: he started each of his last {flags['new_games']} "
+        f"games (closed each of the last {flags['new_closes']} close games), and fewer than half of the "
+        f"earlier games in the window. Regular: {flags['regular_share']:.0%} or more. Inconsistent: "
+        f"{flags['some_share']:.0%} or more. No word: less, or too few games."
+    )
 
 
 def role_legend(roles, minutes_rise, flags=None):
     """The legend of the role line under each player. Nothing with no roles (no rotation log)."""
     if not roles:
         return ""
-    rise = (f' <span class="flag">MIN+</span> L5 is {minutes_rise:g} minutes or more above 14d.'
-            if minutes_rise is not None else "")
+    rise = (
+        f' <span class="flag">MIN+</span> L5 is {minutes_rise:g} minutes or more above 14d.'
+        if minutes_rise is not None
+        else ""
+    )
     rise += flag_legend(flags)
-    return ('<p class="legend">Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d), with the '
-            'change. Starts: his starts / his games in the last 14 days. Closes: his closes / the close games of his '
-            'team in the last 14 days. A close: he is on the floor at the end of a close game. '
-            f'The ESPN play-by-play gives these numbers.{rise} '
-            'They do not change Val.</p>\n')
+    return (
+        '<p class="legend">Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d), with the '
+        "change. Starts: his starts / his games in the last 14 days. Closes: his closes / the close games of his "
+        "team in the last 14 days. A close: he is on the floor at the end of a close game. "
+        f"The ESPN play-by-play gives these numbers.{rise} "
+        "They do not change Val.</p>\n"
+    )
 
 
 def next_week_legend(next_days):
     """The legend of the next-week marks: one line for each day checked. Nothing with no days to check."""
     if not next_days:
         return ""
-    lines = [f'<span class="flag next">{_open_label(d.date)}</span>: he has a game next {d.date:%A} '
-             f'{d.date.month}/{d.date.day}, and your core players leave a slot open that he can fill '
-             f'({len(d.open)} open slots).' if d.open
-             else f"Next {d.date:%A} {d.date.month}/{d.date.day}: your core players fill all slots. No player gets "
-                  "a mark." for d in next_days]
+    lines = [
+        f'<span class="flag next">{_open_label(d.date)}</span>: he has a game next {d.date:%A} '
+        f"{d.date.month}/{d.date.day}, and your core players leave a slot open that he can fill "
+        f"({len(d.open)} open slots)."
+        if d.open
+        else f"Next {d.date:%A} {d.date.month}/{d.date.day}: your core players fill all slots. No player gets a mark."
+        for d in next_days
+    ]
     return '<p class="legend">' + " ".join(lines) + " The mark changes no value and no plan.</p>\n"
 
 
-def free_agents_section(options, days, games, replacement, match_replacement=None, nights=None,
-                        roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, recent_skip=None,
-                        market=None, cache=None):
+def free_agents_section(
+    options,
+    days,
+    games,
+    replacement,
+    match_replacement=None,
+    nights=None,
+    roles=None,
+    minutes_rise=None,
+    flags=None,
+    next_days=(),
+    next_games=None,
+    recent_skip=None,
+    market=None,
+    cache=None,
+):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
@@ -291,25 +353,26 @@ def free_agents_section(options, days, games, replacement, match_replacement=Non
     options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
         return ""
-    data = free_agent_data(options, days, games, replacement, match_replacement, nights, roles, next_days,
-                           next_games)
+    data = free_agent_data(options, days, games, replacement, match_replacement, nights, roles, next_days, next_games)
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     skip = f'<p class="skip">{_e(recent_skip)}</p>' if recent_skip else ""
     read = f'<p class="legend" id="market-read">{_e(market)}</p>' if market else ""
     cached = f'<p class="legend" id="cache-read">{_e(cache)}</p>' if cache else ""
-    return ('<section><h2>Free agents</h2>' + read + cached + skip + '\n'
-            '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
-            '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
-            '</label>\n<p class="count" id="fa-count"></p>\n<table class="fa" id="fa-table"></table>\n'
-            '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
-            f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
-            'Val: blended value per game above a '
-            f'replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). Match: the same value '
-            'with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. '
-            '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
-            '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
-            f'{role_legend(roles, minutes_rise, flags)}{next_week_legend(next_days)}'
-            f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>')
+    return (
+        "<section><h2>Free agents</h2>" + read + cached + skip + "\n"
+        '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
+        '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
+        '</label>\n<p class="count" id="fa-count"></p>\n<table class="fa" id="fa-table"></table>\n'
+        '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
+        f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
+        "Val: blended value per game above a "
+        f"replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). Match: the same value "
+        "with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. "
+        '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
+        '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
+        f"{role_legend(roles, minutes_rise, flags)}{next_week_legend(next_days)}"
+        f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>'
+    )
 
 
 def waivers_section(options, replacement):
@@ -325,16 +388,20 @@ def waivers_section(options, replacement):
         v = market_value(v, replacement)
         return "—" if v is None else f"{v:+.2f}"
 
-    rows = "".join(f'<tr><td class="name">{_player(o.player)}</td><td class="name">{_e(o.player.team)}</td>'
-                   f'<td class="name">{_e(",".join(o.player.positions))}</td><td>{_day(o.player.clear_day)}</td>'
-                   f'<td>{_day(o.player.clear_day + timedelta(days=1))}</td><td>{market(o.value)}</td></tr>'
-                   for o in waivers)
-    return ('<section><h2>Waiver players</h2>\n'
-            '<table class="ranking"><thead><tr><th class="name">Player</th><th class="name">Team</th>'
-            '<th class="name">Pos</th><th>Clears</th><th>First day</th><th>Val</th></tr></thead>'
-            f'<tbody>{rows}</tbody></table>\n'
-            '<p class="legend">First day: the first day that a plan can use him, the day after he clears waivers. '
-            f'Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>')
+    rows = "".join(
+        f'<tr><td class="name">{_player(o.player)}</td><td class="name">{_e(o.player.team)}</td>'
+        f'<td class="name">{_e(",".join(o.player.positions))}</td><td>{_day(o.player.clear_day)}</td>'
+        f"<td>{_day(o.player.clear_day + timedelta(days=1))}</td><td>{market(o.value)}</td></tr>"
+        for o in waivers
+    )
+    return (
+        "<section><h2>Waiver players</h2>\n"
+        '<table class="ranking"><thead><tr><th class="name">Player</th><th class="name">Team</th>'
+        '<th class="name">Pos</th><th>Clears</th><th>First day</th><th>Val</th></tr></thead>'
+        f"<tbody>{rows}</tbody></table>\n"
+        '<p class="legend">First day: the first day that a plan can use him, the day after he clears waivers. '
+        f"Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>"
+    )
 
 
 def role_up_section(options):
@@ -346,12 +413,16 @@ def role_up_section(options):
                 marked.setdefault(name, []).append(o.player)
     if not marked:
         return ""
-    items = "".join(f"<li>{_e(name)} is absent. Role up: {_e(', '.join(f'{p.name} ({p.team})' for p in players))}.</li>"
-                    for name, players in marked.items())
-    return (f"<section><h2>Role up</h2>\n<ul>{items}</ul>\n"
-            '<p class="legend">Absent: he started most of his recent games, then missed the last games of his team. '
-            "His backups can get more minutes. Their recent line does not show the new role yet. The mark changes "
-            "no value.</p></section>")
+    items = "".join(
+        f"<li>{_e(name)} is absent. Role up: {_e(', '.join(f'{p.name} ({p.team})' for p in players))}.</li>"
+        for name, players in marked.items()
+    )
+    return (
+        f"<section><h2>Role up</h2>\n<ul>{items}</ul>\n"
+        '<p class="legend">Absent: he started most of his recent games, then missed the last games of his team. '
+        "His backups can get more minutes. Their recent line does not show the new role yet. The mark changes "
+        "no value.</p></section>"
+    )
 
 
 def contingency_section(contingencies):
@@ -368,6 +439,7 @@ def timings_section(timings):
     step and shows only the sub-step name, indented. The page write has no row, because the run writes the page
     before that step ends. timings.csv has its row.
     """
+
     def count(n):
         return "" if n is None else f"{n:,}"
 
@@ -375,52 +447,91 @@ def timings_section(timings):
         if s.parent is None:
             return f'<td class="name">{_e(s.step)}</td>'
         return f'<td class="name sub">{_e(s.step.removeprefix(s.parent + ": "))}</td>'
-    body = "".join(f"<tr>{name(s)}<td>{s.seconds:.2f}</td><td>{count(s.calls)}</td>"
-                   f"<td>{count(s.states)}</td><td>{count(s.pages)}</td></tr>" for s in timings)
+
+    body = "".join(
+        f"<tr>{name(s)}<td>{s.seconds:.2f}</td><td>{count(s.calls)}</td>"
+        f"<td>{count(s.states)}</td><td>{count(s.pages)}</td></tr>"
+        for s in timings
+    )
     if not body:
         return ""
-    return ('<details class="notes"><summary>Run time</summary>\n'
-            '<table class="ranking"><thead><tr><th class="name">Step</th><th>Seconds</th><th>Calls</th>'
-            f'<th>States</th><th>Pages</th></tr></thead><tbody>{body}</tbody></table>\n'
-            '<p class="muted">Calls: the calls of the plan search, cache hits included. States: the unique states '
-            "that the search computed. A step with no search has no counts. Pages: the Yahoo pages that the step "
-            "opened. The indented rows are the sub-steps of the Yahoo reads. Their seconds do not include the work "
-            "between them or the browser close. The page write is not in the table. "
-            "output/adds/timings.csv has all the steps.</p></details>")
+    return (
+        '<details class="notes"><summary>Run time</summary>\n'
+        '<table class="ranking"><thead><tr><th class="name">Step</th><th>Seconds</th><th>Calls</th>'
+        f"<th>States</th><th>Pages</th></tr></thead><tbody>{body}</tbody></table>\n"
+        '<p class="muted">Calls: the calls of the plan search, cache hits included. States: the unique states '
+        "that the search computed. A step with no search has no counts. Pages: the Yahoo pages that the step "
+        "opened. The indented rows are the sub-steps of the Yahoo reads. Their seconds do not include the work "
+        "between them or the browser close. The page write is not in the table. "
+        "output/adds/timings.csv has all the steps.</p></details>"
+    )
 
 
 def ranking_section(ranking, read):
     """The NBA teams by the open days that they cover. A * marks the teams whose free agents the planner read."""
     if not ranking:
         return ""
-    rows = "".join(f'<tr><td class="name">{"*" if r.team in read else ""}{_e(r.team)}</td><td>{len(r.open_days)}</td>'
-                   f'<td>{r.open_slots}</td><td class="name">{_e(" ".join(f"{d:%a}" for d in r.open_days))}</td></tr>'
-                   for r in ranking[:RANKING_ROWS])
-    more = (f'<p class="muted">{len(ranking) - RANKING_ROWS} more teams play on an open day.</p>'
-            if len(ranking) > RANKING_ROWS else "")
-    return ('<details class="notes"><summary>NBA teams by open days</summary>\n'
-            '<table class="ranking"><thead><tr><th class="name">Team</th><th>Days</th><th>Slots</th>'
-            f'<th class="name">Open days</th></tr></thead><tbody>{rows}</tbody></table>\n'
-            f'<p class="muted">* = the planner read the free agents of this team.</p>{more}</details>')
+    rows = "".join(
+        f'<tr><td class="name">{"*" if r.team in read else ""}{_e(r.team)}</td><td>{len(r.open_days)}</td>'
+        f'<td>{r.open_slots}</td><td class="name">{_e(" ".join(f"{d:%a}" for d in r.open_days))}</td></tr>'
+        for r in ranking[:RANKING_ROWS]
+    )
+    more = (
+        f'<p class="muted">{len(ranking) - RANKING_ROWS} more teams play on an open day.</p>'
+        if len(ranking) > RANKING_ROWS
+        else ""
+    )
+    return (
+        '<details class="notes"><summary>NBA teams by open days</summary>\n'
+        '<table class="ranking"><thead><tr><th class="name">Team</th><th>Days</th><th>Slots</th>'
+        f'<th class="name">Open days</th></tr></thead><tbody>{rows}</tbody></table>\n'
+        f'<p class="muted">* = the planner read the free agents of this team.</p>{more}</details>'
+    )
 
 
 def method_note():
     """A short note on the method for a reader who does not play in the league."""
-    return ('<details class="notes"><summary>How the plan works</summary>\n'
-            "<p>This is one team in a Yahoo fantasy basketball league. Each day, the team starts up to 6 players. "
-            "A player scores only on a day when his NBA team plays and he is in a starting slot.</p>\n"
-            "<p>The team keeps its core players all season. The other roster spots are stream spots. "
-            "The league gives 5 adds each week, so the team can change the players in the stream spots.</p>\n"
-            "<p>The planner finds the days with open starting slots. For each stream spot, it finds the free agents "
-            "who give the most started games with the fewest adds. Each row of the plans is one roster spot.</p>\n"
-            "<p>The value of a player is his value per game in the 6 categories that this league counts, above a "
-            f"replacement free agent: 0 is the value of the free agent at rank {REPLACEMENT_RANK}.</p></details>")
+    return (
+        '<details class="notes"><summary>How the plan works</summary>\n'
+        "<p>This is one team in a Yahoo fantasy basketball league. Each day, the team starts up to 6 players. "
+        "A player scores only on a day when his NBA team plays and he is in a starting slot.</p>\n"
+        "<p>The team keeps its core players all season. The other roster spots are stream spots. "
+        "The league gives 5 adds each week, so the team can change the players in the stream spots.</p>\n"
+        "<p>The planner finds the days with open starting slots. For each stream spot, it finds the free agents "
+        "who give the most started games with the fewest adds. Each row of the plans is one roster spot.</p>\n"
+        "<p>The value of a player is his value per game in the 6 categories that this league counts, above a "
+        f"replacement free agent: 0 is the value of the free agent at rank {REPLACEMENT_RANK}.</p></details>"
+    )
 
 
-def render(data, days, games, spots, rows, options=(), ranking=(), read=(), today=None, *, replacement=None,
-           warnings=(), contingencies=(), matchup=None, weights=None, match_replacement=None, nights=None,
-           roles=None, minutes_rise=None, flags=None, next_days=(), next_games=None, timings=(), recent_skip=None,
-           market=None, cache=None):
+def render(
+    data,
+    days,
+    games,
+    spots,
+    rows,
+    options=(),
+    ranking=(),
+    read=(),
+    today=None,
+    *,
+    replacement=None,
+    warnings=(),
+    contingencies=(),
+    matchup=None,
+    weights=None,
+    match_replacement=None,
+    nights=None,
+    roles=None,
+    minutes_rise=None,
+    flags=None,
+    next_days=(),
+    next_games=None,
+    timings=(),
+    recent_skip=None,
+    market=None,
+    cache=None,
+):
     """The plan page as HTML text.
 
     data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
@@ -445,8 +556,22 @@ def render(data, days, games, spots, rows, options=(), ranking=(), read=(), toda
         warnings_section(warnings),
         plans_section(rows, days, spots, data.adds, today, nights),
         matchup_section(matchup, weights),
-        free_agents_section(options, days, games, replacement, match_replacement, nights, roles,
-                            minutes_rise, flags, next_days, next_games, recent_skip, market, cache),
+        free_agents_section(
+            options,
+            days,
+            games,
+            replacement,
+            match_replacement,
+            nights,
+            roles,
+            minutes_rise,
+            flags,
+            next_days,
+            next_games,
+            recent_skip,
+            market,
+            cache,
+        ),
         waivers_section(options, replacement),
         role_up_section(options),
         contingency_section(contingencies),

@@ -4,8 +4,14 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from fantasyhoops.adds.drops import (SeasonValue, choose_stream_spots, drop_trade_offs, kept_roster, rank_players,
-                                     value_warnings)
+from fantasyhoops.adds.drops import (
+    SeasonValue,
+    choose_stream_spots,
+    drop_trade_offs,
+    kept_roster,
+    rank_players,
+    value_warnings,
+)
 from fantasyhoops.adds.planner import Option, StreamSpot, schedule_plan
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
@@ -46,8 +52,16 @@ def test_the_stream_spots_are_the_empty_spots_then_the_lowest_non_core_players()
     # so one player is in a stream spot: Nobody, who is not in the projections file. Low is core.
     roster = [player(n) for n in ["Star", "Good", "Mid", "Low", "Lower", "Nobody", "A", "B"]]
     roster.append(player("Hurt", slot="IL", status="O"))
-    vals = values(Star=(5, 2.0), Good=(30, 1.0), Mid=(60, 0.5), Low=(150, -1.0), Lower=(120, -0.5),
-                  A=(40, 0.8), B=(50, 0.7), Hurt=(200, -2.0))
+    vals = values(
+        Star=(5, 2.0),
+        Good=(30, 1.0),
+        Mid=(60, 0.5),
+        Low=(150, -1.0),
+        Lower=(120, -0.5),
+        A=(40, 0.8),
+        B=(50, 0.7),
+        Hurt=(200, -2.0),
+    )
     cfg = config(10, core=["Low"])
     spots = choose_stream_spots(roster, cfg, vals)
     assert [s.holder.player.name if s.holder else None for s in spots] == [None, None, "Nobody"]
@@ -90,15 +104,18 @@ def test_a_drop_of_a_non_core_player_that_gains_started_games_shows_the_trade_of
     assert len(drops) == 1
     window = drops[0].window
     assert (window.team, window.last_day) == ("PHX", WEEK[6])
-    assert drops[0].text() == (f"Drop Quickley (rank 90, season value -0.52) -> PHX {window.add_day:%a %m/%d} to "
-                               f"Sun 01/10: +2 started games this week.")
+    assert drops[0].text() == (
+        f"Drop Quickley (rank 90, season value -0.52) -> PHX {window.add_day:%a %m/%d} to "
+        f"Sun 01/10: +2 started games this week."
+    )
 
 
 def test_no_drop_when_the_holder_gives_the_same_started_games():
     # Quickley plays all days. A drop gains nothing, so the plan keeps him and uses no add.
     games = {d: {"TOR", "PHX"} for d in WEEK}
-    spots, plan, drops = run([player("Quickley", "TOR")], games, [fa("Sun", "PHX")], config(1, stream_spots=1),
-                             values(Quickley=(90, -0.52)))
+    spots, plan, drops = run(
+        [player("Quickley", "TOR")], games, [fa("Sun", "PHX")], config(1, stream_spots=1), values(Quickley=(90, -0.52))
+    )
     assert (plan.started_games, plan.adds, drops) == (7, 0, [])
 
 
@@ -107,8 +124,10 @@ def test_the_gain_of_a_drop_counts_a_rest_game_of_the_holder_as_in_the_plan():
     # PHX plays Tue to Fri. Drop him on Tue: 1 + 4 = 5 started games. Keep him: 1 + 0.5 = 1.5. So +3.5.
     games = {WEEK[0]: {"TOR"}, WEEK[1]: {"TOR", "PHX"}, WEEK[2]: {"PHX"}, WEEK[3]: {"PHX"}, WEEK[4]: {"PHX"}}
     roster, vals = [player("Quickley", "TOR")], values(Quickley=(90, -0.52))
-    spots = [StreamSpot(replace(s.holder, rest_games=((WEEK[1], 0.5),)))
-             for s in choose_stream_spots(roster, config(1, stream_spots=1), vals)]
+    spots = [
+        StreamSpot(replace(s.holder, rest_games=((WEEK[1], 0.5),)))
+        for s in choose_stream_spots(roster, config(1, stream_spots=1), vals)
+    ]
     days = open_slots_by_day(kept_roster(roster, spots), games, SLOTS)
     plan = schedule_plan(days, games, spots, [fa("Sun", "PHX")], 5, SLOTS)
     drops = drop_trade_offs(plan, roster, spots, games, [fa("Sun", "PHX")], 5, SLOTS, vals)
@@ -124,7 +143,8 @@ def test_a_warning_shows_for_a_streamer_with_a_higher_value_than_the_lowest_core
     spots, plan, _ = run(roster, games, fas, cfg, vals)
     assert value_warnings(plan, roster, spots, cfg, vals) == [
         "Warning: Good (PHI) has a value of +0.50. Your lowest core player, Core, has a season value of +0.10. "
-        "You can make Good core."]
+        "You can make Good core."
+    ]
     # With no core list, the comparison uses the lowest kept player.
     cfg = config(3)
     assert value_warnings(plan, roster, spots, cfg, vals)[0].startswith("Warning: Good (PHI)")
@@ -135,13 +155,39 @@ def test_rank_players_ranks_by_per_game_value():
     rng = np.random.default_rng(1)
     n = 200
     names = [chr(97 + i // 26) + chr(97 + i % 26) for i in range(n)]  # aa, ab, ...: name_key() drops digits
-    df = pd.DataFrame({"player_id": range(n), "first_name": names,
-                       "last_name": ["Last"] * n, "games": 70, "minutes": rng.integers(500, 2500, n)})
-    for col in ["field_goals", "threes", "free_throws", "offensive_rebounds", "defensive_rebounds", "assists",
-                "steals", "blocks"]:
+    df = pd.DataFrame(
+        {
+            "player_id": range(n),
+            "first_name": names,
+            "last_name": ["Last"] * n,
+            "games": 70,
+            "minutes": rng.integers(500, 2500, n),
+        }
+    )
+    for col in [
+        "field_goals",
+        "threes",
+        "free_throws",
+        "offensive_rebounds",
+        "defensive_rebounds",
+        "assists",
+        "steals",
+        "blocks",
+    ]:
         df[col] = rng.integers(10, 400, n)
-    df.loc[0, ["field_goals", "threes", "free_throws", "offensive_rebounds", "defensive_rebounds", "assists",
-               "steals", "blocks"]] = 900
+    df.loc[
+        0,
+        [
+            "field_goals",
+            "threes",
+            "free_throws",
+            "offensive_rebounds",
+            "defensive_rebounds",
+            "assists",
+            "steals",
+            "blocks",
+        ],
+    ] = 900
     ranks = rank_players(df, load_config())
     assert ranks[name_key("aa Last")].rank == 1
     assert sorted(r.rank for r in ranks.values()) == list(range(1, n + 1))

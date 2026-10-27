@@ -18,7 +18,9 @@ pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is no
 # ms = best() of all fit calls. baseline_ms = best() of reference() (node_timing.js). slow (default 1) calls fit
 # that many times for each player, to make a fit that is slow times slower. slots and bench: slotRoster of the core
 # in the order of core, as player names.
-DRIVER = TIMING_JS + """
+DRIVER = (
+    TIMING_JS
+    + """
 const { scoreCore, fit, slotRoster } = require(process.argv[1]);
 let text = "";
 process.stdin.on("data", c => (text += c));
@@ -39,33 +41,66 @@ process.stdin.on("end", () => {
   process.stdout.write(JSON.stringify({ score, fits, ms, baseline_ms, slots, bench: roster.bench.map(p => p.name) }));
 });
 """
+)
 
 
 def engine(data, core, fit=(), slow=1):
     """Run team_builder.js in node. core and fit are lists of player ids."""
-    out = subprocess.run(["node", "-e", DRIVER, str(ENGINE)],
-                         input=json.dumps({"data": data, "core": core, "fit": list(fit), "slow": slow}),
-                         capture_output=True, text=True, check=True, encoding="utf-8")
+    out = subprocess.run(
+        ["node", "-e", DRIVER, str(ENGINE)],
+        input=json.dumps({"data": data, "core": core, "fit": list(fit), "slow": slow}),
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    )
     return json.loads(out.stdout)
 
 
 def day(teams, week="wk21", quality=False, b2b=(), date="2027-03-22"):
-    return {"date": date, "week": week, "nba_games": 3 if quality else 10, "quality": quality, "teams": list(teams), "b2b": list(b2b)}
+    return {
+        "date": date,
+        "week": week,
+        "nba_games": 3 if quality else 10,
+        "quality": quality,
+        "teams": list(teams),
+        "b2b": list(b2b),
+    }
 
 
 def player(id, team, pos, value, rests_b2b=0):
     """The name is the id as text, for example "p1"."""
-    return {"id": id, "name": f"p{id}", "team": team, "pos": pos.split("/"), "rank": id, "value": value,
-            "rests_b2b": rests_b2b, "league_price": 1}
+    return {
+        "id": id,
+        "name": f"p{id}",
+        "team": team,
+        "pos": pos.split("/"),
+        "rank": id,
+        "value": value,
+        "rests_b2b": rests_b2b,
+        "league_price": 1,
+    }
 
 
 def data(days, players):
-    return {"slots": ["PG", "SG", "SF", "PF", "C"], "util": 1, "budget": 200, "spots": 10, "core_max_rank": 75,
-            "weak_week_started": 0, "weeks": ["wk19", "wk20", "wk21"], "days": days, "players": players}
+    return {
+        "slots": ["PG", "SG", "SF", "PF", "C"],
+        "util": 1,
+        "budget": 200,
+        "spots": 10,
+        "core_max_rank": 75,
+        "weak_week_started": 0,
+        "weeks": ["wk19", "wk20", "wk21"],
+        "days": days,
+        "players": players,
+    }
 
 
 def test_two_pgs_and_a_c_all_start():
-    result = engine(data([day(["BOS"])], [player(1, "BOS", "PG", 9), player(2, "BOS", "PG", 8), player(3, "BOS", "C", 7)]), [1, 2, 3])
+    result = engine(
+        data([day(["BOS"])], [player(1, "BOS", "PG", 9), player(2, "BOS", "PG", 8), player(3, "BOS", "C", 7)]),
+        [1, 2, 3],
+    )
     assert result["score"]["total"] == {"started": 3, "lost": 0, "holes": 0}
     assert result["score"]["days"][0]["starters"] == {"PG": "p1", "C": "p3", "Util": "p2"}
     assert result["score"]["days"][0]["empty"] == ["SG", "SF", "PF"]
@@ -106,7 +141,11 @@ def test_holes_count_on_quality_days_only():
 
 def test_the_finals_values_equal_the_week_21_values():
     players = [player(1, "BOS", "PG", 9), player(2, "BOS", "PG", 8), player(3, "BOS", "PG", 7)]
-    days = [day(["BOS"], week="wk19", date="2027-03-08"), day(["BOS"], quality=True), day(["BOS"], quality=True, date="2027-03-23")]
+    days = [
+        day(["BOS"], week="wk19", date="2027-03-08"),
+        day(["BOS"], quality=True),
+        day(["BOS"], quality=True, date="2027-03-23"),
+    ]
     result = engine(data(days, players), [1, 2, 3])["score"]
     week = result["weeks"]["wk21"]
     assert result["finals"] == {"started": week["started"], "lost": week["lost"], "holes": week["holes"]}
@@ -115,23 +154,31 @@ def test_the_finals_values_equal_the_week_21_values():
 
 
 def test_fit_gives_the_change_in_started_games_finals_and_holes():
-    players = [player(1, "BOS", "PG", 9), player(2, "BOS", "C", 8),
-               player(3, "NY", "SF", 5), player(4, "BOS", "PG", 4), player(5, "LAL", "SG", 3)]
+    players = [
+        player(1, "BOS", "PG", 9),
+        player(2, "BOS", "C", 8),
+        player(3, "NY", "SF", 5),
+        player(4, "BOS", "PG", 4),
+        player(5, "LAL", "SG", 3),
+    ]
     days = [day(["BOS", "NY"], week="wk19", quality=True, date="2027-03-08"), day(["BOS"], quality=True)]
     result = engine(data(days, players), [1, 2, 4], fit=[3, 5])
     # NY plays on one quality day in wk19: +1 started game, 1 hole less, no finals game. LAL does not play.
     assert result["fits"] == [
         {"started": 1, "finals": 0, "holes_removed": 1, "games": 1, "quality": 1, "quality_started": 1},
-        {"started": 0, "finals": 0, "holes_removed": 0, "games": 0, "quality": 0, "quality_started": 0}]
+        {"started": 0, "finals": 0, "holes_removed": 0, "games": 0, "quality": 0, "quality_started": 0},
+    ]
 
 
 def test_fit_of_a_player_who_sits_is_zero_of_his_games_and_fit_with_an_empty_core_is_his_games():
     players = [player(1, "BOS", "PG", 9), player(2, "BOS", "PG", 8), player(3, "BOS", "PG", 7)]
     days = [day(["BOS"], quality=True)]
     assert engine(data(days, players), [1, 2], fit=[3])["fits"] == [
-        {"started": 0, "finals": 0, "holes_removed": 0, "games": 1, "quality": 1, "quality_started": 0}]
+        {"started": 0, "finals": 0, "holes_removed": 0, "games": 1, "quality": 1, "quality_started": 0}
+    ]
     assert engine(data(days, players), [], fit=[3])["fits"] == [
-        {"started": 1, "finals": 1, "holes_removed": 1, "games": 1, "quality": 1, "quality_started": 1}]
+        {"started": 1, "finals": 1, "holes_removed": 1, "games": 1, "quality": 1, "quality_started": 1}
+    ]
 
 
 def test_fit_games_leave_out_rest_nights():
@@ -142,8 +189,14 @@ def test_fit_games_leave_out_rest_nights():
 
 
 def test_slot_roster_fills_position_slots_then_util_then_the_bench():
-    players = [player(1, "BOS", "PG", 9), player(2, "NY", "PG", 8), player(3, "LAL", "PG/SG", 7),
-               player(4, "BOS", "C", 6), player(5, "NY", "PG", 5), player(6, "LAL", "", 4)]
+    players = [
+        player(1, "BOS", "PG", 9),
+        player(2, "NY", "PG", 8),
+        player(3, "LAL", "PG/SG", 7),
+        player(4, "BOS", "C", 6),
+        player(5, "NY", "PG", 5),
+        player(6, "LAL", "", 4),
+    ]
     result = engine(data([day(["BOS"])], players), [1, 2, 3, 4, 5, 6])
     # p3 moves to SG so that p2 can take Util. p5 has no PG or Util slot left. p6 has no position.
     assert result["slots"] == {"PG": "p1", "SG": "p3", "C": "p4", "Util": "p2"}
@@ -153,8 +206,13 @@ def test_slot_roster_fills_position_slots_then_util_then_the_bench():
 def test_slot_roster_moves_a_high_value_player_into_a_starting_slot():
     # In value order, p2 (PG/SG) takes PG first. p3 (PG) then needs PG, so the matching moves p2 to SG.
     # p4 and p5 are SG only: p4 gets Util and p5, the lowest value, goes to the bench.
-    players = [player(1, "BOS", "C", 9), player(2, "NY", "PG/SG", 8), player(3, "LAL", "PG", 7),
-               player(4, "BOS", "SG", 6), player(5, "NY", "SG", 5)]
+    players = [
+        player(1, "BOS", "C", 9),
+        player(2, "NY", "PG/SG", 8),
+        player(3, "LAL", "PG", 7),
+        player(4, "BOS", "SG", 6),
+        player(5, "NY", "SG", 5),
+    ]
     result = engine(data([day(["BOS"])], players), [1, 2, 3, 4, 5])
     assert result["slots"] == {"PG": "p3", "SG": "p2", "C": "p1", "Util": "p4"}
     assert result["bench"] == ["p5"]
@@ -170,10 +228,15 @@ def fit_500(slow=1):
     """engine() result for the fit of 500 random players on 21 days. slow makes fit that many times slower."""
     rng = random.Random(36)
     teams = [f"T{i}" for i in range(30)]
-    days = [day(rng.sample(teams, rng.randint(4, 30)), week=f"wk{19 + i // 7}", quality=rng.random() < 0.3, date=str(i))
-            for i in range(21)]
+    days = [
+        day(rng.sample(teams, rng.randint(4, 30)), week=f"wk{19 + i // 7}", quality=rng.random() < 0.3, date=str(i))
+        for i in range(21)
+    ]
     positions = ["PG", "PG/SG", "SG/SF", "SF/PF", "PF/C", "C", "SG/SF/PF"]
-    players = [player(i, rng.choice(teams), rng.choice(positions), 500 - i, rests_b2b=int(rng.random() < 0.1)) for i in range(500)]
+    players = [
+        player(i, rng.choice(teams), rng.choice(positions), 500 - i, rests_b2b=int(rng.random() < 0.1))
+        for i in range(500)
+    ]
     return engine(data(days, players), [0, 3, 7, 12, 20, 33, 41], fit=range(500), slow=slow)
 
 
@@ -181,7 +244,9 @@ def test_fit_for_500_players_takes_less_than_6_times_the_reference_work():
     result = fit_500()
     assert len(result["fits"]) == 500
     ratio = result["ms"] / result["baseline_ms"]
-    assert ratio < MAX_FIT_RATIO, f"fit {result['ms']:.1f} ms, reference {result['baseline_ms']:.1f} ms, ratio {ratio:.1f}"
+    assert ratio < MAX_FIT_RATIO, (
+        f"fit {result['ms']:.1f} ms, reference {result['baseline_ms']:.1f} ms, ratio {ratio:.1f}"
+    )
 
 
 def test_the_fit_time_check_fails_when_fit_is_10_times_slower():
@@ -190,6 +255,7 @@ def test_the_fit_time_check_fails_when_fit_is_10_times_slower():
 
 
 # Real schedule and rankings: 3 random cores of 6, 7 and 8 top-75 players.
+
 
 @pytest.fixture(scope="module")
 def real():
@@ -205,10 +271,32 @@ def real():
     rankings = build_rankings(cfg, teams)
     top = rankings[(rankings["rank"] <= 75) & rankings.team.notna()]
     players, playoffs = make_playoffs(top, days, cfg)
-    page = data([{"date": d.date.strftime("%Y-%m-%d"), "week": d.week, "nba_games": int(d.nba_games), "quality": bool(d.quality),
-                  "teams": list(d.teams), "b2b": list(d.b2b)} for d in days.itertuples()],
-                [{"id": int(r.player_id), "name": r.name, "team": r.team, "pos": r.pos.split("/"), "rank": int(r.rank),
-                  "value": float(r.value), "rests_b2b": int(r.rests_b2b), "league_price": 1} for r in players.itertuples()])
+    page = data(
+        [
+            {
+                "date": d.date.strftime("%Y-%m-%d"),
+                "week": d.week,
+                "nba_games": int(d.nba_games),
+                "quality": bool(d.quality),
+                "teams": list(d.teams),
+                "b2b": list(d.b2b),
+            }
+            for d in days.itertuples()
+        ],
+        [
+            {
+                "id": int(r.player_id),
+                "name": r.name,
+                "team": r.team,
+                "pos": r.pos.split("/"),
+                "rank": int(r.rank),
+                "value": float(r.value),
+                "rests_b2b": int(r.rests_b2b),
+                "league_price": 1,
+            }
+            for r in players.itertuples()
+        ],
+    )
     page["weeks"] = [w["name"] for w in cfg["playoffs"]["weeks"]]
     return page, playoffs, players
 

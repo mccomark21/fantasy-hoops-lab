@@ -14,6 +14,7 @@ The game times come from the time column of data/schedule.csv (US Eastern time, 
 no time column. Then the plan lists all the free agents who fit, and you check the game times yourself.
 The main plan does not keep an add back for contingency plans.
 """
+
 from dataclasses import dataclass
 from datetime import date
 
@@ -37,6 +38,7 @@ class Contingency:
     loses them.
     adds_left: the adds left after the main plan. The late add uses one add.
     """
+
     player: object
     day: date
     time: str | None
@@ -71,14 +73,15 @@ def contingency_plans(days, games, plan, spots, free_agents, adds_left, slots, t
     windows = plan.windows if plan else ()
     left = adds_left - (plan.adds if plan else 0)
     in_plan = {w.player for w in windows}
-    fas = sorted((o for o in free_agents if o.value is not None and not o.player.out and o not in in_plan),
-                 key=lambda o: -o.value)
+    fas = sorted(
+        (o for o in free_agents if o.value is not None and not o.player.out and o not in in_plan),
+        key=lambda o: -o.value,
+    )
     out = []
     for day in days:
         roster = [p for _, p in day.starters] + list(day.bench)
         here = _windows_on(windows, day.date, days[0].date)
-        streamers = sorted((w.player for w in here if w.player.player.team in games[day.date]),
-                           key=lambda o: -o.value)
+        streamers = sorted((w.player for w in here if w.player.player.team in games[day.date]), key=lambda o: -o.value)
         lineup = roster + [o.player for o in streamers]
         starters = _starters(lineup, slots)
         for p in roster:
@@ -91,15 +94,19 @@ def contingency_plans(days, games, plan, spots, free_agents, adds_left, slots, t
                 move = next(q for q in others if q in after and q not in starters)
                 out.append(Contingency(p, day.date, time, move=move, adds_left=left))
             else:
-                out.append(_late_add(p, day, time, others, len(starters), here, spots, games, fas, slots, times,
-                                     left))
+                out.append(_late_add(p, day, time, others, len(starters), here, spots, games, fas, slots, times, left))
     return out
 
 
 def _late_add(p, day, time, others, count, here, spots, games, fas, slots, times, left):
     """The Contingency with a late add: the cheapest drop for which free agents fit, and the best of them."""
-    later = [o for o in fas if o.player.team in games[day.date] and o.player.available(day.date)
-             and _later(times.get((day.date, o.player.team)), time)]
+    later = [
+        o
+        for o in fas
+        if o.player.team in games[day.date]
+        and o.player.available(day.date)
+        and _later(times.get((day.date, o.player.team)), time)
+    ]
     # The drops, cheapest first: an empty stream spot, then each streamer by the started games that he loses.
     drops = [None] if len({w.spot for w in here}) < spots else []
     drops += sorted(here, key=lambda w: (len(_lost(w, day.date)), w.player.value))
@@ -107,9 +114,15 @@ def _late_add(p, day, time, others, count, here, spots, games, fas, slots, times
         kept = [q for q in others if drop is None or q is not drop.player.player]
         fits = [o for o in later if len(_starters(kept + [o.player], slots)) == count]
         if fits:
-            return Contingency(p, day.date, time, drop=drop, lost=_lost(drop, day.date) if drop else (),
-                               late_adds=tuple((o, times.get((day.date, o.player.team))) for o in fits[:LATE_ADDS]),
-                               adds_left=left)
+            return Contingency(
+                p,
+                day.date,
+                time,
+                drop=drop,
+                lost=_lost(drop, day.date) if drop else (),
+                late_adds=tuple((o, times.get((day.date, o.player.team))) for o in fits[:LATE_ADDS]),
+                adds_left=left,
+            )
     return Contingency(p, day.date, time, adds_left=left)
 
 
@@ -150,8 +163,9 @@ def contingency_lines(c):
     start = f", game at {c.time} ET" if c.time else ""
     lines.append(f"  {c.day:%a %m/%d}  {c.player.name} {c.player.status} ({c.player.team}{start}):")
     if c.move:
-        lines.append(f"      Lineup move: start {c.move.name} ({c.move.team}, {','.join(c.move.positions)}) "
-                     f"from the bench.")
+        lines.append(
+            f"      Lineup move: start {c.move.name} ({c.move.team}, {','.join(c.move.positions)}) from the bench."
+        )
         return lines
     if not c.late_adds:
         lines.append("      No lineup move works, and no free agent who was read can take his slot.")
@@ -160,12 +174,17 @@ def contingency_lines(c):
     lines.append(f"      No lineup move works. Late add{drop}:")
     for n, (o, t) in enumerate(c.late_adds, 1):
         when = f"game at {t} ET" if t else f"check that his game starts after {c.player.name}'s game"
-        lines.append(f"        {n}. {o.player.name}  {o.player.team}  {','.join(o.player.positions)}  "
-                     f"value {o.value:+.2f}  ({when})")
-    ends = ("no team window ends early" if c.drop is None else
-            f"the {c.drop.team} window ends early and loses {len(c.lost)} started game"
-            + ("" if len(c.lost) == 1 else "s") + (f" ({', '.join(f'{d:%a %m/%d}' for d in c.lost)})"
-                                                     if c.lost else ""))
+        lines.append(
+            f"        {n}. {o.player.name}  {o.player.team}  {','.join(o.player.positions)}  "
+            f"value {o.value:+.2f}  ({when})"
+        )
+    ends = (
+        "no team window ends early"
+        if c.drop is None
+        else f"the {c.drop.team} window ends early and loses {len(c.lost)} started game"
+        + ("" if len(c.lost) == 1 else "s")
+        + (f" ({', '.join(f'{d:%a %m/%d}' for d in c.lost)})" if c.lost else "")
+    )
     lines.append(f"      Cost: 1 add ({c.adds_left} left after the main plan), {ends}.")
     if c.adds_left <= 0:
         lines.append("      The main plan uses all the adds, so this add takes an add from the main plan.")

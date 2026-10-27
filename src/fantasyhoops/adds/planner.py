@@ -32,6 +32,7 @@ the end of the week.
 Run time (#85): each search counts its calls of best() and its unique states in timing.WORK. The counts change
 no plan.
 """
+
 import math
 from dataclasses import dataclass, replace
 from datetime import date
@@ -64,6 +65,7 @@ class Key(NamedTuple):
     days: the open days from k on which he can start. positions: his positions, sorted. rests: (open day, count)
     for each open day of days on which a game counts less than 1. value: his value for the plan score.
     """
+
     days: tuple
     positions: tuple
     rests: tuple
@@ -93,6 +95,7 @@ class Option:
     A game on that day counts count started games. Empty for a player who is not on the rest list.
     role_up: the names of the absent starters on his NBA team who share one of his positions (adds/role_up.py).
     """
+
     player: Player
     projected_value: float | None
     recent_value: float | None = None
@@ -134,6 +137,7 @@ class StreamSpot:
     holder: the Option of the player who holds the spot now and who can be dropped, or None for an empty spot.
     A holder plays in the spot until the plan adds a player to it. The add drops him.
     """
+
     holder: Option | None = None
 
 
@@ -149,6 +153,7 @@ class TeamWindow:
     player: the player that the search used. options: the best free agents on the team who fit the window (the
     plan keeps all its started games with him), best value first. The list has OPTIONS players or fewer.
     """
+
     spot: int
     team: str
     add_day: date | None
@@ -168,6 +173,7 @@ class Plan:
     next_games: next_weight x the games next week of the players who hold a stream spot on the last day of the
     week. next_value: the sum of next_weight x his games next week x his value, for each of these players.
     """
+
     windows: tuple
     started_games: float
     adds: int
@@ -204,23 +210,37 @@ def aggressive_score(empty_value):
     The next-week bonus adds the value above an empty slot of the weighted games next week (Plan.next_games and
     Plan.next_value). The bonus is never less than 0, so it never lowers the part of the score from this week.
     """
+
     def score(started_games, adds, value=0.0, next_games=0.0, next_value=0.0):
         bonus = max(0.0, next_value - empty_value * next_games)
         return value - empty_value * started_games + bonus, -adds, round(started_games, DIGITS)
+
     return score
 
 
-def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_value, next_week=None,
-                    next_weight=0.0):
+def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_value, next_week=None, next_weight=0.0):
     """The best Plan by aggressive_score(empty_value). It uses adds_left adds or fewer.
 
     The arguments are the arguments of schedule_plan(). A holder with no season value (not in the projections
     file) gets empty_value, the lowest value, so that the plan does not keep him as an average player.
     """
-    spots = [StreamSpot(replace(s.holder, projected_value=empty_value, blended_value=None))
-             if s.holder and not _finite(s.holder.value) else s for s in spots]
-    return schedule_plan(days, games, spots, free_agents, adds_left, slots, score=aggressive_score(empty_value),
-                         next_week=next_week, next_weight=next_weight)
+    spots = [
+        StreamSpot(replace(s.holder, projected_value=empty_value, blended_value=None))
+        if s.holder and not _finite(s.holder.value)
+        else s
+        for s in spots
+    ]
+    return schedule_plan(
+        days,
+        games,
+        spots,
+        free_agents,
+        adds_left,
+        slots,
+        score=aggressive_score(empty_value),
+        next_week=next_week,
+        next_weight=next_weight,
+    )
 
 
 def next_week_totals(windows, next_week, next_weight):
@@ -242,6 +262,7 @@ def value_above_empty(plan, empty_value):
 @dataclass(frozen=True)
 class TeamRank:
     """One NBA team in the ranking: the open days that it plays on and the open slots of those days."""
+
     team: str
     open_days: tuple
     open_slots: int
@@ -251,9 +272,14 @@ def rank_teams(days, games):
     """The NBA teams that play on an open day, by open days covered, then open slots covered, then name."""
     open_days = [d for d in days if d.open]
     teams = set().union(*(games[d.date] for d in open_days))
-    ranks = [TeamRank(team=t,
-                      open_days=tuple(d.date for d in open_days if t in games[d.date]),
-                      open_slots=sum(len(d.open) for d in open_days if t in games[d.date])) for t in teams]
+    ranks = [
+        TeamRank(
+            team=t,
+            open_days=tuple(d.date for d in open_days if t in games[d.date]),
+            open_slots=sum(len(d.open) for d in open_days if t in games[d.date]),
+        )
+        for t in teams
+    ]
     return sorted(ranks, key=lambda r: (-len(r.open_days), -r.open_slots, r.team))
 
 
@@ -271,8 +297,7 @@ def teams_to_read(ranking, count=TEAMS_TO_READ):
     return teams
 
 
-def schedule_plan(days, games, spots, free_agents, adds_left, slots, score=plan_score, next_week=None,
-                  next_weight=0.0):
+def schedule_plan(days, games, spots, free_agents, adds_left, slots, score=plan_score, next_week=None, next_weight=0.0):
     """The best Plan by score() for the stream spots. It uses adds_left adds or fewer.
 
     days, games, spots and free_agents: see the module docstring. A free agent who is out or who has no
@@ -357,8 +382,9 @@ class _Search:
         The players with the highest count get the slots first, then the players with the higher value."""
         i = self.open[k]
         base = [set(p.positions) for _, p in self.days[i].starters] + [set(p.positions) for p in self.days[i].bench]
-        playing = sorted((key for key in keys if key.days[:1] == (k,)),
-                         key=lambda key: (-counted_games(key.rests, [k]), -key.value))
+        playing = sorted(
+            (key for key in keys if key.days[:1] == (k,)), key=lambda key: (-counted_games(key.rests, [k]), -key.value)
+        )
         lineup = best_lineup(base + [set(key.positions) for key in playing], self.slots)
         started = [playing[j - len(base)] for j in lineup if j >= len(base)]
         counts = [counted_games(key.rests, [k]) for key in started]
@@ -422,11 +448,17 @@ class _Search:
                 return 0, 0, 0.0, sum(ahead), sum(g * key.value for g, key in zip(ahead, occ)), ()
             top = None
             for keys, removed, added in self.moves(k, occ, adds):
-                started, spent, value, *ahead, moves = best(k + 1, tuple(sorted(_next(key, k) for key in keys)),
-                                                            adds - len(added))
+                started, spent, value, *ahead, moves = best(
+                    k + 1, tuple(sorted(_next(key, k) for key in keys)), adds - len(added)
+                )
                 count, day_value, _ = self.count(k, keys)
-                found = (started + count, spent + len(added), value + day_value, *ahead,
-                         ((k, removed, added), *moves) if added else moves)
+                found = (
+                    started + count,
+                    spent + len(added),
+                    value + day_value,
+                    *ahead,
+                    ((k, removed, added), *moves) if added else moves,
+                )
                 if top is None or self.score(*found[:5]) > self.score(*top[:5]):
                     top = found
             return top
@@ -441,8 +473,9 @@ class _Search:
         used = {h for h in self.holders if h}
         for k, removed, added in moves:
             now = [t[-1][0] if t else None for t in spots]
-            held = [Key(*self.key(o, k).base, v) if o and self.key(o, k) != EMPTY else EMPTY
-                    for o, v in zip(now, values)]
+            held = [
+                Key(*self.key(o, k).base, v) if o and self.key(o, k) != EMPTY else EMPTY for o, v in zip(now, values)
+            ]
             free = []
             for key in removed:
                 free.append(next(s for s in range(len(now)) if s not in free and held[s] == key))
@@ -463,8 +496,9 @@ class _Search:
 
         The players with the highest count get the slots first, then the players with the higher value (see count())."""
         day = self.days[i].date
-        playing = sorted((o for o in players if self.plays(o, i)),
-                         key=lambda o: (-counted_games(o.rest_games, [day]), -_value(o)))
+        playing = sorted(
+            (o for o in players if self.plays(o, i)), key=lambda o: (-counted_games(o.rest_games, [day]), -_value(o))
+        )
         base = [set(p.positions) for _, p in self.days[i].starters] + [set(p.positions) for p in self.days[i].bench]
         lineup = best_lineup(base + [set(o.player.positions) for o in playing], self.slots)
         return {playing[j - len(base)] for j in lineup if j >= len(base)}
@@ -493,17 +527,26 @@ class _Search:
                 last = timeline[n + 1][1] - 1 if n + 1 < len(timeline) else len(self.days) - 1
                 if last < first:
                     continue  # a holder whom the plan drops on the first day has no window
-                windows.append(TeamWindow(
-                    spot=s, team=o.player.team,
-                    add_day=None if holder else self.days[first].date,
-                    last_day=self.days[last].date,
-                    started=tuple(started.get((s, o), ())),
-                    player=o,
-                    options=() if holder else self._options(spots, s, n, used, total)))
+                windows.append(
+                    TeamWindow(
+                        spot=s,
+                        team=o.player.team,
+                        add_day=None if holder else self.days[first].date,
+                        last_day=self.days[last].date,
+                        started=tuple(started.get((s, o), ())),
+                        player=o,
+                        options=() if holder else self._options(spots, s, n, used, total),
+                    )
+                )
         next_games, next_value = next_week_totals(windows, self.next_week, self.next_weight)
-        return Plan(windows=tuple(windows), started_games=total, adds=sum(w.add_day is not None for w in windows),
-                    value=sum(_value(o) * counted_games(o.rest_games, days) for (_, o), days in started.items()),
-                    next_games=next_games, next_value=next_value)
+        return Plan(
+            windows=tuple(windows),
+            started_games=total,
+            adds=sum(w.add_day is not None for w in windows),
+            value=sum(_value(o) * counted_games(o.rest_games, days) for (_, o), days in started.items()),
+            next_games=next_games,
+            next_value=next_value,
+        )
 
     def _options(self, spots, s, n, used, total):
         """The best free agents on the team of window n of spot s with whom the plan keeps all its counted started

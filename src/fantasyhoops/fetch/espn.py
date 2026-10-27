@@ -5,6 +5,7 @@ Output:
   data/rosters.csv   - one row for each player on an NBA roster
   data/schedule.csv  - one row for each team in each regular-season game, with the start time (US Eastern)
 """
+
 import csv
 import json
 import time
@@ -60,8 +61,14 @@ def main():
         for event in schedule["events"]:
             sides = event["competitions"][0]["competitors"]
             opponent = next(s["team"]["abbreviation"] for s in sides if s["team"]["id"] != team["id"])
-            games.append({"date": local_date(event["date"]), "team": abbr, "opponent": opponent,
-                          "time": local_time(event["date"])})
+            games.append(
+                {
+                    "date": local_date(event["date"]),
+                    "team": abbr,
+                    "opponent": opponent,
+                    "time": local_time(event["date"]),
+                }
+            )
         print(f"{abbr}: {len(roster['athletes'])} players, {len(schedule['events'])} games")
 
     for name, rows in (("rosters.csv", rosters), ("schedule.csv", games)):

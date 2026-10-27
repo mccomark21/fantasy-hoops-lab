@@ -4,8 +4,12 @@ import pytest
 from fantasyhoops.draft.category_data import bands, calibrate, category_data, load_benchmark, units
 
 CATS = ["pts", "reb", "ast", "threes", "stl", "blk"]
-CFG = {"weights": {"pts": 1.0, "reb": 1.0, "ast": 1.0, "threes": 0.7, "blk": 0.65, "stl": 0.5},
-       "simulation": {"core": 7}, "auction": {"min_bid": 1}, "category_balance": {"band_pct": 0.05, "games_per_week": 3.5}}
+CFG = {
+    "weights": {"pts": 1.0, "reb": 1.0, "ast": 1.0, "threes": 0.7, "blk": 0.65, "stl": 0.5},
+    "simulation": {"core": 7},
+    "auction": {"min_bid": 1},
+    "category_balance": {"band_pct": 0.05, "games_per_week": 3.5},
+}
 BENCHMARK = {cat: 1.5 for cat in CATS}
 
 
@@ -35,8 +39,17 @@ def test_without_a_benchmark_there_is_no_category_and_no_wz():
 
 def test_the_category_object_has_the_shape_of_the_contract():
     category, wz = category_data(league(), CFG, BENCHMARK)
-    assert list(category) == ["cats", "benchmark", "core_size", "min_bid", "bands", "games_per_week", "weights",
-                              "units", "filler_curve"]
+    assert list(category) == [
+        "cats",
+        "benchmark",
+        "core_size",
+        "min_bid",
+        "bands",
+        "games_per_week",
+        "weights",
+        "units",
+        "filler_curve",
+    ]
     assert category["cats"] == CATS
     assert category["benchmark"] == BENCHMARK
     assert (category["core_size"], category["min_bid"]) == (7, 1)

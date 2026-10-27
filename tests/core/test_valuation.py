@@ -17,13 +17,15 @@ CFG = {
 def players(n=30):
     """Player i has pts = reb = 30 - i, so the order by minutes, pg_value and value is the same."""
     i = pd.Series(range(n))
-    return pd.DataFrame({
-        "player_id": 100 + i,
-        "minutes": 3000 - 10 * i,
-        "games": 82,
-        "pts": (30 - i).astype(float),
-        "reb": (30 - i).astype(float),
-    })
+    return pd.DataFrame(
+        {
+            "player_id": 100 + i,
+            "minutes": 3000 - 10 * i,
+            "games": 82,
+            "pts": (30 - i).astype(float),
+            "reb": (30 - i).astype(float),
+        }
+    )
 
 
 def test_z_scores_and_replacement_level_use_the_pool():
@@ -131,5 +133,6 @@ def test_pg_value_of_a_stat_line_is_the_pg_value_of_the_draft_rankings():
     # One line (a Series) gives a float. Many lines (a DataFrame) give a Series.
     assert pg_value(df.loc[3], scale, CFG) == pytest.approx(out.pg_value[3])
     assert pg_value(pd.Series({"pts": 20.0, "reb": 9.0}), scale, CFG) == pytest.approx(
-        (20 - scale.pts["mean"]) / scale.pts["std"] + 0.5 * (9 - scale.reb["mean"]) / scale.reb["std"])
+        (20 - scale.pts["mean"]) / scale.pts["std"] + 0.5 * (9 - scale.reb["mean"]) / scale.reb["std"]
+    )
     assert pg_value(df, scale, CFG).to_numpy() == pytest.approx(out.pg_value.to_numpy())

@@ -5,8 +5,16 @@ import pytest
 from bs4 import BeautifulSoup
 
 from fantasyhoops.adds import readers
-from fantasyhoops.adds.readers import (Player, has_next_page, parse, read_adds, read_free_agents, read_roster,
-                                       read_waiver_players, read_week)
+from fantasyhoops.adds.readers import (
+    Player,
+    has_next_page,
+    parse,
+    read_adds,
+    read_free_agents,
+    read_roster,
+    read_waiver_players,
+    read_week,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -19,8 +27,17 @@ def test_read_roster_gives_each_player_in_page_order():
     roster = read_roster(fixture("team.html"))
     # 10 players. The empty BN row and the empty IL row are not players.
     assert [p.name for p in roster] == [
-        "Derrick White", "Cooper Flagg", "Matas Buzelis", "Brandon Miller", "Onyeka Okongwu", "Paolo Banchero",
-        "Dejounte Murray", "Coby White", "Immanuel Quickley", "Rudy Gobert"]
+        "Derrick White",
+        "Cooper Flagg",
+        "Matas Buzelis",
+        "Brandon Miller",
+        "Onyeka Okongwu",
+        "Paolo Banchero",
+        "Dejounte Murray",
+        "Coby White",
+        "Immanuel Quickley",
+        "Rudy Gobert",
+    ]
     assert [p.slot for p in roster] == ["PG", "SG", "SF", "PF", "C", "Util", "BN", "BN", "BN", "BN"]
 
 
@@ -45,7 +62,8 @@ def test_read_roster_reads_an_out_player_on_il():
         '<a class="Nowrap name F-link playernote" title="Rudy Gobert">Rudy Gobert</a>',
         '<tr data-pos="IL"><td class="player"><div class="ysf-player-name Nowrap Relative Lh-xs">\n'
         '<a class="Nowrap name F-link playernote" title="Rudy Gobert">Rudy Gobert</a>'
-        '<span class="ysf-player-status Nowrap F-injury Fz-xxs"><span class="Pstart-sm" title="Out">O</span></span>')
+        '<span class="ysf-player-status Nowrap F-injury Fz-xxs"><span class="Pstart-sm" title="Out">O</span></span>',
+    )
     gobert = read_roster(html)[-1]
     assert (gobert.slot, gobert.status, gobert.out, gobert.on_il) == ("IL", "O", True, True)
 
@@ -66,7 +84,8 @@ def test_read_free_agents_divides_the_totals_by_the_games():
     assert (maluach.player.team, maluach.player.positions, maluach.games) == ("PHX", ("C",), 3.0)
     # The page shows 26.3 points, 25.8 rebounds and 1.3 3-pointers in 3 games.
     assert maluach.line == pytest.approx(
-        {"pts": 26.3 / 3, "reb": 25.8 / 3, "ast": 2.5 / 3, "threes": 1.3 / 3, "blk": 4.8 / 3, "stl": 1.5 / 3})
+        {"pts": 26.3 / 3, "reb": 25.8 / 3, "ast": 2.5 / 3, "threes": 1.3 / 3, "blk": 4.8 / 3, "stl": 1.5 / 3}
+    )
     holiday = fas["Jrue Holiday"]
     assert (holiday.player.team, holiday.player.status, holiday.games) == ("POR", "Q", 2.0)
 
@@ -82,16 +101,22 @@ def test_read_free_agents_with_no_projection():
 def test_read_free_agents_keeps_the_full_name_and_maps_the_team():
     fas = read_free_agents(fixture("free_agents_phi.html"))
     assert [(f.player.name, f.player.team, f.player.positions) for f in fas] == [
-        ("Anfernee Simons", "PHI", ("PG", "SG")), ("Adem Bona", "PHI", ("C",)),
-        ("Kentavious Caldwell-Pope", "PHI", ("SG", "SF")), ("Rayan Rupert", "PHI", ("SG", "SF"))]
+        ("Anfernee Simons", "PHI", ("PG", "SG")),
+        ("Adem Bona", "PHI", ("C",)),
+        ("Kentavious Caldwell-Pope", "PHI", ("SG", "SF")),
+        ("Rayan Rupert", "PHI", ("SG", "SF")),
+    ]
 
 
 def test_read_recent_free_agents_with_no_games():
     # On 2026-10-20 no player had a game in the last 14 days: Yahoo shows "-" in all stat cells.
     fas = read_free_agents(fixture("free_agents_phi_recent.html"), totals=False)
     assert [(f.player.name, f.player.team, f.games, f.line) for f in fas] == [
-        ("Anfernee Simons", "PHI", 0, {}), ("Adem Bona", "PHI", 0, {}),
-        ("Kentavious Caldwell-Pope", "PHI", 0, {}), ("Rayan Rupert", "PHI", 0, {})]
+        ("Anfernee Simons", "PHI", 0, {}),
+        ("Adem Bona", "PHI", 0, {}),
+        ("Kentavious Caldwell-Pope", "PHI", 0, {}),
+        ("Rayan Rupert", "PHI", 0, {}),
+    ]
 
 
 def test_read_recent_free_agents_keeps_the_averages():
@@ -99,12 +124,21 @@ def test_read_recent_free_agents_keeps_the_averages():
     soup = BeautifulSoup(fixture("free_agents_phi_recent.html"), "html.parser")
     header = [th.get_text(strip=True) for th in soup.select("thead th")]
     cells = soup.select("tbody tr")[0].find_all("td")
-    for name, text in {"GP*": "7", "PTS": "18.5", "REB": "4.0", "AST": "5.5", "3PTM": "2.5", "ST": "1.0",
-                       "BLK": "0.5"}.items():
+    for name, text in {
+        "GP*": "7",
+        "PTS": "18.5",
+        "REB": "4.0",
+        "AST": "5.5",
+        "3PTM": "2.5",
+        "ST": "1.0",
+        "BLK": "0.5",
+    }.items():
         cells[header.index(name)].div.string = text
     simons = read_free_agents(str(soup), totals=False)[0]
     assert (simons.games, simons.line) == (
-        7, {"pts": 18.5, "reb": 4.0, "ast": 5.5, "threes": 2.5, "stl": 1.0, "blk": 0.5})
+        7,
+        {"pts": 18.5, "reb": 4.0, "ast": 5.5, "threes": 2.5, "stl": 1.0, "blk": 0.5},
+    )
 
 
 def test_read_free_agents_skips_players_on_waivers():
@@ -121,8 +155,11 @@ def test_read_waiver_players_reads_the_clear_day():
     # The waiver list of 2026-10-21 (trimmed). The Roster Status cell shows the clear day, for example "W (Oct 22)".
     was = read_waiver_players(fixture("waivers.html"), today=date(2026, 10, 21))
     assert [(w.player.name, w.player.team, w.player.clear_day) for w in was] == [
-        ("Wendell Carter Jr.", "ORL", date(2026, 10, 22)), ("Devin Vassell", "SA", date(2026, 10, 23)),
-        ("Mitchell Robinson", "BOS", date(2026, 10, 23)), ("Isaiah Stewart", "MEM", date(2026, 10, 22))]
+        ("Wendell Carter Jr.", "ORL", date(2026, 10, 22)),
+        ("Devin Vassell", "SA", date(2026, 10, 23)),
+        ("Mitchell Robinson", "BOS", date(2026, 10, 23)),
+        ("Isaiah Stewart", "MEM", date(2026, 10, 22)),
+    ]
     assert all(w.player.on_waivers for w in was)
     carter = was[0]
     assert (carter.games, carter.line["pts"]) == (3.0, pytest.approx(30.6 / 3))
@@ -160,7 +197,11 @@ def test_a_free_agent_row_gives_no_warning(capsys):
 def test_a_waiver_player_is_available_from_the_day_after_his_clear_day():
     wed = date(2026, 10, 21)
     claim = Player("A", "BOS", ("C",), clear_day=wed)
-    assert [claim.available(wed - timedelta(days=1)), claim.available(wed), claim.available(wed + timedelta(days=1))]         == [False, False, True]
+    assert [
+        claim.available(wed - timedelta(days=1)),
+        claim.available(wed),
+        claim.available(wed + timedelta(days=1)),
+    ] == [False, False, True]
     assert Player("B", "BOS", ("C",)).available(wed)
     assert claim.on_waivers and not Player("B", "BOS", ("C",)).on_waivers
 
@@ -170,11 +211,14 @@ def test_has_next_page():
     assert not has_next_page(fixture("free_agents_phi.html"))
 
 
-@pytest.mark.parametrize("name, totals, next_page", [
-    ("free_agents.html", True, True),
-    ("free_agents_phi.html", True, False),
-    ("free_agents_phi_recent.html", False, False),
-])
+@pytest.mark.parametrize(
+    "name, totals, next_page",
+    [
+        ("free_agents.html", True, True),
+        ("free_agents_phi.html", True, False),
+        ("free_agents_phi_recent.html", False, False),
+    ],
+)
 def test_a_parsed_free_agent_page_gives_the_same_players_and_next_page_as_the_html(name, totals, next_page):
     html = fixture(name)
     parsed = parse(html)

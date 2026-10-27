@@ -1,19 +1,20 @@
 """Page data for the category balance panel (#39 Contracts): wz for each player, the filler curve and the benchmark.
 
-  wz: the weighted z-score of a player in one category: z_<cat> x weights[cat].
-  filler_curve: for each price, the mean wz of the players whose dollars are closest to that price.
-  benchmark: the file output/draft/category_benchmark.csv (benchmark.py writes it), raised in each category
-    to the level that the real top teams of last season had (calibrate).
-  units: the per-game mean and standard deviation of the pool in each category. They turn wz into weekly stats.
+wz: the weighted z-score of a player in one category: z_<cat> x weights[cat].
+filler_curve: for each price, the mean wz of the players whose dollars are closest to that price.
+benchmark: the file output/draft/category_benchmark.csv (benchmark.py writes it), raised in each category
+  to the level that the real top teams of last season had (calibrate).
+units: the per-game mean and standard deviation of the pool in each category. They turn wz into weekly stats.
 """
+
 import numpy as np
 import pandas as pd
 
 from fantasyhoops.draft import OUT
 
 BENCHMARK_FILE = OUT / "category_benchmark.csv"
-MAX_PRICE = 60         # the last price of the filler curve
-FILLER_PLAYERS = 5     # players in the mean for each price
+MAX_PRICE = 60  # the last price of the filler curve
+FILLER_PLAYERS = 5  # players in the mean for each price
 FILLER_MAX_RANK = 140  # a player with a larger rank number is not a filler
 
 
@@ -47,11 +48,19 @@ def calibrate(benchmark, df, cfg):
         return benchmark
     n, per_game = cfg["simulation"]["core"], units(df, cfg)
     if lift:
-        real = {cat: cfg["weights"][cat] * n * per_game[cat]["mean"] * lift[cat] / per_game[cat]["std"] for cat in benchmark}
+        real = {
+            cat: cfg["weights"][cat] * n * per_game[cat]["mean"] * lift[cat] / per_game[cat]["std"] for cat in benchmark
+        }
         benchmark = {cat: max(benchmark[cat], real[cat]) for cat in benchmark}
     # team total per game = n x mean + std x wz / weight. Scale it, then turn it back into wz.
-    scaled = {cat: cfg["weights"][cat] * ((scale - 1) * n * per_game[cat]["mean"] / per_game[cat]["std"]
-                                          + scale * benchmark[cat] / cfg["weights"][cat]) for cat in benchmark}
+    scaled = {
+        cat: cfg["weights"][cat]
+        * (
+            (scale - 1) * n * per_game[cat]["mean"] / per_game[cat]["std"]
+            + scale * benchmark[cat] / cfg["weights"][cat]
+        )
+        for cat in benchmark
+    }
     return {cat: round(v, 3) for cat, v in scaled.items()}
 
 
@@ -83,12 +92,17 @@ def category_data(df, cfg, benchmark):
         raise ValueError(f"The benchmark has the categories {cats}. The weights have {list(weights)}.")
     benchmark = calibrate(benchmark, df, cfg)
     wz = pd.DataFrame({cat: df["z_" + cat] * weights[cat] for cat in cats})
-    category = {"cats": cats, "benchmark": {cat: round(float(benchmark[cat]), 3) for cat in cats},
-                "core_size": cfg["simulation"]["core"], "min_bid": cfg["auction"]["min_bid"],
-                "bands": bands(benchmark, df, cfg),
-                "games_per_week": cfg.get("category_balance", {}).get("games_per_week", 3.5),
-                "weights": {cat: weights[cat] for cat in cats}, "units": units(df, cfg),
-                "filler_curve": filler_curve(df, wz, cfg["auction"]["min_bid"])}
+    category = {
+        "cats": cats,
+        "benchmark": {cat: round(float(benchmark[cat]), 3) for cat in cats},
+        "core_size": cfg["simulation"]["core"],
+        "min_bid": cfg["auction"]["min_bid"],
+        "bands": bands(benchmark, df, cfg),
+        "games_per_week": cfg.get("category_balance", {}).get("games_per_week", 3.5),
+        "weights": {cat: weights[cat] for cat in cats},
+        "units": units(df, cfg),
+        "filler_curve": filler_curve(df, wz, cfg["auction"]["min_bid"]),
+    }
     return category, [{cat: round(float(v), 3) for cat, v in row.items()} for _, row in wz.iterrows()]
 
 

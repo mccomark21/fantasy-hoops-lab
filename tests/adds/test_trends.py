@@ -22,11 +22,14 @@ def page(rows):
     body = "".join(
         f'<tr><td></td><td><div class="ysf-player-name"><a class="name" title="{n}">{n}</a>'
         f'<span class="D-b"><span class="Fz-xxs">PHI - C</span></span></div></td><td></td><td>FA</td>'
-        f'<td>1%</td><td>1%</td><td>{a}</td><td>{d}</td><td>0</td><td>{a + d}</td><td></td></tr>'
-        for n, a, d in rows)
-    return ('<table class="Tst-table"><thead><tr><th></th><th>Player</th><th></th><th>Roster Status</th>'
-            '<th>% Ros</th><th>% Start</th><th>Adds</th><th>Drops</th><th>Trades</th><th>Total</th><th></th>'
-            f'</tr></thead><tbody>{body}</tbody></table>')
+        f"<td>1%</td><td>1%</td><td>{a}</td><td>{d}</td><td>0</td><td>{a + d}</td><td></td></tr>"
+        for n, a, d in rows
+    )
+    return (
+        '<table class="Tst-table"><thead><tr><th></th><th>Player</th><th></th><th>Roster Status</th>'
+        "<th>% Ros</th><th>% Start</th><th>Adds</th><th>Drops</th><th>Trades</th><th>Total</th><th></th>"
+        f"</tr></thead><tbody>{body}</tbody></table>"
+    )
 
 
 def test_read_trends_gives_the_adds_and_drops_of_each_player():
@@ -95,10 +98,12 @@ def test_with_trends_gives_none_for_a_player_who_is_not_on_the_pages():
 
 def test_print_plan_shows_the_adds_or_a_dash(capsys):
     on_page, off_page = option("On page", 1.0, Trend(228, 1500)), option("Off page", 0.5)
-    window = TeamWindow(spot=0, team="PHI", add_day=MON, last_day=MON, started=(MON,), player=on_page,
-                        options=(on_page, off_page))
-    print_plan(Plan(windows=(window,), started_games=1, adds=1), [StreamSpot()], Adds(used=0, limit=5),
-               MON - timedelta(days=1))
+    window = TeamWindow(
+        spot=0, team="PHI", add_day=MON, last_day=MON, started=(MON,), player=on_page, options=(on_page, off_page)
+    )
+    print_plan(
+        Plan(windows=(window,), started_games=1, adds=1), [StreamSpot()], Adds(used=0, limit=5), MON - timedelta(days=1)
+    )
     lines = capsys.readouterr().out.splitlines()
     assert next(line for line in lines if "On page" in line).endswith("adds today 228, this week 1500")
     assert next(line for line in lines if "Off page" in line).endswith("adds -")

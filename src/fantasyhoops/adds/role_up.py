@@ -6,6 +6,7 @@ Inputs:
   data/yahoo_players.csv, data/rosters.csv, data/name_overrides.csv (core/identity.py) - the positions of the starters
 Settings: [adds.role_up] in config.toml.
 """
+
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
@@ -27,6 +28,7 @@ class Absence:
     name: his ESPN name. team: the ESPN code of his team. first_missed: the day of the first game that he missed.
     missed: the games of his team since his last game. positions: his Yahoo positions. () if Yahoo has no match.
     """
+
     name: str
     team: str
     first_missed: date
@@ -70,9 +72,14 @@ def with_positions(found, yahoo, rosters, overrides):
 
 def mark_role_ups(options, found):
     """The options, each with the names of the absent starters on his team who share one of his positions."""
+
     def names(p):
-        return tuple(a.name for a in found if a.team == p.team and set(a.positions) & set(p.positions)
-                     and name_key(a.name) != name_key(p.name))
+        return tuple(
+            a.name
+            for a in found
+            if a.team == p.team and set(a.positions) & set(p.positions) and name_key(a.name) != name_key(p.name)
+        )
+
     return [replace(o, role_up=names(o.player)) for o in options]
 
 
@@ -90,5 +97,4 @@ def read_absences(today, cfg):
     yahoo, rosters, overrides = IDENTITY_FILES
     stints, scores = rotation.read_log(LOG), rotation.read_scores(SCORES)
     found = absences(rotation.player_games(stints, scores, cfg), rotation.team_games(stints, scores, cfg), today, cfg)
-    return with_positions(found, pd.read_csv(yahoo), pd.read_csv(rosters),
-                          pd.read_csv(overrides, dtype=str).fillna(""))
+    return with_positions(found, pd.read_csv(yahoo), pd.read_csv(rosters), pd.read_csv(overrides, dtype=str).fillna(""))

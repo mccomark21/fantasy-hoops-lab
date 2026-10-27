@@ -2,36 +2,45 @@ import pandas as pd
 
 from fantasyhoops.core.identity import espn_keys, link_players, yahoo_keys
 
-PLAYERS = pd.DataFrame({
-    "player_id": [1, 2, 3, 4, 5, 6],
-    "name": ["Exact Match", "Luka Doncic", "Alexandre Sarr", "Free Agent", "Lu Dort", "Not Anywhere"],
-}, index=[10, 11, 12, 13, 14, 15])
+PLAYERS = pd.DataFrame(
+    {
+        "player_id": [1, 2, 3, 4, 5, 6],
+        "name": ["Exact Match", "Luka Doncic", "Alexandre Sarr", "Free Agent", "Lu Dort", "Not Anywhere"],
+    },
+    index=[10, 11, 12, 13, 14, 15],
+)
 
-ROSTERS = pd.DataFrame({
-    "espn_name": ["Exact Match", "Luka Dončić", "Alex Sarr", "Lu Dort"],
-    "team": ["BOS", "LAL", "WSH", "OKC"],
-})
+ROSTERS = pd.DataFrame(
+    {
+        "espn_name": ["Exact Match", "Luka Dončić", "Alex Sarr", "Lu Dort"],
+        "team": ["BOS", "LAL", "WSH", "OKC"],
+    }
+)
 
-YAHOO = pd.DataFrame({
-    "yahoo_id": [101, 102, 103, 105],
-    "name": ["Exact Match", "Luka Dončić Jr.", "Alex Sarr", "Luguentz Dort"],
-    "team": ["BOS", "LAL", "WAS", "OKC"],
-    "positions": ["C", "PG,SG", "PF,C", "SG"],
-    "status": ["", "", "INJ", ""],
-    "yahoo_rank": [1, 2, 3, 5],
-    "pct_drafted": [100, 100, 90, 50],
-    "yahoo_cost": [50.0, 60.0, 10.0, 2.0],
-    "yahoo_value": [40, 55, 8, 1],
-    "adp": [1.5, 2.0, 30.0, 120.0],
-})
+YAHOO = pd.DataFrame(
+    {
+        "yahoo_id": [101, 102, 103, 105],
+        "name": ["Exact Match", "Luka Dončić Jr.", "Alex Sarr", "Luguentz Dort"],
+        "team": ["BOS", "LAL", "WAS", "OKC"],
+        "positions": ["C", "PG,SG", "PF,C", "SG"],
+        "status": ["", "", "INJ", ""],
+        "yahoo_rank": [1, 2, 3, 5],
+        "pct_drafted": [100, 100, 90, 50],
+        "yahoo_cost": [50.0, 60.0, 10.0, 2.0],
+        "yahoo_value": [40, 55, 8, 1],
+        "adp": [1.5, 2.0, 30.0, 120.0],
+    }
+)
 
-OVERRIDES = pd.DataFrame({
-    "player_id": ["3", "4", "5"],
-    "name": ["Alexandre Sarr", "Free Agent", "Lu Dort"],
-    "espn_name": ["Alex Sarr", "", ""],
-    "yahoo_name": ["Alex Sarr", "", "Luguentz Dort"],
-    "team": ["", "MIA", ""],
-})
+OVERRIDES = pd.DataFrame(
+    {
+        "player_id": ["3", "4", "5"],
+        "name": ["Alexandre Sarr", "Free Agent", "Lu Dort"],
+        "espn_name": ["Alex Sarr", "", ""],
+        "yahoo_name": ["Alex Sarr", "", "Luguentz Dort"],
+        "team": ["", "MIA", ""],
+    }
+)
 
 
 def linked():

@@ -28,8 +28,10 @@ def repo(tmp_path):
 @pytest.fixture
 def remote_pages():
     """A function that gives the files on gh-pages in origin, as {path: text}."""
+
     def pages(repo):
         git(repo, "fetch", "origin", BRANCH)
         names = git(repo, "ls-tree", "-r", "--name-only", "FETCH_HEAD").split()
         return {n: git(repo, "show", f"FETCH_HEAD:{n}") for n in names}
+
     return pages

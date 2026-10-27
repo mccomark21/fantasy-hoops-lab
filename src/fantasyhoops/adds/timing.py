@@ -15,6 +15,7 @@ A timings file with an older header gets the new header at the next write. Its o
 A Work with a cap (limit, seconds) raises Capped in tick() when the search passes the cap. The benchmark (#100,
 adds/bench.py) uses it. WORK has no cap, so a planning run never stops for it.
 """
+
 import csv
 import time
 from contextlib import contextmanager
@@ -75,6 +76,7 @@ class StepTime:
     pages: the Yahoo pages of the step, or None for a step with no sub-step. parent: for a sub-step, the name of
     its step. Then step is "<parent>: <sub-step>".
     """
+
     step: str
     seconds: float
     calls: int = None
@@ -163,10 +165,18 @@ class Timings:
         if not self.waiting or (self.head is None and not stopped):
             return
         head = self.head or {"days": "", "open_days": "", "adds_left": ""}
-        rows = [{"run_at": self.run_at.isoformat(), **head, "step": s.step, "seconds": f"{s.seconds:.2f}",
-                 "calls": "" if s.calls is None else s.calls, "states": "" if s.states is None else s.states,
-                 "pages": "" if s.pages is None else s.pages}
-                for s in self.waiting]
+        rows = [
+            {
+                "run_at": self.run_at.isoformat(),
+                **head,
+                "step": s.step,
+                "seconds": f"{s.seconds:.2f}",
+                "calls": "" if s.calls is None else s.calls,
+                "states": "" if s.states is None else s.states,
+                "pages": "" if s.pages is None else s.pages,
+            }
+            for s in self.waiting
+        ]
         self.waiting = []
         append(self.path or TIMINGS, rows)
 

@@ -1,4 +1,5 @@
 """Tests of core/console.py: the UTF-8 helper, and a check that each command calls it first in its __main__ block (#87)."""
+
 import ast
 import io
 import os
@@ -11,8 +12,14 @@ from fantasyhoops.core.console import use_utf8_output
 SRC = Path(__file__).parents[2] / "src" / "fantasyhoops"
 COMMANDS = [
     "adds/plan.py",
-    "draft/auction.py", "draft/board.py", "draft/publish.py", "draft/rankings.py", "draft/report.py",
-    "fetch/espn.py", "fetch/rotation.py", "fetch/yahoo.py",
+    "draft/auction.py",
+    "draft/board.py",
+    "draft/publish.py",
+    "draft/rankings.py",
+    "draft/report.py",
+    "fetch/espn.py",
+    "fetch/rotation.py",
+    "fetch/yahoo.py",
 ]
 
 
@@ -59,15 +66,23 @@ def test_plan_help_sets_piped_stdout_to_utf8():
 
 def main_blocks(tree):
     for node in tree.body:
-        if (isinstance(node, ast.If) and isinstance(node.test, ast.Compare)
-                and isinstance(node.test.left, ast.Name) and node.test.left.id == "__name__"):
+        if (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and isinstance(node.test.left, ast.Name)
+            and node.test.left.id == "__name__"
+        ):
             yield node
 
 
 def calls_helper_first(block):
     first = block.body[0]
-    return (isinstance(first, ast.Expr) and isinstance(first.value, ast.Call)
-            and isinstance(first.value.func, ast.Name) and first.value.func.id == "use_utf8_output")
+    return (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Call)
+        and isinstance(first.value.func, ast.Name)
+        and first.value.func.id == "use_utf8_output"
+    )
 
 
 def test_each_main_block_calls_the_helper_first():

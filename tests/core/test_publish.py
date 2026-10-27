@@ -24,8 +24,13 @@ def test_publish_adds_keeps_draft(repo, remote_pages):
     window = page(repo, "draft/draft_board_wk20-wk22.html", "<p>wk20</p>")
     publish(repo, "draft", page(repo, "draft/board.html", "<p>board</p>"), [window])
     publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"))
-    assert set(remote_pages(repo)) == {".nojekyll", "index.html", "adds/index.html",
-                                       "draft/index.html", "draft/draft_board_wk20-wk22.html"}
+    assert set(remote_pages(repo)) == {
+        ".nojekyll",
+        "index.html",
+        "adds/index.html",
+        "draft/index.html",
+        "draft/draft_board_wk20-wk22.html",
+    }
 
 
 def test_publish_replaces_only_its_own_folder(repo, remote_pages):
@@ -47,8 +52,12 @@ def test_home_page_links_to_each_tool_on_the_site(repo, remote_pages):
 
 def test_old_board_at_the_root_goes_away(repo, remote_pages):
     """Before the site had tool folders, the board was index.html at the root of gh-pages."""
+
     def git(*args, data=None):
-        return subprocess.run(["git", *args], cwd=repo, input=data, check=True, capture_output=True, text=True).stdout.strip()
+        return subprocess.run(
+            ["git", *args], cwd=repo, input=data, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
     blob = git("hash-object", "-w", "--stdin", data="<p>old board</p>")
     tree = git("mktree", data=f"100644 blob {blob}\tdraft_board_wk20-wk22.html\n100644 blob {blob}\tindex.html\n")
     git("push", "origin", f"{git('commit-tree', tree, '-m', 'old')}:refs/heads/{BRANCH}")
@@ -65,8 +74,12 @@ def test_unknown_tool_stops_with_an_error(repo):
 
 def test_each_page_gets_a_nav_bar_with_the_tools_on_the_site(repo, remote_pages):
     publish(repo, "draft", page(repo, "draft/board.html", "<html><body class='x'><p>board</p></body></html>"))
-    publish(repo, "adds", page(repo, "adds/plan.html", "<body><p>plan</p></body>"),
-            [page(repo, "adds/notes.html", "<body><p>notes</p></body>")])
+    publish(
+        repo,
+        "adds",
+        page(repo, "adds/plan.html", "<body><p>plan</p></body>"),
+        [page(repo, "adds/notes.html", "<body><p>notes</p></body>")],
+    )
     pages = remote_pages(repo)
     plan = pages["adds/index.html"]
     assert plan.index("<body>") < plan.index('<nav class="site-nav">') < plan.index("<p>plan</p>")

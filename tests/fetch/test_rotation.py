@@ -13,23 +13,51 @@ def load(name):
 
 
 def play(seq, period, clock, kind="Jump Shot", ids=(), home=0, away=0):
-    return {"sequenceNumber": str(seq), "type": {"text": kind}, "period": {"number": period},
-            "clock": {"displayValue": clock}, "homeScore": home, "awayScore": away,
-            "participants": [{"athlete": {"id": i}} for i in ids]}
+    return {
+        "sequenceNumber": str(seq),
+        "type": {"text": kind},
+        "period": {"number": period},
+        "clock": {"displayValue": clock},
+        "homeScore": home,
+        "awayScore": away,
+        "participants": [{"athlete": {"id": i}} for i in ids],
+    }
 
 
 def athlete(pid, starter, minutes):
-    return {"athlete": {"id": pid, "displayName": pid.upper()}, "starter": starter,
-            "didNotPlay": minutes == 0, "stats": [str(minutes)] if minutes else []}
+    return {
+        "athlete": {"id": pid, "displayName": pid.upper()},
+        "starter": starter,
+        "didNotPlay": minutes == 0,
+        "stats": [str(minutes)] if minutes else [],
+    }
 
 
 def tiny_game():
     """A made-up game. Home team AAA (a1-a6), away team BBB (b1-b6). a6 subs for a1 in period 1 only."""
     box = [
-        {"team": {"id": "1", "abbreviation": "AAA"}, "statistics": [{"names": ["MIN"], "athletes": [
-            athlete("a1", True, 42), *(athlete(f"a{i}", True, 48) for i in range(2, 6)), athlete("a6", False, 6)]}]},
-        {"team": {"id": "2", "abbreviation": "BBB"}, "statistics": [{"names": ["MIN"], "athletes": [
-            *(athlete(f"b{i}", True, 48) for i in range(1, 6)), athlete("b6", False, 0)]}]},
+        {
+            "team": {"id": "1", "abbreviation": "AAA"},
+            "statistics": [
+                {
+                    "names": ["MIN"],
+                    "athletes": [
+                        athlete("a1", True, 42),
+                        *(athlete(f"a{i}", True, 48) for i in range(2, 6)),
+                        athlete("a6", False, 6),
+                    ],
+                }
+            ],
+        },
+        {
+            "team": {"id": "2", "abbreviation": "BBB"},
+            "statistics": [
+                {
+                    "names": ["MIN"],
+                    "athletes": [*(athlete(f"b{i}", True, 48) for i in range(1, 6)), athlete("b6", False, 0)],
+                }
+            ],
+        },
     ]
     plays = [
         play(1, 1, "12:00", "Jumpball", ["a1", "b1"]),
@@ -41,10 +69,23 @@ def tiny_game():
         play(6, 2, "30.5", "Technical Foul", ["b6"], home=2),  # b6 is on the bench
         play(7, 2, "10.0", "Jump Shot", ["b1", "b2"], home=2, away=3),
     ]
-    return {"header": {"id": "900", "competitions": [{"date": "2026-10-21T23:30Z", "status": {"type": {"completed": True}},
-                                                      "competitors": [{"homeAway": "home", "team": {"id": "1", "abbreviation": "AAA"}},
-                                                                      {"homeAway": "away", "team": {"id": "2", "abbreviation": "BBB"}}]}]},
-            "boxscore": {"players": box}, "plays": plays + [play(8, 4, "0.0", "End Game", home=2, away=3)]}
+    return {
+        "header": {
+            "id": "900",
+            "competitions": [
+                {
+                    "date": "2026-10-21T23:30Z",
+                    "status": {"type": {"completed": True}},
+                    "competitors": [
+                        {"homeAway": "home", "team": {"id": "1", "abbreviation": "AAA"}},
+                        {"homeAway": "away", "team": {"id": "2", "abbreviation": "BBB"}},
+                    ],
+                }
+            ],
+        },
+        "boxscore": {"players": box},
+        "plays": plays + [play(8, 4, "0.0", "End Game", home=2, away=3)],
+    }
 
 
 def seconds(stints, pid):
@@ -76,14 +117,22 @@ def test_stint_rows_hold_the_game_and_the_score():
     stints, scores, _ = game_stints(tiny_game())
     a6 = next(s for s in stints if s["player_id"] == "a6")
     assert {k: a6[k] for k in ("game_id", "date", "team", "opponent", "player", "starter")} == {
-        "game_id": "900", "date": "2026-10-21", "team": "AAA", "opponent": "BBB", "player": "A6", "starter": False}
+        "game_id": "900",
+        "date": "2026-10-21",
+        "team": "AAA",
+        "opponent": "BBB",
+        "player": "A6",
+        "starter": False,
+    }
     assert (a6["in_sec"], a6["out_sec"]) == (360, 720)
     assert (a6["in_team_score"], a6["in_opp_score"]) == (0, 0)
     assert (a6["out_team_score"], a6["out_opp_score"]) == (2, 0)
     b1_last = [s for s in stints if s["player_id"] == "b1"][-1]
     assert (b1_last["out_team_score"], b1_last["out_opp_score"]) == (3, 2)  # the away team sees its own score first
-    assert scores == [{"game_id": "900", "sec": 420, "home_score": 2, "away_score": 0},
-                      {"game_id": "900", "sec": 720 + 710, "home_score": 2, "away_score": 3}]
+    assert scores == [
+        {"game_id": "900", "sec": 420, "home_score": 2, "away_score": 0},
+        {"game_id": "900", "sec": 720 + 710, "home_score": 2, "away_score": 3},
+    ]
 
 
 def test_minute_gaps_name_each_player_off_by_more_than_the_tolerance():
@@ -123,9 +172,13 @@ def read_csv(path):
 
 
 def test_update_reads_each_game_once(tmp_path, monkeypatch):
-    monkeypatch.setattr(rotation, "load_config", lambda: {"league": {"espn_season": 2027}, "rotation": {"minute_tolerance": 1.5}})
-    board = {"leagues": [{"calendar": ["2026-10-21T07:00Z"]}],
-             "events": [{"id": "900", "season": {"year": 2027, "type": 2}, "status": {"type": {"completed": True}}}]}
+    monkeypatch.setattr(
+        rotation, "load_config", lambda: {"league": {"espn_season": 2027}, "rotation": {"minute_tolerance": 1.5}}
+    )
+    board = {
+        "leagues": [{"calendar": ["2026-10-21T07:00Z"]}],
+        "events": [{"id": "900", "season": {"year": 2027, "type": 2}, "status": {"type": {"completed": True}}}],
+    }
     asked = []
 
     def get(url):

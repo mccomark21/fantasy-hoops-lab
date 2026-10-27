@@ -16,8 +16,9 @@ MON = date(2027, 1, 4)
 
 def test_each_window_option_shows_its_games_next_week(capsys):
     first, second = Option(Player("First", "PHI", ("SF",)), 1.0), Option(Player("Second", "PHI", ("C",)), 0.5)
-    window = TeamWindow(spot=0, team="PHI", add_day=MON, last_day=MON, started=(MON,), player=first,
-                        options=(first, second))
+    window = TeamWindow(
+        spot=0, team="PHI", add_day=MON, last_day=MON, started=(MON,), player=first, options=(first, second)
+    )
     plan = Plan(windows=(window,), started_games=1, adds=1, value=1.0, next_games=2.0, next_value=2.0)
     print_plan(plan, [StreamSpot()], Adds(used=0, limit=5), MON, next_week={"PHI": 4})
     lines = capsys.readouterr().out.splitlines()
@@ -47,10 +48,12 @@ def test_the_read_of_each_list_page_parses_the_page_one_time(monkeypatch):
             super().__init__(*args, **kw)
 
     monkeypatch.setattr(readers, "BeautifulSoup", CountedSoup)
-    reads = [(lambda y: command.read_team_free_agents(y, ["PHI", "BOS"]), "free_agents_phi.html"),
-             (lambda y: command.read_team_free_agents(y, ["PHI"], command.RECENT), "free_agents_phi_recent.html"),
-             (command.read_market_free_agents, "free_agents.html"),  # a "Next 25" link on each page: 3 pages in each view
-             (lambda y: command.read_waiver_list(y, date(2026, 10, 21)), "waivers.html")]
+    reads = [
+        (lambda y: command.read_team_free_agents(y, ["PHI", "BOS"]), "free_agents_phi.html"),
+        (lambda y: command.read_team_free_agents(y, ["PHI"], command.RECENT), "free_agents_phi_recent.html"),
+        (command.read_market_free_agents, "free_agents.html"),  # a "Next 25" link on each page: 3 pages in each view
+        (lambda y: command.read_waiver_list(y, date(2026, 10, 21)), "waivers.html"),
+    ]
     for read, name in reads:
         parses.clear()
         yahoo = Pages(name)
@@ -66,8 +69,16 @@ def _schedule(games):
 def test_the_weight_limit_counts_the_games_of_the_busiest_team_from_14_days_ago_to_today():
     def day(n):
         return MON - timedelta(days=n)
-    games = [(day(15), "PHI"), (day(14), "PHI"), (day(7), "PHI"), (day(0), "PHI"), (MON + timedelta(days=1), "PHI"),
-             (day(3), "BOS"), (day(2), "BOS")]
+
+    games = [
+        (day(15), "PHI"),
+        (day(14), "PHI"),
+        (day(7), "PHI"),
+        (day(0), "PHI"),
+        (MON + timedelta(days=1), "PHI"),
+        (day(3), "BOS"),
+        (day(2), "BOS"),
+    ]
     assert recent_weight_limit(_schedule(games), MON) == (3, 3 / 14)
     assert recent_weight_limit(_schedule([]), MON) == (0, 0.0)
 
@@ -96,8 +107,10 @@ class ViewPages(Pages):
 
     def views(self):
         """The pages of each view: (projected pages, recent pages)."""
-        return (sum(f"stat1={command.PROJECTED}" in p for p in self.paths),
-                sum(f"stat1={command.RECENT}" in p for p in self.paths))
+        return (
+            sum(f"stat1={command.PROJECTED}" in p for p in self.paths),
+            sum(f"stat1={command.RECENT}" in p for p in self.paths),
+        )
 
 
 @pytest.mark.parametrize("recent", [True, False])
@@ -158,8 +171,10 @@ def _team_lists(n, pts=20.0):
 
 @pytest.mark.parametrize("recent", [True, False])
 def test_the_guard_stops_after_a_page_with_no_new_player_above_the_replacement_value(monkeypatch, recent):
-    lists = {(command.PROJECTED, 0): [_agent("Good", 30.0), _agent("Low", 5.0)],
-             (command.PROJECTED, 1): [_agent("Low Two", 12.0), _agent("Team 3", 30.0)]}
+    lists = {
+        (command.PROJECTED, 0): [_agent("Good", 30.0), _agent("Low", 5.0)],
+        (command.PROJECTED, 1): [_agent("Low Two", 12.0), _agent("Team 3", 30.0)],
+    }
     yahoo = SyntheticPages(monkeypatch, lists)
     market = command.read_market_free_agents(yahoo, recent, _team_lists(15), [], blended)
     # Page 1 has Good (value 4.0) above the 15th-best value (2.0). Page 2 has only Low Two (0.4) as a new player.
@@ -169,7 +184,8 @@ def test_the_guard_stops_after_a_page_with_no_new_player_above_the_replacement_v
     assert len(yahoo.paths) == (4 if recent else 2)
     assert command.market_line(market) == (
         "Market: 2 of 3 pages. Page 2 had no new player above the replacement value (the free agent at rank 15 of "
-        "the players read before it).")
+        "the players read before it)."
+    )
 
 
 @pytest.mark.parametrize("recent", [True, False])
@@ -187,17 +203,24 @@ def test_with_fewer_than_15_free_agents_with_a_value_the_guard_does_not_stop(mon
 
 def test_the_guard_uses_the_blended_value_and_the_projected_value_without_the_recent_view(monkeypatch):
     # Hot: projected 12 points (value 0.4), 14 recent games at 40 points. Blended with w = 1: 40 points (value 6.0).
-    lists = {(command.PROJECTED, 0): [_agent("Hot", 12.0)], (command.RECENT, 0): [_agent("Hot", 40.0, games=14)],
-             (command.PROJECTED, 1): [_agent("Cold", 5.0)], (command.RECENT, 1): [_agent("Cold", 5.0, games=14)]}
+    lists = {
+        (command.PROJECTED, 0): [_agent("Hot", 12.0)],
+        (command.RECENT, 0): [_agent("Hot", 40.0, games=14)],
+        (command.PROJECTED, 1): [_agent("Cold", 5.0)],
+        (command.RECENT, 1): [_agent("Cold", 5.0, games=14)],
+    }
     # The team lists have 15 players at 20 points (value 2.0) in both views. The bar is 2.0.
     found, found_recent = _team_lists(15), _team_lists(15)
-    with_recent = command.read_market_free_agents(SyntheticPages(monkeypatch, lists), True, found, found_recent,
-                                                  blended)
+    with_recent = command.read_market_free_agents(
+        SyntheticPages(monkeypatch, lists), True, found, found_recent, blended
+    )
     assert (with_recent.pages, with_recent.stop) == (2, "guard")  # Hot is above the bar by his blended value
     # The run gives the values of the team lists to the market read (known), as main() does. The result is the same.
     known = command.known_values(found, found_recent, blended)
-    assert command.read_market_free_agents(SyntheticPages(monkeypatch, lists), True, found, found_recent, blended,
-                                           known) == with_recent
+    assert (
+        command.read_market_free_agents(SyntheticPages(monkeypatch, lists), True, found, found_recent, blended, known)
+        == with_recent
+    )
     # While the run skips the recent view (#90), the blended value is the projected value: Hot (0.4) is below 2.0.
     skipped = command.read_market_free_agents(SyntheticPages(monkeypatch, lists), False, found, [], blended)
     assert (skipped.pages, skipped.stop, skipped.recent) == (1, "guard", [])

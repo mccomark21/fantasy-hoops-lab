@@ -4,6 +4,7 @@ Each row is the best plan for ONE stream spot. It can use more than one add in t
 on Tue and Wed, then player B from Thu. The other stream players stay in their spots. Each row uses players that
 the rows above it do not use, so the rows are alternatives. The design is in docs/adds/README.md, "The plans".
 """
+
 from dataclasses import dataclass
 
 from fantasyhoops.adds.drops import kept_roster
@@ -21,6 +22,7 @@ class SpotPlan:
     plan minus the started games of the spot with no add (the games of its holder, or 0 for an empty spot). A fraction
     if a player on the rest list starts on a second night of a back-to-back.
     """
+
     spot: object
     plan: object
     gain: float

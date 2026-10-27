@@ -3,9 +3,13 @@ import pytest
 
 from fantasyhoops.draft.team_score import Playoffs
 
-CFG = {"league": {"slots": ["PG", "SG", "SF", "PF", "C"]}, "auction": {"spots": 10}, "weights": {"pts": 1, "reb": 1},
-       "simulation": {"fit_limits": [0.5, 1.5]},
-       "risk": {"missed_week": {"low": 0.0, "med": 0.2, "high": 1.0}, "missing_tier": "low", "rest_chance": 1.0}}
+CFG = {
+    "league": {"slots": ["PG", "SG", "SF", "PF", "C"]},
+    "auction": {"spots": 10},
+    "weights": {"pts": 1, "reb": 1},
+    "simulation": {"fit_limits": [0.5, 1.5]},
+    "risk": {"missed_week": {"low": 0.0, "med": 0.2, "high": 1.0}, "missing_tier": "low", "rest_chance": 1.0},
+}
 
 
 def days(*teams_by_day, week="wk1", quality=False, b2b=None):
@@ -84,7 +88,7 @@ def test_fit_compares_what_a_player_adds_with_a_player_on_an_average_schedule():
     schedule = days(["BOS"], ["BOS"], ["NY"], ["BOS", "LAL"])
     p = playoffs(schedule)
     assert p.fit([], player("BOS", 4)) == pytest.approx(1.5)  # 3 / (5/3) = 1.8: 1.5 is the most that fit can be
-    assert p.fit([], player("NY", 4)) == pytest.approx(0.6)   # 1 / (5/3)
+    assert p.fit([], player("NY", 4)) == pytest.approx(0.6)  # 1 / (5/3)
     assert p.fit([], player("MIA", 4)) == pytest.approx(0.5)  # no games: the least that fit can be
 
 
@@ -102,7 +106,9 @@ def test_fit_does_not_count_the_streamer_that_every_new_player_replaces():
     # Each new player takes the slot of the one streamer, so his gain is 4 - 3 = 1 on each day.
     # A player with any position on an average schedule has the same gain: fit = 1.
     p = playoffs(days(["BOS"], ["BOS"]), streamer=3, adds=1, streams=1)
-    assert p.fit([player("BOS", 9, pos) for pos in ["PG", "SG", "SF", "PF", "C"]], player("BOS", 4, "C")) == pytest.approx(1.0)
+    assert p.fit(
+        [player("BOS", 9, pos) for pos in ["PG", "SG", "SF", "PF", "C"]], player("BOS", 4, "C")
+    ) == pytest.approx(1.0)
 
 
 def test_week_totals_add_the_stats_of_each_start_and_each_streamer():

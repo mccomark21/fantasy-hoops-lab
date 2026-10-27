@@ -18,7 +18,9 @@ CATS = ["pts", "reb", "ast", "threes", "stl", "blk"]
 # Writes {"gap", "needs", "ms", "baseline_ms"}: gap = categoryGap of the roster, needs = need for each candidate,
 # ms = best() of all need calls, baseline_ms = best() of reference() (node_timing.js).
 # slow (default 1) calls need that many times for each candidate, to make a need that is slow times slower.
-DRIVER = TIMING_JS + """
+DRIVER = (
+    TIMING_JS
+    + """
 const { categoryGap, need } = require(process.argv[1]);
 let text = "";
 process.stdin.on("data", c => (text += c));
@@ -35,13 +37,19 @@ process.stdin.on("end", () => {
   process.stdout.write(JSON.stringify({ gap, needs, ms, baseline_ms }));
 });
 """
+)
 
 
 def engine(data, roster, candidates=(), slow=1):
     """Run category_need.js in node."""
-    out = subprocess.run(["node", "-e", DRIVER, str(ENGINE)],
-                         input=json.dumps({"data": data, "roster": roster, "candidates": list(candidates), "slow": slow}),
-                         capture_output=True, text=True, check=True, encoding="utf-8")
+    out = subprocess.run(
+        ["node", "-e", DRIVER, str(ENGINE)],
+        input=json.dumps({"data": data, "roster": roster, "candidates": list(candidates), "slow": slow}),
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    )
     return json.loads(out.stdout)
 
 
@@ -63,9 +71,18 @@ def curve():
 
 
 def data(benchmark=None):
-    return {"budget": 200, "spots": 10, "category": {
-        "cats": CATS, "benchmark": benchmark or wz(pts=10.0, blk=8.0), "core_size": 7, "min_bid": 1, "bands": {c: 0.5 for c in CATS},
-        "filler_curve": curve()}}
+    return {
+        "budget": 200,
+        "spots": 10,
+        "category": {
+            "cats": CATS,
+            "benchmark": benchmark or wz(pts=10.0, blk=8.0),
+            "core_size": 7,
+            "min_bid": 1,
+            "bands": {c: 0.5 for c in CATS},
+            "filler_curve": curve(),
+        },
+    }
 
 
 def test_empty_roster_is_seven_fillers():
@@ -78,8 +95,12 @@ def test_empty_roster_is_seven_fillers():
 
 
 def test_half_full_roster_counts_players_and_fillers():
-    roster = [pick("a", 40, pts=3.0, blk=1.0), pick("b", 30, pts=2.0), pick("c", 1, core=False, pts=9.0),
-              pick("d", 20, pts=1.0, blk=0.5)]
+    roster = [
+        pick("a", 40, pts=3.0, blk=1.0),
+        pick("b", 30, pts=2.0),
+        pick("c", 1, core=False, pts=9.0),
+        pick("d", 20, pts=1.0, blk=0.5),
+    ]
     out = engine(data(wz(pts=30.0, blk=30.0)), roster)["gap"]
     # Other spent = 1 and 2 stream spots are empty, so core money = 200 - 1 - 2 = 197.
     # Core spent = 90 and 4 core spots are empty, so the filler price = 107 / 4 = 26.75. The row is 27 (2.7).

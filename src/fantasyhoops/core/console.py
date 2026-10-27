@@ -3,6 +3,7 @@
 On Windows, Python writes piped or redirected output in the cp1252 code page.
 A print of a player name with a letter outside cp1252 (for example "č") then stops the run (#87).
 """
+
 import sys
 
 

@@ -1,4 +1,5 @@
 """Tests of League.get() with a fake page. The tests open no browser and use no network."""
+
 import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
@@ -33,14 +34,17 @@ class FakePage:
         return "<html>page</html>"
 
 
-@pytest.mark.parametrize("path, required, optional", [
-    ("10", (TEAM,), ()),
-    ("matchup?mid1=10", (DAYS,), (SCORES,)),
-    ("matchup?week=2&mid1=10", (DAYS,), (SCORES,)),
-    ("players?status=FA&pos=P&count=25", (PLAYERS,), ()),
-    ("players?status=W&pos=P&count=0", (PLAYERS,), ()),
-    ("buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1", (TRENDS,), ()),
-])
+@pytest.mark.parametrize(
+    "path, required, optional",
+    [
+        ("10", (TEAM,), ()),
+        ("matchup?mid1=10", (DAYS,), (SCORES,)),
+        ("matchup?week=2&mid1=10", (DAYS,), (SCORES,)),
+        ("players?status=FA&pos=P&count=25", (PLAYERS,), ()),
+        ("players?status=W&pos=P&count=0", (PLAYERS,), ()),
+        ("buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1", (TRENDS,), ()),
+    ],
+)
 def test_ready_selectors_name_the_elements_that_the_reader_needs(path, required, optional):
     assert ready_selectors(path) == (required, optional)
 

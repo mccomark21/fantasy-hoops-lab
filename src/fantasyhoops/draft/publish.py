@@ -1,4 +1,5 @@
 """Publish output/draft/draft_board.html to GitHub Pages at /draft/, with the pages of the other playoff windows."""
+
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT
 from fantasyhoops.core.console import use_utf8_output

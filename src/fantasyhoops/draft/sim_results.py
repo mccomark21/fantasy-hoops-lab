@@ -5,6 +5,7 @@ core is True for the keeper and the players that you buy for your core (not for 
 The keeper is in each core, so the tables leave him out. The numbers show what goes with a title.
 They do not show that a player causes it: a cheap player also leaves money for the rest of your core.
 """
+
 from itertools import combinations
 
 import numpy as np
@@ -23,15 +24,30 @@ def player_table(runs, min_pct=3):
     for keeper, data in runs.groupby("keeper"):
         titles = data.groupby("run").title.first()
         core = data[data.core & (data.player != keeper)]
-        table = core.groupby("player").agg(n=("run", "nunique"), wins=("title", "sum"), min_price=("price", "min"),
-                                           median_price=("price", "median"), max_price=("price", "max"))
+        table = core.groupby("player").agg(
+            n=("run", "nunique"),
+            wins=("title", "sum"),
+            min_price=("price", "min"),
+            median_price=("price", "median"),
+            max_price=("price", "max"),
+        )
         table = table[100 * table.n / len(titles) >= min_pct]
         table["core_pct"] = 100 * table.n / len(titles)
         table["title_with"] = 100 * table.wins / table.n
         table["title_without"] = 100 * (titles.sum() - table.wins) / (len(titles) - table.n)
         table["lift"] = table.title_with - table.title_without
         tables.append(table.reset_index().assign(keeper=keeper))
-    cols = ["keeper", "player", "core_pct", "min_price", "median_price", "max_price", "title_with", "title_without", "lift"]
+    cols = [
+        "keeper",
+        "player",
+        "core_pct",
+        "min_price",
+        "median_price",
+        "max_price",
+        "title_with",
+        "title_without",
+        "lift",
+    ]
     return pd.concat(tables)[cols].sort_values(["keeper", "core_pct"], ascending=[True, False]).reset_index(drop=True)
 
 
@@ -52,8 +68,11 @@ def group_table(runs, sizes=(2, 3, 4), min_pct=1):
                 for group in combinations(sorted(players), size):
                     n, wins = counts.get(group, (0, 0))
                     counts[group] = (n + 1, wins + title)
-        rows = [{"group": " + ".join(g), "size": len(g), "runs": n, "wins": wins}
-                for g, (n, wins) in counts.items() if 100 * n / n_runs >= min_pct]
+        rows = [
+            {"group": " + ".join(g), "size": len(g), "runs": n, "wins": wins}
+            for g, (n, wins) in counts.items()
+            if 100 * n / n_runs >= min_pct
+        ]
         tables.append(pd.DataFrame(rows, columns=["group", "size", "runs", "wins"]).assign(keeper=keeper))
     table = pd.concat(tables)
     table["title_pct"] = 100 * table.wins / table.runs

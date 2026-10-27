@@ -5,6 +5,7 @@ Status rules (docs/adds/README.md):
 - A player on IL cannot start and takes no roster spot. So his spot is a stream spot.
 - Each other player plays every game of his NBA team.
 """
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -24,6 +25,7 @@ class Day:
     bench: the players with a game who do not start, because the slots that they can fill are full.
     open: the starting slots that no player fills, in slot order.
     """
+
     date: date
     nba_games: int
     starters: tuple
@@ -87,11 +89,13 @@ def open_slots_by_day(roster, games, slots):
         playing = [p for p in roster if p.team in teams and not p.out and not p.on_il]
         filled = starting_slots([set(p.positions) for p in playing], slots)
         starters = sorted(((slot, playing[i]) for i, slot in filled.items()), key=lambda s: order.index(s[0]))
-        out.append(Day(
-            date=day,
-            nba_games=len(teams) // 2,
-            starters=tuple(starters),
-            bench=tuple(p for i, p in enumerate(playing) if i not in filled),
-            open=tuple(s for s in order if s not in filled.values()),
-        ))
+        out.append(
+            Day(
+                date=day,
+                nba_games=len(teams) // 2,
+                starters=tuple(starters),
+                bench=tuple(p for i, p in enumerate(playing) if i not in filled),
+                open=tuple(s for s in order if s not in filled.values()),
+            )
+        )
     return out
