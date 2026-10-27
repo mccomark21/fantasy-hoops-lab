@@ -93,3 +93,38 @@ def test_get_names_the_page_and_the_element_when_the_element_does_not_appear():
     assert f"{SITE}/nba/22820/10" in message
     assert TEAM in message
     assert "5 s" in message
+
+
+class SignInPage(FakePage):
+    """A page whose first visit goes to the Yahoo sign-in, as when the session has expired."""
+
+    def goto(self, url, wait_until, timeout):
+        super().goto(url, wait_until, timeout)
+        if len(self.visits) == 1:
+            self.url = "https://login.yahoo.com/"
+
+    def wait_for_url(self, url, timeout):
+        pass
+
+
+def test_get_counts_each_page_that_it_opens():
+    league = League(FakePage(), 22820)
+    assert league.pages == 0
+    league.get("10")
+    league.get("players?status=FA&pos=P&count=0")
+    assert league.pages == 2
+
+
+def test_a_page_after_a_sign_in_counts_one_time(capsys):
+    page = SignInPage()
+    league = League(page, 22820)
+    league.get("10")
+    assert len(page.visits) == 2  # the sign-in opens the page again
+    assert league.pages == 1
+
+
+def test_a_path_with_no_known_page_kind_counts_no_page():
+    league = League(FakePage(), 22820)
+    with pytest.raises(UnknownPage):
+        league.get("transactions")
+    assert league.pages == 0
