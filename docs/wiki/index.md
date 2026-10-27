@@ -15,7 +15,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Ideas
 
-- [Bluesky streaming posts](bluesky-streaming-posts.md): the owner idea of 2026-10-26 for weekly streaming images on Bluesky, the owner decisions, and the studies of that day (feasibility, sources without login, an availability estimate, platform defaults).
+- [Bluesky streaming posts](bluesky-streaming-posts.md): the owner idea of 2026-10-26 for weekly streaming images on Bluesky, the owner decisions, and the studies of that day (feasibility, sources without login, an availability estimate, platform defaults, general ranks, terms-safe sources, an own projection check), and the owner decision on the terms question.
 
 ## Decisions
 
@@ -25,6 +25,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 - [Owner merges PR #54](decision-owner-merges-pr-54.md): on 2026-10-21, the owner decided that the owner merges PR #54. An agent does not merge it.
 - [The pr-flow skill](decision-pr-flow-skill.md): on 2026-10-21, a user-level skill for builder, reviewer and merger roles, made from the problems of the runs of #59 to #76.
 - [Wiki location](decision-wiki-location.md): on 2026-10-21, the owner put the wiki in `docs/wiki/`.
+- [Push wiki commits](decision-push-wiki-commits.md): on 2026-10-26, the owner allowed the chief of staff to push commits that change only `docs/wiki/` to `main` without asking.
 
 ## Recurring problems
 

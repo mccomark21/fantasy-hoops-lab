@@ -21,6 +21,14 @@ Owner decisions on 2026-10-26:
 
 Open on 2026-10-26: the owner did not answer the terms question. The ESPN terms bar automated access. The Sleeper projections come from Rotowire. One option is to post ranks only and credit the sources.
 
+Superseded later on 2026-10-26: the owner answered the terms question. See [Owner decision on the terms question](#owner-decision-on-the-terms-question).
+
+### Owner decision on the terms question
+
+On 2026-10-26, the owner decided this: the posts show only our own ranks, so the job does not depend on platform agreements.
+
+The chief of staff noted a limit of this decision. It covers the republishing of data. It does not cover how the job fetches its inputs. The inputs should come from sources whose terms allow automated use. See [Terms-safe sources](#terms-safe-sources).
+
 ## First feasibility study
 
 1. The Yahoo login blocks a cloud runner. `src/fantasyhoops/adds/session.py` opens a visible Edge profile (`headless=False`, `channel="msedge"`). [ADR 0001](../adr/0001-playwright-for-league-data.md) records that Yahoo blocked an automated sign-in.
@@ -90,5 +98,89 @@ Not verified: the defaults of Sleeper, Fantrax and CBS.
 ## Open point
 
 On 2026-10-26, the chief of staff recorded this point. The prototype's best cutoff, K = 110, is below the slot count of 130 to 156. A possible cause: the punt value ranks players in a different order from how the public rosters them. A general rank for the availability step, such as points or 9-category value plus ADP, may move the best K toward 130. Nobody tested this.
+
+Superseded later on 2026-10-26: the second prototype tested this point, and the hypothesis did not hold. See [Second prototype: general ranks](#second-prototype-general-ranks).
+
+## Second prototype: general ranks
+
+On 2026-10-26, an agent tested the open point above. The hypothesis was that a general rank moves the best K to 130 to 156. The hypothesis did not hold.
+
+1. The agent removed OUT players before the cut.
+2. For all ranks, the best K stayed at 98 to 112. The ranks were punt plus ADP, points plus ADP, 9-category, and blends.
+3. Points plus ADP (with 0.2 times the recent value) and punt plus ADP tied at 16 errors.
+4. Pure 9-category value was the worst rank, with 32 errors.
+5. Points alone, without ADP, gave K = 110 and 22 errors.
+
+The cause is the reference. Only 106 healthy players are at or above 50% rostered on ESPN.
+
+| Healthy rank | ESPN % rostered |
+|---|---|
+| 130 | 27.7% |
+| 156 | 13.2% |
+
+With a reference of under 25% to 30% rostered, the best K was 122 to 132.
+
+In the owner's league, the errors were lowest near K = 150. That league has 14 teams x 10 active slots = 140. This slot count comes from the owner's memory notes. Nobody checked it against Yahoo.
+
+ESPN default points scoring (2020), from https://www.espn.com/wireless/story/_/id/30296896:
+
+| Stat | Points |
+|---|---|
+| PTS | 1 |
+| 3PM | 1 |
+| FGM | 2 |
+| FGA | -1 |
+| FTM | 1 |
+| FTA | -1 |
+| REB | 1 |
+| AST | 2 |
+| STL | 4 |
+| BLK | 4 |
+| TO | -2 |
+
+These values came from search results. They are partly unverified.
+
+## Terms-safe sources
+
+On 2026-10-26, an agent read the terms of possible input sources.
+
+| Source | Terms | URL |
+|---|---|---|
+| balldontlie | Section 6 allows "any lawful personal or commercial purpose", including publishing and fantasy sports. No attribution is necessary. The terms were updated 2026-10-20. | https://www.balldontlie.io/terms |
+| NBA.com | Section 9 bars use "in connection with any fantasy game". | https://www.nba.com/termsofuse |
+| Sports Reference | The data use page bars scrapers. | https://www.sports-reference.com/data_use.html |
+| Sleeper | The docs show no NBA stats endpoints. | https://docs.sleeper.com |
+
+balldontlie access:
+
+- An API key is necessary.
+- The free tier gives teams, players and games (the schedule) at 5 requests each minute.
+- Per-game stats and injuries need the ALL-STAR tier at $9.99 each month.
+
+Unclear on 2026-10-26:
+
+1. Where balldontlie gets its data.
+2. Whether the ALL-STAR tier gives past seasons.
+3. Whether `/v1/games` gives future games.
+4. The source of the projections CSV in `data/`.
+
+## Own projection check
+
+On 2026-10-26, an agent compared an own projection with the projections file. The own projection was season-to-date punt value x projected games. The season-to-date stats covered 1 to 4 games for each player.
+
+| Measure | Result |
+|---|---|
+| Spearman, top 150 | 0.64 |
+| Spearman, top 250 | 0.69 |
+| Overlap of the top 100 | 73 |
+
+This result shows agreement with the projections file. It does not show accuracy.
+
+An early-season projection needs these inputs:
+
+1. Last season's per-game stats as a prior. The weight of the prior shrinks as games played increase.
+2. Recent minutes.
+3. Injury status.
+4. Games left.
 
 Related: [ADR 0001](../adr/0001-playwright-for-league-data.md), [Yahoo reads study](yahoo-reads-study.md).
