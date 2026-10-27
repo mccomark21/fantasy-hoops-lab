@@ -8,6 +8,7 @@ Output: rankings.csv. board.py calls build_rankings() to get all the columns.
 import pandas as pd
 
 from fantasyhoops.core.common import DATA, ROOT, latest_projections, load_config, name_key, weeks
+from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.identity import link_players
 from fantasyhoops.core.schedule import join_teams, playoff_schedule, read_schedule, schedule_columns, schedule_grid
 from fantasyhoops.core.valuation import value_players
@@ -95,4 +96,5 @@ def main():
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     main()

@@ -58,6 +58,7 @@ from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import empty_slot_value, market_value, projection_scale, replacement_value
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
+from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
 
 RANKING_ROWS = 12  # the teams that the ranking prints
@@ -517,6 +518,7 @@ def main(today=None, publish=True, timed=True):
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     parser = argparse.ArgumentParser(description="Plan the adds of the current fantasy week.")
     parser.add_argument("--no-publish", action="store_true", help="Write the plan page, but do not publish it.")
     main(publish=not parser.parse_args().no_publish)

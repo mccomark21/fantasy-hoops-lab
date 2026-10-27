@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fantasyhoops.core.common import DATA, load_config
+from fantasyhoops.core.console import use_utf8_output
 
 API = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
 
@@ -72,4 +73,5 @@ def main():
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     main()

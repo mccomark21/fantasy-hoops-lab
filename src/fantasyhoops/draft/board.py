@@ -17,6 +17,7 @@ from pathlib import Path
 import pandas as pd
 
 from fantasyhoops.core.common import load_config, weeks
+from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
 from fantasyhoops.draft import OUT
 from fantasyhoops.draft.category_data import category_data, load_benchmark
@@ -1334,4 +1335,5 @@ def main():
 
 
 if __name__ == "__main__":
+    use_utf8_output()
     main()
