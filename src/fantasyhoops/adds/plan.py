@@ -21,7 +21,8 @@ One planning run:
    [adds] recent_skip_weight, the run skips the recent view (#90). The values then use the projection only, and the
    page and the terminal say so (recent_skip_line()).
 5. read_week_trends(): read Transaction Trends for each day of this week up to today. The page of a day before
-   today comes from the cache if a run read it before. The page of today comes from Yahoo (#91).
+   today comes from the cache if a run read it before: yesterday's page until the end of today, an older page for
+   good. The page of today comes from Yahoo (#91).
    read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
    positions (adds/role_up.py). The mark changes no value.
 6. schedule_plan(): choose the team windows for the stream spots. matchup_plan(): the same search with the
@@ -184,7 +185,7 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
     read before that page. With fewer than REPLACEMENT_RANK free agents with a value before the page, the guard does
     not stop the read. A player who is also on an earlier list is not new.
     known: known_values() of found. None: the function computes it.
-    recent_yahoo: the reader of the pages in the recent view, for example cache.PageCache.day() (#91). None: yahoo.
+    recent_yahoo: the reader of the pages in the recent view, for example cache.PageCache.recent() (#91). None: yahoo.
     """
     recent_yahoo = recent_yahoo or yahoo
     out, out_recent = [], []
@@ -587,7 +588,7 @@ def main(today=None, publish=True, timed=True, cache=True):
                 team_fas = read_team_free_agents(yahoo, read)
             # The recent view does not change during a day, so its team lists and market pages use the cache (#91).
             # The FA status and the injury flags come only from the projected view of this run (blend.py).
-            recent_pages = pages.day(yahoo)
+            recent_pages = pages.recent(yahoo)
             with part("recent pass", yahoo):
                 team_recent = [] if skip else read_team_free_agents(recent_pages, read, RECENT)
             # The values of the team lists are outside the sub-steps, so the rows stay comparable with #89.
@@ -606,7 +607,8 @@ def main(today=None, publish=True, timed=True, cache=True):
             if not skip:
                 recent = unique_free_agents(team_recent + market.recent + waivers_recent)
             with part("trends", yahoo):
-                trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week), pages.kept(yahoo))
+                trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week),
+                                          lambda day: pages.trends(yahoo, day))
     if read:
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)

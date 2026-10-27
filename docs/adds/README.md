@@ -443,7 +443,8 @@ Some Yahoo pages do not change during a day. The run keeps them in `output/adds/
 | Page | Kept |
 |---|---|
 | The team-filtered lists and the market pages in the recent view (`S_AL14`) | Until the end of the day of the read |
-| Transaction Trends of a day before today | For good |
+| Transaction Trends of yesterday | Until the end of the day of the read |
+| Transaction Trends of 2 or more days before today | For good |
 
 The run never takes these pages from the cache:
 
@@ -454,7 +455,11 @@ The run never takes these pages from the cache:
 
 The FA status and the injury flags of each option come only from the projected view of the run. A player who became a free agent after the cached read has no recent line until the next day. His blended line is then his projected line.
 
-At the start of each run, the run deletes the entries of the recent view of earlier days. The Transaction Trends entries stay.
+A recent view that a run stored earlier in the day does not show the games of that night. After the games end, run the planner with `--no-cache`.
+
+At the start of each run, the run deletes the same-day entries of the days before today. The Transaction Trends entries that the cache keeps for good stay.
+
+The cache is only a speed-up. The run treats a bad cache entry as a miss and reads the page from Yahoo. If the run cannot write an entry, it prints a warning and continues.
 
 When a page comes from the cache, the page and the terminal say so above the free-agent table, for example "The recent view: 14 pages from the cache of 2026-10-26 09:14." The time is the earliest read time of the cached recent pages. The page count of the Run time table counts only the pages from Yahoo. While the run skips the recent view (#90), only the Transaction Trends pages of earlier days come from the cache.
 
