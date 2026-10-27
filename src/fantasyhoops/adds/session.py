@@ -60,12 +60,15 @@ class League:
     """The pages of one Yahoo league. get("players?status=FA") returns the HTML of /nba/<league>/players?status=FA.
 
     wait_seconds: the time that get() waits for the element that the reader of the page needs.
+    pages: the calls of get() that opened a page, for the run time of each sub-step (adds/timing.py, #89).
+    A sign-in opens the page again, but the page counts one time.
     """
 
     def __init__(self, page, league, wait_seconds=WAIT_SECONDS):
         self.page = page
         self.base = f"{SITE}/nba/{league}"
         self.wait_seconds = wait_seconds
+        self.pages = 0
 
     def get(self, path):
         url = f"{self.base}/{path}"
@@ -73,6 +76,7 @@ class League:
             required, optional = ready_selectors(path)
         except UnknownPage as error:
             raise UnknownPage(f"{error} URL: {url}") from None
+        self.pages += 1
         self.page.goto(url, wait_until="domcontentloaded", timeout=60000)
         if not self.page.url.startswith(SITE):
             self._sign_in(url)

@@ -115,7 +115,7 @@ def test_each_step_appends_its_row_when_it_ends(tmp_path):
     columns, rows = read_rows(path)
     assert columns == timing.COLUMNS
     assert rows[0] == {"run_at": timings.run_at.isoformat(), "days": "3", "open_days": "3", "adds_left": "4",
-                       "step": "schedule read", "seconds": "0.12", "calls": "", "states": ""}
+                       "step": "schedule read", "seconds": "0.12", "calls": "", "states": "", "pages": ""}
     assert (rows[1]["step"], rows[1]["calls"], rows[1]["states"]) == ("schedule search", "40", "12")
     assert len(rows[0]["run_at"]) == len("2026-10-25T21:04:33")
 
@@ -144,6 +144,88 @@ def test_a_step_that_stops_the_run_before_the_window_writes_the_waiting_rows(tmp
             raise RuntimeError("no Yahoo session")
     rows = read_rows(path)[1]
     assert [(r["step"], r["days"], r["open_days"], r["adds_left"]) for r in rows] == [("schedule read", "", "", "")]
+
+
+class Pages:
+    """A fake session.League: get() counts one page."""
+
+    def __init__(self):
+        self.pages = 0
+
+    def get(self, n=1):
+        self.pages += n
+
+
+def test_each_sub_step_gets_a_row_after_its_step_with_its_seconds_and_its_pages(tmp_path, capsys):
+    path, league = tmp_path / "timings.csv", Pages()
+    timings = timing.Timings(clock=clock(1.0), path=path)
+    timings.window([], 5)
+    with timings.step("Yahoo reads"):
+        with timings.part("browser start"):
+            pass
+        with timings.part("market pages", league):
+            league.get(6)
+        with timings.part("waiver list", league):
+            league.get(1)
+        with timings.part("market pages", league):  # a second block adds into the same sub-step
+            league.get(6)
+    with timings.step("role read"):
+        pass
+    # Each clock read moves 1 s, so each block is 1 s, and the step is 9 s: from read 1 to read 10.
+    assert timings.steps == [
+        timing.StepTime("Yahoo reads", 9.0, pages=13),
+        timing.StepTime("Yahoo reads: browser start", 1.0, pages=0, parent="Yahoo reads"),
+        timing.StepTime("Yahoo reads: market pages", 2.0, pages=12, parent="Yahoo reads"),
+        timing.StepTime("Yahoo reads: waiver list", 1.0, pages=1, parent="Yahoo reads"),
+        timing.StepTime("role read", 1.0)]
+    rows = read_rows(path)[1]
+    assert [(r["step"], r["seconds"], r["pages"]) for r in rows] == [
+        ("Yahoo reads", "9.00", "13"), ("Yahoo reads: browser start", "1.00", "0"),
+        ("Yahoo reads: market pages", "2.00", "12"), ("Yahoo reads: waiver list", "1.00", "1"),
+        ("role read", "1.00", "")]
+    out = capsys.readouterr().out.splitlines()
+    assert "Step: Yahoo reads: 9.00 s, 13 pages" in out
+    assert "  Yahoo reads: market pages: 2.00 s, 12 pages" in out
+
+
+def test_a_sub_step_outside_a_step_raises_an_error():
+    with pytest.raises(RuntimeError, match="browser start"):
+        with timing.Timings().part("browser start"):
+            pass
+
+
+def test_a_run_with_no_timers_times_no_sub_step():
+    timings = timing.Timings(on=False)
+    with timings.part("market pages", Pages()):
+        pass
+    assert timings.steps == []
+
+
+def test_a_stopped_step_writes_no_row_for_its_sub_steps(tmp_path):
+    path = tmp_path / "timings.csv"
+    timings = timing.Timings(path=path)
+    timings.window([], 5)
+    with pytest.raises(KeyboardInterrupt):
+        with timings.step("Yahoo reads"):
+            with timings.part("browser start"):
+                pass
+            raise KeyboardInterrupt
+    assert not path.exists()
+
+
+def test_a_file_with_the_old_header_gets_the_new_header_and_keeps_its_rows(tmp_path):
+    path = tmp_path / "timings.csv"
+    path.write_text("run_at,days,open_days,adds_left,step,seconds,calls,states\n"
+                    "2026-10-26T09:00:00,2,2,1,Yahoo reads,31.34,,\n", encoding="utf-8")
+    timings = timing.Timings(path=path)
+    timings.window([], 5)
+    with timings.step("role read"):
+        pass
+    columns, rows = read_rows(path)
+    assert columns == timing.COLUMNS
+    assert rows[0] == {"run_at": "2026-10-26T09:00:00", "days": "2", "open_days": "2", "adds_left": "1",
+                       "step": "Yahoo reads", "seconds": "31.34", "calls": "", "states": "", "pages": ""}
+    assert rows[1]["step"] == "role read"
 
 
 def test_a_run_with_no_timers_writes_no_file(tmp_path):

@@ -12,7 +12,8 @@ A section shows only the parts that exist. The main sections:
 A third section lists the waiver players (W) with their clear days.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
 The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
-The Run time table shows the time of each step of the run (adds/timing.py, #85).
+The Run time table shows the time of each step of the run (adds/timing.py, #85), with the sub-steps of the Yahoo
+reads and their Yahoo pages below the Yahoo reads row (#89).
 The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
 draft board.
 """
@@ -350,22 +351,31 @@ def contingency_section(contingencies):
 
 
 def timings_section(timings):
-    """The Run time table: the seconds of each step of the run, and the calls and the states of each search step.
+    """The Run time table: the seconds of each step of the run, the calls and the states of each search step, and
+    the Yahoo pages of each step with sub-steps.
 
-    timings: the timing.StepTimes of the run. Nothing if there are none. The page write has no row, because the
-    run writes the page before that step ends. timings.csv has its row.
+    timings: the timing.StepTimes of the run. Nothing if there are none. A sub-step row follows the row of its
+    step and shows only the sub-step name, indented. The page write has no row, because the run writes the page
+    before that step ends. timings.csv has its row.
     """
     def count(n):
         return "" if n is None else f"{n:,}"
-    body = "".join(f'<tr><td class="name">{_e(s.step)}</td><td>{s.seconds:.2f}</td><td>{count(s.calls)}</td>'
-                   f"<td>{count(s.states)}</td></tr>" for s in timings)
+
+    def name(s):
+        if s.parent is None:
+            return f'<td class="name">{_e(s.step)}</td>'
+        return f'<td class="name sub">{_e(s.step.removeprefix(s.parent + ": "))}</td>'
+    body = "".join(f"<tr>{name(s)}<td>{s.seconds:.2f}</td><td>{count(s.calls)}</td>"
+                   f"<td>{count(s.states)}</td><td>{count(s.pages)}</td></tr>" for s in timings)
     if not body:
         return ""
     return ('<details class="notes"><summary>Run time</summary>\n'
             '<table class="ranking"><thead><tr><th class="name">Step</th><th>Seconds</th><th>Calls</th>'
-            f'<th>States</th></tr></thead><tbody>{body}</tbody></table>\n'
+            f'<th>States</th><th>Pages</th></tr></thead><tbody>{body}</tbody></table>\n'
             '<p class="muted">Calls: the calls of the plan search, cache hits included. States: the unique states '
-            "that the search computed. A step with no search has no counts. The page write is not in the table. "
+            "that the search computed. A step with no search has no counts. Pages: the Yahoo pages that the step "
+            "opened. The indented rows are the sub-steps of the Yahoo reads. Their seconds do not include the work "
+            "between them or the browser close. The page write is not in the table. "
             "output/adds/timings.csv has all the steps.</p></details>")
 
 
@@ -477,6 +487,7 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
 th, td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--line); }
 thead th { background: var(--head); font-weight: 600; }
 th.name, td.name { text-align: left; overflow-wrap: anywhere; }
+td.name.sub { padding-left: 20px; color: var(--muted); }
 .plans { table-layout: fixed; border: 1px solid var(--line); font-size: 12px; }
 .plans th, .plans td { text-align: center; padding: 4px 1px; }
 .plans th:first-child { width: 6%; }

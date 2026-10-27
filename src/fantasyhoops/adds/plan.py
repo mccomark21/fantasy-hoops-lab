@@ -28,10 +28,13 @@ One planning run:
 11. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
 12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
+    The Yahoo reads step also times its sub-steps and counts their Yahoo pages (#89): browser start, league and
+    matchup pages, projected pass, market pages, waiver list, recent pass and trends.
 Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
 NBA schedule: data/schedule.csv (fetch/espn.py).
 """
 import argparse
+from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
@@ -431,8 +434,12 @@ def main(today=None, publish=True, timed=True):
     with step("season values"):
         values = season_values(cfg)
     wait = cfg["adds"].get("page_wait", WAIT_SECONDS)
-    with step("Yahoo reads"), open_league(cfg["adds"]["league"], wait) as yahoo:
-        data = read_league(yahoo, cfg, today)
+    part = timings.part
+    with step("Yahoo reads"), ExitStack() as browser:
+        with part("browser start"):
+            yahoo = browser.enter_context(open_league(cfg["adds"]["league"], wait))
+        with part("league and matchup pages", yahoo):
+            data = read_league(yahoo, cfg, today)
         window = planning_window(data.week, today)
         games, nights = team_games(sched, window), second_nights(sched, window)
         chance = cfg["adds"].get("rest_chance", DEFAULT_REST_CHANCE)
@@ -448,11 +455,24 @@ def main(today=None, publish=True, timed=True):
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
-            free_agents = unique_free_agents(read_team_free_agents(yahoo, read) + read_market_free_agents(yahoo)
-                                             + read_waiver_list(yahoo, today))
-            recent = unique_free_agents(read_team_free_agents(yahoo, read, RECENT)
-                                        + read_market_free_agents(yahoo, RECENT) + read_waiver_list(yahoo, today, RECENT))
-            trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
+            # The market pages and the waiver list have one sub-step each, with a timed block in each view.
+            # The read order and the list order of unique_free_agents() stay the same, so the plans stay the same.
+            with part("projected pass", yahoo):
+                team_fas = read_team_free_agents(yahoo, read)
+            with part("market pages", yahoo):
+                market = read_market_free_agents(yahoo)
+            with part("waiver list", yahoo):
+                waivers = read_waiver_list(yahoo, today)
+            free_agents = unique_free_agents(team_fas + market + waivers)
+            with part("recent pass", yahoo):
+                team_fas = read_team_free_agents(yahoo, read, RECENT)
+            with part("market pages", yahoo):
+                market = read_market_free_agents(yahoo, RECENT)
+            with part("waiver list", yahoo):
+                waivers = read_waiver_list(yahoo, today, RECENT)
+            recent = unique_free_agents(team_fas + market + waivers)
+            with part("trends", yahoo):
+                trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
     if read:
         scale = projection_scale(cfg)
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))

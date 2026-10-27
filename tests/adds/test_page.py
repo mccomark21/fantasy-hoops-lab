@@ -421,6 +421,22 @@ STEPS = ["schedule read", "season values", "Yahoo reads", "absence read", "value
 SEARCH_STEPS = {"schedule search", "drop trade-offs", "aggressive search", "spot plans"}
 NO_READ_STEPS = ["schedule read", "season values", "Yahoo reads", "contingency plans", "role read",
                  "page write and publish"]
+YAHOO_PARTS = ["browser start", "league and matchup pages", "projected pass", "market pages", "waiver list",
+               "recent pass", "trends"]
+
+
+def rows_of(steps, parts):
+    """The step names of the rows of one run: each step, and after the Yahoo reads its sub-steps."""
+    out = []
+    for name in steps:
+        out.append(name)
+        if name == "Yahoo reads":
+            out += [f"Yahoo reads: {p}" for p in parts]
+    return out
+
+
+ROWS = rows_of(STEPS, YAHOO_PARTS)
+NO_READ_ROWS = rows_of(NO_READ_STEPS, YAHOO_PARTS[:2])  # no free agent read, so only the first 2 sub-steps
 
 
 def timing_rows(tmp_path):
@@ -443,9 +459,9 @@ def test_the_command_appends_one_row_for_each_step_to_the_timings_file(monkeypat
     run_command(monkeypatch, tmp_path, [], publish=False)
     run_command(monkeypatch, tmp_path, [], publish=False)
     columns, rows = timing_rows(tmp_path)
-    assert columns == ["run_at", "days", "open_days", "adds_left", "step", "seconds", "calls", "states"]
-    assert [r["step"] for r in rows] == STEPS + STEPS
-    first = rows[:len(STEPS)]
+    assert columns == ["run_at", "days", "open_days", "adds_left", "step", "seconds", "calls", "states", "pages"]
+    assert [r["step"] for r in rows] == ROWS + ROWS
+    first = rows[:len(ROWS)]
     assert len({r["run_at"] for r in first}) == 1
     assert {(r["days"], r["open_days"], r["adds_left"]) for r in rows} == {("2", "2", "1")}
     for r in rows:
@@ -454,6 +470,8 @@ def test_the_command_appends_one_row_for_each_step_to_the_timings_file(monkeypat
             assert int(r["calls"]) >= int(r["states"]) >= (r["step"] != "drop trade-offs")
         else:
             assert r["calls"] == r["states"] == ""
+        # Only the Yahoo reads and its sub-steps have pages. The fake League of the test opens no page.
+        assert r["pages"] == ("0" if r["step"].startswith("Yahoo reads") else "")
 
 
 def test_a_step_that_does_not_run_writes_no_row(monkeypatch, tmp_path):
@@ -461,8 +479,40 @@ def test_a_step_that_does_not_run_writes_no_row(monkeypatch, tmp_path):
     league = command.LeagueData(roster=[], adds=Adds(5, 5), week=Week(12, tuple(WEEK[:2])))
     run_command(monkeypatch, tmp_path, [], publish=False, league=league)
     _, rows = timing_rows(tmp_path)
-    assert [r["step"] for r in rows] == NO_READ_STEPS
+    assert [r["step"] for r in rows] == NO_READ_ROWS
     assert all(r["calls"] == r["states"] == "" for r in rows)
+
+
+def test_each_sub_step_of_the_yahoo_reads_counts_its_pages(monkeypatch, tmp_path, capsys):
+    pages = {"league": 2, ("team", command.PROJECTED): 5, ("market", command.PROJECTED): 6,
+             ("waiver", command.PROJECTED): 1, ("team", command.RECENT): 4, ("market", command.RECENT): 6,
+             ("waiver", command.RECENT): 1, "trends": 3}
+    yahoo = run_command(monkeypatch, tmp_path, [], publish=False, pages=pages)
+    # The timers do not change the order of the reads.
+    assert yahoo.paths == ["league"] * 2 + [f"team {command.PROJECTED}"] * 5 + [f"market {command.PROJECTED}"] * 6 \
+        + [f"waiver {command.PROJECTED}"] + [f"team {command.RECENT}"] * 4 + [f"market {command.RECENT}"] * 6 \
+        + [f"waiver {command.RECENT}"] + ["trends"] * 3
+    _, rows = timing_rows(tmp_path)
+    found = {r["step"]: r["pages"] for r in rows if r["step"].startswith("Yahoo reads")}
+    assert found == {"Yahoo reads": "28", "Yahoo reads: browser start": "0",
+                     "Yahoo reads: league and matchup pages": "2", "Yahoo reads: projected pass": "5",
+                     "Yahoo reads: market pages": "12", "Yahoo reads: waiver list": "2",
+                     "Yahoo reads: recent pass": "4", "Yahoo reads: trends": "3"}
+    out = capsys.readouterr().out
+    assert re.search(r"Step: Yahoo reads: \d+\.\d\d s, 28 pages", out)
+    assert re.search(r"  Yahoo reads: market pages: \d+\.\d\d s, 12 pages", out)
+
+
+def test_an_old_timings_file_stays_readable(monkeypatch, tmp_path):
+    old = ("run_at,days,open_days,adds_left,step,seconds,calls,states\n"
+           "2026-10-26T09:00:00,2,2,1,schedule search,1.50,40,12\n")
+    (tmp_path / "timings.csv").write_text(old, encoding="utf-8")
+    run_command(monkeypatch, tmp_path, [], publish=False)
+    columns, rows = timing_rows(tmp_path)
+    assert columns == timing.COLUMNS
+    assert rows[0] == {"run_at": "2026-10-26T09:00:00", "days": "2", "open_days": "2", "adds_left": "1",
+                       "step": "schedule search", "seconds": "1.50", "calls": "40", "states": "12", "pages": ""}
+    assert [r["step"] for r in rows[1:]] == ROWS
 
 
 def test_a_run_that_stops_keeps_the_rows_of_the_finished_steps(monkeypatch, tmp_path):
@@ -473,7 +523,7 @@ def test_a_run_that_stops_keeps_the_rows_of_the_finished_steps(monkeypatch, tmp_
     with pytest.raises(KeyboardInterrupt):
         run_command(monkeypatch, tmp_path, [], publish=False)
     _, rows = timing_rows(tmp_path)
-    assert [r["step"] for r in rows] == STEPS[:STEPS.index("spot plans")]
+    assert [r["step"] for r in rows] == ROWS[:ROWS.index("spot plans")]
     assert {(r["days"], r["open_days"], r["adds_left"]) for r in rows} == {("2", "2", "1")}
 
 
@@ -481,17 +531,30 @@ def test_the_page_shows_the_run_time_table(monkeypatch, tmp_path):
     run_command(monkeypatch, tmp_path, [], publish=False)
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
     table = re.search(r"<summary>Run time</summary>.*?<tbody>(.*?)</tbody>", html, re.S).group(1)
-    cells = [re.findall(r"<td[^>]*>([^<]*)</td>", row) for row in re.findall(r"<tr>(.*?)</tr>", table)]
-    assert [c[0] for c in cells] == STEPS[:-1]  # the page write ends after the page is written
-    for name, seconds, calls, states in cells:
+    assert "<th>Pages</th>" in html
+    rows = re.findall(r"<tr>(.*?)</tr>", table)
+    cells = [re.findall(r"<td[^>]*>([^<]*)</td>", row) for row in rows]
+    # The page write ends after the page is written. A sub-step row shows the sub-step name below the Yahoo reads.
+    assert [c[0] for c in cells] == [r.removeprefix("Yahoo reads: ") for r in ROWS[:-1]]
+    subs = [c[0] for row, c in zip(rows, cells) if row.startswith('<td class="name sub">')]
+    assert subs == YAHOO_PARTS
+    for name, seconds, calls, states, pages in cells:
         assert re.fullmatch(r"\d+\.\d\d", seconds)
         assert (calls != "" and states != "") == (name in SEARCH_STEPS)
+        assert (pages != "") == (name == "Yahoo reads" or name in YAHOO_PARTS)
 
 
 def test_the_page_has_no_run_time_table_with_no_step_times():
     assert "Run time" not in render()
     html = render(timings=[timing.StepTime("schedule search", 1.234, 1200, 300)])
-    assert "<td>1.23</td><td>1,200</td><td>300</td>" in html
+    assert "<td>1.23</td><td>1,200</td><td>300</td><td></td>" in html
+
+
+def test_the_run_time_table_shows_the_pages_of_the_yahoo_reads_and_its_sub_steps():
+    html = render(timings=[timing.StepTime("Yahoo reads", 31.34, pages=33),
+                           timing.StepTime("Yahoo reads: market pages", 7.5, pages=12, parent="Yahoo reads")])
+    assert '<td class="name">Yahoo reads</td><td>31.34</td><td></td><td></td><td>33</td>' in html
+    assert '<td class="name sub">market pages</td><td>7.50</td><td></td><td></td><td>12</td>' in html
 
 
 def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
@@ -519,18 +582,33 @@ def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
 
 
 def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
-                league=None, timed=True):
-    """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced.
+                league=None, timed=True, pages=None):
+    """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
     The page and timings.csv go in tmp_path. timed: the timed argument of plan.main().
+    pages: the pages that each fake reader opens, by "league", "trends" or (reader, view). The readers are "team",
+    "market" and "waiver". None: no reader opens a page.
 
     rests: the name keys of the rest list. With rests, [adds] rest_chance is 0.5.
     extra_games: (day, team) for each more game of the schedule, for example a game next week.
     league: the LeagueData that read_league() gives. None: week 12 (Mon and Tue), 4 of 5 adds used.
     """
+    yahoo = FakeLeague()
+    pages = pages or {}
+
     @contextmanager
     def no_yahoo(league, wait_seconds):
-        yield None
+        yield yahoo
+
+    def reader(name, result):
+        """A fake reader that opens the pages of name (and of its view) and gives result."""
+        def read(league, *args, **kw):
+            view = command.RECENT if command.RECENT in (*args, *kw.values()) else command.PROJECTED
+            key, path = ((name, view), f"{name} {view}") if name in ("team", "market", "waiver") else (name, name)
+            for _ in range(pages.get(key, 0)):
+                league.get(path)
+            return result() if callable(result) else result
+        return read
 
     import pandas as pd
     games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
@@ -542,13 +620,13 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "read_schedule", lambda: sched)
     monkeypatch.setattr(command, "open_league", no_yahoo)
     league = league or command.LeagueData(roster=[], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2])))
-    monkeypatch.setattr(command, "read_league", lambda yahoo, cfg, today: league)
+    monkeypatch.setattr(command, "read_league", reader("league", league))
     monkeypatch.setattr(command, "season_values", lambda cfg: {})
     monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
-    monkeypatch.setattr(command, "read_team_free_agents", lambda yahoo, teams, view=None: [])
-    monkeypatch.setattr(command, "read_market_free_agents", lambda yahoo, view=None: [])
-    monkeypatch.setattr(command, "read_waiver_list", lambda yahoo, today, view=None: [])
-    monkeypatch.setattr(command, "read_week_trends", lambda yahoo, days: {})
+    monkeypatch.setattr(command, "read_team_free_agents", reader("team", list))
+    monkeypatch.setattr(command, "read_market_free_agents", reader("market", list))
+    monkeypatch.setattr(command, "read_waiver_list", reader("waiver", list))
+    monkeypatch.setattr(command, "read_week_trends", reader("trends", dict))
     monkeypatch.setattr(command, "read_roles", lambda players, cfg, today: {})
     options = options or [option("Phi One", "PHI", 0.3)]
     monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None: options)
@@ -559,3 +637,16 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(timing, "TIMINGS", tmp_path / "timings.csv")
     monkeypatch.setattr(command.site, "publish", lambda *args: published.append(args))
     command.main(today=WEEK[0], publish=publish, timed=timed)
+    return yahoo
+
+
+class FakeLeague:
+    """The part of session.League that the timers use: get() counts the pages, as League.get() does."""
+
+    def __init__(self):
+        self.pages, self.paths = 0, []
+
+    def get(self, path):
+        self.pages += 1
+        self.paths.append(path)
+        return ""

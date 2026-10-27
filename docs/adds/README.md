@@ -278,6 +278,22 @@ Decision (2026-10-26, #85): the planner times each step of a planning run. The o
 
 A step that does not run has no time. For example, with no adds left, the run reads no free agent and runs no search.
 
+Decision (2026-10-26, #89): the Yahoo reads step also times its sub-steps and counts the Yahoo pages of each sub-step. The rows show which part of the reads uses the time. Issues #90 to #95 check their savings in these rows.
+
+| Sub-step | What it times |
+| --- | --- |
+| browser start | The start of Edge with the saved profile (`open_league()`). It opens no Yahoo page. |
+| league and matchup pages | `read_league()`: your team page and 1 or 2 matchup pages |
+| projected pass | `read_team_free_agents()` in the projected view: the free-agent lists of the read teams |
+| market pages | `read_market_free_agents()` in both views |
+| waiver list | `read_waiver_list()` in both views |
+| recent pass | `read_team_free_agents()` in the recent view |
+| trends | `read_week_trends()`: Transaction Trends |
+
+The run reads the market pages and the waiver list once in each view. Each view has a timed block, and the sub-step adds the seconds and the pages of its two blocks. The timers do not change the order of the reads. The sub-steps do not time the work between the reads or the close of Edge. So the seconds of the sub-steps add to less than the seconds of the Yahoo reads.
+
+A page is one call of `League.get()` (`adds/session.py`). A sign-in opens the same page again, but the page counts one time. The pages of the Yahoo reads are the sum of the pages of its sub-steps. A sub-step that does not run has no row. For example, with no adds left, the run reads no free agent, so only the browser start and the league and matchup pages have rows.
+
 For each search step, the planner also counts the search work:
 
 - Calls: the calls of the search function, cache hits included.
@@ -285,11 +301,13 @@ For each search step, the planner also counts the search work:
 
 A step with more than one search adds the counts of all its searches. A step with no search has no counts.
 
-The terminal shows each step when it starts and its time when it ends. During a search step, the terminal shows the calls and the states every 10 seconds. A search that does not end still shows that it works.
+The terminal shows each step when it starts and its time when it ends. During a search step, the terminal shows the calls and the states every 10 seconds. A search that does not end still shows that it works. When the Yahoo reads end, the terminal shows the time and the pages of each sub-step.
 
-The page shows the Run time table: the step, the seconds, the calls and the states. The table has no row for the page write, because the run writes the page before that step ends.
+The page shows the Run time table: the step, the seconds, the calls, the states and the pages. The sub-steps of the Yahoo reads follow the Yahoo reads row, indented. The table has no row for the page write, because the run writes the page before that step ends.
 
-Each step appends its row to `output/adds/timings.csv` when it ends. If you stop a run (Ctrl+C), the file keeps the rows of the finished steps. The first steps end before the run knows the planning window. Their rows wait until the run finds the planning window. If the run stops before that, these rows get empty `days`, `open_days` and `adds_left`. All rows of one run have the same `run_at`, so you can compare runs before and after a change.
+Each step appends its row to `output/adds/timings.csv` when it ends. The rows of the sub-steps follow the row of the Yahoo reads. If you stop a run (Ctrl+C), the file keeps the rows of the finished steps. A stopped step writes no row for its sub-steps. The first steps end before the run knows the planning window. Their rows wait until the run finds the planning window. If the run stops before that, these rows get empty `days`, `open_days` and `adds_left`. All rows of one run have the same `run_at`, so you can compare runs before and after a change.
+
+Decision (2026-10-26, #89): a `timings.csv` with an older header gets the new header at the next run. The run writes the file again with the new columns. The old rows keep their values and get an empty `pages`.
 
 | Column | Value |
 | --- | --- |
@@ -297,10 +315,11 @@ Each step appends its row to `output/adds/timings.csv` when it ends. If you stop
 | `days` | The days in the planning window |
 | `open_days` | The days in the planning window with an open slot |
 | `adds_left` | The adds left for the planning window |
-| `step` | The step name from the table above |
+| `step` | The step name from the step table above. A sub-step row has the name "Yahoo reads: <sub-step>", for example `Yahoo reads: market pages`. |
 | `seconds` | The time of the step, 2 decimals |
 | `calls` | The calls of the search, or empty |
 | `states` | The unique states of the search, or empty |
+| `pages` | The Yahoo pages of the Yahoo reads and of each of its sub-steps. Empty for the other steps. |
 
 ## Core and drops
 
