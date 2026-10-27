@@ -3,7 +3,15 @@
 import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
-from fantasyhoops.adds.session import SCORE_WAIT_SECONDS, SITE, League, PageNotReady, UnknownPage, ready_selectors
+from fantasyhoops.adds.session import (
+    SCORE_WAIT_SECONDS,
+    SITE,
+    League,
+    PageNotReady,
+    UnknownPage,
+    YahooBlocked,
+    ready_selectors,
+)
 
 TEAM = "table#statTable0 tbody tr[data-pos]"
 PLAYERS = "div.players table tbody tr"
@@ -12,18 +20,30 @@ SCORES = "table.Datatable tbody tr"
 TRENDS = "table.Tst-table tbody tr"
 
 
-class FakePage:
-    """The part of a Playwright page that League uses. missing: selectors that never appear."""
+class FakeResponse:
+    """The part of a Playwright response that League uses."""
 
-    def __init__(self, missing=()):
+    def __init__(self, status):
+        self.status = status
+
+
+class FakePage:
+    """The part of a Playwright page that League uses.
+
+    missing: selectors that never appear. statuses: the HTTP status of each visit in sequence, then 200.
+    """
+
+    def __init__(self, missing=(), statuses=()):
         self.url = ""
         self.missing = set(missing)
+        self.statuses = list(statuses)
         self.visits = []
         self.waits = []
 
     def goto(self, url, wait_until, timeout):
         self.url = url
         self.visits.append(url)
+        return FakeResponse(self.statuses.pop(0) if self.statuses else 200)
 
     def wait_for_selector(self, selector, state, timeout):
         self.waits.append((selector, state, timeout))
@@ -111,9 +131,10 @@ class SignInPage(FakePage):
     """A page whose first visit goes to the Yahoo sign-in, as when the session has expired."""
 
     def goto(self, url, wait_until, timeout):
-        super().goto(url, wait_until, timeout)
+        response = super().goto(url, wait_until, timeout)
         if len(self.visits) == 1:
             self.url = "https://login.yahoo.com/"
+        return response
 
     def wait_for_url(self, url, timeout):
         pass
@@ -140,3 +161,54 @@ def test_a_path_with_no_known_page_kind_counts_no_page():
     with pytest.raises(UnknownPage):
         league.get("transactions")
     assert league.pages == 0
+
+
+@pytest.mark.parametrize("status", [999, 429])
+def test_get_of_a_blocked_page_raises_yahoo_blocked_with_no_wait_for_an_element(status):
+    page = FakePage(statuses=[status])
+    with pytest.raises(YahooBlocked) as error:
+        League(page, 22820).get("players?status=FA&count=0")
+    assert not isinstance(error.value, PageNotReady)
+    assert page.waits == []
+    assert len(page.visits) == 1
+
+
+@pytest.mark.parametrize("status", [999, 429])
+def test_the_block_message_gives_the_status_and_the_url_and_says_that_yahoo_blocked_the_requests(status):
+    with pytest.raises(YahooBlocked) as error:
+        League(FakePage(statuses=[status]), 22820).get("10")
+    message = str(error.value)
+    assert f"HTTP {status}" in message
+    assert f"{SITE}/nba/22820/10" in message
+    assert "Yahoo blocked the requests" in message
+    assert "run stopped" in message
+
+
+def test_get_of_a_page_with_status_200_gives_the_page():
+    page = FakePage(statuses=[200])
+    assert League(page, 22820).get("10") == "<html>page</html>"
+    assert page.waits == [(TEAM, "attached", 10000)]
+
+
+def test_get_of_a_page_with_no_response_gives_the_page():
+    # page.goto() gives None when the page loads no new document, for example a change of the URL hash only.
+    class NoResponsePage(FakePage):
+        def goto(self, url, wait_until, timeout):
+            super().goto(url, wait_until, timeout)
+
+    assert League(NoResponsePage(), 22820).get("10") == "<html>page</html>"
+
+
+def test_a_sign_in_gives_the_page_as_before():
+    page = SignInPage()
+    assert League(page, 22820).get("10") == "<html>page</html>"
+    assert page.waits == [(TEAM, "attached", 10000)]
+
+
+def test_a_block_after_the_sign_in_raises_yahoo_blocked_with_no_wait_for_an_element(capsys):
+    page = SignInPage(statuses=[200, 999])
+    with pytest.raises(YahooBlocked) as error:
+        League(page, 22820).get("10")
+    assert "HTTP 999" in str(error.value)
+    assert len(page.visits) == 2
+    assert page.waits == []
