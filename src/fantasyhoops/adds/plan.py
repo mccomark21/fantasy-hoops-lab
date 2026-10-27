@@ -11,6 +11,9 @@ One planning run:
    read_waiver_list(): read the players on waivers (W), each with his clear day.
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
    Each list page parses one time (readers.parse()), for the players and for the "Next 25" link (#93).
+   recent_weight_limit() gives the largest possible blend weight w from data/schedule.csv. While it is below
+   [adds] recent_skip_weight, the run skips the recent view (#90). The values then use the projection only, and the
+   page and the terminal say so (recent_skip_line()).
 5. read_week_trends(): read Transaction Trends for each day of this week up to today.
    read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
    positions (adds/role_up.py). The mark changes no value.
@@ -39,8 +42,10 @@ from contextlib import ExitStack
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
+import pandas as pd
+
 from fantasyhoops.adds import page, timing
-from fantasyhoops.adds.blend import blended_options
+from fantasyhoops.adds.blend import RECENT_DAYS, blended_options, recent_weight
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.drops import (choose_stream_spots, drop_trade_offs, kept_roster, print_stream_spots,
                                      season_values, value_warnings)
@@ -70,6 +75,7 @@ MAX_PAGES = 10  # pages of 25 free agents for each team. The planner stops after
 MARKET_PAGES = 6  # pages of 25 free agents of the full list: the top 150 by Yahoo's rank
 URL = site.URL + "adds/"
 PROJECTED, RECENT = "S_PS7", "S_AL14"  # the views of the free-agent list: next 7 days (totals), last 14 days (averages)
+RECENT_SKIP_WEIGHT = 0.0  # [adds] recent_skip_weight if config.toml has none: never skip the recent view
 
 
 @dataclass(frozen=True)
@@ -150,6 +156,32 @@ def read_waiver_list(yahoo, today, view=PROJECTED):
         if not has_next_page(parsed):
             break
     return out
+
+
+def recent_weight_limit(sched, today):
+    """The upper limit of the blend weight w before the run reads the recent view: (most games, w at most).
+
+    most games: the most games that one NBA team played from today - RECENT_DAYS days to today, from
+    data/schedule.csv. These 15 days hold the window of the recent view with or without today (#90).
+    w at most: blend.recent_weight() of the most games. A player who changed teams can have more games (#90).
+    """
+    dates = pd.to_datetime(sched.date).dt.date
+    days = sched[(dates >= today - timedelta(days=RECENT_DAYS)) & (dates <= today)]
+    most = int(days.team.value_counts().max()) if len(days) else 0
+    return most, recent_weight(most)
+
+
+def skips_recent_view(limit, cfg):
+    """True if the run skips the recent view: the upper limit of w is below [adds] recent_skip_weight."""
+    return limit < cfg["adds"].get("recent_skip_weight", RECENT_SKIP_WEIGHT)
+
+
+def recent_skip_line(most, limit, cfg):
+    """The line of the page and the terminal that says that the run skipped the recent view, and why."""
+    return (f"The run skipped the recent view (last {RECENT_DAYS} days). The most games of one team from "
+            f"{RECENT_DAYS} days ago to today is {most}, so w is {limit:.2f} at most. This is below [adds] "
+            f"recent_skip_weight ({cfg['adds'].get('recent_skip_weight', RECENT_SKIP_WEIGHT)}). The values use the "
+            "projection only. A player with no projection is not a candidate.")
 
 
 def unique_free_agents(free_agents):
@@ -431,7 +463,7 @@ def main(today=None, publish=True, timed=True):
         sched = read_schedule()
     plan, aggressive, empty, read, options, drops, warnings, rows, absences = None, None, None, [], [], [], [], [], []
     weights, match_empty, match_replacement = None, None, None
-    games_next = None
+    games_next, recent, skip_line = None, [], None
     with step("season values"):
         values = season_values(cfg)
     wait = cfg["adds"].get("page_wait", WAIT_SECONDS)
@@ -465,13 +497,20 @@ def main(today=None, publish=True, timed=True):
             with part("waiver list", yahoo):
                 waivers = read_waiver_list(yahoo, today)
             free_agents = unique_free_agents(team_fas + market + waivers)
-            with part("recent pass", yahoo):
-                team_fas = read_team_free_agents(yahoo, read, RECENT)
-            with part("market pages", yahoo):
-                market = read_market_free_agents(yahoo, RECENT)
-            with part("waiver list", yahoo):
-                waivers = read_waiver_list(yahoo, today, RECENT)
-            recent = unique_free_agents(team_fas + market + waivers)
+            most, limit = recent_weight_limit(sched, today)
+            if skips_recent_view(limit, cfg):
+                # No recent rows: the blend uses the projected line only (blend.py). The sub-step rows stay.
+                skip_line = recent_skip_line(most, limit, cfg)
+                with part("recent pass", yahoo):
+                    pass
+            else:
+                with part("recent pass", yahoo):
+                    team_fas = read_team_free_agents(yahoo, read, RECENT)
+                with part("market pages", yahoo):
+                    market = read_market_free_agents(yahoo, RECENT)
+                with part("waiver list", yahoo):
+                    waivers = read_waiver_list(yahoo, today, RECENT)
+                recent = unique_free_agents(team_fas + market + waivers)
             with part("trends", yahoo):
                 trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
     if read:
@@ -503,6 +542,9 @@ def main(today=None, publish=True, timed=True):
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
+    if skip_line:
+        print()
+        print(skip_line)
     replacement = replacement_value([o for o in options if not o.player.on_waivers])
     print_waivers(options, replacement)
     if weights is not None:
@@ -532,7 +574,8 @@ def main(today=None, publish=True, timed=True):
                            contingencies=[" ".join(line.strip() for line in contingency_lines(c))
                                           for c in contingencies],
                            roles=roles, minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"),
-                           next_days=early_days, next_games=early_games, timings=timings.steps)
+                           next_days=early_days, next_games=early_games, timings=timings.steps,
+                           recent_skip=skip_line)
         publish_page(page.write(text), rows, publish)
     if timed:
         print(f"Wrote the step times: {timing.TIMINGS}")

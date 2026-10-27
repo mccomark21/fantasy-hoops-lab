@@ -16,7 +16,7 @@ from fantasyhoops.adds import page, timing
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.matchup import Matchup, matchup_weights, read_matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
-from fantasyhoops.adds.readers import Adds, Player, Week
+from fantasyhoops.adds.readers import Adds, FreeAgent, Player, Week
 from fantasyhoops.adds.role_up import Absence
 from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
@@ -605,7 +605,8 @@ def options_of(fas, recent):
     return [Option(f.player, f.line.get("pts", 0.0) / 10 - 1, recent_value=points.get(f.player.name)) for f in fas]
 
 
-def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path):
+@pytest.mark.parametrize("settings", [{}, {"recent_skip_weight": 0.3}])
+def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path, settings):
     league = command.LeagueData(roster=[], adds=Adds(2, 5), week=Week(12, tuple(WEEK[:2])))
     found = {}
     for once in (True, False):
@@ -618,6 +619,7 @@ def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path):
             # The read before #93: each reader gets the HTML and parses it again.
             monkeypatch.setattr(command, "parse", lambda html: html)
         yahoo = run_command(monkeypatch, tmp_path / str(once), [], publish=False, league=league, yahoo=ListPages(),
+                            settings=settings,
                             options=lambda fas, recent: (inputs.append((fas, recent)), options_of(fas, recent))[1])
         args, kw = pages[0]
         kw.pop("timings")
@@ -628,13 +630,15 @@ def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path):
     plans, _, _, inputs, paths = found[True]
     assert plans and plans[0].windows
     fas, recent = inputs[0]
-    assert fas and recent
-    assert len(paths) == 2 * (2 + command.MARKET_PAGES + 1)  # 2 views of 2 team pages, the market and the waivers
+    # With the recent view skipped (#90), the run reads only the projected view, and recent is empty.
+    views = 1 if settings else 2
+    assert fas and bool(recent) == (views == 2)
+    assert len(paths) == views * (2 + command.MARKET_PAGES + 1)  # 2 team pages, the market and the waivers
     assert found[True] == found[False]
 
 
 def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=None, absences=(), extra_games=(),
-                league=None, timed=True, pages=None, yahoo=None):
+                league=None, timed=True, pages=None, yahoo=None, settings=None, free_agents=None):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
     The page and timings.csv go in tmp_path. timed: the timed argument of plan.main().
@@ -646,6 +650,9 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     league: the LeagueData that read_league() gives. None: week 12 (Mon and Tue), 4 of 5 adds used.
     yahoo: a fake League with the HTML of the list pages. The run then uses the real readers of the lists, and options
     is a function of the free agents and the recent free agents. None: a FakeLeague and fake readers of the lists.
+    settings: more [adds] settings, for example {"recent_skip_weight": 0.3}.
+    free_agents: {view: FreeAgents} that the fake team reader gives. The run then values them with the real
+    value_options() and a scale of pts only, and the market and waiver readers give no free agents.
     """
     lists = yahoo is None
     yahoo = yahoo or FakeLeague()
@@ -662,6 +669,8 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
             key, path = ((name, view), f"{name} {view}") if name in ("team", "market", "waiver") else (name, name)
             for _ in range(pages.get(key, 0)):
                 league.get(path)
+            if isinstance(result, dict):
+                return list(result.get(view, ()))
             return result() if callable(result) else result
         return read
 
@@ -669,7 +678,8 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
     sched = pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
     cfg = {"league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
-           "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {})}, "weights": {"pts": 1.0}}
+           "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
+           "weights": {"pts": 1.0}}
     monkeypatch.setattr(command, "read_rest_names", lambda cfg: set(rests or ()))
     monkeypatch.setattr(command, "load_config", lambda: cfg)
     monkeypatch.setattr(command, "read_schedule", lambda: sched)
@@ -679,15 +689,17 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
     monkeypatch.setattr(command, "season_values", lambda cfg: {})
     monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
     if lists:
-        monkeypatch.setattr(command, "read_team_free_agents", reader("team", list))
+        monkeypatch.setattr(command, "read_team_free_agents", reader("team", free_agents or list))
         monkeypatch.setattr(command, "read_market_free_agents", reader("market", list))
         monkeypatch.setattr(command, "read_waiver_list", reader("waiver", list))
     monkeypatch.setattr(command, "read_week_trends", reader("trends", dict))
     monkeypatch.setattr(command, "read_roles", lambda players, cfg, today: {})
     options = options or [option("Phi One", "PHI", 0.3)]
-    monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None:
-                        options(fas, recent) if callable(options) else options)
-    monkeypatch.setattr(command, "projection_scale", lambda cfg: None)
+    if free_agents is None:
+        monkeypatch.setattr(command, "value_options", lambda fas, cfg, recent=(), matchup_cfg=None:
+                            options(fas, recent) if callable(options) else options)
+    scale = pd.DataFrame({"pts": [10.0, 5.0]}, index=["mean", "std"]) if free_agents is not None else None
+    monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "empty_slot_value", lambda cfg, scale=None: -10.0)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(page, "PAGE", tmp_path / "adds_plan.html")
@@ -700,10 +712,98 @@ def run_command(monkeypatch, tmp_path, published, publish, options=None, rests=N
 class FakeLeague:
     """The part of session.League that the timers use: get() counts the pages, as League.get() does."""
 
-    def __init__(self):
-        self.pages, self.paths = 0, []
+    def __init__(self, html=""):
+        self.pages, self.paths, self.html = 0, [], html
 
     def get(self, path):
         self.pages += 1
         self.paths.append(path)
-        return ""
+        return self.html
+
+
+# The recent view skip (#90). The schedule of run_command() gives PHI 1 game from 14 days ago to today (Mon),
+# so the largest possible w is 1 / 14.
+SKIP = {"recent_skip_weight": 0.3}
+# One page of PHI free agents with no next page. The real readers read it for each list and each view.
+PHI_PAGE = (Path(__file__).parent / "fixtures" / "free_agents_phi.html").read_text(encoding="utf-8")
+
+
+def test_below_the_setting_the_run_reads_no_page_of_the_recent_view(monkeypatch, tmp_path):
+    yahoo = run_command(monkeypatch, tmp_path, [], publish=False, settings=SKIP, yahoo=FakeLeague(PHI_PAGE))
+    assert any(f"stat1={command.PROJECTED}" in path for path in yahoo.paths)
+    assert not [path for path in yahoo.paths if f"stat1={command.RECENT}" in path]
+
+
+@pytest.mark.parametrize("weight", [0.0, 1 / 14])
+def test_at_or_above_the_setting_the_run_reads_both_views(monkeypatch, tmp_path, weight):
+    yahoo = run_command(monkeypatch, tmp_path, [], publish=False, settings={"recent_skip_weight": weight},
+                        yahoo=FakeLeague(PHI_PAGE))
+    projected = [path for path in yahoo.paths if f"stat1={command.PROJECTED}" in path]
+    recent = [path for path in yahoo.paths if f"stat1={command.RECENT}" in path]
+    assert len(projected) == 4  # the lists of PHI and BOS, the market list and the waiver list
+    assert recent == [path.replace(command.PROJECTED, command.RECENT) for path in projected]
+
+
+def _free_agents():
+    """FreeAgents of PHI and BOS in the projected view and in the recent view, each recent row with games."""
+    names = [("Phi Big", "PHI", ("C",), 18.0), ("Phi Wing", "PHI", ("SF",), 12.0), ("Bos Guard", "BOS", ("PG",), 15.0)]
+    projected = [FreeAgent(Player(n, t, pos), 3, {"pts": pts}) for n, t, pos, pts in names]
+    recent = [FreeAgent(Player(n, t, pos), 4, {"pts": 30.0 - pts}) for n, t, pos, pts in names]
+    return projected, recent
+
+
+def _plans(monkeypatch, tmp_path, recent, settings):
+    """The printed plans and the page.render() arguments of one run: (plans, args, skip line, other keywords)."""
+    plans, pages = [], []
+    real_print_plan, real_render = command.print_plan, page.render
+    monkeypatch.setattr(command, "print_plan", lambda plan, *a, **kw: (plans.append(plan),
+                                                                        real_print_plan(plan, *a, **kw)))
+    monkeypatch.setattr(page, "render", lambda *a, **kw: (pages.append((a, kw)), real_render(*a, **kw))[1])
+    projected, _ = _free_agents()
+    run_command(monkeypatch, tmp_path, [], publish=False, settings=settings,
+                free_agents={command.PROJECTED: projected, command.RECENT: recent})
+    monkeypatch.setattr(command, "print_plan", real_print_plan)
+    monkeypatch.setattr(page, "render", real_render)
+    args, kw = pages[0]
+    kw.pop("timings")
+    return plans, args, kw.pop("recent_skip"), kw
+
+
+def test_the_plans_with_the_recent_view_skipped_are_the_plans_with_recent_weight_0(monkeypatch, tmp_path):
+    _, recent = _free_agents()
+    plans, args, line, kw = _plans(monkeypatch, tmp_path / "skip", recent, SKIP)
+    zero = _plans(monkeypatch, tmp_path / "zero", [replace(f, games=0) for f in recent], {"recent_skip_weight": 0.0})
+    assert line and zero[2] is None
+    assert plans and plans[0] is not None and plans[0].windows
+    assert args[4]  # the best plans for one roster spot
+    # The schedule plan, the aggressive plan, the best plans for one roster spot and the options are equal.
+    assert (plans, args, kw) == (zero[0], zero[1], zero[3])
+    # Without the skip, the recent lines of the test data move the values. So the test can see a difference.
+    read = _plans(monkeypatch, tmp_path / "read", recent, {"recent_skip_weight": 0.0})
+    assert [o.value for o in read[1][5]] != [o.value for o in args[5]]
+
+
+SKIP_LINE = ("The run skipped the recent view (last 14 days). The most games of one team from 14 days ago to today "
+             "is 1, so w is 0.07 at most. This is below [adds] recent_skip_weight (0.3). The values use the projection "
+             "only. A player with no projection is not a candidate.")
+
+
+def test_the_page_and_the_terminal_say_that_the_run_skipped_the_recent_view(monkeypatch, tmp_path, capsys):
+    projected, recent = _free_agents()
+    run_command(monkeypatch, tmp_path, [], publish=False, settings=SKIP,
+                free_agents={command.PROJECTED: projected, command.RECENT: recent})
+    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    section = html.split("<h2>Free agents</h2>")[1]
+    assert SKIP_LINE in text(section.split('id="fa-table"')[0])  # above the free-agent table
+    assert SKIP_LINE in capsys.readouterr().out
+
+
+def test_a_run_with_the_recent_view_has_no_skip_line(monkeypatch, tmp_path, capsys):
+    projected, recent = _free_agents()
+    run_command(monkeypatch, tmp_path, [], publish=False,
+                free_agents={command.PROJECTED: projected, command.RECENT: recent})
+    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    assert "<h2>Free agents</h2>" in html
+    assert "skipped the recent view" not in text(html)
+    assert 'class="skip"' not in html
+    assert "skipped the recent view" not in capsys.readouterr().out
