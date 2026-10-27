@@ -7,9 +7,12 @@ One planning run:
 2. open_slots_by_day(): find the open starting slots on each day of the planning window.
 3. rank_teams(): rank the NBA teams by the open days that they cover.
 4. read_team_free_agents(): read the free agents of the best teams, all pages of the list filtered by team.
-   read_market_free_agents(): read the first MARKET_PAGES pages of the full free-agent list (the free-agent market).
+   read_market_free_agents(): read the full free-agent list (the free-agent market), MARKET_PAGES pages at most.
+   The guard stops the market read after a page with no new player above the replacement value (rank 15) of the
+   free agents read before that page (#92). market_line() says how many pages the run read and why it stopped.
    read_waiver_list(): read the players on waivers (W), each with his clear day.
    It reads two views of each list: the projection for the next 7 days and the averages of the last 14 days.
+   The order: the team lists in both views, each market page in both views, then the waiver list in both views.
    Each list page parses one time (readers.parse()), for the players and for the "Next 25" link (#93).
    recent_weight_limit() gives the largest possible blend weight w from data/schedule.csv. While it is below
    [adds] recent_skip_weight, the run skips the recent view (#90). The values then use the projection only, and the
@@ -33,7 +36,7 @@ One planning run:
 12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
     The Yahoo reads step also times its sub-steps and counts their Yahoo pages (#89): browser start, league and
-    matchup pages, projected pass, market pages, waiver list, recent pass and trends.
+    matchup pages, projected pass, recent pass, market pages, waiver list and trends.
 Settings: [adds] and [league] in config.toml. The rest list: rests_b2b of the [risk] file.
 NBA schedule: data/schedule.csv (fetch/espn.py).
 """
@@ -64,7 +67,8 @@ from fantasyhoops.adds.slots import (NEXT_WEEK_OPEN_DAYS, next_week_games, next_
                                      planning_window, plans_next_week, roster_spots_used, team_games)
 from fantasyhoops.adds.teams import yahoo_id
 from fantasyhoops.adds.trends import read_week_trends, trend_days
-from fantasyhoops.adds.value import empty_slot_value, market_value, projection_scale, replacement_value
+from fantasyhoops.adds.value import (REPLACEMENT_RANK, empty_slot_value, market_value, projection_scale,
+                                     replacement_value)
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
@@ -72,7 +76,8 @@ from fantasyhoops.core.schedule import read_schedule
 
 RANKING_ROWS = 12  # the teams that the ranking prints
 MAX_PAGES = 10  # pages of 25 free agents for each team. The planner stops after this number.
-MARKET_PAGES = 6  # pages of 25 free agents of the full list: the top 150 by Yahoo's rank
+MARKET_PAGES = 3  # pages of 25 free agents of the full list at most: the top 75 by Yahoo's rank (#92)
+WAIVER_PAGES = 6  # pages of 25 players of the full waiver list at most
 URL = site.URL + "adds/"
 PROJECTED, RECENT = "S_PS7", "S_AL14"  # the views of the free-agent list: next 7 days (totals), last 14 days (averages)
 RECENT_SKIP_WEIGHT = 0.0  # [adds] recent_skip_weight if config.toml has none: never skip the recent view
@@ -133,24 +138,90 @@ def read_team_free_agents(yahoo, teams, view=PROJECTED):
     return out
 
 
-def read_market_free_agents(yahoo, view=PROJECTED):
-    """The FreeAgents of the first MARKET_PAGES pages of the full free-agent list, best Yahoo rank first."""
-    out = []
+@dataclass(frozen=True)
+class MarketRead:
+    """The result of the market read: the FreeAgents of each view and why the read stopped.
+
+    projected, recent: the FreeAgents of the market pages in each view. recent is empty without the recent view.
+    pages: the market pages that the run read in each view. stop: "guard", "limit" (MARKET_PAGES) or "end" (the
+    last page of the list).
+    """
+    projected: list
+    recent: list
+    pages: int
+    stop: str
+
+
+def _playing_values(options):
+    """The values of the options who play and have a value: the players that value.replacement_value() counts."""
+    return [o.value for o in options if o.value is not None and not o.player.out]
+
+
+def known_values(found, found_recent, values):
+    """The values of the free agents of found (each player one time) who play and have a value.
+
+    found, found_recent, values: see read_market_free_agents(). The run computes them before the market read, so the
+    "market pages" sub-step does not time this work (#92).
+    """
+    return _playing_values(values(unique_free_agents(list(found)), list(found_recent)))
+
+
+def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), values=None, known=None):
+    """Read the full free-agent list, MARKET_PAGES pages at most, best Yahoo rank first. Give a MarketRead.
+
+    recent: False if the run skips the recent view (#90). The run then reads only the projected view.
+    The run reads each page in both views before the guard checks it.
+    found, found_recent: the FreeAgents of the team lists in each view, which the run read before the market.
+    values: a function (FreeAgents, recent FreeAgents) -> Options, for example value_options(). None: no guard.
+    The guard (#92): the run stops after a page with no new player above the replacement value of the free agents
+    read before that page. With fewer than REPLACEMENT_RANK free agents with a value before the page, the guard does
+    not stop the read. A player who is also on an earlier list is not new.
+    known: known_values() of found. None: the function computes it.
+    """
+    out, out_recent = [], []
+    seen = {(f.player.name, f.player.team) for f in found}
+    if not values:
+        known = []
+    elif known is None:
+        known = known_values(found, found_recent, values)
+    known = list(known)
     for page in range(MARKET_PAGES):
-        parsed = parse(yahoo.get(free_agent_path(None, 25 * page, view)))
-        out += read_free_agents(parsed, totals=view == PROJECTED)
+        parsed = parse(yahoo.get(free_agent_path(None, 25 * page, PROJECTED)))
+        page_fas = read_free_agents(parsed, totals=True)
+        if recent:
+            out_recent += read_free_agents(parse(yahoo.get(free_agent_path(None, 25 * page, RECENT))), totals=False)
+        out += page_fas
+        new = unique_free_agents([f for f in page_fas if (f.player.name, f.player.team) not in seen])
+        seen |= {(f.player.name, f.player.team) for f in new}
+        if values:
+            new_values = _playing_values(values(new, list(found_recent) + out_recent))
+            bar = sorted(known, reverse=True)[REPLACEMENT_RANK - 1] if len(known) >= REPLACEMENT_RANK else None
+            known += new_values
+            if bar is not None and not any(v > bar for v in new_values):
+                return MarketRead(out, out_recent, page + 1, "guard")
         if not has_next_page(parsed):
-            break
-    return out
+            return MarketRead(out, out_recent, page + 1, "end")
+    return MarketRead(out, out_recent, MARKET_PAGES, "limit")
+
+
+def market_line(market):
+    """The line of the page and the terminal that says how many market pages the run read and why it stopped."""
+    head = f"Market: {market.pages} of {MARKET_PAGES} pages"
+    if market.stop == "guard":
+        return (f"{head}. Page {market.pages} had no new player above the replacement value (the free agent at rank "
+                f"{REPLACEMENT_RANK} of the players read before it).")
+    if market.stop == "end":
+        return f"{head}. Page {market.pages} was the last page of the list."
+    return f"{head} (the limit)."
 
 
 def read_waiver_list(yahoo, today, view=PROJECTED):
-    """The players on waivers (W) of the first MARKET_PAGES pages of the full waiver list, each with his clear day.
+    """The players on waivers (W) of the first WAIVER_PAGES pages of the full waiver list, each with his clear day.
 
     The waiver list is short (4 players on 2026-10-21), so the run does not read it for each NBA team.
     """
     out = []
-    for page in range(MARKET_PAGES):
+    for page in range(WAIVER_PAGES):
         parsed = parse(yahoo.get(free_agent_path(None, 25 * page, view, status="W")))
         out += read_waiver_players(parsed, today, totals=view == PROJECTED)
         if not has_next_page(parsed):
@@ -197,12 +268,14 @@ def stream_spots(roster, cfg, values=None):
     return choose_stream_spots(roster, cfg, season_values(cfg) if values is None else values)
 
 
-def value_options(free_agents, cfg, recent=(), matchup_cfg=None):
+def value_options(free_agents, cfg, recent=(), matchup_cfg=None, scale=None):
     """An Option for each FreeAgent, with his projected, recent, blended and matchup values (adds/blend.py).
 
     recent: the FreeAgents of the recent view of the same lists. matchup_cfg: cfg with the matchup weights.
+    scale: from projection_scale(). If None, the function reads the projections file.
     """
-    return blended_options(free_agents, recent, projection_scale(cfg), cfg, matchup_cfg)
+    scale = projection_scale(cfg) if scale is None else scale
+    return blended_options(free_agents, recent, scale, cfg, matchup_cfg)
 
 
 def with_trends(options, trends):
@@ -463,9 +536,11 @@ def main(today=None, publish=True, timed=True):
         sched = read_schedule()
     plan, aggressive, empty, read, options, drops, warnings, rows, absences = None, None, None, [], [], [], [], [], []
     weights, match_empty, match_replacement = None, None, None
-    games_next, recent, skip_line = None, [], None
+    games_next, recent, skip_line, market_text = None, [], None, None
     with step("season values"):
         values = season_values(cfg)
+    # The category scale of the values. The read is outside every step, as before #92, so the rows stay comparable.
+    scale = projection_scale(cfg)
     wait = cfg["adds"].get("page_wait", WAIT_SECONDS)
     part = timings.part
     with step("Yahoo reads"), ExitStack() as browser:
@@ -488,40 +563,41 @@ def main(today=None, publish=True, timed=True):
         ranking = rank_teams(days, games)
         if spots and data.adds.left and ranking:
             read = teams_to_read(ranking)
-            # The market pages and the waiver list have one sub-step each, with a timed block in each view.
-            # The read order and the list order of unique_free_agents() stay the same, so the plans stay the same.
-            with part("projected pass", yahoo):
-                team_fas = read_team_free_agents(yahoo, read)
-            with part("market pages", yahoo):
-                market = read_market_free_agents(yahoo)
-            with part("waiver list", yahoo):
-                waivers = read_waiver_list(yahoo, today)
-            free_agents = unique_free_agents(team_fas + market + waivers)
             most, limit = recent_weight_limit(sched, today)
-            if skips_recent_view(limit, cfg):
+            skip = skips_recent_view(limit, cfg)
+            if skip:
                 # No recent rows: the blend uses the projected line only (blend.py). The sub-step rows stay.
                 skip_line = recent_skip_line(most, limit, cfg)
-                with part("recent pass", yahoo):
-                    pass
-            else:
-                with part("recent pass", yahoo):
-                    team_fas = read_team_free_agents(yahoo, read, RECENT)
-                with part("market pages", yahoo):
-                    market = read_market_free_agents(yahoo, RECENT)
-                with part("waiver list", yahoo):
-                    waivers = read_waiver_list(yahoo, today, RECENT)
-                recent = unique_free_agents(team_fas + market + waivers)
+            # The team lists come first in both views, so the guard of the market read has their blended values.
+            # The list order of unique_free_agents() stays: team lists, market, waivers (#92).
+            with part("projected pass", yahoo):
+                team_fas = read_team_free_agents(yahoo, read)
+            with part("recent pass", yahoo):
+                team_recent = [] if skip else read_team_free_agents(yahoo, read, RECENT)
+            # The values of the team lists are outside the sub-steps, so the rows stay comparable with #89.
+            # Only the guard's values of the new players of each page are in the "market pages" row.
+            def guard_values(fas, rec):
+                return value_options(fas, cfg, rec, scale=scale)
+            known =known_values(team_fas, team_recent, guard_values)
+            with part("market pages", yahoo):
+                market = read_market_free_agents(yahoo, not skip, team_fas, team_recent, guard_values, known)
+            market_text = market_line(market)
+            with part("waiver list", yahoo):
+                waivers = read_waiver_list(yahoo, today)
+                waivers_recent = [] if skip else read_waiver_list(yahoo, today, RECENT)
+            free_agents = unique_free_agents(team_fas + market.projected + waivers)
+            if not skip:
+                recent = unique_free_agents(team_recent + market.recent + waivers_recent)
             with part("trends", yahoo):
                 trends = read_week_trends(yahoo, trend_days(data.week, today, data.next_week))
     if read:
-        scale = projection_scale(cfg)
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
         with step("absence read"):
             absences = read_absences(today, cfg)
         with step("value options"):
-            options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg), trends), rests, nights,
-                                 chance)
+            options = with_rests(with_trends(value_options(free_agents, cfg, recent, mcfg, scale), trends), rests,
+                                 nights, chance)
             options = mark_role_ups(options, absences)
         spots = matchup_spots(spots, scale, cfg, mcfg)
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
@@ -542,9 +618,10 @@ def main(today=None, publish=True, timed=True):
     print_open_slots(data, days, cfg)
     print_stream_spots(spots, values)
     print_ranking(ranking, read)
-    if skip_line:
-        print()
-        print(skip_line)
+    for line in (market_text, skip_line):
+        if line:
+            print()
+            print(line)
     replacement = replacement_value([o for o in options if not o.player.on_waivers])
     print_waivers(options, replacement)
     if weights is not None:
@@ -575,7 +652,7 @@ def main(today=None, publish=True, timed=True):
                                           for c in contingencies],
                            roles=roles, minutes_rise=cfg["adds"].get("minutes_rise"), flags=cfg["adds"].get("flags"),
                            next_days=early_days, next_games=early_games, timings=timings.steps,
-                           recent_skip=skip_line)
+                           recent_skip=skip_line, market=market_text)
         publish_page(page.write(text), rows, publish)
     if timed:
         print(f"Wrote the step times: {timing.TIMINGS}")
