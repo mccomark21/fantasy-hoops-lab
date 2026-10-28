@@ -2,8 +2,8 @@
 
 This module only opens pages and returns their HTML. It never submits a form or clicks a button.
 The readers in adds/readers.py read the HTML. Only one process can use the saved profile at a time.
-The list pages, the matchup pages and Transaction Trends come from raw requests with the cookies of Edge, at most
-MAX_REQUESTS at a time (#108). The team page comes from Edge, because a script on the page adds data-pos.
+The player lists and Transaction Trends come from raw requests with the cookies of Edge, at most MAX_REQUESTS at a
+time (#108). The team page and the matchup pages come from Edge, because scripts add parts that the readers need.
 Requirement: Microsoft Edge and pip install playwright. Edge is the browser, so "playwright install" is not necessary.
 """
 
@@ -45,7 +45,9 @@ SCORE_WAIT_SECONDS = 0.5
 BLOCK_STATUSES = (999, 429)
 # The page kinds that come from raw requests (#108), by the start of the page path, with the class of the element
 # that the reader needs. Spike #95 found the same reader results on the raw HTML and on the HTML of Edge.
-RAW = {"players": "players", "matchup": "Navtarget", "buzzindex": "Tst-table"}
+# The matchup pages stay in Edge: in the live check of 2026-10-27 20:10, during NBA games, the raw matchup page had
+# the day links but no score table. Edge showed the score table at 19:52 (#108).
+RAW = {"players": "players", "buzzindex": "Tst-table"}
 # Spike #95 read 4 raw pages at a time. Yahoo blocked the session after about 390 loads in 5 minutes. Keep this low.
 MAX_REQUESTS = 4
 REQUEST_TIMEOUT_MS = 60000

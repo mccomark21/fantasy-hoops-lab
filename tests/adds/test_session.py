@@ -1,7 +1,12 @@
 """Tests of League.get() with a fake page and a fake fetch. The tests open no browser and use no network."""
 
+from datetime import date
+from pathlib import Path
+
 import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+from fantasyhoops.adds.readers import has_next_page, parse, read_free_agents, read_waiver_players
 
 from fantasyhoops.adds.session import (
     MAX_REQUESTS,
@@ -16,6 +21,7 @@ from fantasyhoops.adds.session import (
     raw_kind,
     ready_selectors,
 )
+from fantasyhoops.adds.trends import read_trends
 
 TEAM = "table#statTable0 tbody tr[data-pos]"
 PLAYERS = "div.players table tbody tr"
@@ -223,7 +229,6 @@ def test_a_block_after_the_sign_in_raises_yahoo_blocked_with_no_wait_for_an_elem
 PLAYERS_HTML = '<div class="players"><table><tbody><tr><td>row</td></tr></tbody></table></div>'
 RAW_HTML = {
     "players": PLAYERS_HTML,
-    "matchup": '<a class="Navtarget" href="/x">Day</a>',
     "buzzindex": '<table class="Tst-table"><tbody><tr></tr></tbody></table>',
 }
 
@@ -255,14 +260,12 @@ class FakeFetch:
 RAW_PATHS = [
     "players?status=FA&pos=P&count=0",
     "players?status=W&pos=P&count=0",
-    "matchup?mid1=10",
-    "matchup?week=2&mid1=10",
     "buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1",
 ]
 
 
 @pytest.mark.parametrize("path", RAW_PATHS)
-def test_with_fetch_the_list_matchup_and_trends_pages_come_from_raw_requests_and_open_no_edge_page(path):
+def test_with_fetch_the_list_and_trends_pages_come_from_raw_requests_and_open_no_edge_page(path):
     page, fetch = FakePage(), FakeFetch()
     league = League(page, 22820, fetch=fetch)
     assert league.get(path).endswith(path)
@@ -271,13 +274,15 @@ def test_with_fetch_the_list_matchup_and_trends_pages_come_from_raw_requests_and
     assert league.pages == 1
 
 
-def test_with_fetch_the_team_page_comes_from_edge():
+@pytest.mark.parametrize("path, waits", [("10", [TEAM]), ("matchup?mid1=10", [DAYS, SCORES])])
+def test_with_fetch_the_team_page_and_the_matchup_pages_come_from_edge(path, waits):
+    # In the live check of 2026-10-27 20:10, the raw matchup page had no score table during NBA games (#108).
     page, fetch = FakePage(), FakeFetch()
     league = League(page, 22820, fetch=fetch)
-    assert league.get("10") == "<html>page</html>"
+    assert league.get(path) == "<html>page</html>"
     assert fetch.batches == []
-    assert page.visits == [f"{SITE}/nba/22820/10"]
-    assert page.waits == [(TEAM, "attached", 10000)]
+    assert page.visits == [f"{SITE}/nba/22820/{path}"]
+    assert [selector for selector, _, _ in page.waits] == waits
 
 
 def test_get_many_reads_at_most_4_raw_pages_at_a_time_and_gives_the_pages_in_order():
@@ -294,11 +299,12 @@ def test_get_many_reads_at_most_4_raw_pages_at_a_time_and_gives_the_pages_in_ord
 def test_get_many_reads_the_team_page_in_edge_and_the_other_pages_raw():
     page, fetch = FakePage(), FakeFetch()
     league = League(page, 22820, fetch=fetch)
-    pages = league.get_many(["10", "matchup?mid1=10"])
+    path = "players?status=FA&count=0"
+    pages = league.get_many(["10", path])
     assert pages[0] == "<html>page</html>"
-    assert pages[1].endswith("matchup?mid1=10")
+    assert pages[1].endswith(path)
     assert page.visits == [f"{SITE}/nba/22820/10"]
-    assert fetch.batches == [[f"{SITE}/nba/22820/matchup?mid1=10"]]
+    assert fetch.batches == [[f"{SITE}/nba/22820/{path}"]]
     assert league.pages == 2
 
 
@@ -338,12 +344,12 @@ def test_a_block_after_the_sign_in_of_a_raw_page_raises_yahoo_blocked(capsys):
             return super().__call__(urls)
 
     with pytest.raises(YahooBlocked):
-        League(SignInPage(), 22820, fetch=BlockAfter(redirects=1)).get("matchup?mid1=10")
+        League(SignInPage(), 22820, fetch=BlockAfter(redirects=1)).get("players?status=FA&count=0")
 
 
 def test_a_raw_page_that_still_goes_to_the_sign_in_after_the_sign_in_raises_an_error(capsys):
     with pytest.raises(PageNotReady) as error:
-        League(SignInPage(), 22820, fetch=FakeFetch(redirects=2)).get("matchup?mid1=10")
+        League(SignInPage(), 22820, fetch=FakeFetch(redirects=2)).get("players?status=FA&count=0")
     assert "login.yahoo.com" in str(error.value)
 
 
@@ -358,12 +364,12 @@ def test_a_raw_page_with_no_element_for_its_reader_raises_an_error_that_names_th
     "path, element",
     [
         ("players?status=FA", "players"),
-        ("matchup?mid1=10", "Navtarget"),
+        ("matchup?mid1=10", None),
         ("buzzindex?date=2026-10-21", "Tst-table"),
         ("10", None),
     ],
 )
-def test_raw_kind_names_the_element_of_each_raw_page_kind_and_none_for_the_team_page(path, element):
+def test_raw_kind_names_the_element_of_each_raw_page_kind_and_none_for_a_page_from_edge(path, element):
     assert raw_kind(path) == element
 
 
@@ -403,3 +409,36 @@ def test_raw_fetcher_with_no_private_names_of_playwright_reads_one_url_at_a_time
     assert fetch(["u1", "u2"]) == [(200, "u1", "<p>u1</p>"), (200, "u2", "<p>u2</p>")]
     assert request.urls == ["u1", "u2"]
     assert all(r.disposed for r in request.responses)
+
+
+# The raw HTML gives the same rows as the HTML of Edge, for each page kind of RAW (#108).
+# tests/adds/fixtures/raw_vs_rendered/ holds pairs from 2026-10-27, cut to the parts that the readers use. The
+# rendered list pages are the raw pages rendered in Edge with each Yahoo Fantasy request stopped. The rendered
+# Transaction Trends page comes from Edge in the planning run of 2026-10-27 19:52.
+PAIRS = Path(__file__).parent / "fixtures" / "raw_vs_rendered"
+DAY = date(2026, 10, 27)
+
+
+def _list_rows(html):
+    parsed = parse(html)
+    return read_free_agents(parsed, totals=True), has_next_page(parsed)
+
+
+def _waiver_rows(html):
+    parsed = parse(html)
+    return read_waiver_players(parsed, DAY, totals=True), has_next_page(parsed)
+
+
+@pytest.mark.parametrize(
+    "kind, read",
+    [("team_list", _list_rows), ("market", _list_rows), ("waivers", _waiver_rows), ("trends", read_trends)],
+)
+def test_the_raw_html_gives_the_same_rows_as_the_html_of_edge(kind, read):
+    raw = read((PAIRS / f"{kind}_raw.html").read_text(encoding="utf-8"))
+    rendered = read((PAIRS / f"{kind}_rendered.html").read_text(encoding="utf-8"))
+    assert raw == rendered
+    assert len(raw[0] if isinstance(raw, tuple) else raw) == 4  # the fixtures keep 4 rows
+
+
+def test_the_raw_market_page_has_the_next_page_link():
+    assert _list_rows((PAIRS / "market_raw.html").read_text(encoding="utf-8"))[1]
