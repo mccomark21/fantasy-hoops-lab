@@ -48,3 +48,24 @@ The issue filer checked the report against the code at `5e89567`. The report had
 - On 2026-10-28, PR #137 (#132) merged as `mccomark21/fantasy-hoops-lab@8efb0f7`. The first review (at `591edb8`) found a blocker: the builder made `cfg` optional in `publish()` so that `adds/plan.py` did not change, and the None path read `config.toml`. That brought back the hidden read that #132 set out to remove. The fix made `cfg` required. A dated Decision comment on #132 supersedes the "optional" claim.
 - Lesson of 2026-10-28: a "Do not change file X" line in a builder brief can push the builder to an optional parameter that hides the old behaviour. A brief should allow a minimal call-site change in a shared file, as the fix brief for #137 did.
 - Lesson of 2026-10-28: a SendMessage to a builder that is still working queues. The builder of #137 finished its first task and reported before it read the queued rebase message. Check the head (ancestor of `origin/main`, the expected diff) before you start a reviewer.
+
+## Wave 4 and the end of the run (2026-10-28)
+
+- On 2026-10-28, PR #139 (#130) merged as `mccomark21/fantasy-hoops-lab@042f990`. The terminal prints a short summary. The run no longer makes the drop trade-offs or the aggressive plan. The page HTML differs only by two Run time rows. It took four reviews: each round found stale claims in `docs/adds/README.md`. The fourth brief told the builder to grep every print of a run, and that ended the loop.
+- On 2026-10-28, auto mode blocked the merge of #139 after the chief of staff posted its own "No blockers" on a docs-only fix (comment 6478234431). A separate reviewer then found a blocker that the chief of staff had missed. Lesson: the merger never writes the review, even for a docs-only fix.
+- On 2026-10-28, the builder of #130 stalled for 600 s with uncommitted work and a rebase conflict. A SendMessage resumed it with its context, and it finished. Lesson: tell builders to commit and push early.
+- On 2026-10-28, the owner decided that the adds planner recommends teams and positions, not players (#140). #131 and #112 closed as not planned, so #131 was never built.
+
+## Result (2026-10-28)
+
+| Issue | PR | Merge |
+|---|---|---|
+| #127 | #134 | `051b33d` |
+| #133 | #135 | `a92ac48` |
+| #128 | #136 | `488017a` |
+| #129 | #138 | `9276275` |
+| #132 | #137 | `8efb0f7` |
+| #130 | #139 | `042f990` |
+| #131 | none | closed as not planned |
+
+No live planning run tested these merges. No worktree had `data/` or a Yahoo session. The next live run is the first check.
