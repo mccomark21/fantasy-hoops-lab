@@ -229,3 +229,53 @@ def test_the_guard_uses_the_blended_value_and_the_projected_value_without_the_re
 def test_the_market_line_names_the_last_page_of_the_list():
     market = command.MarketRead([], [], 2, "end")
     assert command.market_line(market) == "Market: 2 of 3 pages. Page 2 was the last page of the list."
+
+
+# The reads that go together (#108).
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+class TeamPages:
+    """A fake League: the lists of BOS and of the market have a "Next 25" link on each page. The other lists have
+    one page.
+
+    together: True gives get_many(), which keeps each batch of paths. False: get() only.
+    """
+
+    def __init__(self, together=True):
+        self.many = (FIXTURES / FREE_AGENTS_HTML).read_text(encoding="utf-8")
+        self.one = (FIXTURES / "free_agents_phi.html").read_text(encoding="utf-8")
+        self.batches = []
+        if together:
+            self.get_many = self._get_many
+
+    def get(self, path):
+        return self.many if f"ET_{command.yahoo_id('BOS')}&" in path or "eteam" not in path else self.one
+
+    def _get_many(self, paths):
+        self.batches.append(list(paths))
+        return [self.get(path) for path in paths]
+
+
+def test_the_team_lists_read_page_1_of_all_teams_together_and_then_the_next_pages_of_the_teams_that_have_one():
+    yahoo = TeamPages()
+    command.read_team_free_agents(yahoo, ["PHI", "BOS", "NY"])
+    assert [len(batch) for batch in yahoo.batches] == [3] + [1] * (command.MAX_PAGES - 1)
+    assert all(p.endswith("&count=0") for p in yahoo.batches[0])
+    assert yahoo.batches[1] == [command.free_agent_path("BOS", 25)]
+
+
+def test_the_team_lists_give_the_free_agents_in_the_same_order_with_and_without_reads_together():
+    teams = ["PHI", "BOS", "NY"]
+    together = command.read_team_free_agents(TeamPages(), teams)
+    assert together == command.read_team_free_agents(TeamPages(together=False), teams)
+    # Team by team: the 10 pages of BOS come between the page of PHI and the page of NY.
+    one = command.read_team_free_agents(TeamPages(), ["PHI"])
+    assert together[: len(one)] == one and together[-len(one) :] == one
+
+
+@pytest.mark.parametrize("recent", [True, False])
+def test_the_market_read_reads_the_two_views_of_a_page_together_and_no_page_ahead(recent):
+    yahoo = TeamPages()
+    command.read_market_free_agents(yahoo, recent)
+    assert [len(batch) for batch in yahoo.batches] == [2 if recent else 1] * command.MARKET_PAGES

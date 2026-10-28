@@ -167,3 +167,49 @@ def test_each_write_uses_a_unique_temporary_file(tmp_path, monkeypatch):
 def test_the_guide_says_to_use_no_cache_after_the_games_end():
     text = (Path(__file__).parents[2] / "docs" / "adds" / "README.md").read_text(encoding="utf-8")
     assert "does not show the games of that night. After the games end, run the planner with `--no-cache`." in text
+
+
+# The reads that go together (#108).
+
+
+class BatchPages(Pages):
+    """A fake League with get_many(): it keeps each batch of paths."""
+
+    def __init__(self):
+        super().__init__()
+        self.batches = []
+
+    def get_many(self, paths):
+        self.batches.append(list(paths))
+        return [self.get(path) for path in paths]
+
+
+def test_get_all_reads_the_misses_of_one_league_together_and_a_page_from_the_cache_opens_no_page(tmp_path):
+    yahoo = BatchPages()
+    cache = PageCache(MON, folder=tmp_path)
+    cache.recent(Pages()).get("players?cached")
+    recent = cache.recent(yahoo)
+    pages = page_cache.get_all([(yahoo, "players?a"), (recent, "players?cached"), (recent, "players?b")])
+    assert pages == ["<p>players?a</p>", "<p>players?cached</p>", "<p>players?b</p>"]
+    assert yahoo.batches == [["players?a", "players?b"]]
+    assert yahoo.pages == 2
+    assert cache.hits[RECENT] == 1
+    assert cache.load(DAY, "players?b", RECENT) == "<p>players?b</p>"  # a miss goes in the cache
+    assert cache.load(DAY, "players?a", RECENT) is None  # a page of a reader with no cache does not
+
+
+def test_get_all_with_a_reader_with_no_get_many_reads_one_page_at_a_time():
+    yahoo = Pages()
+    assert page_cache.get_all([(yahoo, "a"), (yahoo, "b")]) == ["<p>a</p>", "<p>b</p>"]
+    assert yahoo.paths == ["a", "b"]
+
+
+def test_the_week_trends_read_the_pages_that_are_not_in_the_cache_together(tmp_path):
+    days = [MON - timedelta(days=n) for n in range(3)]
+    cache = PageCache(MON, folder=tmp_path)
+    cache.trends(Pages(lambda path: page([("Phi One", 2, 0)])), days[1]).get(trends_path(days[1]))
+    yahoo = BatchPages()
+    yahoo.html = lambda path: page([("Phi One", 1, 0)])
+    trends = read_week_trends(yahoo, days, lambda day: cache.trends(yahoo, day))
+    assert yahoo.batches == [[trends_path(MON), trends_path(days[2])]]  # yesterday comes from the cache
+    assert trends["Phi One"].adds_week == 1 + 2 + 1

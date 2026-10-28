@@ -1,15 +1,19 @@
-"""Tests of League.get() with a fake page. The tests open no browser and use no network."""
+"""Tests of League.get() with a fake page and a fake fetch. The tests open no browser and use no network."""
 
 import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 from fantasyhoops.adds.session import (
+    MAX_REQUESTS,
     SCORE_WAIT_SECONDS,
     SITE,
     League,
     PageNotReady,
     UnknownPage,
     YahooBlocked,
+    has_element,
+    raw_fetcher,
+    raw_kind,
     ready_selectors,
 )
 
@@ -212,3 +216,190 @@ def test_a_block_after_the_sign_in_raises_yahoo_blocked_with_no_wait_for_an_elem
     assert "HTTP 999" in str(error.value)
     assert len(page.visits) == 2
     assert page.waits == []
+
+
+# Raw requests (#108). The fake fetch gives (status, final URL, HTML) for each URL and opens no network.
+
+PLAYERS_HTML = '<div class="players"><table><tbody><tr><td>row</td></tr></tbody></table></div>'
+RAW_HTML = {
+    "players": PLAYERS_HTML,
+    "matchup": '<a class="Navtarget" href="/x">Day</a>',
+    "buzzindex": '<table class="Tst-table"><tbody><tr></tr></tbody></table>',
+}
+
+
+class FakeFetch:
+    """A fetch for League: each call is one batch of raw requests.
+
+    statuses: {path end: status}. redirects: the number of reads that go to the Yahoo sign-in first.
+    """
+
+    def __init__(self, statuses=None, redirects=0, html=None):
+        self.batches, self.statuses, self.redirects, self.html = [], statuses or {}, redirects, html
+
+    def __call__(self, urls):
+        self.batches.append(list(urls))
+        out = []
+        for url in urls:
+            path = url.split("/nba/22820/", 1)[1]
+            status = next((s for end, s in self.statuses.items() if path.endswith(end)), 200)
+            if self.redirects:
+                self.redirects -= 1
+                out.append((200, "https://login.yahoo.com/?done=x", "<html>sign in</html>"))
+                continue
+            kind = next(k for k in RAW_HTML if path.startswith(k))
+            out.append((status, url, self.html if self.html is not None else RAW_HTML[kind] + path))
+        return out
+
+
+RAW_PATHS = [
+    "players?status=FA&pos=P&count=0",
+    "players?status=W&pos=P&count=0",
+    "matchup?mid1=10",
+    "matchup?week=2&mid1=10",
+    "buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1",
+]
+
+
+@pytest.mark.parametrize("path", RAW_PATHS)
+def test_with_fetch_the_list_matchup_and_trends_pages_come_from_raw_requests_and_open_no_edge_page(path):
+    page, fetch = FakePage(), FakeFetch()
+    league = League(page, 22820, fetch=fetch)
+    assert league.get(path).endswith(path)
+    assert fetch.batches == [[f"{SITE}/nba/22820/{path}"]]
+    assert page.visits == [] and page.waits == []
+    assert league.pages == 1
+
+
+def test_with_fetch_the_team_page_comes_from_edge():
+    page, fetch = FakePage(), FakeFetch()
+    league = League(page, 22820, fetch=fetch)
+    assert league.get("10") == "<html>page</html>"
+    assert fetch.batches == []
+    assert page.visits == [f"{SITE}/nba/22820/10"]
+    assert page.waits == [(TEAM, "attached", 10000)]
+
+
+def test_get_many_reads_at_most_4_raw_pages_at_a_time_and_gives_the_pages_in_order():
+    fetch = FakeFetch()
+    league = League(FakePage(), 22820, fetch=fetch)
+    paths = [f"players?status=FA&count={25 * n}" for n in range(9)]
+    pages = league.get_many(paths)
+    assert [len(batch) for batch in fetch.batches] == [4, 4, 1]
+    assert MAX_REQUESTS == 4
+    assert [p.split("</div>")[1] for p in pages] == paths
+    assert league.pages == 9
+
+
+def test_get_many_reads_the_team_page_in_edge_and_the_other_pages_raw():
+    page, fetch = FakePage(), FakeFetch()
+    league = League(page, 22820, fetch=fetch)
+    pages = league.get_many(["10", "matchup?mid1=10"])
+    assert pages[0] == "<html>page</html>"
+    assert pages[1].endswith("matchup?mid1=10")
+    assert page.visits == [f"{SITE}/nba/22820/10"]
+    assert fetch.batches == [[f"{SITE}/nba/22820/matchup?mid1=10"]]
+    assert league.pages == 2
+
+
+@pytest.mark.parametrize("status", [999, 429])
+def test_a_raw_page_with_a_block_status_raises_yahoo_blocked_and_reads_no_more_pages(status):
+    page, fetch = FakePage(), FakeFetch(statuses={"count=25": status})
+    league = League(page, 22820, fetch=fetch)
+    paths = [f"players?status=FA&count={25 * n}" for n in range(6)]
+    with pytest.raises(YahooBlocked) as error:
+        league.get_many(paths)
+    message = str(error.value)
+    assert f"HTTP {status}" in message
+    assert f"{SITE}/nba/22820/players?status=FA&count=25" in message
+    assert "Yahoo blocked the requests" in message
+    assert len(fetch.batches) == 1  # the second batch does not start
+    assert page.visits == []
+
+
+def test_a_raw_page_that_goes_to_the_sign_in_uses_edge_for_the_sign_in_and_reads_the_page_again(capsys):
+    page, fetch = SignInPage(), FakeFetch(redirects=1)
+    league = League(page, 22820, fetch=fetch)
+    path = "players?status=FA&count=0"
+    assert league.get(path).endswith(path)
+    url = f"{SITE}/nba/22820/{path}"
+    assert page.visits == [url]  # Edge opens the page, goes to the sign-in and waits for it
+    assert fetch.batches == [[url], [url]]
+    assert league.pages == 1
+    assert "Sign in to Yahoo" in capsys.readouterr().out
+
+
+def test_a_block_after_the_sign_in_of_a_raw_page_raises_yahoo_blocked(capsys):
+    class BlockAfter(FakeFetch):
+        def __call__(self, urls):
+            if self.batches:
+                self.batches.append(list(urls))
+                return [(999, urls[0], "Request denied")]
+            return super().__call__(urls)
+
+    with pytest.raises(YahooBlocked):
+        League(SignInPage(), 22820, fetch=BlockAfter(redirects=1)).get("matchup?mid1=10")
+
+
+def test_a_raw_page_that_still_goes_to_the_sign_in_after_the_sign_in_raises_an_error(capsys):
+    with pytest.raises(PageNotReady) as error:
+        League(SignInPage(), 22820, fetch=FakeFetch(redirects=2)).get("matchup?mid1=10")
+    assert "login.yahoo.com" in str(error.value)
+
+
+@pytest.mark.parametrize("path", RAW_PATHS)
+def test_a_raw_page_with_no_element_for_its_reader_raises_an_error_that_names_the_page(path):
+    with pytest.raises(PageNotReady) as error:
+        League(FakePage(), 22820, fetch=FakeFetch(html="<html>other page</html>")).get(path)
+    assert f"{SITE}/nba/22820/{path}" in str(error.value)
+
+
+@pytest.mark.parametrize(
+    "path, element",
+    [
+        ("players?status=FA", "players"),
+        ("matchup?mid1=10", "Navtarget"),
+        ("buzzindex?date=2026-10-21", "Tst-table"),
+        ("10", None),
+    ],
+)
+def test_raw_kind_names_the_element_of_each_raw_page_kind_and_none_for_the_team_page(path, element):
+    assert raw_kind(path) == element
+
+
+def test_has_element_finds_a_class_among_other_classes_and_not_a_longer_class():
+    assert has_element('<div class="Grid players Mb-sm">', "players")
+    assert has_element("<a class='Navtarget' href='x'>", "Navtarget")
+    assert not has_element('<div class="playersx">', "players")
+    assert not has_element("<p>players</p>", "players")
+
+
+class FakeResponseText:
+    def __init__(self, url):
+        self.status, self.url, self.disposed = 200, url, False
+
+    def text(self):
+        return f"<p>{self.url}</p>"
+
+    def dispose(self):
+        self.disposed = True
+
+
+class FakeRequest:
+    """A sync APIRequestContext with no private names of Playwright: raw_fetcher() reads one URL at a time."""
+
+    def __init__(self):
+        self.urls, self.responses = [], []
+
+    def get(self, url, timeout):
+        self.urls.append(url)
+        self.responses.append(FakeResponseText(url))
+        return self.responses[-1]
+
+
+def test_raw_fetcher_with_no_private_names_of_playwright_reads_one_url_at_a_time():
+    request = FakeRequest()
+    fetch = raw_fetcher(request)
+    assert fetch(["u1", "u2"]) == [(200, "u1", "<p>u1</p>"), (200, "u2", "<p>u2</p>")]
+    assert request.urls == ["u1", "u2"]
+    assert all(r.disposed for r in request.responses)
