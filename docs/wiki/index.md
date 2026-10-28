@@ -6,7 +6,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Projects
 
-- [Run of 2026-10-27](run-2026-10-27.md): the session of 2026-10-27 to close the open issues (#101, #104, #94, #95) and the state of the search-speed issues A, B and C.
+- [Run of 2026-10-27](run-2026-10-27.md): the session of 2026-10-27 that closed #94, #95, #101, #104, #107, #108, #110 and #111, made the repo public and turned on Pages, with the state at the shutdown and the next steps.
 - [Run of 2026-10-26](run-2026-10-26.md): the planning run speed work of 2026-10-26 (#85 to #103), the open risk of a 5-add full week, and the next steps at the end of that day.
 - [Adds planner build](adds-planner-build.md): the history of epic #42 and sub-issues #43 to #53, and the state of PR #54 on 2026-10-21.
 - [Run of issues #59 to #65](run-issues-59-to-65.md): the owner decisions of 2026-10-21 for the build of #59 to #65 (rotation log layout, merges, open questions, order).
