@@ -13,7 +13,7 @@ from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.identity import link_players
 from fantasyhoops.core.schedule import join_teams, playoff_schedule, read_schedule, schedule_columns, schedule_grid
 from fantasyhoops.core.valuation import value_players
-from fantasyhoops.draft import OUT
+from fantasyhoops.draft import out_dir
 from fantasyhoops.draft.market import league_prices
 
 # Category name in config.toml -> column calculated from the projections
@@ -76,9 +76,9 @@ def build_rankings(cfg, teams=None):
 
 def main():
     cfg = load_config()
-    OUT.mkdir(parents=True, exist_ok=True)
+    out_dir().mkdir(parents=True, exist_ok=True)
     teams, days = playoff_schedule(read_schedule(), cfg)
-    schedule_grid(teams, days).to_csv(OUT / "playoff_schedule.csv", index_label="team")
+    schedule_grid(teams, days).to_csv(out_dir() / "playoff_schedule.csv", index_label="team")
 
     df = build_rankings(cfg, teams)
     cols = (
@@ -102,7 +102,7 @@ def main():
         + ["z_" + c for c in cfg["weights"]]
         + ["player_id"]
     )
-    df[cols].round(2).to_csv(OUT / "rankings.csv", index=False)
+    df[cols].round(2).to_csv(out_dir() / "rankings.csv", index=False)
 
     pool_size = cfg["league"]["teams"] * cfg["league"]["roster_spots"]
     top = df[df["rank"] <= pool_size + 50]

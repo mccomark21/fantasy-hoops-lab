@@ -32,10 +32,10 @@ from fantasyhoops.adds import timing
 from fantasyhoops.adds.planner import Option, StreamSpot, aggressive_plan, rank_teams, schedule_plan, teams_to_read
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
-from fantasyhoops.core.common import OUT, ROOT, load_config
+from fantasyhoops.core import common
+from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
 
-BENCH = OUT / "adds" / "bench.csv"
 COLUMNS = [
     "run_at",
     "commit",
@@ -51,6 +51,12 @@ COLUMNS = [
     "seconds",
     "capped",
 ]
+
+
+def bench_path():
+    """The results file: output/adds/bench.csv, from common.OUT at the time of the call."""
+    return common.OUT / "adds" / "bench.csv"
+
 
 SEED = 1
 WEEK = [date(2026, 10, 26) + timedelta(days=i) for i in range(7)]
@@ -380,8 +386,9 @@ def main(argv=None):
         results.append(r)
     print()
     print(table(results))
-    append(BENCH, rows(results, args.seed, run_at, commit()))
-    print(f"\nWrote {len(results)} rows to {BENCH}")
+    path = bench_path()
+    append(path, rows(results, args.seed, run_at, commit()))
+    print(f"\nWrote {len(results)} rows to {path}")
 
 
 if __name__ == "__main__":

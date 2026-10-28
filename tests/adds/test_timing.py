@@ -13,12 +13,6 @@ MON = date(2027, 1, 4)
 WEEK = [MON + timedelta(days=i) for i in range(7)]
 
 
-@pytest.fixture(autouse=True)
-def no_real_file(monkeypatch, tmp_path):
-    """No test writes the real output/adds/timings.csv."""
-    monkeypatch.setattr(timing, "TIMINGS", tmp_path / "real_timings.csv")
-
-
 def read_rows(path):
     with open(path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)

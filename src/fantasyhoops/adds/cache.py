@@ -20,12 +20,16 @@ import shutil
 import uuid
 from datetime import date, datetime, timedelta
 
-from fantasyhoops.core.common import OUT
+from fantasyhoops.core import common
 
-CACHE = OUT / "adds" / "cache"
 DAY, KEPT = "day", "kept"  # the kinds of entries
 RECENT, TRENDS = "recent", "trends"  # the page groups that the cache line counts
 KEPT_AGE = 2  # a Transaction Trends page is a "kept" entry from this number of days before today
+
+
+def cache_dir():
+    """The cache folder: output/adds/cache, from common.OUT at the time of the call."""
+    return common.OUT / "adds" / "cache"
 
 
 class PageCache:
@@ -33,12 +37,12 @@ class PageCache:
 
     today: the date of the run. A "day" entry of an earlier date is not used.
     use: False (--no-cache): the run reads each page from Yahoo and writes it over the cached page.
-    folder: the cache folder (default: CACHE at the time of the call). clock: gives the read time of a new entry.
+    folder: the cache folder (default: cache_dir() at the time of the call). clock: gives the read time of a new entry.
     hits: the pages from the cache, by page group. recent_time: the earliest read time of a cached recent page.
     """
 
     def __init__(self, today, use=True, folder=None, clock=datetime.now):
-        self.today, self.use, self.folder, self.clock = today, use, folder or CACHE, clock
+        self.today, self.use, self.folder, self.clock = today, use, folder or cache_dir(), clock
         self.hits = {RECENT: 0, TRENDS: 0}
         self.recent_time = None
 

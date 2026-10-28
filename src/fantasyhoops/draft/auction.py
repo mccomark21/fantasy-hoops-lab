@@ -31,7 +31,7 @@ from fantasyhoops.core.common import load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.lineup import open_slots
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
-from fantasyhoops.draft import OUT
+from fantasyhoops.draft import out_dir
 from fantasyhoops.draft.benchmark import CATS, has_z, run_benchmark
 from fantasyhoops.draft.matchups import face_offs
 from fantasyhoops.draft.rankings import build_rankings
@@ -292,19 +292,20 @@ def main():
 
 def write_results(summary, runs, players):
     """Write the simulation_*.csv files to output/draft/. runs: one row for each player that you buy in each auction."""
-    OUT.mkdir(parents=True, exist_ok=True)
+    out = out_dir()
+    out.mkdir(parents=True, exist_ok=True)
     info = players.set_index("name")[["pos", "team", "dollars", "league_price", "playoff_games", "quality_games"]]
-    summary.round(2).to_csv(OUT / "simulation_summary.csv")
+    summary.round(2).to_csv(out / "simulation_summary.csv")
     order = {k: i for i, k in enumerate(summary.index)}  # the keeper order of config.toml
     table = player_table(runs).join(info, on="player").sort_values("keeper", key=lambda k: k.map(order), kind="stable")
-    table.round(2).to_csv(OUT / "simulation_players.csv", index=False)
+    table.round(2).to_csv(out / "simulation_players.csv", index=False)
     groups = group_table(runs).sort_values("keeper", key=lambda k: k.map(order), kind="stable")
-    groups.round(2).to_csv(OUT / "simulation_groups.csv", index=False)
+    groups.round(2).to_csv(out / "simulation_groups.csv", index=False)
     cols = ["keeper", "run", "player", "price", "core", "title", "made_playoffs", "rr_win_pct", "playoff", "dollars"]
-    runs[cols].rename(columns={"playoff": "playoff_score"}).round(2).to_csv(OUT / "simulation_runs.csv", index=False)
+    runs[cols].rename(columns={"playoff": "playoff_score"}).round(2).to_csv(out / "simulation_runs.csv", index=False)
     print(
         "\nWrote simulation_summary.csv, simulation_players.csv, simulation_groups.csv and simulation_runs.csv "
-        f"to {OUT}"
+        f"to {out}"
     )
 
 
@@ -313,10 +314,11 @@ def write_benchmark(bench):
 
     bench has the bench_<cat> columns, one row for each auction. The file has one column for each category in CATS.
     """
-    OUT.mkdir(parents=True, exist_ok=True)
+    out = out_dir()
+    out.mkdir(parents=True, exist_ok=True)
     mean = bench.mean().rename(lambda c: c.removeprefix("bench_"))
-    pd.DataFrame([mean[CATS]]).round(3).to_csv(OUT / "category_benchmark.csv", index=False)
-    print(f"Wrote category_benchmark.csv to {OUT}")
+    pd.DataFrame([mean[CATS]]).round(3).to_csv(out / "category_benchmark.csv", index=False)
+    print(f"Wrote category_benchmark.csv to {out}")
 
 
 if __name__ == "__main__":

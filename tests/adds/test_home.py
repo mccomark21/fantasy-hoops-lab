@@ -2,6 +2,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from fantasyhoops.adds import home as adds_home
+from fantasyhoops.adds import page, timing
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.readers import Player
 from tests.adds.test_page import run_command
@@ -43,8 +44,8 @@ def test_the_run_builds_the_home_page_and_publishes_it_with_the_plan_page(monkey
 
     run_command(monkeypatch, tmp_path, published, publish=True, home=build)
     assert calls == [(12, date(2027, 1, 4))]
-    assert published == [(command.ROOT, "adds", tmp_path / "adds_plan.html", home_page)]
-    rows = (tmp_path / "timings.csv").read_text(encoding="utf-8")
+    assert published == [(command.ROOT, "adds", page.page_path(), home_page)]
+    rows = timing.timings_path().read_text(encoding="utf-8")
     assert "home page" in rows
 
 

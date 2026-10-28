@@ -30,10 +30,8 @@ from fantasyhoops.adds.rest import games_text
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
-from fantasyhoops.core.common import OUT as _OUT
+from fantasyhoops.core import common
 
-OUT = _OUT / "adds"
-PAGE = OUT / "adds_plan.html"
 TITLE = "Weekly adds plan"
 RANKING_ROWS = 12  # the teams in the ranking table
 FREE_AGENT_ROWS = 10  # the rows of the free-agent table: the best players for the filters
@@ -651,9 +649,14 @@ def render(
     )
 
 
+def page_path():
+    """The page file: output/adds/adds_plan.html, from common.OUT at the time of the call."""
+    return common.OUT / "adds" / "adds_plan.html"
+
+
 def write(text, path=None):
-    """Write the page text to path (default: PAGE), and the font file to fonts/ next to it. Return the path."""
-    path = path or PAGE
+    """Write the page text to path (default: page_path()), and the font file to fonts/ next to it. Return the path."""
+    path = path or page_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     tokens.copy_font(path.parent)

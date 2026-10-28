@@ -19,11 +19,10 @@ import pandas as pd
 
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
-from fantasyhoops.core.common import OUT
+from fantasyhoops.core import common
 from fantasyhoops.core.lineup import best_lineup
 from fantasyhoops.core.schedule import playoff_schedule
 
-PAGE = OUT / "home" / "index.html"
 STATS = ["gp", "min", "pts", "reb", "ast", "threes", "stl", "blk"]  # the keys of RosterPlayer.stats, in page order
 STAT_LABELS = ["GP", "MIN", "PTS", "REB", "AST", "3PM", "STL", "BLK"]
 UTIL = 1  # the Util slots of a lineup (core/lineup.py)
@@ -487,9 +486,14 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None)
     )
 
 
+def page_path():
+    """The page file: output/home/index.html, from common.OUT at the time of the call."""
+    return common.OUT / "home" / "index.html"
+
+
 def write(text, path=None):
-    """Write the page to path (default PAGE) with the font next to it. Return the path."""
-    path = path or PAGE
+    """Write the page to path (default page_path()) with the font next to it. Return the path."""
+    path = path or page_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     tokens.copy_font(path.parent)
