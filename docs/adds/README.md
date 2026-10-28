@@ -25,7 +25,7 @@ The planner shows how to use your adds in the current fantasy week. The schedule
 
 The schedule plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins. If the value is also the same, the plan whose last streamers have more games next week wins.
 
-Since #130 (2026-10-28), a planning run does not make the aggressive plan. The owner did not use it, and no output showed it. `aggressive_plan()` stays in `planner.py` for the benchmark (see [Search benchmark](#search-benchmark)). The aggressive plan gets the most value from your stream spots: the sum of the matchup value above an empty slot of its started games, plus a bonus for the games next week of its last streamers. It can give up started games for better players. The matchup value weights the categories by the state of the current matchup (see [Matchup weights](#matchup-weights)).
+Since #130 (2026-10-28), a planning run does not make the aggressive plan. The owner did not use it, and no output showed it. `aggressive_plan()` stays in `planner.py` for the benchmark (see [Search benchmark](#search-benchmark)). The aggressive plan gets the most value from your stream spots: the sum of the blended value above an empty slot of its started games, plus a bonus for the games next week of its last streamers. It can give up started games for better players.
 
 A started game of a player on the rest list on the second night of a back-to-back counts less than 1 started game. See [Rest on back-to-backs](#rest-on-back-to-backs).
 
@@ -100,12 +100,12 @@ The skip must change no plan. The tests compare the plans with and without the s
 
 ### Aggressive plan
 
-Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left. Since 2026-10-21 (#59), the score uses the [matchup value](#matchup-weights).
+Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left. From 2026-10-21 (#59) to #130 (2026-10-28), the score of a planning run used the [matchup value](#matchup-weights). Since #130, only the benchmark makes the aggressive plan, and its score uses the blended value.
 
 The aggressive plan uses the same free agents and the same exact search as the schedule plan, with a different plan score:
 
-1. Each started game counts its value above an empty slot: the matchup value of the player minus the matchup value of an empty slot. With all categories tied, the matchup value is the blended value.
-2. The plan adds the next-week bonus: for each of its [next-week games](#next-week-games), the matchup value above an empty slot of that player. The bonus is never less than 0.
+1. Each started game counts its value above an empty slot: the blended value of the player minus the value of an empty slot.
+2. The plan adds the next-week bonus: for each of its [next-week games](#next-week-games), the blended value above an empty slot of that player. The bonus is never less than 0.
 3. The plan with the highest sum wins. Ties go to the plan with fewer adds, then to the plan with more started games.
 4. The plan uses more adds, up to the adds that are left, when the better players give a higher sum.
 
@@ -127,7 +127,7 @@ Decision (2026-10-21, #60): a player who holds a stream spot on the last day of 
 3. A game next week counts `next_week_weight` (0.5) of a game this week, because injuries and role changes can occur before then.
 4. A player who is Out gets no next-week games. An empty spot also gets none.
 
-The schedule plan uses the next-week games only as the last tiebreak. The aggressive plan adds their matchup value above an empty slot to its score as a bonus. The bonus is a separate term and never less than 0, so it never lowers the part of the score from this week. The aggressive plan can choose a plan with a lower value this week if the bonus is larger than the difference.
+The schedule plan uses the next-week games only as the last tiebreak. The aggressive plan (benchmark only) adds their blended value above an empty slot to its score as a bonus. The bonus is a separate term and never less than 0, so it never lowers the part of the score from this week. The aggressive plan can choose a plan with a lower value this week if the bonus is larger than the difference.
 
 The planner adds a player only on a day that he starts this week. It does not add a player only for his games next week. The best plans for one roster spot and the contingency plans do not use the next-week games.
 
@@ -591,14 +591,14 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 |---|---|
 | Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. A started game of a player on the rest list on a second night counts `1 - rest_chance`. |
 | Open day | A day of the planning window with at least one open starting slot. |
-| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games, then to the plan with more next-week games. Aggressive plan: the sum of the matchup value above an empty slot of the started games, plus the next-week bonus. Ties go to the plan with fewer adds, then to the plan with more started games. |
+| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games, then to the plan with more next-week games. Aggressive plan (benchmark only): the sum of the blended value above an empty slot of the started games, plus the next-week bonus. Ties go to the plan with fewer adds, then to the plan with more started games. |
 | Next-week games | The games next week of the players who hold a stream spot on the last day of the week, x `next_week_weight`. |
 | Next-week mark | The mark of a free agent who fits an open slot on one of the first days of next week, for example "Mon open". The mark changes no value. |
-| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan (benchmark only) uses the matchup value of the player and of the empty slot. |
+| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan (benchmark only) uses it. |
 | Matchup weight | The weight of a category from your margin in the current matchup: 1 for a close category, down to `min_weight` for a large lead or deficit. |
 | Matchup value | The value of a player with each category weight times its matchup weight. With all categories tied, it equals the blended value. |
 | Schedule plan | The plan that chooses NBA teams by the open days that they cover, then free agents on those teams, with the fewest adds. |
-| Aggressive plan | The plan with the highest sum of the matchup value above an empty slot of its started games. It can use more adds and give up started games for better players. Since #130 (2026-10-28), only the search benchmark makes it. A planning run does not. |
+| Aggressive plan | The plan with the highest sum of the blended value above an empty slot of its started games. It can use more adds and give up started games for better players. Since #130 (2026-10-28), only the search benchmark makes it. A planning run does not. |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team, for example "CHA Mon–Wed". |
