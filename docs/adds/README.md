@@ -12,6 +12,7 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 - [Rest on back-to-backs](#rest-on-back-to-backs)
 - [Value](#value)
 - [The page](#the-page)
+- [Home page](#home-page)
 - [Core and drops](#core-and-drops)
 - [Status rules](#status-rules)
 - [Role up](#role-up)
@@ -41,9 +42,10 @@ One planning run does these steps:
 1. It reads your league from Yahoo.
 2. It makes the two plans for the planning window.
 3. It writes the page in `output/adds/`, with the font file and its license in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
-4. It publishes the site to GitHub Pages, at `/adds/`.
+4. It writes the home page in `output/home/` (see [Home page](#home-page)).
+5. It publishes the site to GitHub Pages: the plan page at `/adds/` and the home page at `/`.
 
-To write the page with no publish, add `--no-publish`:
+To write the page with no publish, add `--no-publish`. The run then makes no home page:
 
 ```
 python -m fantasyhoops.adds.plan --no-publish
@@ -321,6 +323,7 @@ Decision (2026-10-26, #85): the planner times each step of a planning run. The o
 | spot plans | The best plans for one roster spot: up to 2 searches for each row |
 | contingency plans | `contingency_plans()`. It does not search. |
 | role read | `read_roles()` |
+| home page | `build_home()`: the home page (see [Home page](#home-page)). Only a run that publishes has this step. |
 | page write and publish | The page and the publish of the site |
 
 A step that does not run has no time. For example, with no adds left, the run reads no free agent and runs no search.
@@ -386,6 +389,18 @@ The benchmark runs 12 cases: A = 3, 4 and 5, D = 5 and 7, for the schedule searc
 Each case has a cap: `--max-calls` (default 55,000,000, about 10 minutes at 90,000 calls each second) and `--max-seconds` (default 600). A case that passes the cap ends as "capped". That is a result: the search with these inputs does not end under the cap. A planning run has no cap.
 
 `tests/adds/test_bench.py` runs the fast cases in CI. Each case has a ceiling on its calls and its states, about 2 times the counts when the test was written. A change that makes the search much larger fails the test.
+
+## Home page
+
+Decision (2026-10-28, #120): each run that publishes also writes the home page of the site. The owner sees the roster with the season stats and the fit of each player in the playoff lineup. `adds/home.py` gets the data, and `core/home.py` makes the page.
+
+- The roster is the roster of your team page. The players are in custom-rank order (`draft/rankings.py`). A player with no rank goes last.
+- The season stats come from one ESPN `statistics/byathlete` request (`fetch/espn.py`): GP, MIN, PTS, REB, AST, 3PM, STL and BLK per game.
+- Each playoff day, the best lineup of the position slots and Util takes the players in rank order (the rule of `scoreCore` in `draft/team_builder.js`). The IL players are in the lineup pool, because they will likely be back by the playoffs. A player with `rests_b2b` = 1 gets no game on the second night of a back-to-back.
+- The Used and vs ideal rows use the math of `renderFooter` in `draft/board.py`. The percent bands are the bands of `pctClass`: 90% or more, 70% to 89%, less than 70%.
+- A week cell with `[flags] avoid_week_games` games or fewer (2) gets a red box on the games numeral.
+
+The run writes the page before the plan page, so that the Run time table has the home page step. If the home page fails, the run prints the error and continues. The publish then puts the list of the tools at `/`.
 
 ## Core and drops
 
@@ -542,6 +557,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
 | `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |
 | `next_week_open_days` | The first days of next week that the page checks for open slots: 2. 0 turns off the next-week mark. See [Next-week mark](#next-week-mark). |
+| `team_name` | The team name at the top of the home page: TradeMark™. Without it, the page shows "Roster". |
 | `recent_skip_weight` | The run skips the recent view while the largest possible weight of the recent line is below this value: 0.3. 0 never skips. See [Skip of the recent view](#skip-of-the-recent-view). |
 | `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
 | `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |

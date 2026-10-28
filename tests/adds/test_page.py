@@ -848,6 +848,7 @@ def run_command(
     market=None,
     today=None,
     cache=False,
+    home=None,
 ):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
@@ -866,6 +867,7 @@ def run_command(
     free_agents: {view: FreeAgents} that the fake team reader gives. The run then values them with the real
     value_options() and a scale of pts only, and the market and waiver readers give no free agents.
     market: the MarketRead that the fake market reader gives. None: no market free agents.
+    home: the build_home() of the run (adds/home.py). None: a function that makes no home page.
     """
     lists = yahoo is None
     yahoo = yahoo or FakeLeague()
@@ -928,7 +930,11 @@ def run_command(
     monkeypatch.setattr(page, "PAGE", tmp_path / "adds_plan.html")
     monkeypatch.setattr(timing, "TIMINGS", tmp_path / "timings.csv")
     monkeypatch.setattr(page_cache, "CACHE", tmp_path / "cache")
-    monkeypatch.setattr(command.site, "publish", lambda *args: published.append(args))
+    monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
+    # A home page goes last in the record of the publish.
+    monkeypatch.setattr(
+        command.site, "publish", lambda *a, home=None: published.append(a if home is None else (*a, home))
+    )
     command.main(today=today or WEEK[0], publish=publish, timed=timed, cache=cache)
     return yahoo
 
