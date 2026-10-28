@@ -7,6 +7,8 @@ A player who rests on back-to-backs has fewer playoff games than his team (playo
 The stat columns are the categories in [weights]. Positions are the Yahoo positions.
 The HTML page also has the team builder (#8): the team bar, the + and Fit columns and the My team tab.
 With the category benchmark (#39) it also has the category panel above the team table and the Need column.
+The lineup-fit rules come from core/lineup.py, the one source (#133). team_data() puts the Util count, the percent
+bands and a table of the ideal games in the page data. team_builder.js and the team table footer read them.
 """
 
 import copy
@@ -19,6 +21,7 @@ import pandas as pd
 
 from fantasyhoops.core.common import load_config, weeks
 from fantasyhoops.core.console import use_utf8_output
+from fantasyhoops.core.lineup import BANDS, UTIL, ideal_games
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
 from fantasyhoops.draft import OUT
 from fantasyhoops.draft.category_data import category_data, load_benchmark
@@ -545,12 +548,28 @@ def positions(pos, slots):
     return [p for p in str(pos).split("/") if p in slots]
 
 
+def lineup_rules(day_list, week_names, slots, spots):
+    """The lineup-fit rules of core/lineup.py for the page data: {"bands", "ideal"}.
+
+    bands: [lowest ratio, level] for each band of lineup.BANDS. ideal: {week: [ideal games of a core of n players]}
+    for n from 0 to spots, from lineup.ideal_games(). day_list: the page days (dicts with "week" and "teams").
+    """
+    return {
+        "bands": [[low, level] for low, level, _ in BANDS],
+        "ideal": {
+            w: [ideal_games(n, [d["teams"] for d in day_list if d["week"] == w], slots) for n in range(spots + 1)]
+            for w in week_names
+        },
+    }
+
+
 def team_data(df, days, cfg, benchmark=None):
     """The page data for the team builder (#8 Contracts): the config values, the playoff days and the players.
 
     days: the days of playoffs.playoff_schedule(), or None (no days). A player with no team gets team None.
     benchmark: load_benchmark(), or None. With a benchmark, "category" is the category object and each player has wz.
     Without one, "category" is None and the players have no wz.
+    util, bands and ideal: the lineup-fit rules of core/lineup.py (lineup_rules()).
     [team_builder] in config.toml is optional: core_max_rank 75 and weak_week_started 0 are the defaults.
     """
     tb, slots = cfg.get("team_builder", {}), cfg["league"]["slots"]
@@ -588,22 +607,25 @@ def team_data(df, days, cfg, benchmark=None):
             for d in days.itertuples()
         ]
     )
+    week_names = weeks(cfg)
     return {
         "slots": list(slots),
-        "util": 1,
+        "util": UTIL,
         "budget": cfg["auction"]["budget"],
         "spots": cfg["auction"]["spots"],
         "keeper_prices": cfg.get("simulation", {}).get("keeper_prices", {}),
         "core_max_rank": tb.get("core_max_rank", 75),
         "weak_week_started": tb.get("weak_week_started", 0),
-        "weeks": weeks(cfg),
+        "weeks": week_names,
         "days": day_list,
+        **lineup_rules(day_list, week_names, slots, cfg["auction"]["spots"]),
         "players": players,
         "category": category,
     }
 
 
-# The team engine (#8 Contracts): scoreCore(core, data) and fit(core, player, data).
+# The team engine (#8 Contracts): scoreCore(core, data), fit(core, player, data), slotRoster(players, data),
+# footerWeeks(core, result, data) and band(ratio, data).
 # The page inlines team_builder.js (#36) when the file is there. Else it uses STUB_ENGINE.
 ENGINE = Path(__file__).parent / "team_builder.js"
 STUB_ENGINE = """// Stub engine: the result shapes of #8 with zeros, until team_builder.js is there.
@@ -622,7 +644,13 @@ function fit(core, player, data) {
 function slotRoster(players, data) {
   return {slots: {}, bench: players};
 }
-module.exports = {scoreCore, fit, slotRoster};
+function footerWeeks(core, result, data) {
+  return data.weeks.map(w => ({...result.weeks[w], games: 0, ideal: 0, days: 0}));
+}
+function band(ratio, data) {
+  return "bad";
+}
+module.exports = {scoreCore, fit, slotRoster, footerWeeks, band};
 """
 
 
@@ -918,14 +946,15 @@ __COMBOS__
 </section>
 <script type="application/json" id="team-data">__TEAM_DATA__</script>
 <script>
-// Team engine (#8 Contracts): scoreCore(core, data) and fit(core, player, data). The engine file can declare the
+// Team engine (#8 Contracts): scoreCore, fit, slotRoster, footerWeeks and band. The engine file can declare the
 // functions or export them with module.exports.
 const engine = (() => {
   const module = {exports: {}};
   const exports = module.exports;
 __ENGINE__
   return {scoreCore: module.exports.scoreCore || scoreCore, fit: module.exports.fit || fit,
-          slotRoster: module.exports.slotRoster || slotRoster};
+          slotRoster: module.exports.slotRoster || slotRoster,
+          footerWeeks: module.exports.footerWeeks || footerWeeks, band: module.exports.band || band};
 })();
 </script>
 <script>
@@ -1247,27 +1276,17 @@ function renderTeam(rows) {
   renderFooter(rows, result);
 }
 
-// Max games in a week for the "vs ideal" row: each core player gets the most games that any NBA team plays that week,
-// and a day has at most one starter for each slot.
-const idealWeek = Object.fromEntries(data.weeks.map(w => {
-  const days = dayInfo.filter(d => d.week === w), games = {};
-  days.forEach(d => d.teams.forEach(t => games[t] = (games[t] || 0) + 1));
-  return [w, {most: Math.max(0, ...Object.values(games)), days: days.length}];
-}));
-const pctClass = r => r >= 0.9 ? "g-good" : r >= 0.7 ? "g-warn" : "g-bad";
+// The percent band of a ratio: lineup.BANDS in core/lineup.py, from the page data
+const pctClass = r => "g-" + engine.band(r, data);
 
 // The footer of the team table: one cell for each day (started) and one cell for each week (Used and
 // vs ideal). Used = started / the games of your core (the cost of logjams). vs ideal = started / the ideal week.
+// footerWeeks in team_builder.js gives the week numbers, from the rules of core/lineup.py.
 function renderFooter(rows, result) {
   const core = rows.filter(isCore).map(t => t.player), slots = data.slots.length + (data.util ?? 1);
   const span = document.getElementById("roster").tHead.rows[0].cells.length - data.weeks.length;
-  const games = dayInfo.map(d => core.filter(p => plays(p, d)).length);
   const started = result.days.map(d => slots - (d.empty || []).length);
-  const weeks = data.weeks.map(w => {
-    const r = result.weeks[w], idx = dayInfo.flatMap((d, i) => d.week === w ? [i] : []);
-    const ideal = Math.min(core.length * idealWeek[w].most, slots * idealWeek[w].days);
-    return {...r, games: idx.reduce((n, i) => n + games[i], 0), ideal, days: idx.length};
-  });
+  const weeks = engine.footerWeeks(core, result, data);
   const total = k => weeks.reduce((n, w) => n + w[k], 0);
   const pct = (got, all) => all ? `${got}/${all} · ${Math.round(100 * got / all)}%` : "—";
   const label = (text, title) => el("td", {className: "l", colSpan: span, textContent: text, title});

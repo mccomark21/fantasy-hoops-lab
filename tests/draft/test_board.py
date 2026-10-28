@@ -286,11 +286,16 @@ def test_page_has_one_team_data_block_with_the_contract_keys(monkeypatch, tmp_pa
         "weak_week_started",
         "weeks",
         "days",
+        "bands",
+        "ideal",
         "players",
         "category",
     ]
     assert data["category"] is None and "wz" not in data["players"][0]  # no benchmark file
     assert (data["util"], data["budget"], data["spots"]) == (1, 200, 10)
+    # The lineup-fit rules of core/lineup.py (#133): the bands, and the ideal games of a core of 0 to 10 players
+    assert data["bands"] == [[0.9, "good"], [0.7, "warn"], [0.0, "bad"]]
+    assert data["ideal"]["wk19"] == [0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6]
     # No [team_builder] in the config: the defaults
     assert (data["core_max_rank"], data["weak_week_started"]) == (75, 0)
     assert data["days"] == [

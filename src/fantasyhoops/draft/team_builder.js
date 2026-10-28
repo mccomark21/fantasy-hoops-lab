@@ -2,13 +2,19 @@
 //
 //   1. Each playoff day, the core players whose teams play go into the position slots (data.slots) and Util.
 //      The engine adds them in value order, highest first. It accepts a player only when the slots and Util can
-//      still hold all accepted players (bipartite matching). This is Playoffs._lineup in team_score.py.
+//      still hold all accepted players (bipartite matching). This is best_lineup() in core/lineup.py.
 //   2. A player with rests_b2b = 1 does not play on the second night of a back-to-back (day.b2b).
 //   3. Started = the accepted players. Lost = the players who play but get no slot.
 //      Holes = the empty starting slots on quality days. The engine counts no streamers.
 //
+// core/lineup.py is the one source of the lineup-fit rules (#133). The page data from board.py gives the Util count
+// (data.util), the percent bands (data.bands) and the ideal games (data.ideal) from core/lineup.py.
+// The matching and the rest rule stay here, because the board scores the core that the user picks in the browser.
+// tests/draft/test_team_builder.py shows that they give the same results as core/lineup.py and core/home.py.
+//
 // The file has no DOM code. board.py inlines it in the page as a plain script, and Node loads it with require().
-// The page gets the globals scoreCore, fit, slotRoster and TeamBuilder. The helpers stay inside the closure.
+// The page gets the globals scoreCore, fit, slotRoster, footerWeeks, band and TeamBuilder. The helpers stay inside
+// the closure.
 
 const TeamBuilder = (() => {
   // Per-day team sets for each data object, so that a call does not make them again.
@@ -28,7 +34,7 @@ const TeamBuilder = (() => {
     return Array.from({ length: n }, (_, i) => (i === 0 ? "Util" : "Util" + (i + 1)));
   }
 
-  // Maximum matching of players to position slots (open_slots in team_score.py).
+  // Maximum matching of players to position slots (_match in core/lineup.py).
   // Returns holder: slot -> index in lineup. A player with no slot goes to Util.
   function _match(lineup, slots) {
     const holder = {};
@@ -182,9 +188,31 @@ const TeamBuilder = (() => {
     return { slots: out, bench };
   }
 
-  return { scoreCore, fit, slotRoster };
+  // The band level of a ratio: "good", "warn" or "bad", from data.bands (lineup.BANDS in core/lineup.py).
+  function band(ratio, data) {
+    const b = data.bands.find(([low]) => ratio >= low);
+    return (b || data.bands[data.bands.length - 1])[1];
+  }
+
+  // The footer numbers of each week (Fit.team_week in core/home.py), with the result of scoreCore(core, data):
+  // [{started, lost, lost_by, holes, games, ideal, days}] in the order of data.weeks.
+  // games: the games of the core, with no rest nights. ideal: data.ideal (lineup.ideal_games() in core/lineup.py).
+  function footerWeeks(core, result, data) {
+    const sets = _sets(data);
+    return data.weeks.map(w => {
+      let games = 0, days = 0;
+      data.days.forEach((day, i) => {
+        if (day.week !== w) return;
+        days += 1;
+        games += core.filter(p => sets[i].teams.has(p.team) && !(p.rests_b2b && sets[i].b2b.has(p.team))).length;
+      });
+      return { ...result.weeks[w], games, ideal: data.ideal[w][core.length], days };
+    });
+  }
+
+  return { scoreCore, fit, slotRoster, footerWeeks, band };
 })();
 
-const { scoreCore, fit, slotRoster } = TeamBuilder;
+const { scoreCore, fit, slotRoster, footerWeeks, band } = TeamBuilder;
 
 if (typeof module !== "undefined") module.exports = TeamBuilder;

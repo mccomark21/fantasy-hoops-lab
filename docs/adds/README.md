@@ -398,8 +398,8 @@ Decision (2026-10-28, #120): each run that publishes also writes the home page o
 
 - The roster is the roster of your team page. The players are in custom-rank order (`draft/rankings.py`). A player with no rank goes last.
 - The season stats come from one ESPN `statistics/byathlete` request (`fetch/espn.py`): GP, MIN, PTS, REB, AST, 3PM, STL and BLK per game.
-- Each playoff day, the best lineup of the position slots and Util takes the players in rank order (the rule of `scoreCore` in `draft/team_builder.js`). The IL players are in the lineup pool, because they will likely be back by the playoffs. A player with `rests_b2b` = 1 gets no game on the second night of a back-to-back.
-- The Used and vs ideal rows use the math of `renderFooter` in `draft/board.py`. The percent bands are the bands of `pctClass`: 90% or more, 70% to 89%, less than 70%.
+- Each playoff day, the best lineup of the position slots and Util takes the players in rank order (`best_lineup()` in `core/lineup.py`). The IL players are in the lineup pool, because they will likely be back by the playoffs. A player with `rests_b2b` = 1 gets no game on the second night of a back-to-back.
+- The vs ideal row uses `ideal_games()` in `core/lineup.py`. The percent bands are `BANDS` in `core/lineup.py`: 90% or more, 70% to 89%, less than 70%. The draft board gets the same rules from `core/lineup.py` (#133).
 - A week cell with `[flags] avoid_week_games` games or fewer (2) gets a red box on the games numeral.
 
 The run writes the page before the plan page, so that the Run time table has the home page step. If the home page fails, the run prints the error and continues. The publish then puts the list of the tools at `/`.

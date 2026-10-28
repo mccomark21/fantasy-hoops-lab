@@ -1,4 +1,6 @@
-from fantasyhoops.core.lineup import best_lineup, open_slots, starting_slots
+import pytest
+
+from fantasyhoops.core.lineup import band, best_lineup, ideal_games, open_slots, starting_slots
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 
@@ -40,3 +42,19 @@ def test_starting_slots_names_the_slot_of_each_starter():
 
 def test_starting_slots_with_no_players():
     assert starting_slots([], SLOTS) == {}
+
+
+@pytest.mark.parametrize(
+    "ratio, level",
+    [(1.0, "good"), (0.9, "good"), (0.89, "warn"), (0.7, "warn"), (0.69, "bad"), (0.0, "bad")],
+)
+def test_the_bands_are_90_and_70_percent(ratio, level):
+    assert band(ratio)[0] == level
+
+
+def test_ideal_games_give_each_player_the_most_games_at_most_the_starting_slots_a_day():
+    week = [{"BOS", "NY"}, {"BOS"}, set(), {"BOS", "NY"}]  # BOS plays 3 games, on 3 game days
+    assert ideal_games(0, week, SLOTS) == 0
+    assert ideal_games(2, week, SLOTS) == 6
+    assert ideal_games(7, week, SLOTS) == 18  # 6 starting slots × 3 game days
+    assert ideal_games(3, [], SLOTS) == 0

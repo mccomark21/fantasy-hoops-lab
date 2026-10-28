@@ -3,10 +3,11 @@
 The page shows the players in custom-rank order. Each row has the season stats per game, the starts and games of each
 playoff week, and a grid of the playoff days. Two rows below the team starts give the Used and vs ideal percents.
 
-The lineup fit uses the rule of scoreCore in draft/team_builder.js: each playoff day, the best lineup of the position
-slots and one Util slot, higher rank first (core/lineup.py). The IL players are in the lineup pool, because they will
+The lineup fit uses the rules of core/lineup.py, the one source of the rules (#133): each playoff day, the best lineup
+of the position slots and one Util slot, higher rank first. The IL players are in the lineup pool, because they will
 likely be back by the playoffs. A player with rests_b2b gets no game on the second night of a back-to-back.
-The Used and vs ideal rows use the math of renderFooter in draft/board.py, and the percent bands use pctClass.
+The vs ideal row uses lineup.ideal_games(), and the percent bands use lineup.BANDS. The draft board gets the same
+rules from core/lineup.py.
 
 The module takes its data from the caller and opens no file and no web page. write() writes output/home/index.html.
 """
@@ -20,19 +21,18 @@ import pandas as pd
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
 from fantasyhoops.core import common
-from fantasyhoops.core.lineup import best_lineup
+from fantasyhoops.core.lineup import UTIL, band, best_lineup, ideal_games
 from fantasyhoops.core.schedule import playoff_schedule
 
 STATS = ["gp", "min", "pts", "reb", "ast", "threes", "stl", "blk"]  # the keys of RosterPlayer.stats, in page order
 STAT_LABELS = ["GP", "MIN", "PTS", "REB", "AST", "3PM", "STL", "BLK"]
-UTIL = 1  # the Util slots of a lineup (core/lineup.py)
 FEW_GAMES = 2  # [flags] avoid_week_games if config.toml has none: a week with this number of games or fewer
 S1, NONE = ' class="s1"', ' class="none"'
 IL_TITLE = "On IL now. Counts in the playoff starts."
 START, SITS, REST, NO_GAME = "s", "b", "r", "n"  # the marks of the day grid
 MARK_TEXT = {START: "starts", SITS: "game, sits", REST: "rests on back-to-back", NO_GAME: "no game"}
-# The percent bands of pctClass in draft/board.py: (lowest ratio, class, text for a screen reader).
-BANDS = [(0.9, "p3", "90% or more"), (0.7, "p2", "70% to 89%"), (0.0, "p1", "less than 70%")]
+# The class of each band level of lineup.BANDS on this page
+BAND_CLASS = {"good": "p3", "warn": "p2", "bad": "p1"}
 
 
 @dataclass(frozen=True)
@@ -106,10 +106,9 @@ class Fit:
         return starts, games, quality
 
     def team_week(self, week=None):
-        """(started, games, ideal) of the team in a week (renderFooter in draft/board.py). week None: all weeks.
+        """(started, games, ideal) of the team in a week. week None: all weeks.
 
-        games: the games of the players, with no rest nights. ideal: each player with the most games of any NBA team
-        that week, at most the starting slots on each game day of the week.
+        games: the games of the players, with no rest nights. ideal: lineup.ideal_games() of the week.
         """
         if week is None:
             parts = [self.team_week(w) for w in self.weeks]
@@ -117,12 +116,7 @@ class Fit:
         idx = self._days(week)
         started = sum(self.started[i] for i in idx)
         games = sum(self.player_week(p, week)[1] for p in range(len(self.players)))
-        counts = {}
-        for i in idx:
-            for team in self.days[i].teams:
-                counts[team] = counts.get(team, 0) + 1
-        game_days = sum(1 for i in idx if self.days[i].teams)
-        ideal = min(len(self.players) * max(counts.values(), default=0), (len(self.slots) + UTIL) * game_days)
+        ideal = ideal_games(len(self.players), [self.days[i].teams for i in idx], self.slots)
         return started, games, ideal
 
     def lost(self):
@@ -238,7 +232,8 @@ def _pct(got, all_):
     if not all_:
         return '<span class="pc"><b>–</b></span>'
     ratio = got / all_
-    cls, text = next((c, t) for low, c, t in BANDS if ratio >= low)
+    level, text = band(ratio)
+    cls = BAND_CLASS[level]
     meter = '<i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i>'
     return f'<span class="pc {cls}">{meter}<b>{int(100 * ratio + 0.5)}%</b><span class="vh"> ({text})</span></span>'
 
