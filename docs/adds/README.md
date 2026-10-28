@@ -239,14 +239,16 @@ Each row is a plan for one stream spot. A row can use more than one add in that 
 
 To make a row, the planner runs the search of the schedule plan for each stream spot alone. The other stream players stay in their spots. It keeps the best result: the most games gained, then the fewest adds, then the highest value. Then it removes the players of that row and makes the next row. The page shows 3 rows.
 
+A spot line above the days of each row names its roster spot: "drop" and the player that the first add drops, or "open spot" (#114).
+
 | Column | What it shows |
 | --- | --- |
 | Days | The started games of the new players on that day. A `+` marks a latest add day. A small "2" marks a game on a second night. |
 | Adds | The adds of the row. |
 | Gms | The games gained: the started games of the new players minus the started games that the dropped player loses. A fraction if a player on the rest list starts on a second night. |
-| Moves | One line for each add, for example "+Alex Caruso (OKC) – Tue, Thu & Sun", then the drop. |
+| Moves | One line for each add: the latest add day (the `+` day), then the days of his started games, for example "+Alex Caruso (OKC) add Tue – starts Tue, Thu & Sun". A waiver claim also shows his clear day, for example "add Thu, clears Wed". |
 
-The rows can all use the same spot. Usually that is the spot whose player loses the fewest games.
+The rows can all use the same spot. Usually that is the spot whose player loses the fewest games. You can do only one row of each spot. A text mark on the spot line, for example "same spot as row 1", names the first row above it that uses the same spot. Two rows that drop the same player use the same spot. The rows with an open spot take the open spots in turn. When there are more such rows than open spots, a row shares the spot of an earlier row. The page does not pick one row.
 
 ### Free-agent table
 
