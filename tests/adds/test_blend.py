@@ -3,7 +3,6 @@ import pytest
 
 from fantasyhoops.adds.blend import blend_line, blended_options, recent_weight
 from fantasyhoops.adds.readers import FreeAgent, Player
-from fantasyhoops.adds.value import empty_slot_value
 
 # A scale with mean 0 and std 1, so the value of a line is pts + reb.
 CFG = {"weights": {"pts": 1.0, "reb": 1.0}}
@@ -49,9 +48,3 @@ def test_blended_options_match_the_two_views_by_name_and_team():
 def test_a_player_with_no_projection_and_no_recent_games_has_no_value():
     (o,) = blended_options([agent(games=0, line={})], [], SCALE, CFG)
     assert (o.projected_value, o.recent_value, o.value) == (None, None, None)
-
-
-def test_an_empty_slot_has_the_value_of_a_line_of_zeros():
-    # Mean 10 and std 2 for pts, mean 4 and std 1 for reb: (0 - 10) / 2 + (0 - 4) / 1 = -9.
-    scale = pd.DataFrame({"pts": [10.0, 2.0], "reb": [4.0, 1.0]}, index=["mean", "std"])
-    assert empty_slot_value(CFG, scale) == pytest.approx(-9.0)

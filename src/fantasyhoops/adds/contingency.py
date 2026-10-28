@@ -145,18 +145,6 @@ def _later(start, than):
     return start is None or than is None or start > than
 
 
-def print_contingencies(plans):
-    """Print the contingency plans after the main plan."""
-    print()
-    if not plans:
-        print("Contingency plans: none. No flagged player starts in the planning window.")
-        return
-    print("Contingency plans: if a flagged player is ruled out just before his game.")
-    for c in plans:
-        for line in contingency_lines(c):
-            print(line)
-
-
 def contingency_lines(c):
     """The text of one contingency plan, one line for each item."""
     lines = []

@@ -37,11 +37,12 @@ def search():
     return schedule_plan(days, games, [StreamSpot(), StreamSpot()], fas, 3, SLOTS)
 
 
-def test_a_step_prints_its_start_and_its_time(capsys):
+def test_a_step_prints_nothing_and_keeps_its_time(capsys):
+    # #130: the terminal shows no step line. The page and timings.csv show the times.
     timings = timing.Timings(clock=clock(1.5), work=timing.Work())
     with timings.step("schedule read"):
         print("inside")
-    assert capsys.readouterr().out.splitlines() == ["Step: schedule read ...", "inside", "Step: schedule read: 1.50 s"]
+    assert capsys.readouterr().out.splitlines() == ["inside"]
     assert timings.steps == [timing.StepTime("schedule read", 1.5)]
 
 
@@ -64,26 +65,16 @@ def test_a_search_step_has_the_calls_and_the_states_of_its_searches(monkeypatch)
 def test_the_counts_change_no_plan(monkeypatch):
     before = search()
     monkeypatch.setattr(timing, "WORK", timing.Work(clock=clock(100.0)))
-    timing.WORK.begin("schedule search")
     assert search() == before
 
 
-def test_a_search_prints_its_calls_and_its_states_every_10_seconds(monkeypatch, capsys):
-    work = timing.Work(clock=clock(4.0))  # 4 s for each call, so a progress line after each 10 s
+def test_a_long_search_prints_no_progress_line(monkeypatch, capsys):
+    work = timing.Work(clock=clock(4.0))  # 4 s for each call: before #130, a progress line after each 10 s
     monkeypatch.setattr(timing, "WORK", work)
     timings = timing.Timings(clock=clock(1.0))
     with timings.step("schedule search", search=True):
         search()
-    lines = [line for line in capsys.readouterr().out.splitlines() if "so far" in line]
-    # begin() reads 4 s, so the first line is due at 14 s. Call n reads 4 + 4n s, so call 3 (16 s) prints it.
-    assert lines[0].startswith("  schedule search: 3 calls, ")
-    assert len(lines) == len(range(14, 4 + 4 * work.calls + 1, 10))  # one line for each 10 s of the search
-
-
-def test_no_progress_line_outside_a_search_step(monkeypatch, capsys):
-    monkeypatch.setattr(timing, "WORK", timing.Work(clock=clock(100.0)))
-    search()
-    assert "so far" not in capsys.readouterr().out
+    assert work.calls > 3 and capsys.readouterr().out == ""
 
 
 def test_a_run_with_no_timers_has_no_steps(capsys):
@@ -190,9 +181,7 @@ def test_each_sub_step_gets_a_row_after_its_step_with_its_seconds_and_its_pages(
         ("Yahoo reads: waiver list", "1.00", "1"),
         ("role read", "1.00", ""),
     ]
-    out = capsys.readouterr().out.splitlines()
-    assert "Step: Yahoo reads: 9.00 s, 13 pages" in out
-    assert "  Yahoo reads: market pages: 2.00 s, 12 pages" in out
+    assert capsys.readouterr().out == ""
 
 
 def test_a_sub_step_outside_a_step_raises_an_error():
