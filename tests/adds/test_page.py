@@ -122,7 +122,8 @@ def test_the_page_shows_the_matchup_score_and_the_weight_of_each_category():
     shown = text(render(data=replace(DATA, matchup=m), weights=weights))
     # The page is public, so it does not show the name of the opponent.
     assert "Rival" not in shown and "your opponent in this matchup" in shown
-    assert "3PTM 40 25 +15 0.50" in shown and "PTS 300 290 +10 1.00" in shown and "BLK 8 10 -2 1.00" in shown
+    # One column for each category, and the rows You, Opp, Margin and Weight (#144).
+    assert "PTS 3PTM BLK You 300 40 8 Opp 290 25 10 Margin +10 +15 -2 Weight 1.00 0.50 1.00" in shown
     assert "The planner did not find the category scores" in text(render(weights=weights))
     # A run with no weights (no free agents read) shows no matchup section.
     assert "Matchup" not in text(render())
@@ -147,8 +148,56 @@ def test_the_page_shows_the_matchup_weights_from_the_live_score_table():
     html = render(data=replace(DATA, matchup=m), weights=matchup_weights(m, cfg, share_left=5 / 6))
     shown = text(html)
     assert "The planner did not find the category scores" not in shown
-    assert "PTS 24 45 -21 1.00" in shown and "REB 4 17 -13 0.99" in shown and "BLK 0 3 -3 0.95" in shown
+    assert "PTS REB AST 3PTM BLK ST You 24 4 9 4 0 1 Opp 45 17 14 5 3 1" in shown
+    assert "Margin -21 -13 -5 -1 -3 +0 Weight 1.00 0.99 1.00 1.00 0.95 1.00" in shown
     assert "Opponent" not in html
+
+
+# A matchup of each state (#144), with the margins of config.toml for a whole week (share_left 1).
+MU_CFG = {
+    "weights": {c: 1.0 for c in ("pts", "reb", "ast", "threes", "blk", "stl")},
+    "adds": {
+        "matchup": {
+            "close": {"pts": 40, "reb": 15, "ast": 10, "threes": 5, "blk": 3, "stl": 3},
+            "large": {"pts": 120, "reb": 45, "ast": 30, "threes": 15, "blk": 9, "stl": 9},
+            "min_weight": 0.5,
+        }
+    },
+}
+# PTS +10: close. REB -45: a large deficit. AST +20: a lead. 3PTM +15: a large lead. BLK -4: a deficit. ST 0: tied.
+MU = Matchup(
+    "Rival",
+    {"pts": 410, "reb": 150, "ast": 120, "threes": 45, "blk": 10, "stl": 20},
+    {"pts": 400, "reb": 195, "ast": 100, "threes": 30, "blk": 14, "stl": 20},
+)
+MU_RUN = replace(
+    RUN, data=replace(DATA, matchup=MU), weights=matchup_weights(MU, MU_CFG, 1.0), cfg={**LEAGUE, **MU_CFG}
+)
+
+
+def matchup_rows(html):
+    """{row label: [the class of each cell]} of the matchup table."""
+    table = re.search(r'<table class="mu">.*?</table>', html, re.S).group(0)
+    rows = re.findall(r'<th scope="row" class="name">(\w+)</th>(.*?)</tr>', table)
+    return {label: re.findall(r'<td(?: class="([^"]*)")?>', cells) for label, cells in rows}
+
+
+def test_the_margin_and_the_weight_cells_get_the_class_of_the_state_of_the_category():
+    html = page.render(MU_RUN)
+    rows = matchup_rows(html)
+    assert rows["Margin"] == ["", "trail big", "lead", "lead big", "trail", ""]
+    # Weights: 1, 0.5, 0.75, 0.5, 0.92 and 1. The steps: w1 above 0.83, w2 above 0.67, w3 to 0.5.
+    assert rows["Weight"] == ["w0", "w3", "w2", "w3", "w1", "w0"]
+    assert rows["You"] == [""] * 6
+    assert 'id="mu-key"' in html and "a deficit" in text(html)
+    # The matchup section is above the team plan (#144).
+    assert html.index('<section id="matchup">') < html.index('id="plan"')
+
+
+def test_margin_class_and_weight_class():
+    assert page.margin_class(10, 1.0, 0.5) == "" and page.margin_class(0, 0.5, 0.5) == ""
+    assert page.margin_class(-20, 0.7, 0.5) == "trail" and page.margin_class(50, 0.5, 0.5) == "lead big"
+    assert [page.weight_class(w, 0.5) for w in (1.0, 0.9, 0.8, 0.6, 0.5)] == ["w0", "w1", "w2", "w3", "w3"]
 
 
 def test_the_opponent_name_is_not_on_the_page():
@@ -559,14 +608,17 @@ CONTRAST = r"""() => {
 
 def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_the_chips_pressed():
     # Tue is a back-to-back night of PHI in row 1, a zebra row. Wed has no open slot (a dashed chip).
+    # The matchup table (MU, #144) has each margin state and each weight step.
     nights = {WEEK[1]: {"PHI"}}
     html = render(
+        MU_RUN,
         options=OPTIONS + [CLAIM],
         nights=nights,
-        cfg={**LEAGUE, "adds": {"minutes_rise": 3}},
+        cfg={**LEAGUE, "adds": {**MU_CFG["adds"], "minutes_rise": 3}},
         timings=[timing.StepTime("Yahoo reads", 1.0)],
     )
     assert html.count('class="b2b"') >= 1 and ">W</span>" in html
+    assert all(f'class="{c}"' in html for c in ("lead", "trail big", "lead big", "trail", "w0", "w1", "w2", "w3"))
     with browser_page() as pg:
         pg.set_content(html)
         pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
@@ -688,9 +740,22 @@ GRID_ADDS = (
     SavedAdd(2, WEEK[3], ("PF",), ("CHI",), (WEEK[3], WEEK[5])),
     SavedAdd(1, WEEK[6], (UTIL,), EIGHT, (WEEK[6],)),
 )
+# The run also has the matchup of each state (MU, #144), so the fit test and the contrast test check its table.
 GRID_RUN = replace(
-    RUN, today=WEEK[2], days=DAYS[2:], record=WeekRecord(runs=(WEEK[0], WEEK[1], WEEK[2]), adds=GRID_ADDS)
+    MU_RUN, today=WEEK[2], days=DAYS[2:], record=WeekRecord(runs=(WEEK[0], WEEK[1], WEEK[2]), adds=GRID_ADDS)
 )
+
+# The matchup table (#144): the 6 category columns and each cell are inside the page, and no cell scrolls sideways.
+MATCHUP_FIT = r"""width => {
+  const bad = [], table = document.querySelector("#matchup table.mu"), t = table.getBoundingClientRect();
+  if (t.left < 0 || t.right > width) bad.push(`the table is ${t.left} to ${t.right}`);
+  if (table.querySelectorAll("thead th[scope=col]").length !== 6) bad.push("not 6 category columns");
+  table.querySelectorAll("th, td").forEach(c => {
+    const r = c.getBoundingClientRect();
+    if (r.right > t.right + 0.5 || c.scrollWidth > c.clientWidth + 1) bad.push(`"${c.textContent}" leaves its cell`);
+  });
+  return bad;
+}"""
 
 # For each add cell and each band cell: each child box must be inside the cell box and inside the add box.
 FIT = r"""() => {
@@ -724,6 +789,7 @@ def test_each_add_cell_and_band_fits_its_cell_and_the_page_has_no_horizontal_scr
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             assert pg.evaluate(FIT) == [], (width, theme)
+            assert pg.evaluate(MATCHUP_FIT, width) == [], (width, theme)
             assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
             # The 7 columns of the week fit, with no sideways scroll of the grid.
             assert pg.locator("#plan thead th[scope=col]").count() == 8
@@ -811,6 +877,10 @@ def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_t
                 for j in range(past.count()):
                     check("past", past.nth(j))
             assert pg.evaluate(BAND_CONTRAST) == [], (theme, width)
+            # Each cell of the matchup table and its key (#144): each color of the Margin row and the Weight row.
+            matchup = pg.locator("#matchup")
+            assert matchup.locator("td.lead, td.trail, td.w0, td.w1, td.w2, td.w3").count() == 10
+            assert pg.evaluate(CELL_CONTRAST, matchup.element_handle()) == [], (theme, width, "matchup")
             assert pg.locator("#plan td.band.past .mk").count() == 1  # the Mon add starts on Tue (past)
 
 

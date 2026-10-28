@@ -27,6 +27,7 @@ LIGHT = {
     "lab-on-blue": "#ffffff",  # text on lab-blue
     "lab-red": "#c8102e",  # alerts, IL and lost starts
     "lab-on-red": "#ffffff",  # text on lab-red
+    "lab-green": "#17743a",  # a lead in the matchup table of the adds page (#144). 5.2:1 or more on zebra.
     "mark": "#1d4f91",  # the rules, the headings, the selected or sorted state and the links
     "zebra": "#eff3f8",  # every second table row, and table heads
     "qcol": "#e0e8f4",  # a shaded cell: a started game or a quality day
@@ -47,6 +48,7 @@ DARK = {
     "lab-on-blue": "#ffffff",
     "lab-red": "#ff7d8d",  # 4.5:1 or more on qcol-z (#115)
     "lab-on-red": "#0e1a2e",
+    "lab-green": "#6fd08c",  # 8:1 or more on zebra
     "mark": "#8fb3ff",
     "zebra": "#142540",
     "qcol": "#1c3254",

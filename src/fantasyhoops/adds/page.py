@@ -88,10 +88,45 @@ def warnings_section(warnings):
     return f'<section class="warning"><ul>{items}</ul></section>' if items else ""
 
 
-def matchup_section(matchup, weights):
+def margin_class(margin, weight, min_weight):
+    """The class of a Margin cell (#144): "" for a close margin (weight 1), "lead" or "trail" for a lead or a
+    deficit outside the close margin, and " big" after it for a large margin (weight min_weight or less).
+
+    The weight comes from the margin (matchup.category_weight()), so the weight tells if the margin is close or large.
+    """
+    if weight >= 1.0 or margin == 0:
+        return ""
+    side = "lead" if margin > 0 else "trail"
+    return f"{side} big" if weight <= min_weight else side
+
+
+def weight_class(weight, min_weight):
+    """The class of a Weight cell (#144): "w0" for weight 1 (bold ink), then "w1", "w2" and "w3" in 3 equal steps
+    from 1 down to min_weight. Each step is closer to the muted text color.
+    """
+    if weight >= 1.0:
+        return "w0"
+    step = (1.0 - min_weight) / 3
+    return "w1" if weight > 1.0 - step else "w2" if weight > 1.0 - 2 * step else "w3"
+
+
+# The key under the matchup table. Each sample has the look of a real cell.
+MATCHUP_KEY = (
+    '<p class="key" id="mu-key">'
+    '<span>Margin: <span class="lead">+12</span> a lead</span>'
+    '<span><span class="trail">-12</span> a deficit</span>'
+    "<span>+2 close</span>"
+    '<span><span class="lead big">+30</span> bold: a large margin</span>'
+    '<span>Weight: <span class="w0">1.00</span> full, a lighter weight counts less</span></p>'
+)
+
+
+def matchup_section(matchup, weights, min_weight=0.5):
     """The score of each category in the current matchup, the margin and the matchup weight.
 
-    matchup: a matchup.Matchup, or None if the planner did not find the scores. weights: {category: weight}.
+    One column for each category, and the rows You, Opp, Margin and Weight (#144). The Margin cells and the Weight
+    cells get the classes of margin_class() and weight_class(). matchup: a matchup.Matchup, or None if the planner
+    did not find the scores. weights: {category: weight}. min_weight: [adds.matchup] min_weight.
     Nothing if weights is None (the run read no free agents).
     """
     if weights is None:
@@ -107,16 +142,27 @@ def matchup_section(matchup, weights):
             "All weights are 1.</p></section>"
         )
     names = {key: name for name, key in STAT_COLUMNS.items()}
-    rows = "".join(
-        f'<tr><td class="name">{_e(names.get(c, c))}</td><td>{matchup.mine.get(c, 0):g}</td>'
-        f"<td>{matchup.theirs.get(c, 0):g}</td><td>{matchup.margin(c):+g}</td><td>{w:.2f}</td></tr>"
-        for c, w in weights.items()
-    )
+    cats = list(weights)
+
+    def row(label, cells):
+        return f'<tr><th scope="row" class="name">{label}</th>{"".join(cells)}</tr>'
+
+    def cell(text, cls):
+        return f'<td class="{cls}">{text}</td>' if cls else f"<td>{text}</td>"
+
+    margins = [matchup.margin(c) for c in cats]
+    rows = [
+        row("You", [f"<td>{matchup.mine.get(c, 0):g}</td>" for c in cats]),
+        row("Opp", [f"<td>{matchup.theirs.get(c, 0):g}</td>" for c in cats]),
+        row("Margin", [cell(f"{m:+g}", margin_class(m, weights[c], min_weight)) for c, m in zip(cats, margins)]),
+        row("Weight", [cell(f"{weights[c]:.2f}", weight_class(weights[c], min_weight)) for c in cats]),
+    ]
+    head = "".join(f'<th scope="col">{_e(names.get(c, c))}</th>' for c in cats)
     # The page is public (ADR 2), so it does not show the name of the opponent.
     return (
-        f"<section>{title}\n<p>The category totals of your team and your opponent in this matchup.</p>\n"
-        '<table class="ranking"><thead><tr><th class="name">Cat</th><th>You</th><th>Opp</th><th>Margin</th>'
-        f"<th>Weight</th></tr></thead><tbody>{rows}</tbody></table>\n{note}</section>"
+        f'<section id="matchup">{title}\n<p>The category totals of your team and your opponent in this matchup.</p>\n'
+        f'<table class="mu"><thead><tr><td class="name"></td>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table>\n'
+        f"{MATCHUP_KEY}\n{note}</section>"
     )
 
 
@@ -472,11 +518,12 @@ def render(run):
     today = run.today or date.today()
     run = replace(run, today=today)
     free_agents = free_agents_section(run)
+    min_weight = run.cfg.get("adds", {}).get("matchup", {}).get("min_weight", 0.5)
     sections = [
         header(run.data, run.days, run.spots, today),
         warnings_section(run.warnings),
+        matchup_section(run.data.matchup, run.weights, min_weight),
         grid.plan_section(run, interactive=bool(free_agents)),
-        matchup_section(run.data.matchup, run.weights),
         free_agents,
         waivers_section(run.options, run.replacement),
         role_up_section(run.options),
@@ -508,7 +555,7 @@ __HEAD__
 <style>
 /* Short names for the shared tokens of core/tokens.py. The page has no colors of its own. */
 :root { --bg: var(--lab-stock); --fg: var(--lab-ink); --muted: var(--lab-mute); --line: var(--lab-rule);
-        --bad: var(--lab-red); --q: var(--mark); }
+        --bad: var(--lab-red); --good: var(--lab-green); --q: var(--mark); }
 * { box-sizing: border-box; }
 body { font: 400 14px/1.4 var(--lab-face); }
 .sheet { max-width: 776px; padding: 24px max(28px, env(safe-area-inset-right)) 32px max(28px, env(safe-area-inset-left)); }
@@ -587,6 +634,19 @@ label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q
 .status { display: inline-block; padding: 0 4px; background: var(--bad); color: var(--lab-on-red);
           font-size: 11px; font-weight: 800; line-height: 1.4; }
 .ranking { font-size: 13px; }
+/* The matchup table (issue 144): one column for each category. The fixed layout keeps the 6 columns inside 320px. */
+.mu { font-size: 13px; table-layout: fixed; }
+.mu .name { width: 62px; }
+.mu th.name { font-size: 12px; font-weight: 800; }
+.mu thead th { text-align: right; }
+.mu thead td { border-bottom: 2px solid var(--mark); }
+.lead { color: var(--good); }
+.trail { color: var(--bad); }
+.big { font-weight: 800; }
+.w0 { color: var(--fg); font-weight: 800; }
+.w1 { color: var(--fg); }
+.w2 { color: color-mix(in srgb, var(--fg) 50%, var(--muted)); }
+.w3 { color: var(--muted); }
 details.notes { margin: 16px 0 8px; color: var(--muted); }
 details.notes summary { cursor: pointer; color: var(--fg); font-weight: 700; width: fit-content; padding: 4px 0;
                          min-height: 28px; }
