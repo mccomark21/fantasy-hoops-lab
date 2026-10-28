@@ -65,14 +65,23 @@ The planning window starts today. The main plan does not use the game times. An 
 
 ### Terminal summary
 
-Decision (2026-10-28, #130): the terminal prints a short summary. The page shows all other results of the run. The summary has these lines:
+Decision (2026-10-28, #130): the terminal prints a short summary. The page shows all other results of the run. At the end of the run, the summary prints these lines in this order:
 
 1. The page path: "Wrote the plan page: <path>".
-2. The best plan for one roster spot, the first row of the page, for example "Plan page: best plan for one roster spot: +2 started games with 1 add."
+2. The best plan for one roster spot, the first row of the page, for example "Plan page: best plan for one roster spot: +2 started games with 1 add." The line shows only when the page has a row.
 3. The URL after a publish, or "The run did not publish the page (--no-publish)."
-4. The warnings of the run (`value_warnings()`), one line each.
+4. The warnings of `value_warnings()`, one line each. The page shows the same warnings.
 
-The terminal also prints the lines that need an action or report a failure: the Yahoo sign-in prompts, the cache write warning and the home page error. The schedule plan, the aggressive plan, the drop trade-offs and the comparison of the two plans show in no output.
+During the run, the terminal can also print these lines:
+
+- The Yahoo sign-in prompts, when the saved session has expired (`adds/session.py`).
+- "Warning: the waiver list shows <name> as "<cell>" with no clear day. The planner skips him." (`adds/readers.py`).
+- "Warning: no role-up marks. These files are missing in data/: <files>." (`adds/role_up.py`).
+- "Warning: the run did not write the page in the cache ..." (`adds/cache.py`). The run continues.
+- "Wrote the home page: <path>" before the plan page, only in a run that publishes (`adds/home.py`).
+- "The run did not make the home page. The error:" and the traceback, if the home page fails (`adds/home.py`).
+
+The schedule plan, the aggressive plan, the drop trade-offs and the comparison of the two plans show in no output.
 
 ## The plans
 
