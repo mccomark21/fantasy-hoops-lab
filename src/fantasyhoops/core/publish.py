@@ -1,6 +1,7 @@
 """Publish the Fantasy Hoops Lab site to GitHub Pages on the gh-pages branch, and make the site menu.
 
 The site has a home page at / and the folder /adds/ for the adds plan.
+The home page is the roster page of core/home.py (#120). Without it, the home page is a list of the tools.
 A publish of one tool replaces its own folder and the home page. It keeps the folders of the other tools in TOOLS.
 A folder on gh-pages with a name that is not in TOOLS goes away at the next publish.
 The root and the tool folder get the font file and its license (OFL.txt) in fonts/ (core/tokens.py).
@@ -99,11 +100,12 @@ def home_page(tools):
     )
 
 
-def publish(repo, tool, index, others=()):
+def publish(repo, tool, index, others=(), home=None):
     """Push the pages of one tool to gh-pages in origin, in the folder /<tool>/. The working tree and the current branch do not change.
 
     index: the main page of the tool. It goes to /<tool>/index.html.
     others: more pages of the tool. Each one goes to /<tool>/ with its own file name.
+    home: the home page for the root of the site (core/home.py). None: a list of the tools (home_page()).
     The folders of the other tools in TOOLS stay. The home page links to each tool folder on the site.
     Each page carries its own site menu (site_menu()). The publish does not change the pages.
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
@@ -119,7 +121,10 @@ def publish(repo, tool, index, others=()):
     folders[tool] = ("040000", "tree", make_tree(repo, {**entries, "fonts": fonts}))
     root = {
         name: ("100644", "blob", write_blob(repo, data))
-        for name, data in {".nojekyll": b"", "index.html": home_page(folders).encode()}.items()
+        for name, data in {
+            ".nojekyll": b"",
+            "index.html": home.read_bytes() if home else home_page(folders).encode(),
+        }.items()
     }
     root["fonts"] = fonts
     commit = git(repo, "commit-tree", make_tree(repo, {**root, **folders}), "-m", f"Publish the {tool} pages")

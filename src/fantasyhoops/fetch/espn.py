@@ -4,6 +4,7 @@ Run this script again when rosters change (trades, signings).
 Output:
   data/rosters.csv   - one row for each player on an NBA roster
   data/schedule.csv  - one row for each team in each regular-season game, with the start time (US Eastern)
+season_stats() gets the season stats to date of all players in one request (#120). It writes no file.
 """
 
 import csv
@@ -13,10 +14,22 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from fantasyhoops.core.common import DATA, load_config
+from fantasyhoops.core.common import DATA, load_config, name_key
 from fantasyhoops.core.console import use_utf8_output
 
 API = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
+STATS_API = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete"
+# The stat key of the roster page (core/home.py) -> (category, stat name) in the statistics/byathlete answer.
+SEASON_STATS = {
+    "gp": ("general", "gamesPlayed"),
+    "min": ("general", "avgMinutes"),
+    "pts": ("offensive", "avgPoints"),
+    "reb": ("general", "avgRebounds"),
+    "ast": ("offensive", "avgAssists"),
+    "threes": ("offensive", "avgThreePointFieldGoalsMade"),
+    "stl": ("defensive", "avgSteals"),
+    "blk": ("defensive", "avgBlocks"),
+}
 
 
 def get_json(url):
@@ -41,6 +54,32 @@ def local_time(utc_text):
     """The start time of the game in US Eastern time, for example "19:30"."""
     utc = datetime.strptime(utc_text, "%Y-%m-%dT%H:%MZ").replace(tzinfo=timezone.utc)
     return utc.astimezone(ZoneInfo("America/New_York")).strftime("%H:%M")
+
+
+def stats_url(season):
+    """The statistics/byathlete request for all players of the regular season, on one page."""
+    return f"{STATS_API}?region=us&lang=en&isqualified=false&limit=1000&season={season}&seasontype=2"
+
+
+def parse_season_stats(answer):
+    """{name_key(name): {"team": ESPN code, "gp": ..., "min": ..., "pts": ..., ...}} from a statistics/byathlete answer.
+
+    The stats are per game, except gp (games played). Two players with the same name key: the first one stays.
+    """
+    names = {c["name"]: c["names"] for c in answer["categories"]}
+    out = {}
+    for row in answer["athletes"]:
+        values = {c["name"]: c["values"] for c in row["categories"]}
+        stats = {key: float(values[cat][names[cat].index(stat)]) for key, (cat, stat) in SEASON_STATS.items()}
+        stats["gp"] = int(stats["gp"])
+        athlete = row["athlete"]
+        out.setdefault(name_key(athlete["displayName"]), {"team": athlete.get("teamShortName", ""), **stats})
+    return out
+
+
+def season_stats(season):
+    """The season stats to date of all players (parse_season_stats()), from one ESPN request."""
+    return parse_season_stats(get_json(stats_url(season)))
 
 
 def main():

@@ -98,3 +98,58 @@ def copy_font(folder):
     shutil.copyfile(FONT, target)
     shutil.copyfile(LICENSE, target.with_name(LICENSE.name))
     return target
+
+
+# The team bands of the roster page (#120): the primary color of each NBA team, by the ESPN code of data/schedule.csv.
+# The colors are data about the teams, not a part of the site palette. team_ink() gives the text color on each band.
+TEAM_COLORS = {
+    "ATL": "#c8102e",
+    "BKN": "#000000",
+    "BOS": "#007a33",
+    "CHA": "#00788c",
+    "CHI": "#ce1141",
+    "CLE": "#860038",
+    "DAL": "#00538c",
+    "DEN": "#0e2240",
+    "DET": "#1d42ba",
+    "GS": "#1d428a",
+    "HOU": "#ce1141",
+    "IND": "#002d62",
+    "LAC": "#c8102e",
+    "LAL": "#552583",
+    "MEM": "#5d76a9",
+    "MIA": "#98002e",
+    "MIL": "#00471b",
+    "MIN": "#0c2340",
+    "NO": "#0c2340",
+    "NY": "#006bb6",
+    "OKC": "#007ac1",
+    "ORL": "#0077c0",
+    "PHI": "#006bb6",
+    "PHX": "#1d1160",
+    "POR": "#000000",  # the Blazers red (#e03a3e) has less than 4.5:1 with white and with the ink
+    "SA": "#000000",
+    "SAC": "#5a2d81",
+    "TOR": "#ce1141",
+    "UTAH": "#002b5c",
+    "WSH": "#002b5c",
+}
+
+
+def _luminance(color):
+    """The WCAG relative luminance of a color "#rrggbb"."""
+    rgb = [int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    r, g, b = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast(a, b):
+    """The WCAG contrast ratio of two colors "#rrggbb", for example 4.5."""
+    hi, lo = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def team_ink(color):
+    """The text color on a team band: white (lab-on-blue) if it has 4.5:1 or more on the band, else the light ink."""
+    white, ink = LIGHT["lab-on-blue"], LIGHT["lab-ink"]
+    return white if contrast(color, white) >= 4.5 else ink

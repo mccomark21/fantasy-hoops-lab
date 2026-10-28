@@ -38,6 +38,8 @@ One planning run:
 10. next_week_window(): find the open slots of your kept roster on the first days of next week
     ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
 11. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
+    Before the plan page, build_home() writes the home page in output/home/ (adds/home.py, #120). The publish puts
+    it at the root of the site. --no-publish also skips the home page.
     The page and the terminal show how many pages came from the cache (PageCache.line()).
 12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
@@ -58,6 +60,7 @@ from fantasyhoops.adds import page, timing
 from fantasyhoops.adds.cache import PageCache, get_all
 from fantasyhoops.adds.blend import RECENT_DAYS, blended_options, recent_weight
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
+from fantasyhoops.adds.home import build_home
 from fantasyhoops.adds.drops import (
     choose_stream_spots,
     drop_trade_offs,
@@ -632,8 +635,11 @@ def print_spot_plans(rows, nights=None):
             )
 
 
-def publish_page(path, rows, publish=True):
-    """Print the path and the best row of the plan page, then publish the site with the page at /adds/."""
+def publish_page(path, rows, publish=True, home=None):
+    """Print the path and the best row of the plan page, then publish the site with the page at /adds/.
+
+    home: the home page (adds/home.py) for the root of the site, or None.
+    """
     print()
     print(f"Wrote the plan page: {path}")
     if rows:
@@ -644,7 +650,7 @@ def publish_page(path, rows, publish=True):
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
-    site.publish(ROOT, "adds", path)
+    site.publish(ROOT, "adds", path, home=home)
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
 
@@ -796,6 +802,11 @@ def main(today=None, publish=True, timed=True, cache=True):
     print_contingencies(contingencies)
     with step("role read"):
         roles = read_roles([o.player for o in options], cfg, today)
+    home = None
+    if publish:
+        # Before the plan page, so that the Run time table of the plan page has this step.
+        with step("home page"):
+            home = build_home(data, cfg, sched, today)
     with step("page write and publish"):
         text = page.render(
             data,
@@ -824,7 +835,7 @@ def main(today=None, publish=True, timed=True, cache=True):
             market=market_text,
             cache=cache_text,
         )
-        publish_page(page.write(text), rows, publish)
+        publish_page(page.write(text), rows, publish, home)
     if timed:
         print(f"Wrote the step times: {timing.TIMINGS}")
 
