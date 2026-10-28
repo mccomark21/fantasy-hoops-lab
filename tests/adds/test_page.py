@@ -1184,3 +1184,127 @@ def test_the_status_comes_from_the_projected_view_of_this_run(monkeypatch, tmp_p
     assert "O" in cached and "Q" not in cached  # the recent view came from the cache
     statuses = {o.player.status for o in renders[-1][5]}
     assert "Q" in statuses and "O" not in statuses
+
+
+def run_script(html):
+    """The free-agent table that the page script draws in Node, with a small fake page."""
+    data = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
+    script = html.split('<script type="application/json" id="fa-data">')[1].split("<script>")[1].split("</script>")[0]
+    code = (
+        f"const DATA_TEXT = {json.dumps(data)};\n"
+        "const els = {}; const el = () => ({innerHTML: '', textContent: '', querySelectorAll: () => []});\n"
+        "global.document = {getElementById: id => id === 'fa-data' ? {textContent: DATA_TEXT}"
+        " : (els[id] = els[id] || el())};\n"
+        f"{script}\nprocess.stdout.write(JSON.stringify(Object.fromEntries("
+        "Object.entries(els).map(([k, v]) => [k, v.innerHTML || v.textContent]))));"
+    )
+    out = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True, encoding="utf-8").stdout
+    return json.loads(out)
+
+
+def test_the_page_script_puts_a_button_in_each_sort_header_and_names_the_chips_and_the_dots():
+    if shutil.which("node") is None:
+        pytest.skip("node is not on PATH")
+    els = run_script(render())
+    table = els["fa-table"]
+    assert '<caption class="vh">Free agents, sorted by Val, highest first</caption>' in table
+    assert (
+        '<th class="sort " aria-sort="descending"><button type="button" data-sort="value">Val'
+        '<span aria-hidden="true"> ▼</span></button></th>'
+    ) in table
+    assert '<th class="sort "><button type="button" data-sort="match">Match</button></th>' in table
+    assert table.count("aria-sort") == 1
+    assert 'role="img" aria-label="game in an open slot"' in table and 'role="img" aria-label="game"' in table
+    # Mon has 2 open slots and 5 NBA games. The aria-label keeps the date and the two counts apart.
+    assert 'aria-label="Mon 1/4, 2 open slots, 5 NBA games">Mon 1/4<small>2 open · 5 NBA</small>' in els["day-chips"]
+
+
+def test_the_free_agent_count_is_a_polite_live_region():
+    assert '<p class="count" id="fa-count" aria-live="polite"></p>' in render()
+
+
+@contextmanager
+def browser_page(width=720):
+    """A Chromium page from Playwright. The test skips if Chromium is not installed (as in CI)."""
+    from playwright.sync_api import Error, sync_playwright
+
+    with sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except Error as e:
+            pytest.skip(f"Chromium for Playwright is not installed: {str(e).splitlines()[0]}")
+        try:
+            yield browser.new_page(viewport={"width": width, "height": 900})
+        finally:
+            browser.close()
+
+
+def test_a_keyboard_user_sorts_each_column_and_the_focus_stays_on_the_sort_button():
+    with browser_page() as pg:
+        pg.set_content(render())
+        for name, key in (("Match", "match"), ("Recent", "recent"), ("Gms", "games"), ("Val", "value")):
+            pg.get_by_role("button", name=name, exact=True).focus()
+            pg.keyboard.press("Enter")
+            th = pg.locator("th.sort[aria-sort]")
+            assert th.count() == 1 and th.get_attribute("aria-sort") == "descending"
+            assert th.locator("button").get_attribute("data-sort") == key
+            assert "▼" in th.inner_text()
+            assert pg.evaluate("document.activeElement.dataset.sort") == key
+        pg.keyboard.press("Tab")
+        assert pg.evaluate("document.activeElement.dataset.sort") == "match"
+        pg.keyboard.press("Space")
+        assert pg.locator("th.sort[aria-sort] button").get_attribute("data-sort") == "match"
+
+
+def test_a_chip_press_toggles_the_chip_and_keeps_the_focus_on_it():
+    with browser_page() as pg:
+        pg.set_content(render())
+        sf = pg.get_by_role("button", name="SF", exact=True)
+        sf.focus()
+        pg.keyboard.press("Enter")
+        assert sf.get_attribute("aria-pressed") == "true"
+        assert pg.evaluate("document.activeElement.textContent") == "SF"
+        pg.keyboard.press("Space")
+        assert sf.get_attribute("aria-pressed") == "false"
+        mon = pg.get_by_role("button", name="Mon 1/4, 2 open slots, 5 NBA games", exact=True)
+        mon.focus()
+        pg.keyboard.press("Enter")
+        assert mon.get_attribute("aria-pressed") == "true"
+        assert pg.evaluate("document.activeElement.textContent").startswith("Mon 1/4")
+
+
+def test_the_dots_the_count_and_the_caption_read_in_the_accessibility_tree():
+    with browser_page() as pg:
+        pg.set_content(render())
+        tree = pg.locator("#fa-table").aria_snapshot()
+        assert 'img "game in an open slot"' in tree and 'img "game"' in tree
+        assert pg.get_by_role("table", name="Free agents, sorted by Val, highest first").count() == 1
+        assert pg.locator("#fa-count").get_attribute("aria-live") == "polite"
+
+
+def test_each_control_shows_a_focus_outline_in_light_and_dark_mode():
+    with browser_page() as pg:
+        pg.set_content(render())
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            for control in ("#day-chips button", "#pos-chips button", "th.sort button", "#fit-only", "summary"):
+                pg.locator(control).first.focus()
+                pg.keyboard.press("Shift+Tab")
+                pg.keyboard.press("Tab")
+                style = pg.evaluate(
+                    "(() => { const s = getComputedStyle(document.activeElement);"
+                    " return [s.outlineStyle, s.outlineWidth, s.outlineColor]; })()"
+                )
+                assert style[0] == "solid" and style[1] == "2px", (theme, control, style)
+                bg = pg.evaluate("getComputedStyle(document.body).backgroundColor")
+                assert style[2] != bg, (theme, control)
+
+
+def test_at_390px_the_chips_the_checkbox_label_and_the_summaries_are_24px_high_or_more():
+    with browser_page(width=390) as pg:
+        pg.set_content(render(timings=[timing.StepTime("Yahoo reads", 1.0)]))
+        for control in ("#pos-chips button", "label.toggle", "details.notes summary", "th.sort button"):
+            heights = pg.locator(control).evaluate_all(
+                "els => els.filter(e => e.offsetParent).map(e => e.getBoundingClientRect().height)"
+            )
+            assert heights and min(heights) >= 24, (control, heights)

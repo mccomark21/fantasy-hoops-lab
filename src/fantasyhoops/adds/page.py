@@ -362,7 +362,7 @@ def free_agents_section(
         "<section><h2>Free agents</h2>" + read + cached + skip + "\n"
         '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
         '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
-        '</label>\n<p class="count" id="fa-count"></p>\n<table class="fa" id="fa-table"></table>\n'
+        '</label>\n<p class="count" id="fa-count" aria-live="polite"></p>\n<table class="fa" id="fa-table"></table>\n'
         '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
         f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
         "Val: blended value per game above a "
@@ -653,15 +653,19 @@ sup.b2b { font-size: 9px; font-weight: 700; color: var(--bad); margin-left: 1px;
 .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
 .filters .label { width: 100%; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 button.chip { font: inherit; font-size: 13px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
-              background: var(--bg); color: var(--fg); cursor: pointer; line-height: 1.2; }
+              background: var(--bg); color: var(--fg); cursor: pointer; line-height: 1.2; min-height: 28px; }
 button.chip small { display: block; color: var(--muted); font-size: 11px; }
 button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: #fff; }
 button.chip[aria-pressed="true"] small { color: #ede9fe; }
 button.chip.none { opacity: .55; }
-label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; }
+label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; min-height: 28px;
+               cursor: pointer; }
+label.toggle input { width: 18px; height: 18px; margin: 0; }
 .count { font-size: 12px; margin: 0 0 4px; }
 .fa { font-size: 13px; }
-.fa th.sort { cursor: pointer; white-space: nowrap; }
+.fa th.sort { white-space: nowrap; padding: 0; }
+.fa th.sort button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; width: 100%;
+                     min-height: 28px; padding: 5px 4px; text-align: inherit; }
 .fa th.sort[aria-sort] { color: var(--q); }
 .fa th.day, .fa td.day { text-align: center; width: 26px; padding: 5px 0; }
 .fa th.day.sel { color: var(--q); }
@@ -681,7 +685,11 @@ label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; ma
           font-size: 11px; font-weight: 700; }
 .ranking { font-size: 13px; }
 details.notes { margin: 16px 0 8px; color: var(--muted); }
-details.notes summary { cursor: pointer; color: var(--fg); font-weight: 600; width: fit-content; }
+details.notes summary { cursor: pointer; color: var(--fg); font-weight: 600; width: fit-content; padding: 4px 0;
+                         min-height: 28px; }
+:focus-visible { outline: 2px solid var(--q); outline-offset: 2px; }
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 details.notes p, details.notes table { margin: 6px 0 0; }
 </style>
 </head>
@@ -704,33 +712,51 @@ const hits = p => state.fit ? p.fits : p.plays;
 const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
 const SORTS = {value: p => p.value, games: p => games(p) * 100 + p.value, recent: p => p.recent ?? -99,
   match: p => p.match ?? -99};
-const chip = (label, sub, on, dim) => `<button type="button" class="chip${dim ? " none" : ""}" aria-pressed="${on}">`
-  + `${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
+const SORT_NAMES = {value: "Val", match: "Match", recent: "Recent", games: "Gms"};
+// A day chip has an aria-label such as "Tue 10/27, 5 open slots, 4 NBA games". The visible text stays short.
+const chip = (label, sub, said, dim) => `<button type="button" class="chip${dim ? " none" : ""}" aria-pressed="false"`
+  + `${said ? ` aria-label="${esc(`${label}, ${said}`)}"` : ""}>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}`
+  + `</button>`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const DOT_FIT = '<span class="dot fit" role="img" aria-label="game in an open slot"></span>';
+const DOT_GAME = '<span class="dot game" role="img" aria-label="game"></span>';
 
 function toggle(set, v) { set.has(v) ? set.delete(v) : set.add(v); render(); }
 
+// The script makes the chips one time. render() changes only aria-pressed, so a chip keeps the focus after a press.
 function chips() {
-  $("day-chips").innerHTML = `<span class="label">Days (plays on all selected days)</span>` + DATA.days.map((d, i) =>
-    chip(`${d.label} ${d.md}`, `${d.open} open · ${d.nba} NBA`, state.days.has(i), !d.open)).join("");
+  $("day-chips").innerHTML = `<span class="label">Days (plays on all selected days)</span>` + DATA.days.map(d =>
+    chip(`${d.label} ${d.md}`, `${d.open} open · ${d.nba} NBA`,
+      `${plural(d.open, "open slot")}, ${plural(d.nba, "NBA game")}`, !d.open)).join("");
   $("pos-chips").innerHTML = `<span class="label">Positions (any)</span>`
-    + DATA.positions.map(p => chip(p, "", state.pos.has(p))).join("");
+    + DATA.positions.map(p => chip(p, "", "", false)).join("");
   $("day-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.days, i));
   $("pos-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.pos, DATA.positions[i]));
 }
 
+function pressed() {
+  $("day-chips").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", state.days.has(i)));
+  $("pos-chips").querySelectorAll("button").forEach((b, i) =>
+    b.setAttribute("aria-pressed", state.pos.has(DATA.positions[i])));
+}
+
 function render() {
-  chips();
+  pressed();
   const rows = DATA.players.filter(p => [...state.days].every(i => hits(p)[i])
     && (!state.pos.size || p.pos.some(x => state.pos.has(x))))
     .sort((a, b) => SORTS[state.sort](b) - SORTS[state.sort](a));
   $("fa-count").textContent = `Top ${Math.min(DATA.rows, rows.length)} of ${rows.length} free agents that match the filters`;
-  const th = (key, label, cls) => `<th class="sort ${cls || ""}" data-sort="${key}"`
-    + `${state.sort === key ? ' aria-sort="descending"' : ""}>${label}</th>`;
+  // Each sort header holds a button. The th of the sorted column has aria-sort and shows an arrow.
+  const th = (key, cls) => `<th class="sort ${cls || ""}"${state.sort === key ? ' aria-sort="descending"' : ""}>`
+    + `<button type="button" data-sort="${key}">${SORT_NAMES[key]}`
+    + `${state.sort === key ? '<span aria-hidden="true"> ▼</span>' : ""}</button></th>`;
   const sel = i => state.days.has(i) ? " sel" : "";
   const head = DATA.days.map((d, i) => `<th class="day${sel(i)}">${d.label.slice(0, 2)}<br><small>${d.open}</small></th>`).join("");
-  $("fa-table").innerHTML = `<thead><tr><th class="name">Player</th>${th("value", "Val")}${th("match", "Match")}`
-    + `${th("recent", "Recent", "wide")}`
-    + `${th("games", "Gms")}${head}</tr></thead><tbody>` + rows.slice(0, DATA.rows).map(p =>
+  const active = document.activeElement;
+  const focus = active && active.dataset ? active.dataset.sort : undefined;
+  $("fa-table").innerHTML = `<caption class="vh">Free agents, sorted by ${SORT_NAMES[state.sort]}, highest first`
+    + `</caption><thead><tr><th class="name">Player</th>${th("value")}${th("match")}${th("recent", "wide")}`
+    + `${th("games")}${head}</tr></thead><tbody>` + rows.slice(0, DATA.rows).map(p =>
       `<tr><td class="name">${esc(p.name)}${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
       + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
       + `${p.rise ? ' <span class="flag">MIN+</span>' : ""}`
@@ -741,12 +767,17 @@ function render() {
       + `${p.role ? `<div class="sub">${esc(p.role)}</div>` : ""}</td>`
       + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td>`
       + `<td class="${p.match < 0 ? "neg" : ""}">${fmt(p.match)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`
-      + DATA.days.map((d, i) => `<td class="day${sel(i)}">${p.fits[i] ? '<span class="dot fit"></span>'
-        : p.plays[i] ? '<span class="dot game"></span>' : ""}${p.b2b[i] ? B2B : ""}</td>`).join("") + `</tr>`).join("")
+      + DATA.days.map((d, i) => `<td class="day${sel(i)}">${p.fits[i] ? DOT_FIT
+        : p.plays[i] ? DOT_GAME : ""}${p.b2b[i] ? B2B : ""}</td>`).join("") + `</tr>`).join("")
       + `</tbody>`;
-  $("fa-table").querySelectorAll("th.sort").forEach(h => h.onclick = () => { state.sort = h.dataset.sort; render(); });
+  $("fa-table").querySelectorAll("th.sort button").forEach(b => {
+    b.onclick = () => { state.sort = b.dataset.sort; render(); };
+    // render() makes a new table. The sort button that had the focus gets it again.
+    if (focus && b.dataset.sort === focus) b.focus();
+  });
 }
 
 $("fit-only").onchange = e => { state.fit = e.target.checked; render(); };
+chips();
 render();
 """

@@ -252,6 +252,7 @@ The table shows the free agents that the run read: the free agents of the teams 
 - Positions: select one position or more. The table shows the players with one of the selected positions.
 - "Only games that fill an open slot": a game counts only if an open slot of that day takes one of his positions.
 - Sort: click Val, Match, Recent or Gms. Gms is the number of his games on the selected days. Sort by Gms to find the player with the most games on those days. Val then puts the players with the same games in order.
+- Keyboard and screen reader (#116): each chip and each sort header is a button. Press Tab to go to a button, then Enter or Space. The focus stays on the button. The sorted column shows an arrow (▼) and has `aria-sort`. A screen reader reads each day chip as, for example, "Tue 10/27, 5 open slots, 4 NBA games", each dot as "game in an open slot" or "game", and the count line after each change.
 
 Match is the market value with the matchup weights: the matchup value above the matchup value of a replacement free agent. Compare Val and Match to see how the matchup changes the value of a player.
 
