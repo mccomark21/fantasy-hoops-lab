@@ -40,7 +40,7 @@ One planning run does these steps:
 
 1. It reads your league from Yahoo.
 2. It makes the two plans for the planning window.
-3. It writes the page in `output/adds/`, with the font file in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
+3. It writes the page in `output/adds/`, with the font file and its license in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
 4. It publishes the site to GitHub Pages, at `/adds/`.
 
 To write the page with no publish, add `--no-publish`:
@@ -48,6 +48,8 @@ To write the page with no publish, add `--no-publish`:
 ```
 python -m fantasyhoops.adds.plan --no-publish
 ```
+
+The links of the site menu work only on the published site. On the local file, they open folder lists.
 
 A second run on the same day takes some pages from the same-day cache in `output/adds/cache/` (see [Data](#data)). To read each page from Yahoo, add `--no-cache`. The run then writes each page over the cached page:
 

@@ -5,13 +5,14 @@ Each color token has a light value (white stock) and a dark value (navy card bac
 The dark values follow prefers-color-scheme. The attribute data-theme="light" or "dark" on <html> overrides
 the system theme. A script in HEAD sets that attribute from localStorage before the first paint.
 Each page loads the font from fonts/archivo-latin.woff2 next to the page. copy_font() writes that file.
-The font is Archivo (Omnibus-Type), under the SIL Open Font License 1.1.
+The font is Archivo (Omnibus-Type), under the SIL Open Font License 1.1. Each copy of the font has OFL.txt next to it.
 """
 
 import shutil
 from pathlib import Path
 
 FONT = Path(__file__).parent / "fonts" / "archivo-latin.woff2"
+LICENSE = FONT.with_name("OFL.txt")  # the OFL text with the Archivo copyright. It goes with each copy of the font.
 FONT_HREF = "fonts/archivo-latin.woff2"  # the font file, relative to each page
 THEME_KEY = "lab-theme"  # the localStorage key of the theme choice: "light" or "dark". No key: the system theme.
 
@@ -88,8 +89,12 @@ HEAD = (
 
 
 def copy_font(folder):
-    """Copy the font file to folder/fonts/, where the pages in folder load it. Return the path of the copy."""
+    """Copy the font file and its license (OFL.txt) to folder/fonts/, where the pages in folder load the font.
+
+    Return the path of the font copy.
+    """
     target = Path(folder) / FONT_HREF
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(FONT, target)
+    shutil.copyfile(LICENSE, target.with_name(LICENSE.name))
     return target

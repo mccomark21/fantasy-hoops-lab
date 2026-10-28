@@ -41,7 +41,11 @@ def test_publish_adds_writes_its_folder_the_home_page_and_the_font(repo, remote_
     pages = remote_pages(repo)
     assert pages["adds/index.html"] == "<p>plan</p>"
     font = tokens.FONT_HREF
-    assert set(pages) == {".nojekyll", "index.html", "adds/index.html", font, f"adds/{font}"}
+    ofl = "fonts/OFL.txt"
+    assert set(pages) == {".nojekyll", "index.html", "adds/index.html", font, f"adds/{font}", ofl, f"adds/{ofl}"}
+    assert (
+        "Copyright 2020 The Archivo Project Authors" in pages[ofl] and "SIL OPEN FONT LICENSE" in pages[f"adds/{ofl}"]
+    )
     assert git(repo, "rev-parse", f"FETCH_HEAD:{font}") == git(repo, "hash-object", str(tokens.FONT))
 
 

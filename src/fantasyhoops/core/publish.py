@@ -3,7 +3,7 @@
 The site has a home page at / and the folder /adds/ for the adds plan.
 A publish of one tool replaces its own folder and the home page. It keeps the folders of the other tools in TOOLS.
 A folder on gh-pages with a name that is not in TOOLS goes away at the next publish.
-The root and the tool folder get the font file in fonts/ (core/tokens.py).
+The root and the tool folder get the font file and its license (OFL.txt) in fonts/ (core/tokens.py).
 The site menu (#117): a royal-blue side panel on a desktop, and a top bar with a drawer on a phone.
 It has a link to each page of the site and the Auto, Light and Dark theme switch.
 Each page puts site_head() in its <head>, site_menu() first in its <body> and MENU_SCRIPT last in its <body>.
@@ -57,9 +57,9 @@ def published_folders(repo):
 
 
 def font_folder(repo):
-    """The fonts/ folder of the site, as a tree entry (mode, type, sha)."""
-    font = write_blob(repo, tokens.FONT.read_bytes())
-    return ("040000", "tree", make_tree(repo, {tokens.FONT.name: ("100644", "blob", font)}))
+    """The fonts/ folder of the site, as a tree entry (mode, type, sha): the font and its license (OFL.txt)."""
+    files = {f.name: ("100644", "blob", write_blob(repo, f.read_bytes())) for f in (tokens.FONT, tokens.LICENSE)}
+    return ("040000", "tree", make_tree(repo, files))
 
 
 def site_head():

@@ -335,6 +335,7 @@ def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, cap
     assert "+Phi One (PHI) – Mon & Tue" in text(path.read_text(encoding="utf-8"))
     assert "Aggressive plan: the same as the schedule plan." in out
     assert (tmp_path / "fonts" / "archivo-latin.woff2").read_bytes() == tokens.FONT.read_bytes()
+    assert (tmp_path / "fonts" / "OFL.txt").read_bytes() == tokens.LICENSE.read_bytes()
 
 
 def test_the_page_shows_the_site_menu_with_the_adds_plan_current():

@@ -23,7 +23,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "fantasyhoops.draft" = ["*.js"]
-"fantasyhoops.core" = ["fonts/*.woff2"]
+"fantasyhoops.core" = ["fonts/*.woff2", "fonts/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
