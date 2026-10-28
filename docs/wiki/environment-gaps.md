@@ -29,3 +29,9 @@ Dated observations of what the repo did not have. Each item names the date of th
 - On 2026-10-26, PR #86 (`mccomark21/fantasy-hoops-lab@131fdc0`) handled the test-path gap above for `timings.csv` only: `run_command` patches `timing.TIMINGS`. The general fixture for `core.common.OUT` is still open. See [Review of issue #85](review-issue-85.md).
 - Idea: after #85 merges, add a CI benchmark test. The test uses a fixed input for a full week and sets a ceiling on the count of search states. #74 and #85 are the two performance issues of the adds planner to date.
 - On 2026-10-26, at `mccomark21/fantasy-hoops-lab@9f11902`, the terminal print of the planner failed with `UnicodeEncodeError` when stdout was not UTF-8 (output redirected to a file on Windows). This affects any scheduled or logged run. With `PYTHONIOENCODING=utf-8`, the run ended with exit 0. See [Planning run timings](planning-run-timings.md).
+
+## Weekly wiki lint (2026-10-28)
+
+- On 2026-10-28, the owner approved a weekly wiki lint. It is the cloud routine "Weekly wiki lint (fantasy-hoops-lab)" (https://claude.ai/code/routines/trig_011n2vF4L2HPJ4pvrGcK2cz3). It runs each Monday at 14:00 UTC (9:00 New York time after 2026-11-01), with Claude Sonnet 5.5 and no MCP connectors. The first run is on 2026-11-02.
+- The routine changes only `docs/wiki/`. It commits to main as `docs(wiki): lint of YYYY-MM-DD` and makes no commit when nothing needs a change. This follows [Push wiki commits](decision-push-wiki-commits.md).
+- The cloud run cannot read the owner's `~/.claude/writing-style.md`, so its prompt states the main Simplified Technical English rules itself.
