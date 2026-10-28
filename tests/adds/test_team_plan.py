@@ -74,7 +74,10 @@ def test_a_later_add_in_the_same_spot_ends_the_band_of_the_earlier_add():
     games = {WEEK[0]: {"PHI"}, WEEK[1]: {"PHI"}, WEEK[3]: {"CHI"}, WEEK[4]: {"CHI"}, WEEK[5]: {"CHI"}}
     p = plan([], games, adds=2)
     assert p.started_games == 5
-    assert [(a.day, a.last_day, a.teams) for a in p.adds] == [(WEEK[0], WEEK[1], ("PHI",)), (WEEK[3], WEEK[5], ("CHI",))]
+    assert [(a.day, a.last_day, a.teams) for a in p.adds] == [
+        (WEEK[0], WEEK[1], ("PHI",)),
+        (WEEK[3], WEEK[5], ("CHI",)),
+    ]
 
 
 def test_teams_with_the_same_count_on_other_days_are_mixed_and_the_starts_are_the_days_of_all():

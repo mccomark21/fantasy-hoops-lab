@@ -214,7 +214,9 @@ class _Search:
                 return 0, 0, sum(self.next_weight * len(key.days) for key in occ), ()
             top = None
             for keys, removed, added in self.moves(k, occ, adds):
-                started, spent, ahead, moves = best(k + 1, tuple(sorted(_next(key, k) for key in keys)), adds - len(added))
+                started, spent, ahead, moves = best(
+                    k + 1, tuple(sorted(_next(key, k) for key in keys)), adds - len(added)
+                )
                 found = (
                     started + self.count(k, keys)[0],
                     spent + len(added),

@@ -18,7 +18,9 @@ import html
 
 from fantasyhoops.adds.team_plan import UTIL
 
-TEAM_COUNT_AT = 6  # [adds] team_count_at if config.toml does not set it: from this number of teams, a cell gives a count
+TEAM_COUNT_AT = (
+    6  # [adds] team_count_at if config.toml does not set it: from this number of teams, a cell gives a count
+)
 ADD_ROWS = 2  # the add rows of the grid, at least
 HEAT = 40  # the tint of the day with the most games, in percent of mark
 
@@ -86,7 +88,7 @@ def _add_cell(add, heat, index, count_at, interactive):
         f"Add {add.row}, {add.day:%a}: add {_said_slots(add.slots)} from {_said_teams(add.teams, count_at)}. "
         f"Starts {_days(add.starts)}."
     )
-    inner = f"<b>+{_slots_html(add.slots)}</b><span class=\"who\">{_who(add.teams, count_at)}</span>"
+    inner = f'<b>+{_slots_html(add.slots)}</b><span class="who">{_who(add.teams, count_at)}</span>'
     if not interactive:
         return f'<td class="add" style="--h: {heat}%"><span class="addc" role="img" aria-label="{_e(said)}">{inner}</span></td>'
     days = ",".join(str(index[d]) for d in add.starts if d in index)
@@ -138,16 +140,18 @@ def _head(day, past, heat, index, interactive):
     )
 
 
-def _messages(run):
-    """The reason for a plan with no add, or nothing."""
+def _messages(run, current):
+    """The reason for a plan with no add of today or later (current: those adds), or nothing."""
     adds = run.data.adds
     if not run.spots:
-        return "No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. There are no adds to plan."
+        return (
+            "No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. There are no adds to plan."
+        )
     if not adds.left:
         return f"No adds left this week ({adds.used} of {adds.limit} used). There are no adds to plan."
     if not run.days:
         return "The fantasy week is over. There are no days to plan."
-    if run.plan is None or not run.plan.adds:
+    if not current:
         return "No NBA team gives a started game in an open slot."
     return ""
 
@@ -171,7 +175,9 @@ def plan_section(run, interactive=True):
     head = ['<th scope="col"><span class="vh">Row</span></th>']
     head += [_head(d, d < today, heat[d], index, interactive) for d in week]
     games_row = ['<th scope="row">Games</th>'] + [
-        f'<td class="past">{games.get(d, 0)}</td>' if d < today else f'<td style="--h: {heat[d]}%">{games.get(d, 0)}</td>'
+        f'<td class="past">{games.get(d, 0)}</td>'
+        if d < today
+        else f'<td style="--h: {heat[d]}%">{games.get(d, 0)}</td>'
         for d in week
     ]
     body = [f'<tr class="games">{"".join(games_row)}</tr>']
@@ -184,8 +190,7 @@ def plan_section(run, interactive=True):
             for d in week:
                 if d >= a.day and (end is None or d < end):
                     owner[d] = a
-        current = sum(a.day >= today for a in chain)
-        small = f"<small>{current} add{'' if current == 1 else 's'}</small>" if current else ""
+        small = f"<small>{len(chain)} add{'' if len(chain) == 1 else 's'}</small>" if chain else ""
         cells = [f'<th scope="row">Add {r}{small}</th>']
         for d in week:
             a, past = owner.get(d), d < today
@@ -201,8 +206,10 @@ def plan_section(run, interactive=True):
     left = run.data.adds.left
     if current:
         tap = " Tap an add to see the free agents who fit it." if interactive else ""
-        lines.append(f'<p class="tp-lede">The plan uses <b>{len(current)} of the {left} adds</b> that are left.{tap}</p>')
-    message = _messages(run)
+        lines.append(
+            f'<p class="tp-lede">The plan uses <b>{len(current)} of the {left} adds</b> that are left.{tap}</p>'
+        )
+    message = _messages(run, current)
     if message:
         lines.append(f'<p class="tp-lede">{_e(message)}</p>')
     notes = []
@@ -241,7 +248,7 @@ def plan_section(run, interactive=True):
             '<section id="plan"><h2>Team plan</h2>',
             *lines,
             '<table class="week"><colgroup><col class="lab">' + "<col>" * len(week) + "</colgroup>"
-            f'<thead><tr>{"".join(head)}</tr></thead><tbody>{"".join(body)}</tbody></table>',
+            f"<thead><tr>{''.join(head)}</tr></thead><tbody>{''.join(body)}</tbody></table>",
             key + note,
             legend,
             "</section>",
@@ -250,7 +257,7 @@ def plan_section(run, interactive=True):
 
 
 CSS = """
-/* The team plan (#140): the C3 heat week grid. The games of the day shade the whole column (--h). */
+/* The team plan (issue 140): the C3 heat week grid. The games of the day shade the whole column (--h). */
 .tp-lede { color: var(--fg); font-size: 14px; margin: 0 0 10px; }
 .tp-lede b { font-weight: 800; }
 .tp-note { font-size: 12px; margin: 4px 0 0; }

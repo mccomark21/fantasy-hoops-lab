@@ -12,13 +12,13 @@ import pytest
 
 from fantasyhoops.adds import lists, page, timing
 from fantasyhoops.adds import plan as command
-from fantasyhoops.adds.contingency import Contingency
 from fantasyhoops.adds.matchup import Matchup, matchup_weights, read_matchup
-from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
+from fantasyhoops.adds.planner import Option, StreamSpot, TeamRank
 from fantasyhoops.adds.readers import Adds, Player, Week
 from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
-from fantasyhoops.adds.spots import SpotPlan
+from fantasyhoops.adds.team_plan import UTIL
+from fantasyhoops.adds.week_file import SavedAdd, WeekRecord
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
 from fantasyhoops.core.common import load_config
@@ -42,31 +42,15 @@ SPOTS = [StreamSpot(), StreamSpot(HOLDER)]
 PHI, CHI = option("Phi & One", "PHI", 0.31), option("Chi One", "CHI", -0.40, ("PF",), "Q")
 # PHI plays Mon, Tue and Sat. CHI plays Sat and Sun. MIA plays Mon.
 GAMES = {WEEK[0]: {"PHI", "MIA"}, WEEK[1]: {"PHI"}, WEEK[5]: {"PHI", "CHI"}, WEEK[6]: {"CHI"}}
-# Row 1: the empty spot, PHI from Mon, then CHI on Sun. Row 2: the spot of Old Streamer, PHI from Tue.
-ROW1 = SpotPlan(
-    SPOTS[0],
-    Plan(
-        windows=(
-            TeamWindow(0, "PHI", WEEK[0], WEEK[5], (WEEK[0], WEEK[1], WEEK[5]), PHI, (PHI,)),
-            TeamWindow(0, "CHI", WEEK[6], WEEK[6], (WEEK[6],), CHI, (CHI,)),
-        ),
-        started_games=4,
-        adds=2,
-    ),
-    4,
+# The team plan of the run of Mon (#140). Row 1: +SF PHI on Mon, then +PF CHI on Sun. Row 2: +Util from 8 teams on Tue.
+EIGHT = ("ATL", "BKN", "BOS", "GS", "IND", "LAC", "LAL", "ORL")
+ADDS = (
+    SavedAdd(1, WEEK[0], ("SF",), ("PHI",), (WEEK[0], WEEK[1], WEEK[5])),
+    SavedAdd(2, WEEK[1], (UTIL,), EIGHT, (WEEK[1], WEEK[5])),
+    SavedAdd(1, WEEK[6], ("PF",), ("CHI",), (WEEK[6],)),
 )
-ROW2 = SpotPlan(
-    SPOTS[1],
-    Plan(
-        windows=(
-            TeamWindow(0, "MIA", None, WEEK[0], (WEEK[0],), HOLDER, ()),
-            TeamWindow(0, "PHI", WEEK[1], WEEK[6], (WEEK[1], WEEK[5]), PHI, (PHI,)),
-        ),
-        started_games=3,
-        adds=1,
-    ),
-    2,
-)
+RECORD = WeekRecord(runs=(WEEK[0],), adds=ADDS)
+WEEK_GAMES = {d: n for d, n in zip(WEEK, (12, 4, 9, 6, 2, 10, 4))}
 RANKING = [TeamRank("PHI", (WEEK[0], WEEK[1], WEEK[5]), 6), TeamRank("DAL", (WEEK[3],), 2)]
 OPTIONS = [
     PHI,
@@ -80,7 +64,9 @@ OPTIONS = [
 # BASE: the fewest fields of a PlanningRun. RUN: the test defaults of a page with plans and free agents.
 LEAGUE = {"league": {"teams": 14}}  # the team count of the site menu (#132)
 BASE = command.PlanningRun(data=DATA, days=DAYS, games=GAMES, spots=SPOTS, today=WEEK[0], cfg=LEAGUE)
-RUN = replace(BASE, rows=[ROW1, ROW2], options=OPTIONS, ranking=RANKING, read=["PHI"], replacement=0.5)
+RUN = replace(
+    BASE, record=RECORD, week_games=WEEK_GAMES, options=OPTIONS, ranking=RANKING, read=["PHI"], replacement=0.5
+)
 
 
 def render(run=RUN, **fields):
@@ -103,37 +89,10 @@ def run_time(html):
     return re.search(r'<details class="notes" id="run-time">.*?</details>', html, re.S).group(0)
 
 
-def plan_rows(html):
-    """The day rows of the plans. A spot line comes before each one (#114)."""
-    return re.findall(r'<tr class="days[^"]*">(.*?)</tr>', html)
-
-
-def test_each_row_shows_the_started_games_of_each_day_and_the_add_days():
-    rows = plan_rows(render())
-    cells = [re.findall(r"<td(?: class=\"on\")?>(?:<b>)?(\d|·|<i>\+</i>)(<i>\+</i>)?", row)[:7] for row in rows]
-    assert cells[0] == [("1", "<i>+</i>"), ("1", ""), ("·", ""), ("·", ""), ("·", ""), ("1", ""), ("1", "<i>+</i>")]
-    assert cells[1] == [("·", ""), ("1", "<i>+</i>"), ("·", ""), ("·", ""), ("·", ""), ("1", ""), ("·", "")]
-
-
-def test_each_row_shows_its_adds_its_gain_and_its_moves():
-    html = render()
-    rows = plan_rows(html)
-    assert re.findall(r'<td class="total">([^<]*)</td>', rows[0]) == ["2", "+4"]
-    assert re.findall(r'<td class="total">([^<]*)</td>', rows[1]) == ["1", "+2"]
-    shown = text(html)
-    assert "+Phi &amp; One" in html and "Phi & One" not in html.split("<script")[0]
-    assert "+Phi & One (PHI) add Mon – starts Mon, Tue & Sat +Chi One Q (CHI) add Sun – starts Sun" in shown
-    assert "+Phi & One (PHI) add Tue – starts Tue & Sat" in shown
-    # The spot line above the row names the drop, so the Moves cell does not (#114).
-    assert "drop" not in "".join(re.findall(r'<td class="moves">(.*?)</td>', html))
-    assert "An add for today helps only if his game has not started." in shown
-
-
-def test_the_page_shows_the_week_and_the_open_slots():
+def test_the_page_shows_the_week_and_the_adds_left():
     shown = text(render())
     assert "Week 12: Mon 1/4 to Sun 1/10" in shown and "4 of 5 adds left" in shown and "2 stream spots" in shown
     assert "Out (does not play): Hurt Guy (O)" in shown
-    assert re.search(r'<tr class="open"><th>Open</th>(<td[^>]*>2</td><td[^>]*>2</td><td[^>]*>0</td>)', render())
 
 
 def test_the_free_agent_data_has_market_values_and_the_days_of_each_player():
@@ -282,7 +241,7 @@ def test_the_page_explains_why_there_is_no_plan():
         render(BASE, data=command.LeagueData([], Adds(5, 5), DATA.week))
     )
     assert "No stream spots" in text(render(BASE, spots=[]))
-    assert "No free agent that the planner read" in text(render(BASE))
+    assert "No NBA team gives a started game in an open slot." in text(render(BASE))
     # No options: no free-agent table and no script.
     assert "fa-data" not in render(BASE)
 
@@ -302,21 +261,6 @@ def test_the_page_lists_the_waiver_players_with_the_clear_day():
 
 def test_the_page_has_no_waiver_section_with_no_waiver_players():
     assert "Waiver players" not in text(render())
-
-
-def test_a_move_marks_a_waiver_claim():
-    row = SpotPlan(
-        SPOTS[0],
-        Plan(
-            windows=(TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM, (CLAIM,)),),
-            started_games=2,
-            adds=1,
-        ),
-        2,
-    )
-    shown = text(render(BASE, rows=[row], options=[CLAIM]))
-    assert "+Claim Guy W (CHI) add Wed, clears Tue – starts Sat & Sun" in shown
-    assert "W: a waiver claim. It is not sure" in shown
 
 
 def test_the_page_shows_the_site_menu_with_the_adds_plan_current():
@@ -346,93 +290,10 @@ def test_the_page_css_has_no_colors_of_its_own():
 def test_the_page_marks_the_second_game_of_each_back_to_back():
     # PHI plays Mon and Tue, so Tue is a second night. CHI plays Sat and Sun, so Sun is a second night.
     nights = {WEEK[1]: {"PHI"}, WEEK[6]: {"CHI"}}
-    rows = plan_rows(render(nights=nights))
-    marks = [
-        [bool(re.search(r'class="b2b"', cell)) for cell in re.findall(r"<td[^>]*>.*?</td>", row)[:7]] for row in rows
-    ]
-    assert marks[0] == [False, True, False, False, False, False, True]
-    assert marks[1] == [False, True, False, False, False, False, False]
     assert "second game of a back-to-back" in text(render(nights=nights))
     data = page.free_agent_data(OPTIONS, DAYS, GAMES, replacement=0.5, nights=nights)
     assert data["players"][2]["b2b"] == [False, False, False, False, False, False, True]  # Chi One
     assert data["players"][1]["b2b"] == [False, True, False, False, False, False, False]  # Phi & One
-
-
-def test_a_fractional_gain_shows_one_decimal():
-    row = SpotPlan(ROW2.spot, ROW2.plan, 1.5)
-    html = render(BASE, rows=[row], options=OPTIONS)
-    assert re.findall(r'<td class="total">([^<]*)</td>', plan_rows(html)[0]) == ["1", "+1.5"]
-
-
-def spot_lines(html):
-    """The text of each spot line of the plans: the row number, the spot and the same-spot mark (#114)."""
-    return [text(line).strip() for line in re.findall(r'<tr class="spot[^"]*">(.*?)</tr>', html)]
-
-
-def test_each_plan_row_shows_its_roster_spot_above_the_days():
-    html = page.plans_section([ROW1, ROW2], DAYS, SPOTS, DATA.adds, WEEK[0])
-    assert spot_lines(html) == ["1 open spot", "2 drop Old Streamer"]
-    # The spot line comes before the days of its row, and the row number spans both lines.
-    assert re.search(r'<tr class="spot z"><th rowspan="2">1</th><td colspan="10"><b>open spot</b></td></tr>'
-                     r'<tr class="days z">', html)  # fmt: skip
-    assert 'class="same"' not in html
-
-
-def test_a_row_that_uses_the_same_spot_as_a_row_above_it_has_a_text_mark():
-    other = option("Other Guy", "CHI", 0.2)
-    row3 = SpotPlan(
-        SPOTS[1], replace(ROW2.plan, windows=(ROW2.plan.windows[0], replace(ROW1.plan.windows[1], player=other))), 1
-    )
-    html = page.plans_section([ROW2, ROW1, row3], DAYS, SPOTS, DATA.adds, WEEK[0])
-    assert spot_lines(html) == ["1 drop Old Streamer", "2 open spot", "3 drop Old Streamer same spot as row 1"]
-    assert '<span class="same">same spot as row 1</span>' in html
-    assert 'The mark "same spot as row 1" shows that a row uses the spot of row 1' in text(html)
-
-
-def test_rows_that_use_more_open_spots_than_the_roster_has_share_a_spot():
-    spots = [StreamSpot(), StreamSpot()]  # two open spots
-    rows = [ROW1, replace(ROW1, gain=3), replace(ROW1, gain=2)]
-    html = page.plans_section(rows, DAYS, spots, DATA.adds, WEEK[0])
-    assert spot_lines(html) == ["1 open spot", "2 open spot", "3 open spot same spot as row 1"]
-    one = page.plans_section(rows[:2], DAYS, SPOTS, DATA.adds, WEEK[0])
-    assert spot_lines(one) == ["1 open spot", "2 open spot same spot as row 1"]
-
-
-def test_each_add_shows_its_add_day_before_its_started_days():
-    html = page.plans_section([ROW1, ROW2], DAYS, SPOTS, DATA.adds, WEEK[0])
-    moves = [text(m).strip() for m in re.findall(r'<td class="moves">(.*?)</td>', html)]
-    assert moves == [
-        "+Phi & One (PHI) add Mon – starts Mon, Tue & Sat +Chi One Q (CHI) add Sun – starts Sun",
-        "+Phi & One (PHI) add Tue – starts Tue & Sat",
-    ]
-    assert '<span class="add">add Tue</span>' in html
-    # The + mark stays in the day grid.
-    assert plan_rows(html)[1].count("<i>+</i>") == 1
-
-
-def test_a_waiver_claim_shows_its_add_day_its_w_flag_and_its_clear_day():
-    row = SpotPlan(SPOTS[0], Plan((TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5],), CLAIM, (CLAIM,)),), 1, 1), 1)
-    html = page.plans_section([row], DAYS, SPOTS, DATA.adds, WEEK[0])
-    assert ">W</span>" in html and '<span class="add">add Wed, clears Tue</span>' in html
-
-
-def test_at_390px_the_plans_have_no_horizontal_scroll_and_show_the_spot_and_the_add_day():
-    row3 = SpotPlan(SPOTS[1], replace(ROW2.plan, windows=(ROW2.plan.windows[0], replace(ROW1.plan.windows[1]))), 1)
-    html = render(BASE, rows=[ROW1, ROW2, row3], options=OPTIONS)
-    with browser_page(width=390) as pg:
-        pg.set_content(html)
-        for theme in ("light", "dark"):
-            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
-            assert pg.evaluate("document.documentElement.scrollWidth") <= 390, theme
-            for selector in ("tr.spot b", ".plans .same", ".plans span.add"):
-                boxes = pg.locator(selector).evaluate_all(
-                    "els => els.map(e => { const r = e.getBoundingClientRect();"
-                    " return [r.left, r.right, r.width, getComputedStyle(e).visibility]; })"
-                )
-                assert boxes, selector
-                for left, right, width, visibility in boxes:
-                    assert width > 0 and left >= 0 and right <= 390 and visibility == "visible", (selector, theme)
-            assert pg.evaluate(CONTRAST) == [], theme
 
 
 def test_the_free_agent_data_and_the_page_show_the_role_up_mark_and_the_absent_teammate():
@@ -581,7 +442,7 @@ def test_the_page_script_puts_a_button_in_each_sort_header_and_names_the_chips_a
 
 
 def test_the_free_agent_count_is_a_polite_live_region():
-    assert '<p class="count" id="fa-count" aria-live="polite"></p>' in render()
+    assert '<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>' in render()
 
 
 @contextmanager
@@ -699,23 +560,13 @@ CONTRAST = r"""() => {
 def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_the_chips_pressed():
     # Tue is a back-to-back night of PHI in row 1, a zebra row. Wed has no open slot (a dashed chip).
     nights = {WEEK[1]: {"PHI"}}
-    claim_row = SpotPlan(
-        SPOTS[0],
-        Plan(
-            windows=(TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM, (CLAIM,)),),
-            started_games=2,
-            adds=1,
-        ),
-        2,
-    )
     html = render(
-        rows=[ROW1, ROW2, claim_row],
         options=OPTIONS + [CLAIM],
         nights=nights,
         cfg={**LEAGUE, "adds": {"minutes_rise": 3}},
         timings=[timing.StepTime("Yahoo reads", 1.0)],
     )
-    assert html.count('class="b2b"') >= 2 and ">W</span>" in html
+    assert html.count('class="b2b"') >= 1 and ">W</span>" in html
     with browser_page() as pg:
         pg.set_content(html)
         pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
@@ -740,7 +591,8 @@ def test_the_run_lines_are_in_run_time_and_nothing_about_the_run_is_above_the_fi
     html = render(market=MARKET, cache=CACHE, recent_skip=SKIP_LINE, timings=[timing.StepTime("Yahoo reads", 1.0)])
     section = html.split("<h2>Free agents</h2>")[1]
     above_filters = section.split('id="day-chips"')[0]
-    assert text(above_filters).strip() == ""
+    # Only the hidden line of the plan filters (issue 140) is above the filters.
+    assert text(re.sub(r'<p class="from" id="fa-from" hidden>.*?</p>', "", above_filters)).strip() == ""
     above_table = text(section.split('id="fa-table"')[0])
     for line in (MARKET, CACHE, SKIP_LINE):
         assert line not in above_table
@@ -827,46 +679,179 @@ def test_the_reset_button_restores_the_default_filters_and_sort():
         assert pg.evaluate("document.activeElement.id") == "fa-reset"
 
 
-def test_the_page_of_a_fixed_run_is_the_page_of_render_before_the_planning_run():
-    """#128: fixtures/page_before_128.html is the HTML of render() before the PlanningRun, from the same values in
-    the old parameters. The page has each section.
+# The team plan (#140): the week grid of a run on Wed. Mon and Tue are past and show the saved adds of their runs.
+# Row 1 has a long list of 5 teams, so its cell must wrap. Row 1 on Sun has the count of 8 teams.
+GRID_ADDS = (
+    SavedAdd(1, WEEK[0], ("SG",), ("MIA",), (WEEK[0], WEEK[1])),
+    SavedAdd(2, WEEK[1], ("PG", "SG"), ("POR", "SAC"), (WEEK[1],)),
+    SavedAdd(1, WEEK[3], ("SG", "PF"), ("ATL", "CLE", "MEM", "PHI", "SAC"), (WEEK[3], WEEK[5])),
+    SavedAdd(2, WEEK[3], ("PF",), ("CHI",), (WEEK[3], WEEK[5])),
+    SavedAdd(1, WEEK[6], (UTIL,), EIGHT, (WEEK[6],)),
+)
+GRID_RUN = replace(
+    RUN, today=WEEK[2], days=DAYS[2:], record=WeekRecord(runs=(WEEK[0], WEEK[1], WEEK[2]), adds=GRID_ADDS)
+)
 
-    #132: the page is also the same as before publish.shell(). The team count of the menu comes from run.cfg
-    (14 teams, as in config.toml when the fixture was made).
-    """
-    nmon = WEEK[6] + timedelta(days=1)
-    claim_window = TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM, (CLAIM,))
-    claim_row = SpotPlan(SPOTS[0], Plan(windows=(claim_window,), started_games=2, adds=1), 2)
-    flags = {
-        "window_games": 10, "min_games": 5, "close_window": 8, "min_close_games": 4, "new_games": 3,
-        "new_closes": 2, "regular_share": 0.7, "some_share": 0.2,
-    }  # fmt: skip
-    flag_guy, flag_two = Player("Flag Guy", "PHI", ("PG",), status="Q"), Player("Flag Two", "CHI", ("C",), status="D")
-    run = replace(
-        RUN,
-        data=replace(DATA, matchup=Matchup("Rival", {"pts": 300, "blk": 8}, {"pts": 290, "blk": 10})),
-        rows=[ROW1, ROW2, claim_row],
-        options=OPTIONS + [CLAIM, Option(Player("Up Guy", "PHI", ("PF",)), 0.2, role_up=("Star Wing",))],
-        warnings=["Warning: a & b."],
-        weights={"pts": 1.0, "blk": 0.75},
-        match_replacement=0.1,
-        nights={WEEK[1]: {"PHI"}},
-        contingencies=[
-            Contingency(flag_guy, WEEK[1], "19:30", move=Player("Bench", "PHI", ("PG",))),
-            Contingency(flag_two, WEEK[5], None, late_adds=((PHI, "21:00"),)),
-        ],
-        roles={("Phi & One", "PHI"): Role(28.0, 22.0, 4, 3, 1, 2, True, "Regular", "New")},
-        cfg={**LEAGUE, "adds": {"minutes_rise": 4.0, "flags": flags}},
-        next_days=[Day(nmon, 4, (), (), ("SF", "Util"))],
-        next_games={nmon: {"PHI"}},
-        timings=[
-            timing.StepTime("Yahoo reads", 1.5, pages=3),
-            timing.StepTime("Yahoo reads: trends", 0.5, pages=3, parent="Yahoo reads"),
-            timing.StepTime("schedule search", 2.25, 100, 40),
-        ],
-        recent_skip=SKIP_LINE,
-        market=MARKET,
-        cache="The recent view: 3 pages from the cache.",
-    )
-    before = (Path(__file__).parent / "fixtures" / "page_before_128.html").read_text(encoding="utf-8")
-    assert page.render(run) == before
+# For each add cell and each band cell: each child box must be inside the cell box and inside the add box.
+FIT = r"""() => {
+  const bad = [], inside = (r, c) => r.left >= c.left - 0.5 && r.right <= c.right + 0.5
+    && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5;
+  document.querySelectorAll("#plan td.add, #plan td.band").forEach((td, i) => {
+    const c = td.getBoundingClientRect();
+    td.querySelectorAll("*").forEach(el => {
+      const r = el.getBoundingClientRect();
+      if ((r.width || r.height) && !inside(r, c)) bad.push(`cell ${i}: "${el.textContent.trim()}" leaves the cell`);
+    });
+    td.querySelectorAll(".addc").forEach(box => {
+      const k = box.getBoundingClientRect();
+      box.querySelectorAll("*").forEach(el => {
+        const r = el.getBoundingClientRect();
+        if ((r.width || r.height) && !inside(r, k)) bad.push(`cell ${i}: "${el.textContent.trim()}" leaves the add box`);
+      });
+      if (box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1)
+        bad.push(`cell ${i}: the content is larger than the add box`);
+    });
+    if (td.scrollWidth > td.clientWidth + 1) bad.push(`cell ${i} scrolls sideways`);
+  });
+  return bad;
+}"""
+
+
+@pytest.mark.parametrize("width", [320, 390, 768, 1280])
+def test_each_add_cell_and_band_fits_its_cell_and_the_page_has_no_horizontal_scroll(width):
+    with browser_page(width=width) as pg:
+        pg.set_content(page.render(GRID_RUN))
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(FIT) == [], (width, theme)
+            assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
+            # The 7 columns of the week fit, with no sideways scroll of the grid.
+            assert pg.locator("#plan thead th[scope=col]").count() == 8
+            box = pg.locator("#plan table.week").bounding_box()
+            assert box["x"] >= 0 and box["x"] + box["width"] <= width, (width, theme)
+        # The long team list wraps inside its cell: the row grows, and each team is on its own line.
+        teams = pg.locator("#plan button.addc").nth(0).locator(".who span")
+        tops = teams.evaluate_all("els => els.map(e => e.getBoundingClientRect().top)")
+        assert len(tops) == 5 and tops == sorted(tops) and len(set(tops)) == 5
+
+
+# The contrast of each text of an element (and its children) against the solid background behind it.
+CELL_CONTRAST = r"""root => {
+  const rgb = s => { const p = s.match(/[\d.]+/g).map(Number);
+    return s.startsWith("color(") ? [p[0] * 255, p[1] * 255, p[2] * 255, p[3] ?? 1] : [p[0], p[1], p[2], p[3] ?? 1]; };
+  const lum = c => c.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+    .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const bgOf = el => { for (let e = el; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor);
+    if (c[3] > 0.99) return c; } return [255, 255, 255, 1]; };
+  const out = [];
+  [root, ...root.querySelectorAll("*")].forEach(el => {
+    const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+    if (!own || !el.getClientRects().length) return;
+    const r = ratio(rgb(getComputedStyle(el).color), bgOf(el));
+    if (r < 4.5) out.push(`"${el.textContent.trim()}" ${r.toFixed(2)}`);
+  });
+  return out;
+}"""
+
+BAND_CONTRAST = r"""() => {
+  const rgb = s => { const p = s.match(/[\d.]+/g).map(Number);
+    return s.startsWith("color(") ? [p[0] * 255, p[1] * 255, p[2] * 255] : p.slice(0, 3); };
+  const lum = c => c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+    .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const out = [];
+  document.querySelectorAll("#plan td.band").forEach((td, i) => {
+    const bg = rgb(getComputedStyle(td).backgroundColor), bar = td.querySelector(".bar"), mk = td.querySelector(".mk");
+    const pairs = [["band", getComputedStyle(bar, "::before").backgroundColor]];
+    if (mk) pairs.push(["mark", getComputedStyle(mk).backgroundColor]);
+    pairs.forEach(([name, c]) => { const r = ratio(rgb(c), bg); if (r < 4.5) out.push(`${name} ${i} ${r.toFixed(2)}`); });
+  });
+  return out;
+}"""
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_theme(width):
+    with browser_page(width=width) as pg:
+        pg.set_content(page.render(GRID_RUN))
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+
+            def check(state, el):
+                cell = el.evaluate_handle("e => e.closest('td, th')")
+                assert pg.evaluate(CELL_CONTRAST, cell) == [], (theme, width, state, el.text_content())
+
+            buttons = pg.locator("#plan button")
+            assert buttons.count() == 3 + 5  # the adds of Thu (2) and Sun, and the day headers of Wed to Sun
+            for i in range(buttons.count()):
+                el = buttons.nth(i)
+                el.scroll_into_view_if_needed()
+                pg.mouse.move(0, 0)
+                check("default", el)
+                el.hover()
+                check("hover", el)
+                pg.mouse.move(0, 0)
+                el.focus()
+                pg.keyboard.press("Shift+Tab")
+                pg.keyboard.press("Tab")
+                assert pg.evaluate("getComputedStyle(document.activeElement).outlineStyle") == "solid"
+                check("focus", el)
+                el.click()
+                pg.mouse.move(0, 0)
+                el.evaluate("e => e.blur()")
+                assert el.get_attribute("aria-current") == "true"
+                check("selected", el)
+                el.scroll_into_view_if_needed()
+                el.hover()
+                check("selected and hover", el)
+                pg.locator("#fa-reset").click()
+            for past in (pg.locator("#plan .addc.was"), pg.locator("#plan thead th.past")):
+                assert past.count() == 2
+                for j in range(past.count()):
+                    check("past", past.nth(j))
+            assert pg.evaluate(BAND_CONTRAST) == [], (theme, width)
+            assert pg.locator("#plan td.band.past .mk").count() == 1  # the Mon add starts on Tue (past)
+
+
+def test_a_click_on_an_add_sets_the_day_the_position_and_the_team_filters():
+    with browser_page(width=390) as pg:
+        pg.set_content(page.render(GRID_RUN))
+        pg.locator("#plan button.addc").nth(2).click()  # Add 2 on Thu: +PF CHI, starts Thu and Sat (row 2)
+        pressed = pg.locator('button.chip[aria-pressed="true"]').all_inner_texts()
+        assert [t.split("\n")[0] for t in pressed] == ["Thu 1/7", "Sat 1/9", "PF", "CHI"]
+        assert pg.locator("#fa-from").is_visible()
+        assert pg.locator("#fa-from-text").inner_text() == "Filters from the team plan: Add 2, Thu: +PF CHI."
+        assert pg.locator("#fa-from a").get_attribute("href") == "#plan"
+        assert "(teams: CHI)" in pg.locator("#fa-count").inner_text()
+        assert pg.evaluate("document.activeElement.id") == "fa-count"
+        # A day header sets only the day.
+        pg.get_by_role("button", name="Show free agents who play Sat 1/9").click()
+        pressed = pg.locator('button.chip[aria-pressed="true"]').all_inner_texts()
+        assert [t.split("\n")[0] for t in pressed] == ["Sat 1/9"]
+        # Util clears the position filter.
+        pg.locator("#plan button.addc").nth(1).click()  # Add 1 on Sun: +Util from 8 teams
+        assert pg.locator('#pos-chips button[aria-pressed="true"]').count() == 0
+        assert "(teams: ATL, BKN, BOS, GS, IND, LAC, LAL, ORL)" in pg.locator("#fa-count").inner_text()
+        # Reset filters clears the team filter, the line and the selected plan cell.
+        pg.locator("#fa-reset").click()
+        assert pg.locator('button.chip[aria-pressed="true"]').count() == 0
+        assert not pg.locator("#fa-from").is_visible()
+        assert pg.locator('#plan [aria-current="true"]').count() == 0
+
+
+def test_the_team_filter_has_a_chip_for_each_team_of_the_free_agents():
+    with browser_page() as pg:
+        pg.set_content(render())
+        assert pg.locator("#team-chips button").all_inner_texts() == ["CHI", "PHI"]
+        pg.get_by_role("button", name="CHI", exact=True).click()
+        assert pg.locator("#fa-table tbody tr").count() == 1
+        assert pg.locator("#fa-count").inner_text().endswith("(teams: CHI)")
+
+
+def test_the_page_has_the_team_plan_and_no_plans_for_one_roster_spot_and_no_contingency_section():
+    html = render()
+    shown = text(html)
+    assert '<section id="plan"><h2>Team plan</h2>' in html
+    assert "Best plans for one roster spot" not in shown and "Contingency" not in shown
+    assert 'class="plans"' not in html

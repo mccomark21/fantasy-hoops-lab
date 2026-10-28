@@ -613,7 +613,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", 
 const fmt = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2);
 const B2B = '<sup class="b2b" title="second game of a back-to-back">2</sup>';
 const state = {days: new Set(), pos: new Set(), teams: new Set(), fit: true, sort: "value"};
-// The team filter (#140): a chip for each team of the free agents that the run read.
+// The team filter (issue 140): a chip for each team of the free agents that the run read.
 const TEAMS = [...new Set(DATA.players.map(p => p.team))].sort();
 const hits = p => state.fit ? p.fits : p.plays;
 const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
@@ -706,7 +706,8 @@ $("fa-clear-days").onclick = () => {
   if (first) first.focus();
 };
 // The plan button that set the filters shows as selected (aria-current) until the next filter change from the plan.
-const current = b => document.querySelectorAll("#plan button").forEach(x =>
+const PLAN = $("plan");
+const current = b => PLAN && PLAN.querySelectorAll("button").forEach(x =>
   x.setAttribute("aria-current", x === b ? "true" : "false"));
 // Reset filters restores the defaults: no days, no positions, no teams, only games that fill an open slot, sort by Val.
 $("fa-reset").onclick = () => {
@@ -714,10 +715,10 @@ $("fa-reset").onclick = () => {
   $("fit-only").checked = true; $("fa-from").hidden = true; current(null);
   render();
 };
-// The team plan (#140): an add cell or a day header sets the filters of the table from its data attributes.
+// The team plan (issue 140): an add cell or a day header sets the filters of the table from its data attributes.
 // data-days: the indexes of the days of the table. data-pos: the slots, empty for Util (any position). data-teams.
 const list = s => (s || "").split(",").filter(Boolean);
-document.querySelectorAll("#plan button[data-days]").forEach(b => b.addEventListener("click", () => {
+if (PLAN) PLAN.querySelectorAll("button[data-days]").forEach(b => b.addEventListener("click", () => {
   state.days = new Set(list(b.dataset.days).map(Number));
   state.pos = new Set(list(b.dataset.pos));
   state.teams = new Set(list(b.dataset.teams));
