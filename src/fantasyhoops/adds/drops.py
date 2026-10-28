@@ -85,8 +85,12 @@ def kept_roster(roster, spots):
     return [p for p in roster if p not in holders]
 
 
-def value_warnings(plan, roster, spots, cfg, values):
-    """A warning for each streamer (a window option) with a higher value than your lowest core player.
+def value_warnings(options, adds, roster, spots, cfg, values):
+    """A warning for each streamer with a higher value than your lowest core player.
+
+    A streamer is a free agent of options (planner.Option) who fits an add of the team plan: he plays for one of its
+    teams and has one of its slots ("Util": any position). adds: the TeamAdds of team_plan.TeamPlan (#140). The
+    warnings are in order of value, best first.
 
     If no core player is on the roster, the comparison uses your lowest kept player: the lowest player who is not
     on IL and not in a stream spot. Players who are not in the projections file are not in the comparison.
@@ -100,13 +104,18 @@ def value_warnings(plan, roster, spots, cfg, values):
         return []
     lowest, player = min(rated, key=lambda r: r[0])
     out, seen = [], set()
-    for w in plan.windows:
-        for o in w.options if w.add_day is not None else ():
-            if o.value is not None and o.value > lowest and o.player not in seen:
-                seen.add(o.player)
-                out.append(
-                    f"Warning: {o.player.name} ({o.player.team}) has a value of {o.value:+.2f}. "
-                    f"Your lowest {kind}, {player.name}, has a season value of {lowest:+.2f}. "
-                    f"You can make {o.player.name} core."
-                )
+    fits = [o for o in options if o.value is not None and not o.player.out and any(_fits(o.player, a) for a in adds)]
+    for o in sorted(fits, key=lambda o: -o.value):
+        if o.value > lowest and o.player not in seen:
+            seen.add(o.player)
+            out.append(
+                f"Warning: {o.player.name} ({o.player.team}) has a value of {o.value:+.2f}. "
+                f"Your lowest {kind}, {player.name}, has a season value of {lowest:+.2f}. "
+                f"You can make {o.player.name} core."
+            )
     return out
+
+
+def _fits(player, add):
+    """True if player plays for a team of add and has one of its slots. "Util" takes all positions."""
+    return player.team in add.teams and ("Util" in add.slots or bool(set(player.positions) & set(add.slots)))

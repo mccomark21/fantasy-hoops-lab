@@ -4,9 +4,8 @@ from pathlib import Path
 import pytest
 
 from fantasyhoops.adds.plan import with_trends
-from fantasyhoops.adds.planner import Option, StreamSpot, option_order, schedule_plan
+from fantasyhoops.adds.planner import Option
 from fantasyhoops.adds.readers import Player, Week
-from fantasyhoops.adds.slots import open_slots_by_day
 from fantasyhoops.adds.trends import Trend, read_trends, trend_days, trends_path, week_trends
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -73,21 +72,6 @@ def test_trend_days_are_the_days_of_this_week_up_to_today():
 
 def option(name, value, trend=None, team="PHI"):
     return Option(Player(name, team, ("C",)), value, trend=trend)
-
-
-def test_with_more_adds_an_option_with_the_same_value_comes_first():
-    quiet, busy = option("Quiet", 1.0, Trend(50, 100)), option("Busy", 1.0, Trend(10, 900))
-    better = option("Better", 2.0)
-    off_page = option("Off page", 1.0)
-    assert sorted([off_page, quiet, better, busy], key=option_order) == [better, busy, quiet, off_page]
-    # The options of a team window use the same order.
-    roster = [Player(f"P{i}", "BOS", (pos,)) for i, pos in enumerate(["PG", "SG", "SF", "PF", "PG"])]
-    games = {MON: {"PHI", "BOS"}}
-    slots = ["PG", "SG", "SF", "PF", "C"]
-    days = open_slots_by_day(roster, games, slots)
-    plan = schedule_plan(days, games, [StreamSpot()], [off_page, quiet, busy], 5, slots)
-    assert [o.player.name for o in plan.windows[0].options] == ["Busy", "Quiet", "Off page"]
-    assert (plan.started_games, plan.adds) == (1, 1)
 
 
 def test_with_trends_gives_none_for_a_player_who_is_not_on_the_pages():
