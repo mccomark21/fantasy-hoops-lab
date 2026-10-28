@@ -404,6 +404,8 @@ Decision (2026-10-28, #120): each run that publishes also writes the home page o
 - Each playoff day, the best lineup of the position slots and Util takes the players in rank order (`best_lineup()` in `core/lineup.py`). The IL players are in the lineup pool, because they will likely be back by the playoffs. A player with `rests_b2b` = 1 gets no game on the second night of a back-to-back.
 - The vs ideal row uses `ideal_games()` in `core/lineup.py`. The percent bands are `BANDS` in `core/lineup.py`: 90% or more, 70% to 89%, less than 70%. The draft board gets the same rules from `core/lineup.py` (#133).
 - A week cell with `[flags] avoid_week_games` games or fewer (2) gets a red box on the games numeral.
+- The header shows the team name, then the season record (W-L-T), then the "This week" and "Playoffs" items, on one line (#142). Below 900px, the record and the items go below the name: the record at the left, and the two items stacked at its right.
+- The record comes from the team overview of your team page (`read_record()` in `adds/readers.py`). The run already opens that page, so the record needs no new Yahoo page. If the page shows no record, the header has no record and the run continues.
 
 The run writes the page before the plan page, so that the Run time table has the home page step. If the home page fails, the run prints the error and continues. The publish then puts the list of the tools at `/`.
 
