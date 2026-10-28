@@ -158,4 +158,6 @@ For (c), the sample uses the thresholds of the draft board (`src/fantasyhoops/dr
 
 The number of bars is the sign that does not depend on color. Screen readers get the band as text, for example "(70% to 89%)". The key has a new item for the three bands. Contrast on the page background: blue 8.1:1 light and 8.3:1 dark, red 5.9:1 light and 6.3:1 dark, white on the red block 5.9:1. All the current percents (72% to 88%) are in the middle band, so all show red with 2 bars. The screenshots `desktop.png`, `desktop-dark.png`, `mobile.png`, `mobile-open.png` and `mobile-dark.png` were taken again.
 
+2026-10-28, later: the owner decided that the 70% to 89% band is plain ink (`#14171c` light, `#eef2f8` dark), with no color. It keeps its 2-bar meter. The 90%+ band (royal blue) and the band below 70% (white on a red block) do not change. The current percents are all in this band, so the footer now shows them in plain ink. The screenshots were taken again.
+
 Next step by the brief: with the sample approved, an issue for the home-page generator can be filed. This work did not file one.
