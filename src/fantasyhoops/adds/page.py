@@ -386,7 +386,7 @@ def free_agents_section(run):
     The role line of each player uses run.roles (adds/roles.py) and [adds] minutes_rise of run.cfg.
     [adds.flags] of run.cfg gives the legend of the starter flag and the closer flag.
     run.next_days and run.next_games: the first days of next week, for the next-week marks (see free_agent_data()).
-    run.recent_skip: the line that says that the run skipped the recent view (plan.recent_skip_line(), #90). With a
+    run.recent_skip: the line that says that the run skipped the recent view (lists.recent_skip_line(), #90). With a
     line, SKIP_NOTE shows above the table, and the full line shows in the Run time section (#118). None: no note.
     The key of the marks shows above the table. The long legends are in a <details> below the table (#118).
     The script shows a message with a "Clear days" button when no free agent matches the filters.
@@ -494,9 +494,9 @@ def timings_section(timings, market=None, cache=None, recent_skip=None):
     timings: the timing.StepTimes of the run. A sub-step row follows the row of its step and shows only the
     sub-step name, indented. The page write has no row, because the run writes the page before that step ends.
     timings.csv has its row.
-    market: the line of the market read (plan.market_line(), #92). cache: the line of the pages from the same-day
+    market: the line of the market read (lists.market_line(), #92). cache: the line of the pages from the same-day
     cache (cache.PageCache.line(), #91). recent_skip: the line of the skip of the recent view
-    (plan.recent_skip_line(), #90). Each line is None when it does not apply. Nothing with no timings and no lines.
+    (lists.recent_skip_line(), #90). Each line is None when it does not apply. Nothing with no timings and no lines.
     """
 
     def count(n):
