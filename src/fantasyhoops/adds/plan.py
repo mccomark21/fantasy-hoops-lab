@@ -15,32 +15,31 @@ One planning run:
    projected view always come from Yahoo. --no-cache: each page comes from Yahoo and replaces the cached page.
    recent_weight_limit() gives the largest possible blend weight w from data/schedule.csv. While it is below
    [adds] recent_skip_weight, the run skips the recent view (#90). The values then use the projection only, and the
-   page and the terminal say so (recent_skip_line()).
+   page says so (recent_skip_line()).
 5. read_week_trends(): read Transaction Trends for each day of this week up to today. The page of a day before
    today comes from the cache if a run read it before: yesterday's page until the end of today, an older page for
    good. The page of today comes from Yahoo (#91).
    read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
    positions (adds/role_up.py). The mark changes no value.
-6. schedule_plan(): choose the team windows for the stream spots. matchup_plan(): the same search with the
-   aggressive score and the matchup values (matchup_weights()). spot_plans(): the best plans for one roster spot,
-   the rows of the plan page.
+6. schedule_plan(): choose the team windows for the stream spots. The plan gives the warnings (value_warnings())
+   and the main plan of the contingency plans. It gets a bonus for the games next week of the last players in the
+   stream spots (next_week_games()). spot_plans(): the best plans for one roster spot, the rows of the plan page.
    Before the plans, with_rests() marks the rest games of the players on the rest list (adds/rest.py).
-   Both plans get a bonus for the games next week of the last players in the stream spots (next_week_games()).
+   matchup_weights() gives the matchup values of the free agents, the Match column of the page.
 7. contingency_plans(): a contingency plan for each game day of each flagged player.
 8. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
    The run does not update the log. Without data/rotation_log.csv, the page has no role lines.
 9. next_week_window(): find the open slots of your kept roster on the first days of next week
    ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
-10. One PlanningRun holds the results of the steps above (#128). print_report() prints the terminal report from it:
-    the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings, the
-    aggressive plan, the comparison of the two plans, the plans for one roster spot and the contingency plans.
+10. One PlanningRun holds the results of the steps above (#128).
 11. page.render() makes the plan page from the same PlanningRun. The run writes the page in output/adds/ and
     publishes the site at /adds/. --no-publish: no publish.
     Before the plan page, build_home() writes the home page in output/home/ (adds/home.py, #120). The publish puts
     it at the root of the site. --no-publish also skips the home page.
-    The page and the terminal show how many pages came from the cache (PageCache.line()).
-12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
-    The report prints after the role read, so its lines come after the step lines of steps 7 and 8.
+    The page shows how many pages came from the cache (PageCache.line()).
+    The terminal prints a short summary (#130): the page path, the best plan for one roster spot, the URL or the
+    --no-publish line (publish_page()), then the warnings (print_summary()). The page shows all other results.
+12. Time each step (adds/timing.py, #85). The terminal shows no step line.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
     The Yahoo reads step also times its sub-steps and counts their Yahoo pages (#89): browser start, league and
     matchup pages, projected pass, recent pass, market pages, waiver list and trends.

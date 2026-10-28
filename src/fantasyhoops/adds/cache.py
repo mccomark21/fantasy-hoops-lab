@@ -119,7 +119,7 @@ class PageCache:
                 pass
 
     def line(self):
-        """The line of the page and the terminal that says which pages came from the cache. None with no page."""
+        """The line of the Run time section of the page that says which pages came from the cache. None with no page."""
         parts = []
         if self.hits[RECENT]:
             parts.append(
