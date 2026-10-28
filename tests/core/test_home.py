@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 from fantasyhoops.core import home, tokens
-from fantasyhoops.core import publish as site
 from fantasyhoops.core.home import NO_GAME, REST, SITS, START, Day, RosterPlayer, lineup_fit, playoff_days, render
 
 SLOTS = ["PG", "C"]  # 2 position slots + Util = 3 starters a day
@@ -140,12 +139,12 @@ def test_the_page_uses_the_shared_tokens_the_menu_and_no_colors_of_its_own():
     assert ".flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red);" in style
 
 
-def test_the_page_is_the_html_before_the_page_shell(monkeypatch):
+def test_the_page_is_the_html_before_the_page_shell():
     """#132: fixtures/home_before_132.html is page() before publish.shell(), with 14 teams in config.toml.
 
-    The render reads no config.toml: the team count of the menu comes from CFG.
+    The render reads no config.toml: the team count of the menu comes from CFG, and core/publish.py has no
+    load_config().
     """
-    monkeypatch.setattr(site, "load_config", lambda: pytest.fail("The render read config.toml."))
     assert page() == (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
 
 

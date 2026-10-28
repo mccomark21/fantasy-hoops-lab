@@ -10,14 +10,13 @@ It has a link to each page of the site and the Auto, Light and Dark theme switch
 The page shell (#132): shell() puts site_head() in the <head> of a page, site_menu() first in its <body> and
 MENU_SCRIPT last in its <body>. The plan page, the home page and the tool list (home_page()) use shell().
 write_page() writes a page and the font next to it. The plan page and the home page use it.
-site_menu() gets the team count from the config of its caller. It does not read config.toml.
+site_menu() and publish() get the config from the caller. The module does not read config.toml.
 """
 
 import html
 import subprocess
 
 from fantasyhoops.core import tokens
-from fantasyhoops.core.common import load_config
 
 BRANCH = "gh-pages"
 URL = "https://mccomark21.github.io/fantasy-hoops-lab/"
@@ -119,13 +118,13 @@ def home_page(tools, cfg):
     return shell(HOME, "home", cfg).replace("__TOOLS__", items)
 
 
-def publish(repo, tool, index, others=(), home=None, cfg=None):
+def publish(repo, tool, index, others=(), home=None, *, cfg):
     """Push the pages of one tool to gh-pages in origin, in the folder /<tool>/. The working tree and the current branch do not change.
 
     index: the main page of the tool. It goes to /<tool>/index.html.
     others: more pages of the tool. Each one goes to /<tool>/ with its own file name.
     home: the home page for the root of the site (core/home.py). None: a list of the tools (home_page()).
-    cfg: the config for the list of the tools. None: the publish reads config.toml (load_config()), only for that list.
+    cfg: the config. home_page() uses [league] teams of it for the list of the tools.
     The folders of the other tools in TOOLS stay. The home page links to each tool folder on the site.
     Each page carries its own site menu (site_menu()). The publish does not change the pages.
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
@@ -143,7 +142,7 @@ def publish(repo, tool, index, others=(), home=None, cfg=None):
         name: ("100644", "blob", write_blob(repo, data))
         for name, data in {
             ".nojekyll": b"",
-            "index.html": home.read_bytes() if home else home_page(folders, cfg or load_config()).encode(),
+            "index.html": home.read_bytes() if home else home_page(folders, cfg).encode(),
         }.items()
     }
     root["fonts"] = fonts

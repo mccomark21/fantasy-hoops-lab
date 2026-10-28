@@ -827,14 +827,13 @@ def test_the_reset_button_restores_the_default_filters_and_sort():
         assert pg.evaluate("document.activeElement.id") == "fa-reset"
 
 
-def test_the_page_of_a_fixed_run_is_the_page_of_render_before_the_planning_run(monkeypatch):
+def test_the_page_of_a_fixed_run_is_the_page_of_render_before_the_planning_run():
     """#128: fixtures/page_before_128.html is the HTML of render() before the PlanningRun, from the same values in
     the old parameters. The page has each section.
 
-    #132: the page is also the same as before publish.shell(). The render reads no config.toml: the team count of
-    the menu comes from run.cfg (14 teams, as in config.toml when the fixture was made).
+    #132: the page is also the same as before publish.shell(). The team count of the menu comes from run.cfg
+    (14 teams, as in config.toml when the fixture was made).
     """
-    monkeypatch.setattr(site, "load_config", lambda: pytest.fail("The render read config.toml."))
     nmon = WEEK[6] + timedelta(days=1)
     claim_window = TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM, (CLAIM,))
     claim_row = SpotPlan(SPOTS[0], Plan(windows=(claim_window,), started_games=2, adds=1), 2)

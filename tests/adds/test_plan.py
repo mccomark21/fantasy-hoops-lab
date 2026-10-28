@@ -516,7 +516,7 @@ def run_command(
     monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
     # A home page goes last in the record of the publish.
     monkeypatch.setattr(
-        command.site, "publish", lambda *a, home=None: published.append(a if home is None else (*a, home))
+        command.site, "publish", lambda *a, home=None, cfg: published.append(a if home is None else (*a, home))
     )
     command.main(today=today or WEEK[0], publish=publish, timed=timed, cache=cache)
     return yahoo
