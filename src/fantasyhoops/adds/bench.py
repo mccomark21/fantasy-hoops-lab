@@ -192,7 +192,7 @@ ROSTER = [
 # 864,733, above that range.
 POSITIONS = [("PG",), ("PG", "SG"), ("SG", "SF"), ("SF", "PF"), ("PF",), ("PF", "C"), ("C",)]
 TEAM_FREE_AGENTS = 19  # the free agents of each read team: 151 over 8 teams (docs/wiki/yahoo-reads-study.md)
-MARKET_FREE_AGENTS = 75  # 3 market pages of 25 players (plan.MARKET_PAGES)
+MARKET_FREE_AGENTS = 75  # 3 market pages of 25 players (lists.MARKET_PAGES)
 EMPTY_VALUE = -4.0  # the value of an empty slot for the aggressive score. Each free agent has a higher value.
 
 

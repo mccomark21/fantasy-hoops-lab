@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from fantasyhoops.adds import page, timing
+from fantasyhoops.adds import lists, page, timing
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.contingency import Contingency
 from fantasyhoops.adds.matchup import Matchup, matchup_weights, read_matchup
@@ -530,8 +530,8 @@ SKIP_LINE = (
 
 def test_the_page_shows_why_the_market_read_stopped():
     lines = [
-        command.market_line(command.MarketRead([], [], 2, "guard")),
-        command.market_line(command.MarketRead([], [], 3, "limit")),
+        lists.market_line(lists.MarketRead([], [], 2, "guard")),
+        lists.market_line(lists.MarketRead([], [], 3, "limit")),
     ]
     assert lines == [
         "Market: 2 of 3 pages. Page 2 had no new player above the replacement value (the free agent at "

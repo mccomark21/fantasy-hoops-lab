@@ -342,6 +342,8 @@ Decision (2026-10-26, #89): the Yahoo reads step also times its sub-steps and co
 | waiver list | `read_waiver_list()` in both views |
 | trends | `read_week_trends()`: Transaction Trends |
 
+Since #129, `read_lists()` in `adds/lists.py` reads the free-agent lists and times the four sub-steps from "projected pass" to "waiver list". The functions of these four rows are in the same module. The names, the order and the pages of the rows did not change.
+
 Since #92, the run reads the team lists in both views before the market pages, because the guard of the market read needs their blended values. The market pages and the waiver list rows each hold the pages of both views. The timers do not change the order of the reads. The sub-steps do not time the work between the reads or the close of Edge. One exception since #92: the market pages row also times the guard's values of the new players of each market page. The run reads the category scale before the Yahoo reads step and computes the values of the team-list free agents before the market pages sub-step. So the seconds of the sub-steps add to less than the seconds of the Yahoo reads.
 
 A page is one page that `League` opens (`adds/session.py`): one page in Edge or one raw request (#108). A sign-in opens the same page again, but the page counts one time. A page from the same-day cache counts no page. The pages of the Yahoo reads are the sum of the pages of its sub-steps. A sub-step that does not run has no row. For example, with no adds left, the run reads no free agent, so only the browser start and the league and matchup pages have rows.
