@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roster · Fantasy Hoops Lab</title>
+<script>try { const t = localStorage.getItem("lab-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="preload" href="fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face {
+  font-family: Archivo; font-style: normal; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url(fonts/archivo-latin.woff2) format("woff2");
+}
+:root {
+  --lab-stock: #ffffff; --lab-ink: #14171c; --lab-mute: #5b6270; --lab-rule: #e7e9ee; --lab-blue: #1d4f91; --lab-blue-deep: #163f75; --lab-on-blue: #ffffff; --lab-red: #c8102e; --lab-on-red: #ffffff; --lab-green: #17743a; --mark: #1d4f91; --zebra: #eff3f8; --qcol: #e0e8f4; --qcol-z: #dae3f1; --vrule: #d2d9e4; --lamp-off: #6f7889; --lab-scrim: rgb(8 16 32 / .5); color-scheme: light;
+  --lab-face: Archivo, "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+::selection { background: var(--lab-blue); color: var(--lab-on-blue); }
+</style>
+<style>
+/* Card Back: the site menu. A royal-blue side panel on a desktop, a top bar with a drawer on a phone. */
+:root { --lab-menu-w: 216px; --z-menu: 30; --z-scrim: 20; --z-bar: 10; }
+body.lab { margin: 0; background: var(--lab-stock); color: var(--lab-ink); }
+body.lab-locked { overflow: hidden; }
+.lab-menu {
+  position: fixed; inset: 0 auto 0 0; width: var(--lab-menu-w); z-index: var(--z-menu);
+  display: flex; flex-direction: column; background: var(--lab-blue); color: var(--lab-on-blue);
+  font: 600 14px/1.3 var(--lab-face); padding: 22px 0 18px; overflow-y: auto;
+}
+.lab-site {
+  display: block; color: inherit; text-decoration: none; padding: 0 20px 16px; margin: 0 0 10px;
+  font-weight: 900; font-stretch: 68%; text-transform: uppercase; font-size: 24px; line-height: .95;
+  border-bottom: 3px solid var(--lab-on-blue);
+}
+.lab-site small { display: block; margin-top: 7px; font-size: 12px; font-weight: 600; font-stretch: 100%;
+  text-transform: none; line-height: 1.2; }
+.lab-menu ul { list-style: none; margin: 0; padding: 0; }
+.lab-menu li a {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 20px;
+  color: inherit; text-decoration: none; font-size: 15px;
+}
+.lab-menu li a::before { content: ""; width: 9px; height: 9px; flex: none; }
+.lab-menu li a:hover { background: var(--lab-blue-deep); }
+.lab-menu li a[aria-current] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 800; }
+.lab-menu li a[aria-current]::before { background: var(--lab-red); }
+.lab-menu a:focus-visible, .lab-open:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: -4px; }
+.lab-menu li a[aria-current]:focus-visible { outline-color: var(--lab-ink); }
+.lab-bar, .lab-close { display: none; }
+.lab-main { display: block; margin-left: var(--lab-menu-w); min-width: 0; }
+@media (max-width: 899px) {
+  .lab-bar {
+    position: sticky; top: 0; z-index: var(--z-bar); display: flex; align-items: center;
+    justify-content: space-between; min-height: 48px;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    background: var(--lab-blue); color: var(--lab-on-blue); font: 900 18px/1 var(--lab-face);
+  }
+  .lab-name { color: inherit; text-decoration: none; font-stretch: 68%; text-transform: uppercase; font-size: 20px; }
+  .lab-name:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-open {
+    min-height: 40px; padding: 0 14px; border: 2px solid var(--lab-on-blue); border-radius: 0; background: transparent;
+    color: inherit; font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-menu { transform: translateX(-100%); visibility: hidden;
+    transition: transform .28s cubic-bezier(.16, 1, .3, 1), visibility 0s .28s; }
+  .lab-menu.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.16, 1, .3, 1); }
+  .lab-main { margin-left: 0; }
+  .lab-close {
+    display: block; align-self: flex-end; margin: -10px 12px 10px 0; min-height: 40px; padding: 0 14px;
+    border: 2px solid var(--lab-on-blue); background: transparent; color: var(--lab-on-blue);
+    font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-close:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-scrim { position: fixed; inset: 0; z-index: var(--z-scrim); background: var(--lab-scrim); }
+}
+.lab-scrim[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .lab-menu, .lab-menu.open { transition: none; } }
+.lab-theme { margin: auto 0 0; padding: 16px 20px 0; font-size: 12px; font-weight: 600; }
+.lab-theme > span { display: block; margin-bottom: 6px; }
+.lab-seg { display: flex; border: 2px solid var(--lab-on-blue); }
+.lab-seg button {
+  flex: 1; min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--lab-on-blue);
+  font: 700 13px/1 var(--lab-face); cursor: pointer;
+}
+.lab-seg button + button { border-left: 2px solid var(--lab-on-blue); }
+.lab-seg button:hover { background: var(--lab-blue-deep); }
+.lab-seg button[aria-pressed="true"] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 900; }
+.lab-seg button:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; position: relative;
+  z-index: 1; }
+</style>
+<style>
+/* Card Back roster page (#120): zebra rows, full-height quality-day columns, section rules, IL in the starts. */
+.roster {
+  color: var(--lab-ink); font: 400 13px/1.25 var(--lab-face); font-variant-numeric: tabular-nums;
+  padding-block: 16px 32px; padding-left: max(28px, env(safe-area-inset-left));
+  padding-right: max(28px, env(safe-area-inset-right));
+}
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 28px; padding-bottom: 12px;
+  border-bottom: 3px solid var(--mark); }
+.head h1 { margin: 0; color: var(--mark); font-weight: 900; font-stretch: 66%; font-size: clamp(32px, 4vw, 44px);
+  line-height: .9; text-transform: uppercase; text-wrap: balance; }
+.head h1 sup { font-size: .35em; font-stretch: 100%; vertical-align: top; }
+/* The record and the week items follow the name on the same line (#142). They go below the name on a narrow page. */
+.meta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 0; margin: 0; font-size: 13px; }
+.meta div { padding: 0 16px; border-left: 1px solid var(--lab-rule); }
+.meta dt { color: var(--lab-mute); font-size: 12px; margin-bottom: 3px; }
+.meta dd { margin: 0; }
+.meta strong { font-weight: 800; font-size: 15px; }
+.meta .rec strong { font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }
+.red { color: var(--lab-red); }
+.flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red); background: var(--lab-red);
+  padding: 1px 4px; vertical-align: 3px; margin-left: 4px; }
+
+/* Desktop table */
+.scroll { position: relative; overflow-x: auto; margin-top: 10px; scrollbar-color: var(--mark) var(--zebra); }
+.scroll:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 1130px; }
+col.c-band { width: 44px; } col.c-rk { width: 38px; } col.c-pl { width: 196px; } col.c-n { width: 34px; }
+col.c-w { width: 46px; } col.c-d { width: 18px; }
+thead th, thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right; padding: 0 6px 6px;
+  vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+thead .l { text-align: left; }
+tr.top th, tr.top td { border-bottom: 0; padding-bottom: 4px; font-size: 12px; }
+tr.top th.fine { background: var(--lab-blue); color: var(--lab-on-blue); text-align: center; padding: 5px 0; }
+tr.top th.gdh { padding-left: 8px; white-space: nowrap; }
+tbody td, tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px; text-align: right;
+  vertical-align: middle; font-weight: 400; }
+tbody tr:nth-child(even) > * { background: var(--zebra); }
+td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink); font-weight: 900;
+  font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
+th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
+th.pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
+th.pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
+td.n { font-size: 14px; }
+td.n:nth-child(6) { font-weight: 800; }
+td.n.none { color: var(--lab-mute); }
+td.w { font-size: 14px; font-weight: 700; line-height: 1.1; }
+td.w s { text-decoration: none; color: var(--lab-mute); font-weight: 400; }
+td.w .qg { display: block; margin-top: 1px; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
+td.w.lo { color: var(--lab-red); }
+td.w.t { color: var(--mark); font-weight: 900; }
+td.w.t.lo { color: var(--lab-red); }
+
+/* Section rules: player | season | playoff weeks | day grid, and between the weeks */
+.s1, .w1, .w, .wk1 { border-left: 1px solid var(--vrule); }
+tr.top .sec { border-left: 1px solid var(--vrule); }
+tr.top th.fine { border-left-color: var(--lab-blue); }
+
+/* Day grid: one column for each day. A quality day is a shaded column, full height, with a solid header block. */
+th.d, td.d { padding: 0 !important; text-align: center !important; }
+.d.q { background: var(--qcol) !important; }
+tbody tr:nth-child(even) > .d.q { background: var(--qcol-z) !important; }
+th.d { font-size: 11px; font-weight: 700; color: var(--lab-mute); line-height: 1.15; padding: 2px 0 5px !important; }
+th.d abbr { text-decoration: none; display: block; }
+th.d u { display: block; text-decoration: none; color: var(--lab-ink); }
+thead th.d.q { background: var(--mark) !important; color: var(--lab-stock); }
+thead th.d.q u { color: var(--lab-stock); }
+.qk { display: inline-block; width: 10px; height: 10px; background: var(--mark); vertical-align: -1px; margin: 0 4px 0 2px; }
+
+.d i, .m-grid i, .legend i.k { display: inline-block; box-sizing: border-box; width: 13px; height: 13px;
+  position: relative; vertical-align: middle; }
+i.s { background: var(--mark); }
+i.b, i.r { border: 1.5px solid var(--mark); }
+i.r::after { content: ""; position: absolute; left: -2px; top: 5px; width: 14px; height: 1.5px; background: var(--mark);
+  transform: rotate(-45deg); }
+i.n::after { content: ""; position: absolute; left: 3px; top: 5.5px; width: 6px; height: 1.5px;
+  background: var(--lamp-off); }
+
+tfoot tr.tot th, tfoot tr.tot td { height: 34px; border-bottom: 2px solid var(--mark); border-top: 2px solid var(--mark);
+  font-size: 12px; font-weight: 800; color: var(--mark); padding: 0 6px; text-align: right; }
+tfoot tr.use th, tfoot tr.use td { height: 34px; padding: 0 6px; text-align: right; font-size: 12px; color: var(--mark);
+  border-bottom: 1px solid var(--lab-rule); }
+tfoot tr.use:last-child > * { border-bottom: 2px solid var(--mark); }
+tfoot tr.use th.lab2 { text-align: left; padding-left: 10px; font-weight: 800; }
+tfoot tr.use td.w b { font-weight: 900; font-size: 13px; } tfoot tr.use td.w .qg { font-weight: 600; }
+tr.tot .lab { text-align: left; padding-left: 10px; text-transform: uppercase; font-size: 13px; }
+tr.tot td.w { background: var(--lab-blue); color: var(--lab-on-blue); font-size: 15px;
+  border-left-color: color-mix(in srgb, var(--lab-on-blue) 35%, transparent); }
+tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; padding: 5px 6px 5px 12px; line-height: 1.3;
+  font-size: 11px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 12px; color: var(--lab-mute);
+  padding-top: 12px; }
+.legend > b { color: var(--mark); font-weight: 800; }
+.legend i.k { margin-right: 5px; }
+.legend .qsw { display: inline-block; width: 13px; height: 20px; background: var(--qcol); border-top: 5px solid var(--mark);
+  box-sizing: border-box; vertical-align: middle; margin-right: 5px; }
+.legend .flag { margin: 0 5px 0 0; vertical-align: 0; }
+.lo-key { color: var(--lab-red); font-weight: 800; margin-right: 5px; }
+/* A week with 2 or fewer games: a red box on the games numeral, so the sign is a shape and not only a color. */
+.few { display: inline-block; min-width: 1.1em; padding: 0 2px; margin-left: 1px; border: 1.5px solid var(--lab-red);
+  color: var(--lab-red); font-weight: 800; text-align: center; line-height: 1.15; }
+.few-key { color: var(--lab-mute); margin-right: 5px; }
+/* The footer percents: the bands of pctClass in draft/board.py, with a bar meter (3 bars = 90%+, 2 = 70-89%, 1 = less) */
+.pc { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.pc b { font-weight: 900; }
+.mtr { display: inline-flex; align-items: flex-end; gap: 1px; height: 10px; }
+.mtr i { display: block; width: 3px; background: var(--vrule); }
+.mtr i:nth-child(1) { height: 4px; } .mtr i:nth-child(2) { height: 7px; } .mtr i:nth-child(3) { height: 10px; }
+.p3 { color: var(--mark); } .p2 { color: var(--lab-ink); }
+.p3 .mtr i, .p2 .mtr i:nth-child(-n+2) { background: currentColor; }
+.p1 { background: var(--lab-red); color: var(--lab-on-red); padding: 1px 3px; }
+.p1 .mtr i:nth-child(1) { background: var(--lab-on-red); }
+.p1 .mtr i:nth-child(n+2) { background: color-mix(in srgb, var(--lab-on-red) 35%, transparent); }
+.pc-key { display: inline-flex; gap: 8px; margin-right: 5px; }
+.q-key { color: var(--lab-mute); font-weight: 600; margin-right: 5px; }
+.foot { max-width: 72ch; margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--lab-mute); text-wrap: pretty; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) td.band, :root:not([data-theme="light"]) .m-p .band {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+}
+:root[data-theme="dark"] td.band, :root[data-theme="dark"] .m-p .band {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+
+/* Phone: one row for each player that opens and closes */
+.mob { display: none; }
+@media (max-width: 899px) {
+  .roster { padding-block: 16px 24px; padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right)); }
+  .meta div:first-child { padding-left: 0; border-left: 0; }
+  /* With a record, the record takes the left column and the two week items stack at its right, so no item wraps
+     alone under the record at 390px. */
+  .meta.with-rec { display: grid; grid-template-columns: auto 1fr; row-gap: 8px; }
+  .meta.with-rec .rec { grid-row: span 2; align-self: center; padding-right: 16px; }
+  .scroll { display: none; }
+  .mob { display: block; margin: 10px -16px 0; }
+  .m-head, .m-p summary { display: grid; grid-template-columns: 44px 34px 1fr 30px 46px 26px; align-items: center;
+    column-gap: 0; }
+  .m-head { font-size: 11px; font-weight: 800; color: var(--mark); padding: 0 0 5px; border-bottom: 2px solid var(--mark); }
+  .m-head span { padding: 0 4px; } .m-head span:nth-child(1) { padding-left: 16px; text-align: left; }
+  .m-head span:nth-child(2), .m-head span:nth-child(4), .m-head span:nth-child(5) { text-align: right; }
+  .m-head span:nth-child(3) { padding-left: 10px; }
+  .m-p { border-bottom: 1px solid var(--lab-rule); }
+  .m-p:nth-of-type(even) { background: var(--zebra); }
+  .m-p summary { list-style: none; cursor: pointer; min-height: 52px; }
+  .m-p summary::-webkit-details-marker { display: none; }
+  .m-p summary:focus-visible { outline: 2px solid var(--mark); outline-offset: -2px; }
+  .m-p .band { align-self: stretch; display: flex; align-items: center; justify-content: center; background: var(--team);
+    color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
+  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; text-align: right;
+    padding-right: 4px; }
+  .m-p .nm { padding: 6px 4px 6px 10px; line-height: 1; min-width: 0; }
+  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
+  .m-p .nm small { display: block; font-size: 12px; color: var(--lab-mute); margin-top: 3px; }
+  .m-p .gp, .m-p .tg { text-align: right; font-size: 15px; padding-right: 4px; }
+  .m-p .tg { font-weight: 800; color: var(--mark); border-left: 1px solid var(--vrule); align-self: stretch; display: flex;
+    align-items: center; justify-content: flex-end; }
+  .chev { justify-self: center; width: 8px; height: 8px; border-right: 2px solid var(--mark);
+    border-bottom: 2px solid var(--mark); transform: translateY(-2px) rotate(45deg);
+    transition: transform .2s cubic-bezier(.16, 1, .3, 1); }
+  .m-p[open] .chev { transform: translateY(2px) rotate(-135deg); }
+  .m-p[open] summary { border-bottom: 1px solid var(--lab-rule); }
+  .m-body { padding: 10px 16px 14px 16px; display: grid; gap: 12px; }
+  .m-body dl { margin: 0; display: grid; }
+  .m-body dt { font-size: 11px; font-weight: 800; color: var(--mark); }
+  .m-body dd { margin: 2px 0 0; font-size: 14px; }
+  .m-body dd.none { color: var(--lab-mute); }
+  .m-body dl > div { padding: 0 6px; text-align: right; }
+  .m-body dl > div + div { border-left: 1px solid var(--vrule); }
+  .m-stats { grid-template-columns: repeat(7, 1fr); }
+  .m-stats > div:first-child, .m-weeks > div:first-child { padding-left: 0; }
+  .m-weeks { grid-template-columns: repeat(4, 1fr); }
+  .m-weeks dd b { font-size: 16px; font-weight: 700; }
+  .m-weeks dd s { text-decoration: none; color: var(--lab-mute); }
+  .m-weeks dd small { display: block; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
+  .m-weeks .lo dd b { color: var(--lab-red); }
+  .m-weeks > div:last-child dd b { font-weight: 900; color: var(--mark); }
+  .m-weeks > div.lo:last-child dd b { color: var(--lab-red); }
+  .m-grid { display: grid; grid-template-columns: repeat(var(--days), 1fr); }
+  .m-grid > span { text-align: center; font-size: 10px; font-weight: 700; color: var(--lab-mute); line-height: 1.1;
+    padding: 2px 0; }
+  .m-grid > span:nth-child(-n+4) { padding-bottom: 3px; }
+  .m-grid > span:nth-child(n+5) { padding: 4px 0 5px; }
+  .m-grid u { display: block; text-decoration: none; color: var(--lab-ink); }
+  .m-grid > .q { background: var(--qcol); }
+  .m-p:nth-of-type(even) .m-grid > .q { background: var(--qcol-z); }
+  .m-p .m-grid > .q:nth-child(-n+4), .m-p:nth-of-type(even) .m-grid > .q:nth-child(-n+4) {
+    background: var(--mark); color: var(--lab-stock); }
+  .m-grid > .q:nth-child(-n+4) u { color: var(--lab-stock); }
+  .m-grid > .wk1 { border-left: 1px solid var(--vrule); }
+  .m-grid i { width: 12px; height: 12px; }
+  .m-tot { padding: 10px 16px 4px; border-top: 2px solid var(--mark); border-bottom: 2px solid var(--mark);
+    color: var(--mark); }
+  .m-tot b { text-transform: uppercase; font-weight: 800; font-size: 13px; }
+  .m-tot dl { display: grid; grid-template-columns: repeat(4, 1fr); margin: 6px 0; }
+  .m-tot dl > div { text-align: right; padding: 0 6px; } .m-tot dl > div + div { border-left: 1px solid var(--vrule); }
+  .m-tot dt { font-size: 11px; font-weight: 800; }
+  .m-tot dd { margin: 0; font-size: 18px; font-weight: 900; }
+  .m-tot p { margin: 0 0 6px; font-size: 12px; color: var(--lab-mute); font-weight: 600; }
+  .m-tot p.ul { margin: 0; padding-top: 6px; border-top: 1px solid var(--vrule); font-size: 11px; font-weight: 800;
+    color: var(--mark); }
+  .m-tot dl.u { margin-top: 2px; }
+  .m-tot dl.u dd b { font-size: 15px; }
+  .m-tot dl.u dd small { display: block; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
+  .legend { padding-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+</style>
+</head>
+<body class="lab">
+<header class="lab-bar"><a class="lab-name" href="./">Fantasy Hoops Lab</a>
+<button class="lab-open" type="button" aria-controls="lab-menu" aria-expanded="false">Menu</button></header>
+<nav class="lab-menu" id="lab-menu" aria-label="Site">
+<button class="lab-close" type="button">Close</button>
+<a class="lab-site" href="./">Fantasy<br>Hoops Lab<small>2026–27 · Yahoo 14-team</small></a>
+<ul>
+<li><a href="./" aria-current="page">Roster</a></li>
+<li><a href="adds/">Adds plan</a></li>
+</ul>
+<div class="lab-theme" role="group" aria-labelledby="lab-theme-l">
+<span id="lab-theme-l">Theme</span>
+<div class="lab-seg"><button type="button" data-set="system" aria-pressed="true">Auto</button><button type="button" data-set="light" aria-pressed="false">Light</button><button type="button" data-set="dark" aria-pressed="false">Dark</button></div>
+</div>
+</nav>
+<div class="lab-scrim" hidden></div>
+<main class="lab-main roster">
+<header class="head">
+<h1>TradeMark<sup>™</sup></h1>
+<dl class="meta">
+<div><dt>This week</dt><dd><strong>Week 2</strong> · <strong class="red">2</strong> of 5 adds used</dd></div>
+<div><dt>Playoffs</dt><dd><strong>Wk19–20</strong> · Mar 8–11</dd></div>
+</dl>
+</header>
+<div class="scroll" tabindex="0" role="region" aria-label="Roster table">
+<table class="desk">
+<caption class="vh">Roster in custom-rank order: season stats per game, playoff starts and games, and the playoff day grid. IL players count in the starts.</caption>
+<colgroup><col class="c-band"><col class="c-rk"><col class="c-pl"><col class="c-n" span="8"><col class="c-w" span="3"><col class="c-d" span="4"></colgroup>
+<thead>
+<tr class="top"><td colspan="3"></td><th colspan="8" scope="colgroup" class="l sec">2026–27 season · per game</th><th colspan="3" scope="colgroup" class="fine sec">Playoff starts / games</th><th colspan="4" scope="colgroup" class="l sec gdh">Playoff days · Mar 8–11 · <i class="qk" aria-hidden="true"></i>quality day</th></tr>
+<tr class="sub"><th scope="col" class="l">Team</th><th scope="col">Rk</th><th scope="col" class="l">Player</th><th scope="col" class="s1">GP</th><th scope="col">MIN</th><th scope="col">PTS</th><th scope="col">REB</th><th scope="col">AST</th><th scope="col">3PM</th><th scope="col">STL</th><th scope="col">BLK</th><th scope="col" class="w w1">Wk19</th><th scope="col" class="w">Wk20</th><th scope="col" class="w t">T</th><th scope="col" class="d wk1"><abbr title="Monday March 8">M</abbr><u>8</u></th><th scope="col" class="d"><abbr title="Tuesday March 9">T</abbr><u>9</u></th><th scope="col" class="d wk1"><abbr title="Wednesday March 10">W</abbr><u>10</u></th><th scope="col" class="d q"><abbr title="Thursday March 11, quality day">T</abbr><u>11</u></th></tr>
+</thead>
+<tbody>
+<tr><td class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">AAA</td><td class="rk">10</td><th class="pl" scope="row"><b>Guard One</b><small>AAA · PG · PG</small></th><td class="n s1">3</td><td class="n">30.0</td><td class="n">25.0</td><td class="n">5.3</td><td class="n">6.3</td><td class="n">1.7</td><td class="n">3.7</td><td class="n">1.7</td><td class="w w1">2<s aria-hidden="true">/2</s><span class="vh"> starts of 2 games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w">1<s aria-hidden="true">/<span class="few">1</span></s><span class="vh"> starts of 1 game, 2 or fewer games</span><small class="qg">1 q</small><span class="vh">, 1 on quality days</span></td><td class="w t">3<s aria-hidden="true">/3</s><span class="vh"> starts of 3 games</span><small class="qg">1 q</small><span class="vh">, 1 on quality days</span></td><td class="d wk1"><i class="s" role="img" aria-label="Mon Mar 8: starts" title="Mon Mar 8: starts"></i></td><td class="d"><i class="s" role="img" aria-label="Tue Mar 9: starts" title="Tue Mar 9: starts"></i></td><td class="d wk1"><i class="n" role="img" aria-label="Wed Mar 10: no game" title="Wed Mar 10: no game"></i></td><td class="d q"><i class="s" role="img" aria-label="Thu Mar 11, quality day: starts" title="Thu Mar 11, quality day: starts"></i></td></tr>
+<tr class="il"><td class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">CCC</td><td class="rk">20</td><th class="pl" scope="row"><b>Big Man</b> <em class="flag" title="On IL now. Counts in the playoff starts.">IL</em><small>CCC · C · IL</small></th><td class="n none s1">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="w w1">1<s aria-hidden="true">/<span class="few">1</span></s><span class="vh"> starts of 1 game, 2 or fewer games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w">1<s aria-hidden="true">/<span class="few">1</span></s><span class="vh"> starts of 1 game, 2 or fewer games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w t">2<s aria-hidden="true">/2</s><span class="vh"> starts of 2 games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="d wk1"><i class="s" role="img" aria-label="Mon Mar 8: starts" title="Mon Mar 8: starts"></i></td><td class="d"><i class="n" role="img" aria-label="Tue Mar 9: no game" title="Tue Mar 9: no game"></i></td><td class="d wk1"><i class="s" role="img" aria-label="Wed Mar 10: starts" title="Wed Mar 10: starts"></i></td><td class="d q"><i class="n" role="img" aria-label="Thu Mar 11, quality day: no game" title="Thu Mar 11, quality day: no game"></i></td></tr>
+<tr><td class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">AAA</td><td class="rk">30</td><th class="pl" scope="row"><b>Second Guard</b><small>AAA · PG/SG · BN</small></th><td class="n none s1">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="w w1">1<s aria-hidden="true">/<span class="few">1</span></s><span class="vh"> starts of 1 game, 2 or fewer games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w">1<s aria-hidden="true">/<span class="few">1</span></s><span class="vh"> starts of 1 game, 2 or fewer games</span><small class="qg">1 q</small><span class="vh">, 1 on quality days</span></td><td class="w t">2<s aria-hidden="true">/2</s><span class="vh"> starts of 2 games</span><small class="qg">1 q</small><span class="vh">, 1 on quality days</span></td><td class="d wk1"><i class="s" role="img" aria-label="Mon Mar 8: starts" title="Mon Mar 8: starts"></i></td><td class="d"><i class="r" role="img" aria-label="Tue Mar 9: rests on back-to-back" title="Tue Mar 9: rests on back-to-back"></i></td><td class="d wk1"><i class="n" role="img" aria-label="Wed Mar 10: no game" title="Wed Mar 10: no game"></i></td><td class="d q"><i class="s" role="img" aria-label="Thu Mar 11, quality day: starts" title="Thu Mar 11, quality day: starts"></i></td></tr>
+<tr><td class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">BBB</td><td class="rk">40</td><th class="pl" scope="row"><b>Third Guard</b><small>BBB · PG · BN</small></th><td class="n none s1">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="w w1 lo">1<s aria-hidden="true">/2</s><span class="vh"> starts of 2 games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w">1<s aria-hidden="true">/<span class="few">1</span></s><span class="vh"> starts of 1 game, 2 or fewer games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w t lo">2<s aria-hidden="true">/3</s><span class="vh"> starts of 3 games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="d wk1"><i class="b" role="img" aria-label="Mon Mar 8: game, sits" title="Mon Mar 8: game, sits"></i></td><td class="d"><i class="s" role="img" aria-label="Tue Mar 9: starts" title="Tue Mar 9: starts"></i></td><td class="d wk1"><i class="s" role="img" aria-label="Wed Mar 10: starts" title="Wed Mar 10: starts"></i></td><td class="d q"><i class="n" role="img" aria-label="Thu Mar 11, quality day: no game" title="Thu Mar 11, quality day: no game"></i></td></tr>
+<tr><td class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">BBB</td><td class="rk">–</td><th class="pl" scope="row"><b>No Rank</b><small>BBB · SF · BN</small></th><td class="n none s1">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="n none">–</td><td class="w w1 lo">0<s aria-hidden="true">/2</s><span class="vh"> starts of 2 games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w">1<s aria-hidden="true">/<span class="few">1</span></s><span class="vh"> starts of 1 game, 2 or fewer games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="w t lo">1<s aria-hidden="true">/3</s><span class="vh"> starts of 3 games</span><small class="qg">0 q</small><span class="vh">, 0 on quality days</span></td><td class="d wk1"><i class="b" role="img" aria-label="Mon Mar 8: game, sits" title="Mon Mar 8: game, sits"></i></td><td class="d"><i class="b" role="img" aria-label="Tue Mar 9: game, sits" title="Tue Mar 9: game, sits"></i></td><td class="d wk1"><i class="s" role="img" aria-label="Wed Mar 10: starts" title="Wed Mar 10: starts"></i></td><td class="d q"><i class="n" role="img" aria-label="Thu Mar 11, quality day: no game" title="Thu Mar 11, quality day: no game"></i></td></tr>
+</tbody>
+<tfoot>
+<tr class="tot"><th colspan="3" scope="row" class="lab">Team starts</th><td colspan="8" class="note s1">3 starts lost to a full lineup (Rank 2, Guard 1) · 1 open slot on quality days</td><td class="w w1">5</td><td class="w">5</td><td class="w t">10</td><td class="d wk1"></td><td class="d"></td><td class="d wk1"></td><td class="d q"></td></tr>
+<tr class="use"><th colspan="11" scope="row" class="lab2">Used (started / games) · 10/13 · 77%</th><td class="w w1"><span class="pc p1"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>63%</b><span class="vh"> (less than 70%)</span></span><small class="qg">5/8</small><span class="vh"> (5 of 8 games start)</span></td><td class="w"><span class="pc p3"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>100%</b><span class="vh"> (90% or more)</span></span><small class="qg">5/5</small><span class="vh"> (5 of 5 games start)</span></td><td class="w t"><span class="pc p2"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>77%</b><span class="vh"> (70% to 89%)</span></span><small class="qg">10/13</small><span class="vh"> (10 of 13 games start)</span></td><td class="d wk1"></td><td class="d"></td><td class="d wk1"></td><td class="d q"></td></tr>
+<tr class="use"><th colspan="11" scope="row" class="lab2">vs ideal · 10/11 · 91%</th><td class="w w1"><span class="pc p2"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>83%</b><span class="vh"> (70% to 89%)</span></span><small class="qg">5/6</small><span class="vh"> (5 of 6 ideal games)</span></td><td class="w"><span class="pc p3"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>100%</b><span class="vh"> (90% or more)</span></span><small class="qg">5/5</small><span class="vh"> (5 of 5 ideal games)</span></td><td class="w t"><span class="pc p3"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>91%</b><span class="vh"> (90% or more)</span></span><small class="qg">10/11</small><span class="vh"> (10 of 11 ideal games)</span></td><td class="d wk1"></td><td class="d"></td><td class="d wk1"></td><td class="d q"></td></tr>
+</tfoot>
+</table>
+</div>
+<section class="mob" aria-label="Roster" style="--days:4">
+<div class="m-head" aria-hidden="true"><span>Team</span><span>Rk</span><span>Player · Pos</span><span>GP</span><span>Games</span><span></span></div>
+<details class="m-p">
+<summary><span class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">AAA</span><span class="rk"><span class="vh">Rank </span>10</span><span class="nm"><b>Guard One</b><small>PG · PG</small></span><span class="gp"><span class="vh">, games played </span>3</span><span class="tg"><span class="vh">, playoff games </span>3</span><span class="chev" aria-hidden="true"></span></summary>
+<div class="m-body">
+<dl class="m-stats" aria-label="Season per game"><div><dt>MIN</dt><dd>30.0</dd></div><div><dt>PTS</dt><dd>25.0</dd></div><div><dt>REB</dt><dd>5.3</dd></div><div><dt>AST</dt><dd>6.3</dd></div><div><dt>3PM</dt><dd>1.7</dd></div><div><dt>STL</dt><dd>3.7</dd></div><div><dt>BLK</dt><dd>1.7</dd></div></dl>
+<dl class="m-weeks" aria-label="Playoff starts / games"><div><dt>Wk19</dt><dd><b>2</b><s>/2</s><small>0 q</small></dd></div><div><dt>Wk20</dt><dd><b>1</b><s>/<span class="few">1</span><span class="vh"> games, 2 or fewer</span></s><small>1 q</small></dd></div><div><dt>Total</dt><dd><b>3</b><s>/3</s><small>1 q</small></dd></div></dl>
+<div class="m-grid"><span class="wk1" aria-hidden="true">M<u>8</u></span><span aria-hidden="true">T<u>9</u></span><span class="wk1" aria-hidden="true">W<u>10</u></span><span class="q" aria-hidden="true">T<u>11</u></span><span class="wk1"><i class="s" role="img" aria-label="Mon Mar 8: starts"></i></span><span><i class="s" role="img" aria-label="Tue Mar 9: starts"></i></span><span class="wk1"><i class="n" role="img" aria-label="Wed Mar 10: no game"></i></span><span class="q"><i class="s" role="img" aria-label="Thu Mar 11, quality day: starts"></i></span></div>
+</div>
+</details>
+<details class="m-p il">
+<summary><span class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">CCC</span><span class="rk"><span class="vh">Rank </span>20</span><span class="nm"><b>Big Man</b> <em class="flag" title="On IL now. Counts in the playoff starts.">IL</em><small>C · IL</small></span><span class="gp"><span class="vh">, games played </span>–</span><span class="tg"><span class="vh">, playoff games </span>2</span><span class="chev" aria-hidden="true"></span></summary>
+<div class="m-body">
+<dl class="m-stats" aria-label="Season per game"><div><dt>MIN</dt><dd class="none">–</dd></div><div><dt>PTS</dt><dd class="none">–</dd></div><div><dt>REB</dt><dd class="none">–</dd></div><div><dt>AST</dt><dd class="none">–</dd></div><div><dt>3PM</dt><dd class="none">–</dd></div><div><dt>STL</dt><dd class="none">–</dd></div><div><dt>BLK</dt><dd class="none">–</dd></div></dl>
+<dl class="m-weeks" aria-label="Playoff starts / games"><div><dt>Wk19</dt><dd><b>1</b><s>/<span class="few">1</span><span class="vh"> games, 2 or fewer</span></s><small>0 q</small></dd></div><div><dt>Wk20</dt><dd><b>1</b><s>/<span class="few">1</span><span class="vh"> games, 2 or fewer</span></s><small>0 q</small></dd></div><div><dt>Total</dt><dd><b>2</b><s>/2</s><small>0 q</small></dd></div></dl>
+<div class="m-grid"><span class="wk1" aria-hidden="true">M<u>8</u></span><span aria-hidden="true">T<u>9</u></span><span class="wk1" aria-hidden="true">W<u>10</u></span><span class="q" aria-hidden="true">T<u>11</u></span><span class="wk1"><i class="s" role="img" aria-label="Mon Mar 8: starts"></i></span><span><i class="n" role="img" aria-label="Tue Mar 9: no game"></i></span><span class="wk1"><i class="s" role="img" aria-label="Wed Mar 10: starts"></i></span><span class="q"><i class="n" role="img" aria-label="Thu Mar 11, quality day: no game"></i></span></div>
+</div>
+</details>
+<details class="m-p">
+<summary><span class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">AAA</span><span class="rk"><span class="vh">Rank </span>30</span><span class="nm"><b>Second Guard</b><small>PG/SG · BN</small></span><span class="gp"><span class="vh">, games played </span>–</span><span class="tg"><span class="vh">, playoff games </span>2</span><span class="chev" aria-hidden="true"></span></summary>
+<div class="m-body">
+<dl class="m-stats" aria-label="Season per game"><div><dt>MIN</dt><dd class="none">–</dd></div><div><dt>PTS</dt><dd class="none">–</dd></div><div><dt>REB</dt><dd class="none">–</dd></div><div><dt>AST</dt><dd class="none">–</dd></div><div><dt>3PM</dt><dd class="none">–</dd></div><div><dt>STL</dt><dd class="none">–</dd></div><div><dt>BLK</dt><dd class="none">–</dd></div></dl>
+<dl class="m-weeks" aria-label="Playoff starts / games"><div><dt>Wk19</dt><dd><b>1</b><s>/<span class="few">1</span><span class="vh"> games, 2 or fewer</span></s><small>0 q</small></dd></div><div><dt>Wk20</dt><dd><b>1</b><s>/<span class="few">1</span><span class="vh"> games, 2 or fewer</span></s><small>1 q</small></dd></div><div><dt>Total</dt><dd><b>2</b><s>/2</s><small>1 q</small></dd></div></dl>
+<div class="m-grid"><span class="wk1" aria-hidden="true">M<u>8</u></span><span aria-hidden="true">T<u>9</u></span><span class="wk1" aria-hidden="true">W<u>10</u></span><span class="q" aria-hidden="true">T<u>11</u></span><span class="wk1"><i class="s" role="img" aria-label="Mon Mar 8: starts"></i></span><span><i class="r" role="img" aria-label="Tue Mar 9: rests on back-to-back"></i></span><span class="wk1"><i class="n" role="img" aria-label="Wed Mar 10: no game"></i></span><span class="q"><i class="s" role="img" aria-label="Thu Mar 11, quality day: starts"></i></span></div>
+</div>
+</details>
+<details class="m-p">
+<summary><span class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">BBB</span><span class="rk"><span class="vh">Rank </span>40</span><span class="nm"><b>Third Guard</b><small>PG · BN</small></span><span class="gp"><span class="vh">, games played </span>–</span><span class="tg"><span class="vh">, playoff games </span>3</span><span class="chev" aria-hidden="true"></span></summary>
+<div class="m-body">
+<dl class="m-stats" aria-label="Season per game"><div><dt>MIN</dt><dd class="none">–</dd></div><div><dt>PTS</dt><dd class="none">–</dd></div><div><dt>REB</dt><dd class="none">–</dd></div><div><dt>AST</dt><dd class="none">–</dd></div><div><dt>3PM</dt><dd class="none">–</dd></div><div><dt>STL</dt><dd class="none">–</dd></div><div><dt>BLK</dt><dd class="none">–</dd></div></dl>
+<dl class="m-weeks" aria-label="Playoff starts / games"><div class="lo"><dt>Wk19</dt><dd><b>1</b><s>/2</s><small>0 q</small></dd></div><div><dt>Wk20</dt><dd><b>1</b><s>/<span class="few">1</span><span class="vh"> games, 2 or fewer</span></s><small>0 q</small></dd></div><div class="lo"><dt>Total</dt><dd><b>2</b><s>/3</s><small>0 q</small></dd></div></dl>
+<div class="m-grid"><span class="wk1" aria-hidden="true">M<u>8</u></span><span aria-hidden="true">T<u>9</u></span><span class="wk1" aria-hidden="true">W<u>10</u></span><span class="q" aria-hidden="true">T<u>11</u></span><span class="wk1"><i class="b" role="img" aria-label="Mon Mar 8: game, sits"></i></span><span><i class="s" role="img" aria-label="Tue Mar 9: starts"></i></span><span class="wk1"><i class="s" role="img" aria-label="Wed Mar 10: starts"></i></span><span class="q"><i class="n" role="img" aria-label="Thu Mar 11, quality day: no game"></i></span></div>
+</div>
+</details>
+<details class="m-p">
+<summary><span class="band" style="--team:var(--lab-blue);--team-ink:var(--lab-on-blue)">BBB</span><span class="rk"><span class="vh">Rank </span>–</span><span class="nm"><b>No Rank</b><small>SF · BN</small></span><span class="gp"><span class="vh">, games played </span>–</span><span class="tg"><span class="vh">, playoff games </span>3</span><span class="chev" aria-hidden="true"></span></summary>
+<div class="m-body">
+<dl class="m-stats" aria-label="Season per game"><div><dt>MIN</dt><dd class="none">–</dd></div><div><dt>PTS</dt><dd class="none">–</dd></div><div><dt>REB</dt><dd class="none">–</dd></div><div><dt>AST</dt><dd class="none">–</dd></div><div><dt>3PM</dt><dd class="none">–</dd></div><div><dt>STL</dt><dd class="none">–</dd></div><div><dt>BLK</dt><dd class="none">–</dd></div></dl>
+<dl class="m-weeks" aria-label="Playoff starts / games"><div class="lo"><dt>Wk19</dt><dd><b>0</b><s>/2</s><small>0 q</small></dd></div><div><dt>Wk20</dt><dd><b>1</b><s>/<span class="few">1</span><span class="vh"> games, 2 or fewer</span></s><small>0 q</small></dd></div><div class="lo"><dt>Total</dt><dd><b>1</b><s>/3</s><small>0 q</small></dd></div></dl>
+<div class="m-grid"><span class="wk1" aria-hidden="true">M<u>8</u></span><span aria-hidden="true">T<u>9</u></span><span class="wk1" aria-hidden="true">W<u>10</u></span><span class="q" aria-hidden="true">T<u>11</u></span><span class="wk1"><i class="b" role="img" aria-label="Mon Mar 8: game, sits"></i></span><span><i class="b" role="img" aria-label="Tue Mar 9: game, sits"></i></span><span class="wk1"><i class="s" role="img" aria-label="Wed Mar 10: starts"></i></span><span class="q"><i class="n" role="img" aria-label="Thu Mar 11, quality day: no game"></i></span></div>
+</div>
+</details>
+<div class="m-tot"><b>Team starts</b><dl><div><dt>Wk19</dt><dd>5</dd></div><div><dt>Wk20</dt><dd>5</dd></div><div class="t"><dt>Total</dt><dd>10</dd></div></dl><p class="ul">Used (started / games)</p><dl class="u"><div><dt class="vh">Wk19</dt><dd><span class="pc p1"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>63%</b><span class="vh"> (less than 70%)</span></span><small>5/8</small></dd></div><div><dt class="vh">Wk20</dt><dd><span class="pc p3"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>100%</b><span class="vh"> (90% or more)</span></span><small>5/5</small></dd></div><div><dt class="vh">Total</dt><dd><span class="pc p2"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>77%</b><span class="vh"> (70% to 89%)</span></span><small>10/13</small></dd></div></dl><p class="ul">vs ideal</p><dl class="u"><div><dt class="vh">Wk19</dt><dd><span class="pc p2"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>83%</b><span class="vh"> (70% to 89%)</span></span><small>5/6</small></dd></div><div><dt class="vh">Wk20</dt><dd><span class="pc p3"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>100%</b><span class="vh"> (90% or more)</span></span><small>5/5</small></dd></div><div><dt class="vh">Total</dt><dd><span class="pc p3"><i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i><b>91%</b><span class="vh"> (90% or more)</span></span><small>10/11</small></dd></div></dl><p>3 starts lost to a full lineup (Rank 2, Guard 1) · 1 open slot on quality days</p></div>
+</section>
+<div class="legend" aria-label="Key"><b>Key</b>
+<span><i class="k s"></i>Starts</span>
+<span><i class="k b"></i>Game, sits</span>
+<span><i class="k r"></i>Rests on back-to-back</span>
+<span><i class="k n"></i>No game</span>
+<span><span class="qsw"></span>Quality day</span>
+<span><em class="flag">IL</em>On IL now, counts in the starts</span>
+<span><span class="lo-key">2/4</span>Starts lost</span>
+<span><span class="q-key">2 q</span>Games on quality days</span>
+<span><span class="pc-key"><span class="pc p3"><i class="mtr"><i></i><i></i><i></i></i><b>90%</b></span><span class="pc p2"><i class="mtr"><i></i><i></i><i></i></i><b>70%</b></span><span class="pc p1"><i class="mtr"><i></i><i></i><i></i></i><b>69%</b></span></span>Used and vs ideal: 90% or more, 70% to 89%, less than 70%</span>
+<span><span class="few-key">/<span class="few">2</span></span>2 or fewer games in the week</span>
+</div>
+<p class="foot">Stats: ESPN, 2026–27 regular season to date. Rank: your custom draft rank. Starts: the best lineup each day, higher rank first. IL players are in the lineup pool, because they will likely be back by the playoffs. Used: started / the games of your players, with no rest nights. vs ideal: started / the games of the same number of players with the most games of the week, at most 3 starters a day. Both rows use the math of the draft board. Made Wed 10/28.</p>
+</main>
+<script>
+(() => {
+  const btn = document.querySelector(".lab-open"), nav = document.getElementById("lab-menu");
+  const scrim = document.querySelector(".lab-scrim");
+  if (!btn || !nav) return;
+  const behind = [...document.querySelectorAll(".lab-main, .lab-bar")];
+  const set = open => {
+    nav.classList.toggle("open", open); btn.setAttribute("aria-expanded", open);
+    document.body.classList.toggle("lab-locked", open);
+    scrim.hidden = !open; behind.forEach(el => el.inert = open);
+    if (open) nav.querySelector(".lab-close").focus();
+  };
+  nav.querySelector(".lab-close").addEventListener("click", () => { set(false); btn.focus(); });
+  btn.addEventListener("click", () => set(!nav.classList.contains("open")));
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && nav.classList.contains("open")) { set(false); btn.focus(); }
+  });
+  scrim.addEventListener("click", () => set(false));
+})();
+(() => {
+  const root = document.documentElement, btns = [...document.querySelectorAll(".lab-seg button")];
+  const show = () => {
+    const t = root.dataset.theme || "system";
+    btns.forEach(b => b.setAttribute("aria-pressed", b.dataset.set === t));
+  };
+  btns.forEach(b => b.addEventListener("click", () => {
+    const t = b.dataset.set;
+    if (t === "system") delete root.dataset.theme; else root.dataset.theme = t;
+    try {
+      if (t === "system") localStorage.removeItem("lab-theme"); else localStorage.setItem("lab-theme", t);
+    } catch (e) {}
+    show();
+  }));
+  show();
+})();
+</script>
+</body>
+</html>

@@ -628,6 +628,10 @@ label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q
 /* The free-agent table and the waiver table (issue 143): publish.TABLE_STYLE gives the look of the Roster table.
    These rules add the sort buttons, the day columns and the role line. */
 .fa, .wv { font-size: 13px; }
+.fa td.band, .wv td.band { width: 44px; }
+/* A long name wraps inside its cell. The name is an inline block, so that its glyph box stays inside the line. */
+.fa th.pl, .wv th.pl { overflow-wrap: anywhere; }
+.fa .pl b, .wv .pl b { display: inline-block; }
 .lab-t .pl .status, .lab-t .pl .flag { vertical-align: 3px; margin-left: 2px; }
 .fa th.pl small + small { font-size: 11px; }
 .fa th.sort { white-space: nowrap; padding: 0; }
@@ -638,7 +642,7 @@ label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q
 .fa th.day, .fa td.day { text-align: center; width: 26px; padding: 0 0 6px; }
 .fa td.day { padding: 0; }
 .fa th.day.sel { box-shadow: inset 0 -3px var(--q); }
-.fa td.sel { background: color-mix(in srgb, var(--q) 12%, var(--bg)) !important; }
+.fa td.sel { background: color-mix(in srgb, var(--q) 12%, var(--bg)); }
 .fa th.day small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
 .wv td { white-space: nowrap; }
 /* Below 600px, the free-agent table has 4 number columns and up to 7 day columns next to the name. A smaller

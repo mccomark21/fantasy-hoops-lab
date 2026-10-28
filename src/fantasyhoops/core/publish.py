@@ -252,9 +252,9 @@ body.lab-locked { overflow: hidden; }
 .lab-seg button:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; position: relative;
   z-index: 1; }"""
 
-TABLE_STYLE = """/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. The phone row
-   of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that a class rule
-   of a page wins over them. */
+TABLE_STYLE = """/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. Below 900px,
+   the phone row of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that
+   a class rule of a page wins over them. */
 table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 :where(.lab-t) thead th, :where(.lab-t) thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right;
   padding: 0 6px 6px; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
@@ -263,14 +263,11 @@ table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabu
   text-align: right; vertical-align: middle; font-weight: 400; }
 :where(.lab-t) tbody tr:nth-child(even) > * { background: var(--zebra); }
 .lab-t .s1 { border-left: 1px solid var(--vrule); }
-.lab-t td.band, .m-p .band { background: var(--team) !important; color: var(--team-ink); font-weight: 900;
-  font-stretch: 70%; }
-.lab-t td.band { width: 44px; padding: 0; text-align: center; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
-.lab-t td.rk, .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; }
-.lab-t td.rk { font-size: 21px; padding-right: 8px; }
-.lab-t th.pl { text-align: left; padding: 6px 6px 6px 10px; line-height: 1; overflow-wrap: anywhere; }
-.lab-t .pl b, .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase;
-  line-height: 1; }
+.lab-t td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+.lab-t td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
+.lab-t th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
+.lab-t .pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
 .lab-t .pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
 .lab-t td.n { font-size: 14px; }
 @media (prefers-color-scheme: dark) {
@@ -282,9 +279,12 @@ table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabu
 /* Phone: the sizes of the phone row of the Roster. */
 @media (max-width: 899px) {
   :where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 52px; }
-  .lab-t td.band, .m-p .band { font-size: 17px; }
-  .lab-t td.rk, .m-p .rk { font-size: 19px; }
-  .lab-t .pl b, .m-p .nm b { font-size: 18px; }
+  .lab-t td.band { font-size: 17px; }
+  .lab-t td.rk { font-size: 19px; }
+  .lab-t .pl b { font-size: 18px; }
+  .m-p .band { background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
+  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; }
+  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
 }"""
 
 # The drawer on a phone, then the theme switch. The theme choice stays in localStorage (core/tokens.py).
