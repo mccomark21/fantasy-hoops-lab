@@ -36,14 +36,6 @@ def read_rest_names(cfg):
     return rest_names(pd.read_csv(path)) if path.exists() else set()
 
 
-def games_text(n, sign=False):
-    """A count of started games as text: "2" for a whole number, else 2 decimals or fewer, for example "1.5".
-
-    sign: put a sign in front, for example "+1.5"."""
-    text = f"{abs(n):.2f}".rstrip("0").rstrip(".")
-    return ("-" if n < 0 and text != "0" else "+" if sign else "") + text
-
-
 def with_rests(options, names, nights, chance):
     """The options, each player on the rest list with his rest_games: (day, 1 - chance) for each second night.
 
