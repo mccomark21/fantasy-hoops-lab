@@ -1,6 +1,6 @@
 """The plan page: one HTML file in output/adds/ for use on a phone. The design is in docs/adds/README.md.
 
-render() makes the page from the data of one planning run. Each section of the page comes from one small function.
+render() makes the page from one PlanningRun (adds/plan.py). Each section of the page comes from one small function.
 A section shows only the parts that exist. The main sections:
 - Best plans for one roster spot: the SpotPlans of adds/spots.py, as a table of days. A line above each row names
   its roster spot and marks a row that uses the same spot as an earlier row (#114).
@@ -24,6 +24,7 @@ import html
 import json
 from datetime import date, timedelta
 
+from fantasyhoops.adds.contingency import contingency_lines
 from fantasyhoops.adds.planner import waiver_options
 from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.rest import games_text
@@ -377,37 +378,37 @@ def fa_key(roles, minutes_rise, next_days):
     return f'<p class="key" id="fa-key"><span class="vh">Key: </span>{spans}</p>\n'
 
 
-def free_agents_section(
-    options,
-    days,
-    games,
-    replacement,
-    match_replacement=None,
-    nights=None,
-    roles=None,
-    minutes_rise=None,
-    flags=None,
-    next_days=(),
-    next_games=None,
-    recent_skip=None,
-):
-    """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
+def free_agents_section(run):
+    """The free-agent table of a PlanningRun with its filters. A script fills the table from the data. Nothing
+    with no options.
 
     The table holds only the players with status FA. The waiver players are in waivers_section().
-    roles and minutes_rise: the Roles of adds/roles.py and [adds] minutes_rise, for the role line of each player.
-    flags: [adds.flags], for the legend of the starter flag and the closer flag.
-    next_days and next_games: the first days of next week, for the next-week marks (see free_agent_data()).
-    recent_skip: the line that says that the run skipped the recent view (plan.recent_skip_line(), #90). With a
+    The role line of each player uses run.roles (adds/roles.py) and [adds] minutes_rise of run.cfg.
+    [adds.flags] of run.cfg gives the legend of the starter flag and the closer flag.
+    run.next_days and run.next_games: the first days of next week, for the next-week marks (see free_agent_data()).
+    run.recent_skip: the line that says that the run skipped the recent view (plan.recent_skip_line(), #90). With a
     line, SKIP_NOTE shows above the table, and the full line shows in the Run time section (#118). None: no note.
     The key of the marks shows above the table. The long legends are in a <details> below the table (#118).
     The script shows a message with a "Clear days" button when no free agent matches the filters.
     """
-    options = [o for o in options if not o.player.on_waivers]
-    if not options or not days:
+    options = [o for o in run.options if not o.player.on_waivers]
+    if not options or not run.days:
         return ""
-    data = free_agent_data(options, days, games, replacement, match_replacement, nights, roles, next_days, next_games)
+    adds = run.cfg.get("adds", {})
+    roles, minutes_rise, next_days = run.roles, adds.get("minutes_rise"), run.next_days
+    data = free_agent_data(
+        options,
+        run.days,
+        run.games,
+        run.replacement,
+        run.match_replacement,
+        run.nights,
+        roles,
+        next_days,
+        run.next_games,
+    )
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    skip = f'<p class="skip" id="skip-note">{SKIP_NOTE}</p>\n' if recent_skip else ""
+    skip = f'<p class="skip" id="skip-note">{SKIP_NOTE}</p>\n' if run.recent_skip else ""
     return (
         "<section><h2>Free agents</h2>\n"
         '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
@@ -425,7 +426,7 @@ def free_agents_section(
         "with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. "
         '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
         '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
-        f"{role_legend(roles, minutes_rise, flags)}{next_week_legend(next_days)}</details>\n"
+        f"{role_legend(roles, minutes_rise, adds.get('flags'))}{next_week_legend(next_days)}</details>\n"
         f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>'
     )
 
@@ -567,77 +568,28 @@ def method_note():
     )
 
 
-def render(
-    data,
-    days,
-    games,
-    spots,
-    rows,
-    options=(),
-    ranking=(),
-    read=(),
-    today=None,
-    *,
-    replacement=None,
-    warnings=(),
-    contingencies=(),
-    matchup=None,
-    weights=None,
-    match_replacement=None,
-    nights=None,
-    roles=None,
-    minutes_rise=None,
-    flags=None,
-    next_days=(),
-    next_games=None,
-    timings=(),
-    recent_skip=None,
-    market=None,
-    cache=None,
-):
-    """The plan page as HTML text.
+def render(run):
+    """The plan page of a PlanningRun (plan.py) as HTML text. The page uses these fields of run:
 
-    data: the LeagueData of the run (week, adds, roster, next_week). days: the Days of the planning window.
-    games: {day: set of NBA teams that play}. spots: the StreamSpots. rows: the SpotPlans (adds/spots.py).
-    options: the Options of the free agents. ranking: the TeamRanks. read: the teams whose free agents the run
-    read. replacement: the value of a replacement free agent (value.replacement_value()), or None.
-    warnings and contingencies: text lines. matchup, weights: the matchup.Matchup (or None) and the matchup weights
-    (None: no matchup section). match_replacement: the matchup value of a replacement free agent, or None.
-    nights: from rest.second_nights(), for the B2B marks.
-    roles: {(name, team): Role} from adds/roles.py, or None with no rotation log. minutes_rise: [adds] minutes_rise,
-    for the legend of the minutes mark. flags: [adds.flags], for the legend of the starter and closer flags.
-    next_days: the Days of the first days of next week from the core roster. next_games: {day: set of teams} of
-    those days. With both, the free-agent table marks each player who fits an open slot on one of these days.
-    timings: the timing.StepTimes of the run, for the Run time table.
-    recent_skip: the line that says that the run skipped the recent view, or None (timings_section()).
-    market: the line of the market read, or None (timings_section()).
-    cache: the line of the pages from the cache, or None (timings_section()).
+    data (week, adds, roster, next_week, matchup), days, games, spots, rows (the SpotPlans of adds/spots.py),
+    options, ranking, read, today, replacement, match_replacement, warnings, weights (None: no matchup section),
+    nights (the B2B marks), contingencies (the Contingency plans, one text line each), roles, next_days, next_games,
+    timings (the Run time table) and the run lines recent_skip, market and cache (timings_section()).
+    [adds] minutes_rise and [adds.flags] of run.cfg give the legends of the role marks.
     """
-    today = today or date.today()
+    today = run.today or date.today()
+    contingencies = [" ".join(line.strip() for line in contingency_lines(c)) for c in run.contingencies]
     sections = [
-        header(data, days, spots, today),
-        warnings_section(warnings),
-        plans_section(rows, days, spots, data.adds, today, nights),
-        matchup_section(matchup, weights),
-        free_agents_section(
-            options,
-            days,
-            games,
-            replacement,
-            match_replacement,
-            nights,
-            roles,
-            minutes_rise,
-            flags,
-            next_days,
-            next_games,
-            recent_skip,
-        ),
-        waivers_section(options, replacement),
-        role_up_section(options),
+        header(run.data, run.days, run.spots, today),
+        warnings_section(run.warnings),
+        plans_section(run.rows, run.days, run.spots, run.data.adds, today, run.nights),
+        matchup_section(run.data.matchup, run.weights),
+        free_agents_section(run),
+        waivers_section(run.options, run.replacement),
+        role_up_section(run.options),
         contingency_section(contingencies),
-        ranking_section(ranking, read),
-        timings_section(timings, market, cache, recent_skip),
+        ranking_section(run.ranking, run.read),
+        timings_section(run.timings, run.market, run.cache, run.recent_skip),
         method_note(),
     ]
     return (

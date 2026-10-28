@@ -5,7 +5,7 @@ from fantasyhoops.adds import home as adds_home
 from fantasyhoops.adds import page, timing
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.readers import Player
-from tests.adds.test_page import run_command
+from tests.adds.test_plan import run_command
 
 
 def test_the_roster_players_get_the_rank_the_rest_flag_and_the_stats_by_name():
