@@ -34,3 +34,10 @@ The issue filer checked the report against the code at `5e89567`. The report had
 
 - Two builders reported that in an agent worktree, the installed package points at the main checkout, so `pytest` tests the main checkout's code unless `PYTHONPATH=src` is set. A possible fix is `pythonpath = ["src"]` in the pytest section of `pyproject.toml`. No issue filed (owner rule: no new issues until done).
 - Review nits of #135, not built: `ideal_games()` counts only game days (the same result today, because each playoff day comes from a game date); `data.ideal[w][core.length]` is undefined for a core larger than the spots (`addPlayer` stops at spots).
+
+## Wave 2 and the plan for waves 3 to 5 (2026-10-28)
+
+- On 2026-10-28, PR #136 (#128) merged as `mccomark21/fantasy-hoops-lab@488017a`. `main()` builds one `PlanningRun`, and the page and the terminal report read from it. The reviewer ran the old code at `0e00103`, and its page and terminal output matched the new fixtures byte for byte. The chief of staff accepted one change in timed runs: the "contingency plans" and "role read" step lines print before the report. #130 removes them.
+- Wave 3: #129 (`adds/lists.py`) and #132 (site shell) in parallel, because they change different files.
+- Wave 4: #130 after #129, because both change `adds/plan.py`. Review nit on #136: #130 can remove the `PlanningRun` fields that only the report uses.
+- Wave 5: #131 after #130. #130 can remove the terminal-only outputs, such as the drop trade-offs, and #131 bundles the inputs of the searches that remain.
