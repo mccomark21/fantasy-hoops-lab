@@ -231,6 +231,20 @@ def test_the_record_and_the_week_items_follow_the_name(width):
             assert week["x"] > rec["x"] and playoffs["x"] == week["x"] and playoffs["y"] > week["y"]
 
 
+@pytest.mark.parametrize("width", [390, 1280])
+def test_the_header_items_are_4_5_to_1_or_more_in_light_and_dark_mode(width):
+    from tests.adds.test_page import CONTRAST
+
+    with browser_page(width) as pg:
+        pg.set_content(record_page())
+        # Check the header only: the record, This week and Playoffs (#142).
+        pg.add_style_tag(content="main.roster > :not(header.head) { display: none !important; }")
+        assert pg.locator("header.head .rec").is_visible()
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(CONTRAST) == [], theme
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_a_phone_shows_rows_that_open_and_no_horizontal_scroll(scheme):
     with browser_page(390, scheme) as pg:

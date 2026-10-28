@@ -35,7 +35,9 @@ READY = [
     ("buzzindex", ("table.Tst-table tbody tr",), ()),  # trends.read_trends()
 ]
 # readers.read_roster() reads data-pos. A script on the page adds data-pos about 0.1 s after the table appears.
-TEAM_READY = (("table#statTable0 tbody tr[data-pos]",), ())
+# readers.read_record() reads the team overview (#142). A live run has not yet shown when it appears, so it is optional:
+# it gets SCORE_WAIT_SECONDS, and a page with no overview gives no record.
+TEAM_READY = (("table#statTable0 tbody tr[data-pos]",), ('[data-tst="fantasy-team-overview-name"]',))
 # In the live check of 2026-10-21, the score table appeared 0.1 s or less after the day links.
 # A page with no score table uses the full wait, so the wait is short: 5 times the time of that check (#93).
 # The wait was 2 s before #93.

@@ -28,6 +28,7 @@ PLAYERS = "div.players table tbody tr"
 DAYS = "a.Navtarget[href]"
 SCORES = "table.Datatable tbody tr"
 TRENDS = "table.Tst-table tbody tr"
+OVERVIEW = '[data-tst="fantasy-team-overview-name"]'
 
 
 class FakeResponse:
@@ -67,7 +68,7 @@ class FakePage:
 @pytest.mark.parametrize(
     "path, required, optional",
     [
-        ("10", (TEAM,), ()),
+        ("10", (TEAM,), (OVERVIEW,)),
         ("matchup?mid1=10", (DAYS,), (SCORES,)),
         ("matchup?week=2&mid1=10", (DAYS,), (SCORES,)),
         ("players?status=FA&pos=P&count=25", (PLAYERS,), ()),
@@ -197,7 +198,14 @@ def test_the_block_message_gives_the_status_and_the_url_and_says_that_yahoo_bloc
 def test_get_of_a_page_with_status_200_gives_the_page():
     page = FakePage(statuses=[200])
     assert League(page, 22820).get("10") == "<html>page</html>"
-    assert page.waits == [(TEAM, "attached", 10000)]
+    assert page.waits == [(TEAM, "attached", 10000), (OVERVIEW, "attached", 500)]
+
+
+def test_a_team_page_with_no_overview_gives_the_page():
+    # The overview wait is optional (#142): the read continues, and the page gives no record.
+    page = FakePage(missing={OVERVIEW})
+    assert League(page, 22820).get("10") == "<html>page</html>"
+    assert page.waits == [(TEAM, "attached", 10000), (OVERVIEW, "attached", 500)]
 
 
 def test_get_of_a_page_with_no_response_gives_the_page():
@@ -212,7 +220,7 @@ def test_get_of_a_page_with_no_response_gives_the_page():
 def test_a_sign_in_gives_the_page_as_before():
     page = SignInPage()
     assert League(page, 22820).get("10") == "<html>page</html>"
-    assert page.waits == [(TEAM, "attached", 10000)]
+    assert page.waits == [(TEAM, "attached", 10000), (OVERVIEW, "attached", 500)]
 
 
 def test_a_block_after_the_sign_in_raises_yahoo_blocked_with_no_wait_for_an_element(capsys):
@@ -274,7 +282,7 @@ def test_with_fetch_the_list_and_trends_pages_come_from_raw_requests_and_open_no
     assert league.pages == 1
 
 
-@pytest.mark.parametrize("path, waits", [("10", [TEAM]), ("matchup?mid1=10", [DAYS, SCORES])])
+@pytest.mark.parametrize("path, waits", [("10", [TEAM, OVERVIEW]), ("matchup?mid1=10", [DAYS, SCORES])])
 def test_with_fetch_the_team_page_and_the_matchup_pages_come_from_edge(path, waits):
     # In the live check of 2026-10-27 20:10, the raw matchup page had no score table during NBA games (#108).
     page, fetch = FakePage(), FakeFetch()
