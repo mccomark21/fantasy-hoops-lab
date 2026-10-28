@@ -132,7 +132,7 @@ Decision (2026-10-21, #76): the free-agent table of the page marks each free age
 3. A free agent gets the mark if his NBA team plays on that day and an open slot takes one of his positions. Util takes all positions. This is the rule of the filled square.
 4. A day with all slots full gives no mark.
 
-The mark changes no value and no plan. The legend under the table names each day and its open slots. The terminal does not show the mark.
+The mark changes no value and no plan. The key above the table shows the mark. The legend in "Columns and marks" under the table names each day and its open slots. The terminal does not show the mark.
 
 ### Comparison
 
@@ -177,7 +177,7 @@ Early in the season, the weight w of the recent line is small, but the recent vi
 1. Before the recent view, the run gets the largest possible w from `data/schedule.csv`: the most games that one NBA team played from 14 days ago to today, ÷ 14. These 15 days hold the window of `S_AL14` with or without today.
 2. If this w is below `recent_skip_weight` in `[adds]`, the run reads no page of the recent view.
 3. Each option then has no recent value, and the blended line is the projected line. A player with no projection is not a candidate, also when he has recent games.
-4. The page shows a line above the free-agent table: the most games of one team, the largest possible w and the setting. The terminal prints the same line. The Recent column shows "—" for each player.
+4. The page shows a line in the Run time section: the most games of one team, the largest possible w and the setting. Above the free-agent table, one short sentence says that Val uses the projection only (#118). The terminal prints the full line. The Recent column shows "—" for each player.
 
 A player who changed teams in those days can have more games than one team. The run ignores this case. With 0.3, the run skips the recent view while no team played more than 4 games in those days.
 
@@ -203,7 +203,7 @@ The market pages are the pages of the full free-agent list, best Yahoo rank firs
 4. The guard uses the blended value. While the run skips the recent view, the blended value is the projected value.
 5. With fewer than 15 free agents with a value before a page, the guard does not stop the read. The guard counts the same players as the replacement value: the players who play and have a value.
 
-The page shows a line above the free-agent table: the market pages that the run read and why the read stopped. For example, "Market: 2 of 3 pages. Page 2 had no new player above the replacement value ..." or "Market: 3 of 3 pages (the limit)." The terminal prints the same line.
+The page shows a line in the Run time section: the market pages that the run read and why the read stopped (#118). For example, "Market: 2 of 3 pages. Page 2 had no new player above the replacement value ..." or "Market: 3 of 3 pages (the limit)." The terminal prints the same line.
 
 The [Yahoo reads study](../wiki/yahoo-reads-study.md) of 2026-10-26 found the 15 best market values on market page 3 or earlier. That is the evidence of one run on one day. The run never reads a market page after page 3, also when the guard does not stop the read.
 
@@ -254,11 +254,15 @@ The table shows the free agents that the run read: the free agents of the teams 
 - Positions: select one position or more. The table shows the players with one of the selected positions.
 - "Only games that fill an open slot": a game counts only if an open slot of that day takes one of his positions.
 - Sort: click Val, Match, Recent or Gms. Gms is the number of his games on the selected days. Sort by Gms to find the player with the most games on those days. Val then puts the players with the same games in order.
+- Reset filters: the button next to the checkbox restores the defaults. No day and no position is selected, the checkbox is on, and the sort is Val (#118).
+- No match: when no free agent matches the filters, the table hides and a message shows. With selected days, the message is "No free agent plays on all selected days." and a "Clear days" button clears the days (#118).
 - Keyboard and screen reader (#116): each chip and each sort header is a button. Press Tab to go to a button, then Enter or Space. The focus stays on the button. The sorted column shows an arrow (▼) and has `aria-sort`. A screen reader reads each day chip as, for example, "Tue 10/27, 5 open slots, 4 NBA games", each dot as "game in an open slot" or "game", and the count line after each change.
 
 Match is the market value with the matchup weights: the matchup value above the matchup value of a replacement free agent. Compare Val and Match to see how the matchup changes the value of a player.
 
 A filter does not change Val or Match, because they are values per game.
+
+A one-line key above the table shows the dots and the flags. The longer text about the columns, the role line and the next-week mark is in "Columns and marks" under the table (#118).
 
 A filled square is a game in an open slot that he can fill. An empty square is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status. A player with a role-up mark gets the mark "UP", and his line names the absent starter. A player who fits an open slot on one of the first days of next week gets a mark such as "Mon open" (see [Next-week mark](#next-week-mark)).
 
@@ -292,7 +296,7 @@ The check order is New, then Regular, then Inconsistent:
 | Inconsistent | He started `some_share` (20%) or more, but less than 70%. | He closed 20% or more, but less than 70%. |
 | No flag | Less than 20%, or fewer than `min_games` (5) games. | Less than 20%, or fewer than `min_close_games` (4) close games. |
 
-A player with no flag has no word after the count. The legend under the free-agent table gives the rule with the settings of `config.toml`.
+A player with no flag has no word after the count. The legend in "Columns and marks" under the free-agent table gives the rule with the settings of `config.toml`.
 
 The planner links each Yahoo name to an ESPN name after `name_key()`. `data/name_overrides.csv` gives the ESPN name for a player whose names do not match. If two ESPN players have the same name, the player with games for the NBA team of the free agent wins. If neither has games for that team, the free agent gets no role line. A player who is not in the log has no role line. Without `data/rotation_log.csv`, the page has no role lines.
 
@@ -348,7 +352,7 @@ A step with more than one search adds the counts of all its searches. A step wit
 
 The terminal shows each step when it starts and its time when it ends. During a search step, the terminal shows the calls and the states every 10 seconds. A search that does not end still shows that it works. When the Yahoo reads end, the terminal shows the time and the pages of each sub-step.
 
-The page shows the Run time table: the step, the seconds, the calls, the states and the pages. The sub-steps of the Yahoo reads follow the Yahoo reads row, indented. The table has no row for the page write, because the run writes the page before that step ends.
+Above the table, the Run time section shows the lines about the run: the skip of the recent view, the market read and the pages from the cache (#118). Each line shows only when it applies. The page shows the Run time table: the step, the seconds, the calls, the states and the pages. The sub-steps of the Yahoo reads follow the Yahoo reads row, indented. The table has no row for the page write, because the run writes the page before that step ends.
 
 Each step appends its row to `output/adds/timings.csv` when it ends. The rows of the sub-steps follow the row of the Yahoo reads. If you stop a run (Ctrl+C), the file keeps the rows of the finished steps. A stopped step writes no row for its sub-steps. The first steps end before the run knows the planning window. Their rows wait until the run finds the planning window. If the run stops before that, these rows get empty `days`, `open_days` and `adds_left`. All rows of one run have the same `run_at`, so you can compare runs before and after a change.
 
@@ -520,7 +524,7 @@ At the start of each run, the run deletes the same-day entries of the days befor
 
 The cache is only a speed-up. The run treats a bad cache entry as a miss and reads the page from Yahoo. If the run cannot write an entry, it prints a warning and continues.
 
-When a page comes from the cache, the page and the terminal say so above the free-agent table, for example "The recent view: 14 pages from the cache of 2026-10-26 09:14." The time is the earliest read time of the cached recent pages. The page count of the Run time table counts only the pages from Yahoo. While the run skips the recent view (#90), only the Transaction Trends pages of earlier days come from the cache.
+When a page comes from the cache, the Run time section of the page and the terminal say so (#118), for example "The recent view: 14 pages from the cache of 2026-10-26 09:14." The time is the earliest read time of the cached recent pages. The page count of the Run time table counts only the pages from Yahoo. While the run skips the recent view (#90), only the Transaction Trends pages of earlier days come from the cache.
 
 ## Configuration
 
