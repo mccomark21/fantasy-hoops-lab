@@ -275,6 +275,17 @@ With no free-agent table (no free agents read), the cells are not buttons. When 
 
 The table shows the free agents that the run read: the free agents of the best teams of the ranking (`teams_to_read()`), and the first 3 pages (75 players) at most of the full free-agent list (see [Market read](#market-read)). It shows the 10 best players for the filters.
 
+Decision (2026-10-28, #143): the free-agent table and the waiver table have the look of the Roster table of the [home page](#home-page). `publish.TABLE_STYLE` in `core/publish.py` is the one source of the table CSS. The home page and the plan page both get it from `publish.shell()`, so the tables cannot drift apart.
+
+1. Columns: Team, Player, Val, Match, Recent, Gms, then one column for each day. The Team column is a band in the color of the NBA team, as on the Roster table.
+2. Player: the name in heavy condensed caps, then the status tag and the flags (FA?, MIN+, UP, the next-week mark). A small line below gives the team, the positions (for example "PHI · SG/SF"), the adds today and the role-up text. The role line is a second small line.
+3. Head and rows: the Roster head (11px bold `mark` text over a 2px `mark` rule), zebra rows and 1px row rules. Vertical rules separate the player, the values and the days.
+4. Sorted column: the 3px `mark` bar under the header and the arrow (▼). Each header has `mark` text, as on the Roster table.
+5. Below 600px, the band and the name are smaller (15px), and each day column is 18px wide. At 390px, the table fits with no sideways scroll. The Recent column shows at 600px and wider.
+6. The free-agent table has no Rk column: a free agent has no custom rank.
+
+Page tests check that each cell of the free-agent table and the waiver table fits its cell at 320, 390, 768 and 1280px, and that each text has 4.5:1 or more in both themes at 390 and 1280px.
+
 - Days: select one day or more. The table shows the players who play on all the selected days. Each day shows your open slots and the NBA games of that day.
 - Positions: select one position or more. The table shows the players with one of the selected positions.
 - Teams (#140): select one team or more. There is a chip for each team of the free agents that the run read. The table shows the players of the selected teams. With no team selected, the table shows all teams. The count line names the selected teams.
@@ -328,7 +339,7 @@ The planner links each Yahoo name to an ESPN name after `name_key()`. `data/name
 
 ### Waiver players
 
-A separate table lists the waiver players that the run read, best value first. It shows the team, the positions, the clear day, the first day that he can play for you and Val (the same market value as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
+A separate table lists the waiver players that the run read, best value first. It has the look of the Roster table (#143): the team band, then the player cell with the name, the W tag and a small line with the team and the positions. Then it shows the clear day, the first day that he can play for you and Val (the same market value as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
 
 ### Run time
 

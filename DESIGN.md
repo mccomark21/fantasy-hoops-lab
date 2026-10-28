@@ -125,7 +125,7 @@ All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-r
 ### Named Rules
 **The One Source Rule.** A new color goes into `core/tokens.py` with a light value and a dark value. A page never writes a hex value.
 
-**The Text Accent Rule.** As text color, `mark` shows only the page title, links, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. The teams of an add cell in the week grid are buttons, so they show as `mark` text with an underline, as a link. Other marks (the fit square, the band and the start square of the week grid, the FA?, MIN+ and UP flags) use ink.
+**The Text Accent Rule.** As text color, `mark` shows only the page title, links, the heads of the Roster-look tables, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. The teams of an add cell in the week grid are buttons, so they show as `mark` text with an underline, as a link. Other marks (the fit square, the band and the start square of the week grid, the FA?, MIN+ and UP flags) use ink.
 
 **The Red Is Alert Rule.** `lab-red` marks only something that needs attention. It is never a decoration. A category that you trail in the matchup needs attention, so its margin is `lab-red`.
 
@@ -181,7 +181,8 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 
 ### Tables
 - **Style:** full width, collapsed borders, 1px `lab-rule` row rules, zebra rows, and a 2px `mark` rule under the head.
-- **Sorted column and selected day:** `mark` text and a 3px `mark` bar under the header. Cells of a selected day have a 12% `mark` tint.
+- **Roster look (#143):** the Roster table of the home page, and the free-agent table and the waiver table of the adds page, use the class `lab-t`. `publish.TABLE_STYLE` in `core/publish.py` is the one source of its CSS. The head has 11px bold `mark` text. The first column is the team band: the color of the NBA team (`tokens.TEAM_COLORS`) with text at 4.5:1 or more (`publish.band_style()`). The player cell has the name in heavy condensed caps (20px, 18px below 900px) and a 12px muted line below it.
+- **Sorted column and selected day:** a 3px `mark` bar under the header. The sorted column also has an arrow (▼). Cells of a selected day have a 12% `mark` tint.
 
 ### Matchup table
 - **Style:** the matchup section of the adds page (#144), above the team plan. One column for each category and the rows You, Opp, Margin and Weight, in a fixed layout that fits 320px.
