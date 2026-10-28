@@ -63,4 +63,3 @@ def test_the_default_output_paths_do_not_change(monkeypatch):
     assert bench.bench_path() == out / "adds" / "bench.csv"
     assert home.page_path() == out / "home" / "index.html"
     assert draft.out_dir() == out / "draft"
-    assert draft.OUT == out / "draft"  # board.py reads this folder at import

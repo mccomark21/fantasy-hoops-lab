@@ -23,7 +23,7 @@ from fantasyhoops.core.common import load_config, weeks
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.lineup import BANDS, UTIL, ideal_games
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
-from fantasyhoops.draft import OUT
+from fantasyhoops.draft import out_dir
 from fantasyhoops.draft.category_data import category_data, load_benchmark
 from fantasyhoops.draft.rankings import build_rankings
 
@@ -143,7 +143,8 @@ def write_markdown(df, cfg):
             lines += ["", f"## Ranks {start}–{end}", "", *head]
             lines += ["| " + " | ".join(str(fn(r)) for fn in cols.values()) + " |" for r in tier.itertuples()]
         start = end + 1
-    (OUT / "draft_board.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out_dir().mkdir(parents=True, exist_ok=True)
+    (out_dir() / "draft_board.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def shade(x, scale):
@@ -683,7 +684,7 @@ def write_html(df, cfg, sim=None, days=None, page=MAIN_PAGE, windows=None, bench
 
     days: the days of playoffs.playoff_schedule() for the team builder, or None.
     benchmark: load_benchmark(), or None. Without it, the page has no category panel and no Need column.
-    page: the file to write in OUT. windows: (label, file) for each playoff window (pages()), or None.
+    page: the file to write in out_dir(). windows: (label, file) for each playoff window (pages()), or None.
     Each page keeps its own team in the browser.
     """
     t = cfg["board"]
@@ -716,7 +717,8 @@ def write_html(df, cfg, sim=None, days=None, page=MAIN_PAGE, windows=None, bench
         .replace("__ENGINE__", engine_js())
         .replace("__CATEGORY_ENGINE__", CATEGORY_ENGINE.read_text(encoding="utf-8") if has_category else "")
     )
-    (OUT / page).write_text(html, encoding="utf-8")
+    out_dir().mkdir(parents=True, exist_ok=True)
+    (out_dir() / page).write_text(html, encoding="utf-8")
 
 
 HTML = """<!doctype html>
@@ -1479,7 +1481,7 @@ def load_simulation(df):
 
     combos: top_combos() with combo_stats(). summary: simulation_summary.csv, indexed by keeper.
     """
-    files = {name: OUT / f"simulation_{name}.csv" for name in ("players", "groups", "runs", "summary")}
+    files = {name: out_dir() / f"simulation_{name}.csv" for name in ("players", "groups", "runs", "summary")}
     if not all(f.exists() for f in files.values()):
         return df, None
     groups = pd.read_csv(files["groups"])
@@ -1489,7 +1491,7 @@ def load_simulation(df):
 
 
 def main():
-    OUT.mkdir(parents=True, exist_ok=True)
+    out_dir().mkdir(parents=True, exist_ok=True)
     cfgs = windows(load_config())
     benchmark = load_benchmark()
     files, schedule = pages(cfgs), read_schedule()
