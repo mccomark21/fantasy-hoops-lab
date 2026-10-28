@@ -215,7 +215,7 @@ The stat lines come from Yahoo. The season projections file of the draft tools g
 
 ### Matchup weights
 
-Decision (2026-10-21, #59): the aggressive plan weights the 6 categories by the state of the current matchup. The schedule plan, the option order and the best plans for one roster spot keep the blended value.
+Decision (2026-10-21, #59): the aggressive plan weights the 6 categories by the state of the current matchup. The schedule plan, the option order and the best plans for one roster spot keep the blended value. Since #130 (2026-10-28), a planning run makes no aggressive plan. The run uses the matchup weights only for the matchup section and the Match column of the page.
 
 The planner reads the category totals of your team and your opponent from the score table of the matchup page. The planner finds the score table by its stat headers (PTS, REB, AST, 3PTM, ST, BLK). On 2026-10-21, after the first games, the table had no Score header (#73). The margin of a category is your total minus the total of your opponent. Each category then gets a matchup weight:
 
@@ -225,9 +225,9 @@ The planner reads the category totals of your team and your opponent from the sc
 
 The `close` and `large` margins in `config.toml` are for a whole week. The planner multiplies them by the share of the week that is left: the days of the planning window ÷ the days of the fantasy week. A lead of 5 3PM is close with 6 days left. With 1 day left, it is a large lead.
 
-The matchup value of a player is his value with each category weight times its matchup weight, on the same category scale. A holder gets the matchup value of his season projection. With all categories tied, all weights are 1, so the matchup value equals the blended value. On the first day of a week, and when the planner plans the next week, the totals are 0, so the weights are 1.
+The matchup value of a player is his value with each category weight times its matchup weight, on the same category scale. Since #130, a holder in a stream spot gets no matchup value. With all categories tied, all weights are 1, so the matchup value equals the blended value. On the first day of a week, and when the planner plans the next week, the totals are 0, so the weights are 1.
 
-Example: you lead 3PM by 15 with the whole week left. The weight of 3PM goes from 0.70 to 0.35. A streamer who adds 3PM is then worth less in the aggressive plan. If you trail blocks by 2, blocks keep their weight.
+Example: you lead 3PM by 15 with the whole week left. The weight of 3PM goes from 0.70 to 0.35. A free agent who adds 3PM then has a lower Match value on the page. If you trail blocks by 2, blocks keep their weight.
 
 If the matchup page has no score table, all weights are 1, and the page says so.
 
@@ -411,11 +411,10 @@ The run writes the page before the plan page, so that the Run time table has the
 - The core list in `config.toml` holds the players that the planner never suggests to drop. The rule also holds for a core player who is Out.
 - The stream spots are the empty roster spots first, also the spots that IL frees. Then, up to `stream_spots` (3), the rostered players with the lowest season value who are not core and not on IL hold a stream spot. The planner keeps all other players, as it keeps the core players.
 - A player in a stream spot plays until the first add to his spot. That add drops him. A drop is a suggestion, never an order. Since #130 (2026-10-28), the planner does not compute the trade-off of a drop.
-- The gain of a drop is the started games of the plan minus the started games of the best plan that keeps him. Both counts include the started games of the kept players.
-- The plan score counts this week's started games, and the next-week games as a tiebreak or a bonus (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The season cost of a drop is shown, not scored. You decide.
+- The plan score counts this week's started games, and the next-week games as a tiebreak or a bonus (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The season value of a player in a stream spot is not in the score. You decide.
 - A dropped player who is still a free agent next week can come back in a later plan.
 
-Rostered players are not on the free-agent list. So their rank and season value come from the season projections file of the draft tools: the per-game value (`pg_value` of `core/valuation.py`) and the rank by that value (`pg_rank` on the draft board). The free-agent values use the same category scale, so the numbers compare. A player who is not in the projections file has the lowest value, and the output says so.
+Rostered players are not on the free-agent list. So their rank and season value come from the season projections file of the draft tools: the per-game value (`pg_value` of `core/valuation.py`) and the rank by that value (`pg_rank` on the draft board). The free-agent values use the same category scale, so the numbers compare. A player who is not in the projections file has the lowest value.
 
 The page also warns you when a streamer (a window option) has a higher blended value than the season value of your lowest core player. If no core player is on your roster, the warning uses your lowest kept player. You can then make the streamer core.
 
@@ -595,11 +594,11 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games, then to the plan with more next-week games. Aggressive plan: the sum of the matchup value above an empty slot of the started games, plus the next-week bonus. Ties go to the plan with fewer adds, then to the plan with more started games. |
 | Next-week games | The games next week of the players who hold a stream spot on the last day of the week, x `next_week_weight`. |
 | Next-week mark | The mark of a free agent who fits an open slot on one of the first days of next week, for example "Mon open". The mark changes no value. |
-| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan uses the matchup value of the player and of the empty slot. |
+| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan (benchmark only) uses the matchup value of the player and of the empty slot. |
 | Matchup weight | The weight of a category from your margin in the current matchup: 1 for a close category, down to `min_weight` for a large lead or deficit. |
 | Matchup value | The value of a player with each category weight times its matchup weight. With all categories tied, it equals the blended value. |
 | Schedule plan | The plan that chooses NBA teams by the open days that they cover, then free agents on those teams, with the fewest adds. |
-| Aggressive plan | The plan with the highest sum of the matchup value above an empty slot of its started games. It can use more adds and give up started games for better players. |
+| Aggressive plan | The plan with the highest sum of the matchup value above an empty slot of its started games. It can use more adds and give up started games for better players. Since #130 (2026-10-28), only the search benchmark makes it. A planning run does not. |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team, for example "CHA Mon–Wed". |
