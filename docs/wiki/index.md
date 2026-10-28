@@ -27,6 +27,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 - [Owner merges PR #54](decision-owner-merges-pr-54.md): on 2026-10-21, the owner decided that the owner merges PR #54. An agent does not merge it.
 - [The pr-flow skill](decision-pr-flow-skill.md): on 2026-10-21, a user-level skill for builder, reviewer and merger roles, made from the problems of the runs of #59 to #76.
 - [Wiki location](decision-wiki-location.md): on 2026-10-21, the owner put the wiki in `docs/wiki/`.
+- [Site redesign of 2026-10-27](decision-site-redesign-2026-10-27.md): on 2026-10-27, the Impeccable setup, the critique of the adds page (21/40), the owner decisions (GitHub Pages, keep three plan rows) and issues #114 to #118.
 - [Push wiki commits](decision-push-wiki-commits.md): on 2026-10-26, the owner allowed the chief of staff to push commits that change only `docs/wiki/` to `main` without asking.
 
 ## Recurring problems
