@@ -639,6 +639,7 @@ label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q
 .mu .name { width: 62px; }
 .mu th.name { font-size: 12px; font-weight: 800; }
 .mu thead th { text-align: right; }
+.mu thead td { border-bottom: 2px solid var(--mark); }
 .lead { color: var(--good); }
 .trail { color: var(--bad); }
 .big { font-weight: 800; }
