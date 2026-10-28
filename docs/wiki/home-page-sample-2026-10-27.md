@@ -74,6 +74,8 @@ The owner looked at the sample and gave these points. The direction stays Card B
 
 8. The team-starts footer shows the totals the way the draft board shows them: the starts that the team gets, the total possible starts, and the percent of the starts that the team uses. The footer shows them for each week and the total, in both themes and on a phone.
 
+9. A player week cell (Wk19, Wk20 or Wk21) is red when the player has 2 or fewer games that week. The sign must be different from the red numeral of starts lost, and it must not be color only.
+
 This answers the dark-theme question in the brief: the page has both themes.
 
 ### What changed in the sample
@@ -133,3 +135,9 @@ In `.impeccable/review/`: `desktop.png`, `desktop-dark.png`, `mobile.png` (rows 
 
 - The owner has not approved the revised sample. No issue is filed.
 - The brief still lists where the home-page data is built.
+
+## Point 9 (2026-10-28)
+
+A player week cell with 2 or fewer games (rest nights not counted) now shows its games numeral in a red box, for example `2/[2]`. The red numeral of the starts stays the sign for starts lost, so the two signs are different: the box is a shape, and the color is not the only cue. The cell has the screen-reader text "2 or fewer games". The T cell is not marked. The key has a new item: "/[2] 2 or fewer games in the week". On a phone, the mark is in the week cells of the opened row. The closed row shows only the total playoff games, so it has no mark. One cell is marked: Rudy Gobert, Wk20 2/2. The red is at 5.3:1 or more on the page and the zebra in both themes.
+
+The same check found a bug in the phone grid: on an even (zebra) row, the header block of a quality day lost its solid fill, and its text was not readable. The fix restores the solid block on all rows. The screenshots `desktop.png`, `desktop-dark.png`, `mobile.png`, `mobile-open.png` and `mobile-dark.png` were taken again.
