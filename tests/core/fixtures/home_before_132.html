@@ -104,11 +104,13 @@ body.lab-locked { overflow: hidden; }
 .head h1 { margin: 0; color: var(--mark); font-weight: 900; font-stretch: 66%; font-size: clamp(32px, 4vw, 44px);
   line-height: .9; text-transform: uppercase; text-wrap: balance; }
 .head h1 sup { font-size: .35em; font-stretch: 100%; vertical-align: top; }
-.meta { display: flex; flex-wrap: wrap; gap: 8px 0; margin: 0 0 0 auto; font-size: 13px; }
+/* The record and the week items follow the name on the same line (#142). They go below the name on a narrow page. */
+.meta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 0; margin: 0; font-size: 13px; }
 .meta div { padding: 0 16px; border-left: 1px solid var(--lab-rule); }
 .meta dt { color: var(--lab-mute); font-size: 12px; margin-bottom: 3px; }
 .meta dd { margin: 0; }
 .meta strong { font-weight: 800; font-size: 15px; }
+.meta .rec strong { font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }
 .red { color: var(--lab-red); }
 .flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red); background: var(--lab-red);
   padding: 1px 4px; vertical-align: 3px; margin-left: 4px; }
@@ -220,8 +222,11 @@ tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; pad
 @media (max-width: 899px) {
   .roster { padding-block: 16px 24px; padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right)); }
-  .meta { margin-left: 0; }
   .meta div:first-child { padding-left: 0; border-left: 0; }
+  /* With a record, the record takes the left column and the two week items stack at its right, so no item wraps
+     alone under the record at 390px. */
+  .meta.with-rec { display: grid; grid-template-columns: auto 1fr; row-gap: 8px; }
+  .meta.with-rec .rec { grid-row: span 2; align-self: center; padding-right: 16px; }
   .scroll { display: none; }
   .mob { display: block; margin: 10px -16px 0; }
   .m-head, .m-p summary { display: grid; grid-template-columns: 44px 34px 1fr 30px 46px 26px; align-items: center;

@@ -190,6 +190,61 @@ def browser_page(width, scheme="light"):
             browser.close()
 
 
+def record_page():
+    return render(PLAYERS, DAYS, CFG, week=2, adds=(2, 5), team_name="TradeMark™", record="4-2-1")
+
+
+def test_the_header_shows_the_record_then_the_week_items():
+    text = record_page()
+    start = text.index('<header class="head">')
+    head = text[start : text.index("</header>", start)]
+    assert '<dl class="meta with-rec">' in head
+    assert head.index("<h1>") < head.index("<dt>Record</dt>") < head.index("<dt>This week</dt>")
+    assert head.index("<dt>This week</dt>") < head.index("<dt>Playoffs</dt>")
+    assert '<div class="rec"><dt>Record</dt><dd><strong>4-2-1</strong></dd></div>' in head
+
+
+def test_the_header_has_no_record_when_the_run_has_none():
+    text = page()
+    start = text.index('<header class="head">')
+    head = text[start : text.index("</header>", start)]
+    assert '<dl class="meta">' in head and "Record" not in head and 'class="rec"' not in head
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_the_record_and_the_week_items_follow_the_name(width):
+    with browser_page(width) as pg:
+        pg.set_content(record_page())
+        h1, rec, week, playoffs = (
+            pg.locator(sel).bounding_box()
+            for sel in ("h1", ".meta .rec", ".meta div:nth-child(2)", ".meta div:nth-child(3)")
+        )
+        assert pg.evaluate("document.documentElement.scrollWidth") <= width
+        if width == 1280:
+            # One line: the name, the record, This week and Playoffs, left to right, close to the name.
+            assert h1["x"] + h1["width"] <= rec["x"] < week["x"] < playoffs["x"]
+            assert rec["x"] - (h1["x"] + h1["width"]) <= 40
+            assert all(abs((b["y"] + b["height"]) - (h1["y"] + h1["height"])) <= 12 for b in (rec, week, playoffs))
+        else:
+            # Below the name: the record at the left, This week and Playoffs stacked at its right.
+            assert rec["y"] >= h1["y"] + h1["height"]
+            assert week["x"] > rec["x"] and playoffs["x"] == week["x"] and playoffs["y"] > week["y"]
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_the_header_items_are_4_5_to_1_or_more_in_light_and_dark_mode(width):
+    from tests.adds.test_page import CONTRAST
+
+    with browser_page(width) as pg:
+        pg.set_content(record_page())
+        # Check the header only: the record, This week and Playoffs (#142).
+        pg.add_style_tag(content="main.roster > :not(header.head) { display: none !important; }")
+        assert pg.locator("header.head .rec").is_visible()
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(CONTRAST) == [], theme
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_a_phone_shows_rows_that_open_and_no_horizontal_scroll(scheme):
     with browser_page(390, scheme) as pg:

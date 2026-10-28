@@ -34,6 +34,20 @@ def test_a_failed_home_page_prints_the_error_and_gives_none(monkeypatch, capsys)
     assert "RuntimeError: no rankings" in captured.err
 
 
+def test_the_home_page_gets_the_record_of_the_team_page(monkeypatch, tmp_path):
+    seen = {}
+    monkeypatch.setattr(adds_home, "read_ranks", lambda cfg, sched: {})
+    monkeypatch.setattr(adds_home, "read_risk", lambda roster, cfg: {})
+    monkeypatch.setattr(adds_home, "season_stats", lambda season: {})
+    monkeypatch.setattr(adds_home.home, "playoff_days", lambda sched, cfg: [])
+    monkeypatch.setattr(adds_home.home, "render", lambda *args, **kw: seen.update(kw) or "page")
+    monkeypatch.setattr(adds_home.home, "write", lambda text: tmp_path / "index.html")
+    data = SimpleNamespace(roster=[], week=SimpleNamespace(number=2), adds=SimpleNamespace(used=1, limit=5))
+    cfg = {"league": {"espn_season": 2027}, "adds": {"team_name": "TradeMark™"}}
+    assert adds_home.build_home(SimpleNamespace(**vars(data), record="4-2-1"), cfg, None, date(2026, 10, 28))
+    assert seen["record"] == "4-2-1" and seen["team_name"] == "TradeMark™"
+
+
 def test_the_run_builds_the_home_page_and_publishes_it_with_the_plan_page(monkeypatch, tmp_path):
     published, calls = [], []
     home_page = tmp_path / "home" / "index.html"
