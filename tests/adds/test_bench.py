@@ -1,19 +1,28 @@
+from functools import cache
+
 import pytest
 
 from fantasyhoops.adds import bench, timing
 from fantasyhoops.adds.bench import Case
 
-# The ceilings of the cases that end in a few seconds: (calls, states), about 2 times the counts of 2026-10-26.
-# The counts are deterministic, so a ceiling never fails by chance. Both searches had the same counts.
+# The ceilings of the cases that end in a few seconds: (calls, states), about 2 times the counts of the search with
+# the prune (#110, 2026-10-27). The counts are deterministic, so a ceiling never fails by chance. Both searches had
+# the same counts.
 CEILINGS = {
-    (5, 3): (45_000, 20_000),  # 22,660 calls, 9,688 states (2026-10-26)
-    (5, 4): (380_000, 52_000),  # 188,902 calls, 25,718 states (2026-10-26)
-    (7, 3): (990_000, 390_000),  # 495,295 calls, 194,726 states (2026-10-26)
+    (5, 3): (20_000, 8_100),  # 9,545 calls, 4,030 states (22,660 and 9,688 with no prune)
+    (5, 4): (125_000, 22_000),  # 61,768 calls, 10,952 states (188,902 and 25,718 with no prune)
+    (7, 3): (350_000, 135_000),  # 175,303 calls, 67,259 states (495,295 and 194,726 with no prune)
 }
-# The base case runs once, in test_the_base_case_has_the_calls_of_the_live_runs(). Its aggressive case takes about
-# 5 s more and has the same counts, so CI does not run it. Then the tests of this file stay below 30 s.
+# The base case calibrates the inputs (#100). CI runs each case once with the prune and once with no prune, so the
+# tests of this file take about 30 s.
 BASE = Case("schedule", 7, 3)
-FAST = [Case(s, d, a) for s in ("schedule", "aggressive") for d, a in CEILINGS if (d, a) != (BASE.days, BASE.adds)]
+CI_CASES = [Case(s, d, a) for s in ("schedule", "aggressive") for d, a in CEILINGS]
+
+
+@cache
+def run(case, prune=None):
+    """The Result of a case with the default seed and no cap. Each case and prune runs once in this file."""
+    return bench.run_case(case, prune=prune)
 
 
 @pytest.fixture(autouse=True)
@@ -22,23 +31,30 @@ def no_real_file(monkeypatch, tmp_path):
     monkeypatch.setattr(bench, "BENCH", tmp_path / "bench.csv")
 
 
-@pytest.mark.parametrize("case", FAST, ids=lambda c: f"{c.search}-D{c.days}-A{c.adds}")
+@pytest.mark.parametrize("case", CI_CASES, ids=lambda c: f"{c.search}-D{c.days}-A{c.adds}")
 def test_the_calls_and_the_states_stay_below_the_ceiling(case):
-    r = bench.run_case(case)
+    r = run(case)
     calls, states = CEILINGS[case.days, case.adds]
     assert not r.capped
     assert r.calls <= calls
     assert r.states <= states
 
 
+@pytest.mark.parametrize("case", CI_CASES, ids=lambda c: f"{c.search}-D{c.days}-A{c.adds}")
+def test_the_prune_gives_the_plan_of_the_search_with_no_prune(case):
+    # #110: == on the Plan, so the windows and the window options match too.
+    pruned, old = run(case), run(case, prune=False)
+    assert pruned.plan is not None
+    assert pruned.plan == old.plan
+    assert pruned.calls < old.calls
+
+
 def test_the_base_case_has_the_calls_of_the_live_runs():
     # The live runs of 2026-10-26 with 7 days, 5 open days and 3 adds had 275,995 to 613,874 calls (#89, #90, #92).
-    r = bench.run_case(BASE)
+    # Those runs had no prune, so the check uses the search with no prune.
+    r = run(BASE, prune=False)
     assert (r.open_days, r.spots) == (5, 3)
     assert 276_000 <= r.calls <= 614_000
-    calls, states = CEILINGS[BASE.days, BASE.adds]
-    assert r.calls <= calls
-    assert r.states <= states
 
 
 def test_the_inputs_are_the_week_of_the_issue():

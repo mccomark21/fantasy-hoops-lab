@@ -5,15 +5,20 @@ from itertools import product
 
 import pytest
 
+from fantasyhoops.adds import bench, timing
 from fantasyhoops.adds.planner import (
     Option,
     StreamSpot,
+    _Search,
     aggressive_plan,
+    aggressive_prunes,
     aggressive_score,
+    dominates,
     plan_score,
     rank_teams,
     schedule_plan,
     teams_to_read,
+    undominated,
     value_above_empty,
     waiver_options,
 )
@@ -507,3 +512,181 @@ def test_the_search_finds_the_best_plan_with_next_week_games(seed):
         days, games, [StreamSpot()] * 2, fas, 3, SLOTS, EMPTY_VALUE, next_week=next_week, next_weight=0.5
     )
     assert score(*a.totals) == pytest.approx(brute_force(roster, games, fas, 2, 3, score, next_week, 0.5))
+
+
+# The prune (#110): the search removes the dominated groups of each open day. The plans stay the same.
+
+
+def counted(search):
+    """(Plan, calls, states) of search(), a function that runs one plan search with a new timing.Work."""
+    work, saved = timing.Work(), timing.WORK
+    timing.WORK = work
+    try:
+        found = search()
+    finally:
+        timing.WORK = saved
+    return found, work.calls, work.states
+
+
+G1 = ((0, 1, 2, 5), ("PF", "SF"), ((1, 0.5),)), (3.0, 2.0)  # with 2 spots, an add from G1 gets 2.0 or more
+
+
+def test_a_group_with_less_of_each_is_dominated():
+    assert dominates(G1, (((0, 2), ("SF",), ()), (2.0, 1.0)), 2)
+    assert dominates(G1, (((0, 1), ("SF",), ((1, 0.5),)), (2.0,)), 2)  # the same rest count is enough
+
+
+@pytest.mark.parametrize(
+    "g2",
+    [
+        (((0, 3), ("SF",), ()), (1.0,)),  # 1. days: day 3 is not a day of G1
+        (((0, 6), ("SF",), ()), (1.0,)),  # 1. days: index 6 is a game next week that G1 does not have
+        (((0, 2), ("C",), ()), (1.0,)),  # 2. positions: C is not a position of G1
+        (((0, 1), ("SF",), ()), (1.0,)),  # 3. counts: G1 counts 0.5 on day 1, this group counts 1
+        (((0, 2), ("SF",), ()), (2.5,)),  # 4. values: 2.5 is more than the second value of G1
+    ],
+    ids=["days", "next-week-days", "positions", "counts", "values"],
+)
+def test_a_group_that_breaks_one_condition_is_not_dominated(g2):
+    assert not dominates(G1, g2, 2)
+    assert dominates(G1, (((0, 2), ("SF",), ()), (1.0,)), 2)  # a group with all 4 conditions true
+
+
+def test_a_group_with_fewer_values_than_spots_dominates_nothing():
+    g2 = (((0,), ("SF",), ()), (0.0,))
+    assert dominates(G1, g2, 2)
+    assert not dominates(G1, g2, 3)  # G1 has 2 values: a move with 3 spots can hold all of them
+
+
+def test_undominated_keeps_the_order_of_the_other_groups():
+    a = (((0, 1), ("SF",), ()), (5.0, 4.0))
+    b = (((0, 1), ("C",), ()), (4.5,))
+    c = (((0,), ("SF",), ()), (4.0,))  # dominated by a
+    d = (((0, 1, 2), ("SF",), ()), (3.0,))
+    assert undominated([a, b, c, d], 2) == [a, b, d]
+    assert undominated([d, c], 1) == [d, c]  # c has a higher value than d
+    low = (((0,), ("SF",), ()), (2.0,))
+    assert undominated([d, low], 1) == [d]  # d has 1 value, and 1 spot needs only 1
+
+
+def test_the_prune_keeps_the_plan_when_the_key_of_the_better_group_is_removed():
+    # Step 3 of #110. The holder and Twin have the same key (PHI, C, 2.0). NY plays Mon only, so the PHI group
+    # dominates the NY group. The move "drop the holder, add Twin" is not legal, because it removes and adds the
+    # same key. The move "keep all" gives the same keys with no add.
+    games = {WEEK[0]: {"PHI", "NY"}, WEEK[1]: {"PHI"}}
+    days = open_slots_by_day([], games, SLOTS)
+    spots = [StreamSpot(fa("Holder", "PHI", ("C",), 2.0))]
+    fas = [fa("Twin", "PHI", ("C",), 2.0), fa("Low", "NY", ("C",), 1.0)]
+    groups = {prune: _Search(days, games, spots, fas, SLOTS, prune=prune).groups[0] for prune in (True, False)}
+    assert [g[0][0] for g in groups[False]] == [(0, 1), (0,)]
+    assert [g[0][0] for g in groups[True]] == [(0, 1)]
+    plans = {prune: schedule_plan(days, games, spots, fas, 2, SLOTS, prune=prune) for prune in (True, False)}
+    assert plans[True] == plans[False]
+    assert (plans[True].started_games, plans[True].adds) == (2, 0)
+
+
+@pytest.mark.parametrize("seed", range(60))
+def test_the_prune_gives_the_plan_of_the_search_with_no_prune(seed):
+    # Small random weeks with holders, an Out holder, waiver players, players on the rest list, teammates and
+    # games next week, for both scores. The Plans must be equal, windows and window options included.
+    rnd = random.Random(seed)
+    teams = ["ATL", "CHI", "DAL"]
+    games = {d: {t for t in teams + ["BOS", "MIA"] if rnd.random() < 0.6} for d in WEEK[:5]}
+    roster = [Player(f"P{i}", "BOS", (rnd.choice(SLOTS),)) for i in range(rnd.randint(2, 6))]
+    positions = [("SF",), ("SF", "PF"), ("C",), ("PF", "C")]  # few positions, so that groups dominate
+    rests = rnd.random() < 0.4  # 2 weeks in 5 have players on the rest list
+    fas = []
+    for n in range(12):
+        team, pos, value = rnd.choice(teams), rnd.choice(positions), round(-9 * rnd.random(), 1)
+        kind = rnd.random()
+        if kind < 0.15:
+            fas.append(claim(f"W{n}", team, rnd.choice(WEEK[:4]), pos, value))
+        elif kind < 0.4 and rests:
+            fas.append(rester(f"R{n}", team, pos, value, nights=rnd.sample(WEEK[:5], 2)))
+        else:
+            fas.append(fa(f"F{n}", team, pos, value))
+    if rnd.random() < 0.15:
+        fas[0] = replace(fas[0], projected_value=EMPTY_VALUE - 1)  # a value below an empty slot
+    holders = [fa("Holder", rnd.choice(teams + ["MIA"]), rnd.choice(positions), -5.0), fa("Hurt", "MIA", status="O")]
+    holders = holders[: rnd.randint(0, 2)]
+    spots = [StreamSpot(h) for h in holders] + [StreamSpot()] * (rnd.choice([2, 2, 3]) - len(holders))
+    next_week = {t: rnd.randint(0, 4) for t in teams + ["MIA"]}
+    days = open_slots_by_day(roster, games, SLOTS)
+    found = [
+        schedule_plan(days, games, spots, fas, 3, SLOTS, next_week=next_week, next_weight=0.5, prune=prune)
+        for prune in (None, False)
+    ]
+    assert found[0] == found[1]
+    found = [
+        aggressive_plan(days, games, spots, fas, 3, SLOTS, EMPTY_VALUE, next_week, 0.5, prune=prune)
+        for prune in (None, False)
+    ]
+    assert found[0] == found[1]
+
+
+def bench_case(change=None, prune=None):
+    """(Plan, calls, states) of the aggressive search on the bench inputs with D = 5 and A = 3.
+
+    change: a function that gives new free agents from the free agents of the inputs."""
+    inputs = bench.search_inputs(5)
+    fas = change(inputs.free_agents) if change else inputs.free_agents
+    return counted(
+        lambda: aggressive_plan(
+            inputs.days,
+            inputs.games,
+            inputs.spots,
+            fas,
+            3,
+            inputs.slots,
+            bench.EMPTY_VALUE,
+            inputs.next_week,
+            inputs.next_weight,
+            prune,
+        )
+    )
+
+
+def test_the_aggressive_search_prunes_when_the_guard_holds():
+    found, calls, states = bench_case()
+    old, old_calls, old_states = bench_case(prune=False)
+    assert found == old
+    assert calls < old_calls and states < old_states
+
+
+@pytest.mark.parametrize("why", ["rest", "low-value"])
+def test_the_aggressive_search_does_not_prune_when_the_guard_fails(why):
+    # A rest count on an open day, or a value below an empty slot: the search has the calls and the states of the
+    # search with no prune.
+    def change(fas):
+        if why == "rest":
+            return [replace(fas[0], rest_games=((bench.WEEK[-1], 0.5),))] + fas[1:]
+        return [replace(fas[0], projected_value=bench.EMPTY_VALUE - 1)] + fas[1:]
+
+    found, calls, states = bench_case(change)
+    old, old_calls, old_states = bench_case(change, prune=False)
+    assert found == old
+    assert (calls, states) == (old_calls, old_states)
+
+
+def test_the_guard_skips_a_rest_day_that_is_not_open_and_an_out_holder():
+    games = {WEEK[0]: {"PHI"}, WEEK[1]: {"BOS", "PHI"}}
+    days = open_slots_by_day(FULL, games, SLOTS)  # Tue: BOS fills all slots, so only Mon is open
+    resting = rester("Rests", "PHI", value=-1, nights=[WEEK[1]])
+    hurt = StreamSpot(fa("Hurt", "DEN", value=EMPTY_VALUE - 5, status="O"))
+    assert aggressive_prunes(days, [hurt], [resting], EMPTY_VALUE)
+    assert not aggressive_prunes(days, [StreamSpot(fa("Low", "DEN", value=EMPTY_VALUE - 5))], [], EMPTY_VALUE)
+    assert not aggressive_prunes(days, [], [rester("Mon", "PHI", nights=[WEEK[0]])], EMPTY_VALUE)
+
+
+def test_only_the_plan_score_prunes_by_default():
+    # A search with another score does not prune, so it has the calls of the search with no prune.
+    inputs = bench.search_inputs(5)
+    args = (inputs.days, inputs.games, inputs.spots, inputs.free_agents, 3, inputs.slots)
+
+    def score(started, adds, value, *_):
+        return value, started
+
+    _, calls, _ = counted(lambda: schedule_plan(*args, score=score))
+    _, old_calls, _ = counted(lambda: schedule_plan(*args, score=score, prune=False))
+    _, pruned_calls, _ = counted(lambda: schedule_plan(*args))
+    assert calls == old_calls > pruned_calls

@@ -31,6 +31,13 @@ the end of the week.
 
 Run time (#85): each search counts its calls of best() and its unique states in timing.WORK. The counts change
 no plan.
+
+The prune (#110): on each open day, the search removes each dominated group of free agents (dominates()) from
+the adds that it tries. A group is dominated when an earlier group has the same or more open days, positions,
+counts and values. The search then tries fewer moves. The prune must change no plan, and the tests compare the
+plans with and without it. The schedule search always prunes. The aggressive search prunes only when no player
+has a rest count on an open day and no value is below empty_value (aggressive_prunes()). With another score, the
+search does not prune.
 """
 
 import math
@@ -218,11 +225,14 @@ def aggressive_score(empty_value):
     return score
 
 
-def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_value, next_week=None, next_weight=0.0):
+def aggressive_plan(
+    days, games, spots, free_agents, adds_left, slots, empty_value, next_week=None, next_weight=0.0, prune=None
+):
     """The best Plan by aggressive_score(empty_value). It uses adds_left adds or fewer.
 
     The arguments are the arguments of schedule_plan(). A holder with no season value (not in the projections
     file) gets empty_value, the lowest value, so that the plan does not keep him as an average player.
+    prune: None prunes only when aggressive_prunes() is True. True or False sets the prune (see schedule_plan()).
     """
     spots = [
         StreamSpot(replace(s.holder, projected_value=empty_value, blended_value=None))
@@ -230,6 +240,8 @@ def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_val
         else s
         for s in spots
     ]
+    if prune is None:
+        prune = aggressive_prunes(days, spots, free_agents, empty_value)
     return schedule_plan(
         days,
         games,
@@ -240,7 +252,63 @@ def aggressive_plan(days, games, spots, free_agents, adds_left, slots, empty_val
         score=aggressive_score(empty_value),
         next_week=next_week,
         next_weight=next_weight,
+        prune=prune,
     )
+
+
+def aggressive_prunes(days, spots, free_agents, empty_value):
+    """True if the aggressive search can prune the dominated groups (#110) with no change to the plan.
+
+    Two conditions must be true:
+    1. No holder and no free agent has a rest count on an open day. Then each count is 1.
+    2. No value of a holder or a free agent is below empty_value. Then an extra started game never lowers the score.
+
+    The check skips an Out player, because he has no games. spots: the spots after aggressive_plan() gives
+    empty_value to a holder with no season value.
+    """
+    open_days = {d.date for d in days if d.open}
+    holders = [s.holder for s in spots if s.holder and not s.holder.player.out]
+    fas = [o for o in free_agents if o.value is not None and not o.player.out]
+    if any(day in open_days for o in holders + fas for day, _ in o.rest_games):
+        return False
+    return all(_value(h) >= empty_value for h in holders) and all(o.value >= empty_value for o in fas)
+
+
+def dominates(g1, g2, spots):
+    """True if group g1 dominates group g2 on one open day (#110). spots: the number of stream spots.
+
+    A group is (base key, values of the free agents with that base key, best first), as in _Search.groups.
+    All 4 conditions must be true:
+    1. Days: the open days of g2 are in the open days of g1. The next-week indexes are open days here.
+    2. Positions: the positions of g2 are in the positions of g1.
+    3. Counts: on each open day of g2, the count of g1 is at least the count of g2. The count of a day is its rest
+       count, or 1 when the day has no rest count.
+    4. Values: g1 has at least spots values, and its value at index spots - 1 is at least the best value of g2.
+    A move holds at most spots keys, so an add from g1 always gets a value of at least the best value of g2.
+    """
+    (days1, positions1, rests1), values1 = g1
+    (days2, positions2, rests2), values2 = g2
+    counts1, counts2 = dict(rests1), dict(rests2)
+    return (
+        set(days2) <= set(days1)
+        and set(positions2) <= set(positions1)
+        and all(counts1.get(d, 1.0) >= counts2.get(d, 1.0) for d in days2)
+        and 0 < spots <= len(values1)
+        and values1[spots - 1] >= values2[0]
+    )
+
+
+def undominated(groups, spots):
+    """The groups that no earlier group dominates (dominates()), in their order.
+
+    The check uses only the groups that stay. The conditions are transitive, so a group that a removed group
+    dominates is also dominated by a group that stays.
+    """
+    kept = []
+    for g in groups:
+        if not any(dominates(h, g, spots) for h in kept):
+            kept.append(g)
+    return kept
 
 
 def next_week_totals(windows, next_week, next_weight):
@@ -297,7 +365,9 @@ def teams_to_read(ranking, count=TEAMS_TO_READ):
     return teams
 
 
-def schedule_plan(days, games, spots, free_agents, adds_left, slots, score=plan_score, next_week=None, next_weight=0.0):
+def schedule_plan(
+    days, games, spots, free_agents, adds_left, slots, score=plan_score, next_week=None, next_weight=0.0, prune=None
+):
     """The best Plan by score() for the stream spots. It uses adds_left adds or fewer.
 
     days, games, spots and free_agents: see the module docstring. A free agent who is out or who has no
@@ -307,8 +377,15 @@ def schedule_plan(days, games, spots, free_agents, adds_left, slots, score=plan_
     must depend only on their totals.
     next_week: {NBA team: its games next week} (slots.next_week_games()). next_weight: the part of a game this week
     that a game next week is worth, [adds] next_week_weight. With no next_week or a weight of 0, there is no bonus.
+    prune: True removes the dominated groups from the adds that the search tries (undominated()). The plan stays
+    the same only with plan_score, or with aggressive_score() when aggressive_prunes() is True. None prunes only
+    with plan_score. False gives the search with no prune.
     """
-    search = _Search(days, games, spots, free_agents, slots, score, next_week if next_weight else None, next_weight)
+    if prune is None:
+        prune = score is plan_score
+    search = _Search(
+        days, games, spots, free_agents, slots, score, next_week if next_weight else None, next_weight, prune
+    )
     return search.plan(adds_left)
 
 
@@ -330,9 +407,12 @@ class _Search:
     free agents with that base key who are not in a spot now.
     The open days of a key also hold one index from len(self.open) up for each game of his team next week. No
     real open day has these indexes, so the started games do not change.
+    prune: remove the dominated groups from groups[k] (undominated()). See schedule_plan().
     """
 
-    def __init__(self, days, games, spots, free_agents, slots, score=plan_score, next_week=None, next_weight=0.0):
+    def __init__(
+        self, days, games, spots, free_agents, slots, score=plan_score, next_week=None, next_weight=0.0, prune=False
+    ):
         self.days, self.games, self.slots, self.score = days, games, slots, score
         self.next_week, self.next_weight = next_week or {}, next_weight
         self.open = [i for i, d in enumerate(days) if d.open]
@@ -347,7 +427,8 @@ class _Search:
                 base = self.key(o, k).base
                 if base[0][:1] == (k,):
                     group.setdefault(base, []).append(o.value)
-            self.groups.append(list(group.items()))
+            groups = list(group.items())
+            self.groups.append(undominated(groups, len(self.holders)) if prune else groups)
 
     def plays(self, option, i):
         p, day = option.player, self.days[i].date

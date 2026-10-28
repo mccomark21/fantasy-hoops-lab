@@ -256,8 +256,12 @@ def search_inputs(days=7, seed=SEED, cfg=None):
     )
 
 
-def run_case(case, seed=SEED, limit=None, seconds=None, cfg=None):
-    """Run one case with a new timing.Work and give its Result. limit, seconds: the cap of the Work."""
+def run_case(case, seed=SEED, limit=None, seconds=None, cfg=None, prune=None):
+    """Run one case with a new timing.Work and give its Result. limit, seconds: the cap of the Work.
+
+    prune: the prune argument of schedule_plan() and aggressive_plan(). None is the prune of a planning run. False
+    gives the search with no prune (#110).
+    """
     inputs = search_inputs(case.days, seed, cfg)
     work, saved = timing.Work(limit=limit, seconds=seconds), timing.WORK
     timing.WORK = work
@@ -265,9 +269,11 @@ def run_case(case, seed=SEED, limit=None, seconds=None, cfg=None):
     try:
         args = (inputs.days, inputs.games, inputs.spots, inputs.free_agents, case.adds, inputs.slots)
         if case.search == "schedule":
-            plan = schedule_plan(*args, next_week=inputs.next_week, next_weight=inputs.next_weight)
+            plan = schedule_plan(*args, next_week=inputs.next_week, next_weight=inputs.next_weight, prune=prune)
         else:
-            plan = aggressive_plan(*args, EMPTY_VALUE, next_week=inputs.next_week, next_weight=inputs.next_weight)
+            plan = aggressive_plan(
+                *args, EMPTY_VALUE, next_week=inputs.next_week, next_weight=inputs.next_weight, prune=prune
+            )
     except timing.Capped:
         capped = True
     finally:
