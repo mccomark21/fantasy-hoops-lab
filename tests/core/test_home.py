@@ -1,6 +1,7 @@
 import re
 from contextlib import contextmanager
 from datetime import date, timedelta
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -79,7 +80,7 @@ def test_a_day_with_no_nba_game_is_not_in_the_ideal():
 
 
 CFG = {
-    "league": {"slots": SLOTS, "espn_season": 2027},
+    "league": {"slots": SLOTS, "espn_season": 2027, "teams": 14},
     "flags": {"avoid_week_games": 1},
 }
 
@@ -136,6 +137,15 @@ def test_the_page_uses_the_shared_tokens_the_menu_and_no_colors_of_its_own():
     style = re.sub(r"/\*.*?\*/", "", home.PAGE_STYLE, flags=re.S)
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgb\(", style)
     assert ".flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red);" in style
+
+
+def test_the_page_is_the_html_before_the_page_shell():
+    """#132: fixtures/home_before_132.html is page() before publish.shell(), with 14 teams in config.toml.
+
+    The render reads no config.toml: the team count of the menu comes from CFG, and core/publish.py has no
+    load_config().
+    """
+    assert page() == (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
 
 
 def test_each_team_band_has_text_at_4_5_to_1():

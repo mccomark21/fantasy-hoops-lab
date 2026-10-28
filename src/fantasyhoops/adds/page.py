@@ -17,7 +17,8 @@ The Run time table shows the time of each step of the run (adds/timing.py, #85),
 reads and their Yahoo pages below the Yahoo reads row (#89). The Run time section also holds the lines about the run:
 the market read, the pages from the cache and the skip of the recent view (#118).
 The page has inline CSS and no files from other sites. The colors and the font come from core/tokens.py, and the site
-menu comes from core/publish.py (#117). write() also writes the font file to fonts/ next to the page.
+menu comes from core/publish.py (#117). publish.shell() gives the head, the menu and the menu script (#132).
+write() uses publish.write_page(), which also writes the font file to fonts/ next to the page.
 """
 
 import html
@@ -30,7 +31,6 @@ from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.rest import games_text
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core import publish as site
-from fantasyhoops.core import tokens
 from fantasyhoops.core import common
 
 TITLE = "Weekly adds plan"
@@ -386,7 +386,7 @@ def free_agents_section(run):
     The role line of each player uses run.roles (adds/roles.py) and [adds] minutes_rise of run.cfg.
     [adds.flags] of run.cfg gives the legend of the starter flag and the closer flag.
     run.next_days and run.next_games: the first days of next week, for the next-week marks (see free_agent_data()).
-    run.recent_skip: the line that says that the run skipped the recent view (plan.recent_skip_line(), #90). With a
+    run.recent_skip: the line that says that the run skipped the recent view (lists.recent_skip_line(), #90). With a
     line, SKIP_NOTE shows above the table, and the full line shows in the Run time section (#118). None: no note.
     The key of the marks shows above the table. The long legends are in a <details> below the table (#118).
     The script shows a message with a "Clear days" button when no free agent matches the filters.
@@ -494,9 +494,9 @@ def timings_section(timings, market=None, cache=None, recent_skip=None):
     timings: the timing.StepTimes of the run. A sub-step row follows the row of its step and shows only the
     sub-step name, indented. The page write has no row, because the run writes the page before that step ends.
     timings.csv has its row.
-    market: the line of the market read (plan.market_line(), #92). cache: the line of the pages from the same-day
+    market: the line of the market read (lists.market_line(), #92). cache: the line of the pages from the same-day
     cache (cache.PageCache.line(), #91). recent_skip: the line of the skip of the recent view
-    (plan.recent_skip_line(), #90). Each line is None when it does not apply. Nothing with no timings and no lines.
+    (lists.recent_skip_line(), #90). Each line is None when it does not apply. Nothing with no timings and no lines.
     """
 
     def count(n):
@@ -576,6 +576,7 @@ def render(run):
     nights (the B2B marks), contingencies (the Contingency plans, one text line each), roles, next_days, next_games,
     timings (the Run time table) and the run lines recent_skip, market and cache (timings_section()).
     [adds] minutes_rise and [adds.flags] of run.cfg give the legends of the role marks.
+    [league] teams of run.cfg gives the team count in the site menu.
     """
     today = run.today or date.today()
     contingencies = [" ".join(line.strip() for line in contingency_lines(c)) for c in run.contingencies]
@@ -592,13 +593,8 @@ def render(run):
         timings_section(run.timings, run.market, run.cache, run.recent_skip),
         method_note(),
     ]
-    return (
-        HTML.replace("__TITLE__", TITLE)
-        .replace("__HEAD__", site.site_head())
-        .replace("__MENU__", site.site_menu("adds"))
-        .replace("__MENU_SCRIPT__", site.MENU_SCRIPT)
-        .replace("__BODY__", "\n".join(s for s in sections if s))
-    )
+    shell = site.shell(HTML.replace("__TITLE__", TITLE), "adds", run.cfg)
+    return shell.replace("__BODY__", "\n".join(s for s in sections if s))
 
 
 def page_path():
@@ -608,11 +604,7 @@ def page_path():
 
 def write(text, path=None):
     """Write the page text to path (default: page_path()), and the font file to fonts/ next to it. Return the path."""
-    path = path or page_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    tokens.copy_font(path.parent)
-    return path
+    return site.write_page(path or page_path(), text)
 
 
 HTML = """<!doctype html>
@@ -745,7 +737,7 @@ __MENU__
 <main class="lab-main"><div class="sheet">
 __BODY__
 </div></main>
-__MENU_SCRIPT__
+__SCRIPT__
 </body>
 </html>
 """

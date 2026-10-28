@@ -484,7 +484,7 @@ def run_command(
     games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
     sched = pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
     cfg = {
-        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
+        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10, "teams": 14},
         "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
         "weights": {"pts": 1.0},
     }
@@ -516,7 +516,7 @@ def run_command(
     monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
     # A home page goes last in the record of the publish.
     monkeypatch.setattr(
-        command.site, "publish", lambda *a, home=None: published.append(a if home is None else (*a, home))
+        command.site, "publish", lambda *a, home=None, cfg: published.append(a if home is None else (*a, home))
     )
     command.main(today=today or WEEK[0], publish=publish, timed=timed, cache=cache)
     return yahoo

@@ -1,4 +1,4 @@
-"""Publish the Fantasy Hoops Lab site to GitHub Pages on the gh-pages branch, and make the site menu.
+"""Publish the Fantasy Hoops Lab site to GitHub Pages on the gh-pages branch, and make the shell of each site page.
 
 The site has a home page at / and the folder /adds/ for the adds plan.
 The home page is the roster page of core/home.py (#120). Without it, the home page is a list of the tools.
@@ -7,14 +7,16 @@ A folder on gh-pages with a name that is not in TOOLS goes away at the next publ
 The root and the tool folder get the font file and its license (OFL.txt) in fonts/ (core/tokens.py).
 The site menu (#117): a royal-blue side panel on a desktop, and a top bar with a drawer on a phone.
 It has a link to each page of the site and the Auto, Light and Dark theme switch.
-Each page puts site_head() in its <head>, site_menu() first in its <body> and MENU_SCRIPT last in its <body>.
+The page shell (#132): shell() puts site_head() in the <head> of a page, site_menu() first in its <body> and
+MENU_SCRIPT last in its <body>. The plan page, the home page and the tool list (home_page()) use shell().
+write_page() writes a page and the font next to it. The plan page and the home page use it.
+site_menu() and publish() get the config from the caller. The module does not read config.toml.
 """
 
 import html
 import subprocess
 
 from fantasyhoops.core import tokens
-from fantasyhoops.core.common import load_config
 
 BRANCH = "gh-pages"
 URL = "https://mccomark21.github.io/fantasy-hoops-lab/"
@@ -68,8 +70,10 @@ def site_head():
     return f"{tokens.HEAD}\n<style>\n{MENU_STYLE}\n</style>"
 
 
-def site_menu(current):
+def site_menu(current, teams):
     """The site menu, first in the <body> of a page. current: "home" or the name of a tool in TOOLS.
+
+    teams: the number of teams in the league ([league] teams of config.toml).
 
     The home page is at the root of the site and each tool page is in its own folder, so the links are relative.
     """
@@ -81,31 +85,46 @@ def site_menu(current):
         f'<li><a href="{href}"{here if name == current else ""}>{html.escape(label)}</a></li>'
         for name, href, label in items
     )
-    teams = load_config()["league"]["teams"]
     return MENU.replace("__ROOT__", root).replace("__TEAMS__", str(teams)).replace("__LINKS__", links)
 
 
-def home_page(tools):
-    """The home page: the site menu, then one line and one link for each tool on the site."""
+def shell(template, current, cfg):
+    """Fill the site shell of a page template: __HEAD__, __MENU__ and __SCRIPT__.
+
+    current: the page in the site menu (site_menu()). cfg: the config. [league] teams gives the team count.
+    """
+    return (
+        template.replace("__HEAD__", site_head())
+        .replace("__MENU__", site_menu(current, cfg["league"]["teams"]))
+        .replace("__SCRIPT__", MENU_SCRIPT)
+    )
+
+
+def write_page(path, text):
+    """Write the page text to path, and the font file and its license to fonts/ next to it. Return the path."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    tokens.copy_font(path.parent)
+    return path
+
+
+def home_page(tools, cfg):
+    """The home page: the site menu, then one line and one link for each tool on the site. cfg: the config."""
     items = "\n".join(
         f'<li><a href="{t}/">{html.escape(TOOLS[t][0])}</a><span>{html.escape(TOOLS[t][1])}</span></li>'
         for t in TOOLS
         if t in tools
     )
-    return (
-        HOME.replace("__HEAD__", site_head())
-        .replace("__MENU__", site_menu("home"))
-        .replace("__SCRIPT__", MENU_SCRIPT)
-        .replace("__TOOLS__", items)
-    )
+    return shell(HOME, "home", cfg).replace("__TOOLS__", items)
 
 
-def publish(repo, tool, index, others=(), home=None):
+def publish(repo, tool, index, others=(), home=None, *, cfg):
     """Push the pages of one tool to gh-pages in origin, in the folder /<tool>/. The working tree and the current branch do not change.
 
     index: the main page of the tool. It goes to /<tool>/index.html.
     others: more pages of the tool. Each one goes to /<tool>/ with its own file name.
     home: the home page for the root of the site (core/home.py). None: a list of the tools (home_page()).
+    cfg: the config. home_page() uses [league] teams of it for the list of the tools.
     The folders of the other tools in TOOLS stay. The home page links to each tool folder on the site.
     Each page carries its own site menu (site_menu()). The publish does not change the pages.
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
@@ -123,7 +142,7 @@ def publish(repo, tool, index, others=(), home=None):
         name: ("100644", "blob", write_blob(repo, data))
         for name, data in {
             ".nojekyll": b"",
-            "index.html": home.read_bytes() if home else home_page(folders).encode(),
+            "index.html": home.read_bytes() if home else home_page(folders, cfg).encode(),
         }.items()
     }
     root["fonts"] = fonts

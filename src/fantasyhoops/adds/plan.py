@@ -543,10 +543,10 @@ def print_report(run):
     print_contingencies(run.contingencies)
 
 
-def publish_page(path, rows, publish=True, home=None):
+def publish_page(path, rows, cfg, publish=True, home=None):
     """Print the path and the best row of the plan page, then publish the site with the page at /adds/.
 
-    home: the home page (adds/home.py) for the root of the site, or None.
+    home: the home page (adds/home.py) for the root of the site, or None. cfg: the config of the run.
     """
     print()
     print(f"Wrote the plan page: {path}")
@@ -558,7 +558,7 @@ def publish_page(path, rows, publish=True, home=None):
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
-    site.publish(ROOT, "adds", path, home=home)
+    site.publish(ROOT, "adds", path, home=home, cfg=cfg)
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
 
@@ -700,7 +700,7 @@ def main(today=None, publish=True, timed=True, cache=True):
     with step("page write and publish"):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
-        publish_page(page.write(text), rows, publish, home)
+        publish_page(page.write(text), rows, cfg, publish, home)
     if timed:
         print(f"Wrote the step times: {timing.timings_path()}")
 
