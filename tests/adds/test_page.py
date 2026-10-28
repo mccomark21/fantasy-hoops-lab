@@ -1336,3 +1336,60 @@ def test_at_390px_the_chips_the_checkbox_label_and_the_summaries_are_24px_high_o
                 "els => els.filter(e => e.offsetParent).map(e => e.getBoundingClientRect().height)"
             )
             assert heights and min(heights) >= 24, (control, heights)
+
+
+# The contrast of each visible text element against the background below it (WCAG 2.2, #115).
+# The background is the sum of the backgrounds of the element and its parents, with their alpha.
+CONTRAST = r"""() => {
+  const rgb = s => { const p = s.match(/[\d.]+/g).map(Number);
+    return s.startsWith("color(") ? [p[0] * 255, p[1] * 255, p[2] * 255, p[3] ?? 1] : [p[0], p[1], p[2], p[3] ?? 1]; };
+  const over = (t, b) => [0, 1, 2].map(i => t[i] * t[3] + b[i] * (1 - t[3])).concat(1);
+  const lum = c => c.slice(0, 3).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+    .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const out = [], seen = new Set(), walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  while (walk.nextNode()) {
+    const el = walk.currentNode.parentElement;
+    if (!walk.currentNode.textContent.trim() || seen.has(el) || !el.getClientRects().length) continue;
+    seen.add(el);
+    const chain = []; for (let e = el; e; e = e.parentElement) chain.unshift(e);
+    let bg = [255, 255, 255, 1], alpha = 1;
+    for (const e of chain) { const s = getComputedStyle(e); bg = over(rgb(s.backgroundColor), bg); alpha *= +s.opacity; }
+    const s = getComputedStyle(el), fg = rgb(s.color); fg[3] *= alpha;
+    const [a, b] = [lum(over(fg, bg)), lum(bg)], ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    const large = parseFloat(s.fontSize) >= 24 || (parseFloat(s.fontSize) >= 18.66 && +s.fontWeight >= 700);
+    if (ratio < (large ? 3 : 4.5)) out.push(`${el.tagName}.${el.className} "${el.textContent.trim()}" ${ratio.toFixed(2)}`);
+  }
+  return out;
+}"""
+
+
+def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_the_chips_pressed():
+    # Tue is a back-to-back night of PHI in row 1, a zebra row. Wed has no open slot (a dashed chip).
+    nights = {WEEK[1]: {"PHI"}}
+    claim_row = SpotPlan(
+        SPOTS[0],
+        Plan(
+            windows=(TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM, (CLAIM,)),),
+            started_games=2,
+            adds=1,
+        ),
+        2,
+    )
+    html = page.render(
+        DATA, DAYS, GAMES, SPOTS, [ROW1, ROW2, claim_row], OPTIONS + [CLAIM], RANKING, ["PHI"], WEEK[0],
+        replacement=0.5, nights=nights, minutes_rise=3, timings=[timing.StepTime("Yahoo reads", 1.0)],
+    )  # fmt: skip
+    assert html.count('class="b2b"') >= 2 and ">W</span>" in html
+    with browser_page() as pg:
+        pg.set_content(html)
+        pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(CONTRAST) == [], theme
+        wed = pg.locator("#day-chips button.none").first
+        wed.click()
+        pg.get_by_role("button", name="SF", exact=True).click()
+        assert wed.get_attribute("aria-pressed") == "true"
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(CONTRAST) == [], f"{theme}, pressed"

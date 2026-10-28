@@ -30,7 +30,7 @@ LIGHT = {
     "mark": "#1d4f91",  # the rules, the headings, the selected or sorted state and the links
     "zebra": "#eff3f8",  # every second table row, and table heads
     "qcol": "#e0e8f4",  # a shaded cell: a started game or a quality day
-    "qcol-z": "#d6e0ef",  # a shaded cell on a zebra row
+    "qcol-z": "#dae3f1",  # a shaded cell on a zebra row. lab-red on it is 4.5:1 or more (#115).
     "vrule": "#d2d9e4",  # the vertical rules between table sections
     "lamp-off": "#6f7889",  # a mark that is off
     "lab-scrim": "rgb(8 16 32 / .5)",  # the shade behind the open menu on a phone
@@ -45,7 +45,7 @@ DARK = {
     "lab-blue": "#16305a",
     "lab-blue-deep": "#1f3f73",
     "lab-on-blue": "#ffffff",
-    "lab-red": "#ff6b7d",
+    "lab-red": "#ff7d8d",  # 4.5:1 or more on qcol-z (#115)
     "lab-on-red": "#0e1a2e",
     "mark": "#8fb3ff",
     "zebra": "#142540",
