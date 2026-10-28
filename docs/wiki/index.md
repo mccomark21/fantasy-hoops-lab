@@ -23,6 +23,8 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Decisions
 
+- [Architecture refactors of 2026-10-28](architecture-refactors-2026-10-28.md): the 7 refactor issues #127 to #133 from the architecture scan, the owner decisions, and the build waves.
+
 - [Adds build decisions](adds-build-decisions.md): the decisions of 2026-10-20 in the adds build (aggressive score, NA and suspended players, next week on the last day, 3 stream spots), with links to the guide.
 - [Page redesign kept](decision-page-redesign-kept.md): on 2026-10-21, the owner kept the plan page redesign of `a73ee76`, which changed the scope of #52.
 - [Owner follow-ups on #45, #46 and #49](decision-owner-follow-ups.md): on 2026-10-21, these tickets closed with two kinds of owner step left (live-run checks and the core list).
