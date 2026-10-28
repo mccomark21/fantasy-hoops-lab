@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from bs4 import BeautifulSoup
 
+from fantasyhoops.adds.cache import get_all
 from fantasyhoops.adds.readers import read_player
 
 
@@ -83,6 +84,9 @@ def read_week_trends(yahoo, days, old=None):
 
     old: a function day -> the reader of the page of a day before today, for example cache.PageCache.trends()
     (#91). None: yahoo. The page of today always comes from yahoo, because it changes during the day.
+    The pages that are not in the cache go to Yahoo together (cache.get_all(), #108).
     """
     days = sorted(days, reverse=True)
-    return week_trends([(yahoo if n == 0 or old is None else old(d)).get(trends_path(d)) for n, d in enumerate(days)])
+    return week_trends(
+        get_all([(yahoo if n == 0 or old is None else old(d), trends_path(d)) for n, d in enumerate(days)])
+    )

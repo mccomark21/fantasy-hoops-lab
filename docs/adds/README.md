@@ -323,7 +323,7 @@ Decision (2026-10-26, #89): the Yahoo reads step also times its sub-steps and co
 
 Since #92, the run reads the team lists in both views before the market pages, because the guard of the market read needs their blended values. The market pages and the waiver list rows each hold the pages of both views. The timers do not change the order of the reads. The sub-steps do not time the work between the reads or the close of Edge. One exception since #92: the market pages row also times the guard's values of the new players of each market page. The run reads the category scale before the Yahoo reads step and computes the values of the team-list free agents before the market pages sub-step. So the seconds of the sub-steps add to less than the seconds of the Yahoo reads.
 
-A page is one call of `League.get()` (`adds/session.py`). A sign-in opens the same page again, but the page counts one time. The pages of the Yahoo reads are the sum of the pages of its sub-steps. A sub-step that does not run has no row. For example, with no adds left, the run reads no free agent, so only the browser start and the league and matchup pages have rows.
+A page is one page that `League` opens (`adds/session.py`): one page in Edge or one raw request (#108). A sign-in opens the same page again, but the page counts one time. A page from the same-day cache counts no page. The pages of the Yahoo reads are the sum of the pages of its sub-steps. A sub-step that does not run has no row. For example, with no adds left, the run reads no free agent, so only the browser start and the league and matchup pages have rows.
 
 With the [skip of the recent view](#skip-of-the-recent-view), the recent pass row stays with 0 pages. The market pages and the waiver list rows then hold the pages of the projected view only (#90).
 
@@ -451,7 +451,31 @@ Only players with status FA are free agents. Players on waivers (W) are not. The
 
 Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. On each page, the planner waits for the element that its reader needs, for example the player table. It does not wait for all network requests to stop, because Yahoo pages keep loading ads (#74). On a matchup page, the planner also waits up to 0.5 s for the score table. Some matchup pages have no score table, so this wait is short. Before #93, the wait was 2 s. See [ADR 1](../adr/0001-playwright-for-league-data.md).
 
-Yahoo can block the requests of the session. On 2026-10-27, Yahoo gave HTTP 999 "Request denied" after many loads (#95). When a page gives HTTP 999 or 429, the planner raises `YahooBlocked` (`adds/session.py`, #107). The message gives the status and the URL. The planning run stops at once. It does not wait for the element of the page, and it does not try again, because each retry is one more Yahoo load. What to do:
+Since #108, the planner reads some pages with raw requests and not in Edge. A raw request gets the HTML of the page from the server with the cookies of the Edge profile. No script of the page runs. Spike #95 found that the readers give the same rows on the raw HTML and on the HTML of Edge for the player lists and Transaction Trends.
+
+| Page | How the planner reads it |
+| --- | --- |
+| Free-agent lists: the team lists and the market pages, both views | Raw requests |
+| Waiver list, both views | Raw requests |
+| Transaction Trends | Raw requests |
+| Team page | Edge. A script on the page adds `data-pos`, and `read_roster()` needs it. |
+| Matchup pages, this week and next week | Edge. In the live check of 2026-10-27 20:10, during NBA games, the raw matchup page had no score table. |
+
+The planner sends at most 4 raw requests at a time (`MAX_REQUESTS`). These reads go together:
+
+- Page 1 of the free-agent list of each read team. Then the next page of each team that has one.
+- The projected page and the recent page of the same market page. The guard decides after each market page, so the planner reads no market page ahead.
+- The Transaction Trends pages that are not in the cache.
+
+Each raw request checks three things:
+
+1. The HTTP status. HTTP 999 or 429 raises `YahooBlocked` (see below).
+2. The final URL. If the request went to the Yahoo sign-in, the planner opens the page in Edge for the sign-in. Then the raw request reads the page again.
+3. The element that the reader needs, for example the player table. A raw page without that element stops the run with an error that names the page.
+
+Edge still starts at the beginning of each run, for the team page, the matchup pages, the cookies and a sign-in.
+
+Yahoo can block the requests of the session. On 2026-10-27, Yahoo gave HTTP 999 "Request denied" after many loads (#95). When a page in Edge or a raw request gives HTTP 999 or 429, the planner raises `YahooBlocked` (`adds/session.py`, #107, #108). The message gives the status and the URL. The planning run stops at once. It does not wait for the element of the page, and it does not try again, because each retry is one more Yahoo load. What to do:
 
 1. Do not start a new run immediately.
 2. Wait until the block ends. Nobody has tested how long a block stays.

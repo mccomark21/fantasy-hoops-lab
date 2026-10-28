@@ -55,7 +55,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from fantasyhoops.adds import page, timing
-from fantasyhoops.adds.cache import PageCache
+from fantasyhoops.adds.cache import PageCache, get_all
 from fantasyhoops.adds.blend import RECENT_DAYS, blended_options, recent_weight
 from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.drops import (
@@ -182,15 +182,23 @@ def read_team_free_agents(yahoo, teams, view=PROJECTED):
     """The FreeAgents of the NBA teams (ESPN codes), from all pages of the free-agent list of each team.
 
     view: PROJECTED (Yahoo's projection for the next 7 days) or RECENT (the averages of the last 14 days).
+    The run reads page 1 of all teams together, then the next page of each team that has one (#108). The order of
+    the FreeAgents stays: team by team, page by page.
     """
-    out = []
-    for team in teams:
-        for page_number in range(MAX_PAGES):
-            parsed = parse(yahoo.get(free_agent_path(team, 25 * page_number, view)))
-            out += read_free_agents(parsed, totals=view == PROJECTED)
-            if not has_next_page(parsed):
-                break
-    return out
+    found = {team: [] for team in teams}
+    open_teams = list(found)
+    for page_number in range(MAX_PAGES):
+        if not open_teams:
+            break
+        pages = get_all([(yahoo, free_agent_path(team, 25 * page_number, view)) for team in open_teams])
+        more = []
+        for team, html in zip(open_teams, pages):
+            parsed = parse(html)
+            found[team] += read_free_agents(parsed, totals=view == PROJECTED)
+            if has_next_page(parsed):
+                more.append(team)
+        open_teams = more
+    return [f for team_fas in found.values() for f in team_fas]
 
 
 @dataclass(frozen=True)
@@ -244,11 +252,15 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
         known = known_values(found, found_recent, values)
     known = list(known)
     for page_number in range(MARKET_PAGES):
-        parsed = parse(yahoo.get(free_agent_path(None, 25 * page_number, PROJECTED)))
+        # The guard decides after each page, so the run reads no market page ahead. The two views go together (#108).
+        reads = [(yahoo, free_agent_path(None, 25 * page_number, PROJECTED))]
+        if recent:
+            reads.append((recent_yahoo, free_agent_path(None, 25 * page_number, RECENT)))
+        html, *html_recent = get_all(reads)
+        parsed = parse(html)
         page_fas = read_free_agents(parsed, totals=True)
         if recent:
-            html = recent_yahoo.get(free_agent_path(None, 25 * page_number, RECENT))
-            out_recent += read_free_agents(parse(html), totals=False)
+            out_recent += read_free_agents(parse(html_recent[0]), totals=False)
         out += page_fas
         new = unique_free_agents([f for f in page_fas if (f.player.name, f.player.team) not in seen])
         seen |= {(f.player.name, f.player.team) for f in new}

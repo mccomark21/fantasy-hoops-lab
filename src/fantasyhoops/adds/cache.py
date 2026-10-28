@@ -146,3 +146,34 @@ class CachedPages:
             html = self.yahoo.get(path)
             self.cache.save(self.kind, path, html)
         return html
+
+    def get_many(self, paths):
+        """The HTML of each page of paths. The pages that are not in the cache go to Yahoo together (get_all())."""
+        return get_all([(self, path) for path in paths])
+
+
+def get_all(reads):
+    """The HTML of each (reader, path) of reads, in order. A reader is a session.League or CachedPages.
+
+    A page from the cache opens no Yahoo page. The other pages of one League go in one League.get_many(), so its raw
+    requests overlap (#108). A reader with no get_many() (for example a fake of a test) reads one page at a time.
+    """
+    out = [None] * len(reads)
+    misses = {}  # id of the League -> (League, [(index, CachedPages or None, path)])
+    for n, (reader, path) in enumerate(reads):
+        cached = reader if isinstance(reader, CachedPages) else None
+        if cached is not None:
+            out[n] = cached.cache.load(cached.kind, path, cached.group)
+            if out[n] is not None:
+                continue
+        yahoo = cached.yahoo if cached is not None else reader
+        misses.setdefault(id(yahoo), (yahoo, []))[1].append((n, cached, path))
+    for yahoo, items in misses.values():
+        paths = [path for _, _, path in items]
+        many = getattr(yahoo, "get_many", None)
+        htmls = many(paths) if many is not None else [yahoo.get(path) for path in paths]
+        for (n, cached, path), html in zip(items, htmls):
+            out[n] = html
+            if cached is not None:
+                cached.cache.save(cached.kind, path, html)
+    return out
