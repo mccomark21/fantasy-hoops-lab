@@ -26,3 +26,11 @@ The issue filer checked the report against the code at `5e89567`. The report had
 ## Waves
 
 - Wave 1 (2026-10-28): #127 and #133 in parallel.
+- On 2026-10-28, PR #134 (#127) merged as `mccomark21/fantasy-hoops-lab@051b33d`. An autouse fixture gives each test its own output folder, and the session fails if a test changes the real `output/`.
+- On 2026-10-28, PR #135 (#133) merged as `mccomark21/fantasy-hoops-lab@a92ac48`. `core/lineup.py` holds the lineup-fit rules for the home page and the draft board. It also moved `draft/board.py` to `out_dir()` and removed `draft.OUT`, which #134 had left.
+- Wave 2 (2026-10-28): #128 started after the merge of #134.
+
+## Environment notes (2026-10-28)
+
+- Two builders reported that in an agent worktree, the installed package points at the main checkout, so `pytest` tests the main checkout's code unless `PYTHONPATH=src` is set. A possible fix is `pythonpath = ["src"]` in the pytest section of `pyproject.toml`. No issue filed (owner rule: no new issues until done).
+- Review nits of #135, not built: `ideal_games()` counts only game days (the same result today, because each playoff day comes from a game date); `data.ideal[w][core.length]` is undefined for a core larger than the spots (`addPlayer` stops at spots).
