@@ -14,7 +14,6 @@ COMMANDS = [
     "adds/plan.py",
     "draft/auction.py",
     "draft/board.py",
-    "draft/publish.py",
     "draft/rankings.py",
     "draft/report.py",
     "fetch/espn.py",

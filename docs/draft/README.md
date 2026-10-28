@@ -51,36 +51,17 @@ python -m fantasyhoops.fetch.espn       # Download rosters and schedule. Run aga
 python -m fantasyhoops.fetch.yahoo      # Download Yahoo positions, auction prices and ADP.
 python -m fantasyhoops.draft.rankings   # Write output/draft/rankings.csv and output/draft/playoff_schedule.csv.
 python -m fantasyhoops.draft.board      # Write output/draft/draft_board.md and output/draft/draft_board.html.
-python -m fantasyhoops.draft.publish    # Optional. Put the board on GitHub Pages.
 python -m fantasyhoops.draft.auction    # Optional. Simulate the auction for each keeper candidate.
 python -m fantasyhoops.draft.report     # Optional. Write the keeper report page from the simulator results.
 ```
 
 Open `output/draft/draft_board.html` in a browser.
 
-### Publish the board
+### The board is not on the site
 
-`publish.py` puts the board on GitHub Pages, so you can open it on a phone during the auction:
+The board is a local page. The site on GitHub Pages does not show it (owner decision of 2026-10-28, #117). The command `python -m fantasyhoops.draft.publish` does not exist now.
 
-```
-python -m fantasyhoops.draft.publish   # Push output/draft/draft_board.html to /draft/ on the gh-pages branch.
-```
-
-The board is at `https://mccomark21.github.io/fantasy-hoops-lab/draft/`. GitHub can take a few minutes to show a new board.
-
-The board is one part of the Fantasy Hoops Lab site. The home page at `https://mccomark21.github.io/fantasy-hoops-lab/` links to each tool. The shared publish step in `core/publish.py` writes the site (see [ADR 2](../adr/0002-publish-adds-plan-publicly.md)). A publish of the board replaces only the `/draft/` folder and the home page. The pages of the other tools stay. The board was at the root of the site before. That old URL now shows the home page.
-
-For public leagues with other playoff weeks, `[playoffs] other_windows` in `config.toml` lists more playoff windows. `board.py` writes one more page for each window, for example `draft_board_wk20-wk22.html`, and `publish.py` publishes it next to `index.html` in `/draft/`. The Playoffs list on the board switches between the pages. A window page has no simulator columns and keeps its own team.
-
-The published page is public. Anyone with the URL can see it. GitHub Pages has no private sites on this plan.
-
-`publish.py` does not change your working tree or your current branch. It replaces the one commit on `gh-pages` each time, so old boards do not stay in the repo.
-
-The first run of `publish.py` makes the `gh-pages` branch. Then tell GitHub to serve that branch:
-
-```
-gh api -X POST repos/mccomark21/fantasy-hoops-lab/pages -f "source[branch]=gh-pages" -f "source[path]=/"
-```
+For public leagues with other playoff weeks, `[playoffs] other_windows` in `config.toml` lists more playoff windows. `board.py` writes one more page for each window, for example `draft_board_wk20-wk22.html`. The Playoffs list on the board switches between the pages. A window page has no simulator columns and keeps its own team.
 
 ## Configuration
 
@@ -110,7 +91,6 @@ board.py            Writes output/draft/draft_board.html and output/draft/draft_
 team_builder.js     Team builder engine that board.py inlines in the page
 category_data.py    Data for the category balance panel on the board
 category_need.js    Category gap and Need engine that board.py inlines in the page
-publish.py          Pushes the draft board to /draft/ on GitHub Pages
 auction.py          Simulates the auction many times for each keeper candidate
 benchmark.py        Category benchmark of the strong teams in the simulator
 team_score.py       Playoff score of a roster: daily lineups and streamers in weeks 19 to 21
@@ -155,7 +135,6 @@ The draft tools write these files. Do not edit them.
 | Change a playoff-week rule (week value, quality days, schedule score, short weeks) | [`core/schedule.py`](../../src/fantasyhoops/core/schedule.py) |
 | Add a column to the rankings | [`draft/rankings.py`](../../src/fantasyhoops/draft/rankings.py) |
 | Change the layout or the columns of the draft board | [`draft/board.py`](../../src/fantasyhoops/draft/board.py) |
-| Publish the board for use on a phone | `python -m fantasyhoops.draft.publish`. See [Publish the board](#publish-the-board). |
 | Fix a player with no team or no Yahoo data | `data/name_overrides.csv`. See [Players who do not match](#players-who-do-not-match). |
 | Read why the weights have their values | [`docs/draft/category_weights.md`](category_weights.md) |
 | Find planned work | [GitHub issues](https://github.com/mccomark21/fantasy-hoops-lab/issues) |

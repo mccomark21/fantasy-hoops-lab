@@ -14,8 +14,8 @@ A small "2" marks each game on the second night of a back-to-back (adds/rest.py)
 The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
 The Run time table shows the time of each step of the run (adds/timing.py, #85), with the sub-steps of the Yahoo
 reads and their Yahoo pages below the Yahoo reads row (#89).
-The page has inline CSS and no files from other sites. The colours and the font are the colours and the font of the
-draft board.
+The page has inline CSS and no files from other sites. The colors and the font come from core/tokens.py, and the site
+menu comes from core/publish.py (#117). write() also writes the font file to fonts/ next to the page.
 """
 
 import html
@@ -26,6 +26,8 @@ from fantasyhoops.adds.planner import waiver_options
 from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.rest import games_text
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
+from fantasyhoops.core import publish as site
+from fantasyhoops.core import tokens
 from fantasyhoops.core.common import OUT as _OUT
 
 OUT = _OUT / "adds"
@@ -579,14 +581,21 @@ def render(
         timings_section(timings),
         method_note(),
     ]
-    return HTML.replace("__TITLE__", TITLE).replace("__BODY__", "\n".join(s for s in sections if s))
+    return (
+        HTML.replace("__TITLE__", TITLE)
+        .replace("__HEAD__", site.site_head())
+        .replace("__MENU__", site.site_menu("adds"))
+        .replace("__MENU_SCRIPT__", site.MENU_SCRIPT)
+        .replace("__BODY__", "\n".join(s for s in sections if s))
+    )
 
 
 def write(text, path=None):
-    """Write the page text to path (default: PAGE) and return the path."""
+    """Write the page text to path (default: PAGE), and the font file to fonts/ next to it. Return the path."""
     path = path or PAGE
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+    tokens.copy_font(path.parent)
     return path
 
 
@@ -596,51 +605,55 @@ HTML = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
+__HEAD__
 <style>
-:root { --bg: #fafaf9; --fg: #1c1917; --muted: #78716c; --line: #e7e5e4; --head: #f5f5f4;
-        --good: #16a34a; --bad: #dc2626; --warn: #eab308; --avg: #d6d3d1; --q: #7c3aed; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --bg: #1c1917; --fg: #f5f5f4; --muted: #a8a29e; --line: #44403c;
-        --head: #292524; --good: #22c55e; --bad: #ef4444; --warn: #facc15; --avg: #57534e; --q: #a78bfa; }
-}
-:root[data-theme="dark"] { --bg: #1c1917; --fg: #f5f5f4; --muted: #a8a29e; --line: #44403c;
-        --head: #292524; --good: #22c55e; --bad: #ef4444; --warn: #facc15; --avg: #57534e; --q: #a78bfa; }
+/* Short names for the shared tokens of core/tokens.py. The page has no colors of its own. */
+:root { --bg: var(--lab-stock); --fg: var(--lab-ink); --muted: var(--lab-mute); --line: var(--lab-rule);
+        --bad: var(--lab-red); --q: var(--mark); }
 * { box-sizing: border-box; }
-body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
-       font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 720px; margin: 0 auto; }
-h1 { font-size: 22px; margin: 0 0 4px; }
-h2 { font-size: 16px; margin: 20px 0 8px; }
-h3 { font-size: 15px; margin: 0 0 4px; }
+body { font: 400 14px/1.4 var(--lab-face); }
+.sheet { max-width: 776px; padding: 24px max(28px, env(safe-area-inset-right)) 32px max(28px, env(safe-area-inset-left)); }
+@media (max-width: 599px) {
+  .sheet { padding: 16px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+}
+h1 { margin: 0 0 10px; padding-bottom: 10px; border-bottom: 3px solid var(--mark); color: var(--mark);
+     font-weight: 900; font-stretch: 66%; font-size: clamp(30px, 4vw, 40px); line-height: .9;
+     text-transform: uppercase; text-wrap: balance; }
+h2 { margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--mark); font-weight: 900;
+     font-stretch: 75%; font-size: 19px; line-height: 1.1; text-transform: uppercase; }
+h3 { font-size: 15px; font-weight: 800; margin: 0 0 4px; }
 p { margin: 0 0 8px; color: var(--muted); }
+a { color: var(--q); text-underline-offset: 3px; }
 .muted { color: var(--muted); }
-.stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-.stat { display: flex; align-items: baseline; gap: 6px; padding: 2px 10px; border: 1px solid var(--line);
-        border-radius: 6px; background: var(--head); }
-.stat b { font-size: 17px; font-variant-numeric: tabular-nums; }
-.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.stat.key { border-color: var(--fg); }
-.warning { border: 1px solid var(--bad); border-radius: 8px; padding: 4px 12px; margin: 8px 0; }
-.warning ul { margin: 0; padding-left: 18px; color: var(--bad); font-weight: 600; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 0; margin: 12px 0; }
+.stat { display: flex; flex-direction: column-reverse; padding: 0 16px; border-left: 1px solid var(--line); }
+.stat:first-child { padding-left: 0; border-left: 0; }
+.stat b { font-size: 24px; font-weight: 900; font-stretch: 75%; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+.warning { border: 2px solid var(--bad); padding: 6px 12px; margin: 8px 0; }
+.warning ul { margin: 0; padding-left: 18px; color: var(--bad); font-weight: 700; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 th, td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--line); }
-thead th { background: var(--head); font-weight: 600; }
+thead th { font-size: 11px; font-weight: 800; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+tbody tr:nth-child(even) > * { background: var(--zebra); }
 th.name, td.name { text-align: left; overflow-wrap: anywhere; }
 td.name.sub { padding-left: 20px; color: var(--muted); }
-.plans { table-layout: fixed; border: 1px solid var(--line); font-size: 12px; }
+.plans { table-layout: fixed; font-size: 12px; }
 .plans th, .plans td { text-align: center; padding: 4px 1px; }
 .plans th:first-child { width: 6%; }
-.plans .total { width: 9%; font-weight: 700; font-size: 14px; }
+.plans .total { width: 9%; font-weight: 800; font-size: 14px; }
 .plans thead .total { font-size: 11px; }
 .plans .moves { width: 36%; text-align: left; padding: 4px 6px; font-size: 11px; line-height: 1.35; }
 .plans td.moves div + div { margin-top: 3px; }
 .plans td.moves span { color: var(--muted); }
+.plans td.moves .status { color: var(--lab-on-red); }
 .plans small { color: var(--muted); font-weight: 400; }
-.plans td.on { background: color-mix(in srgb, var(--good) 30%, transparent); }
-.plans td b { font-size: 14px; }
-.plans tr.open td, .plans tr.open th { background: var(--head); color: var(--q); font-weight: 700; }
-i { font-style: normal; color: var(--q); font-weight: 700; }
-sup.b2b { font-size: 9px; font-weight: 700; color: var(--bad); margin-left: 1px; }
+.plans td.on { background: var(--qcol); }
+.plans tbody tr:nth-child(even) > td.on { background: var(--qcol-z); }
+.plans td b { font-size: 14px; font-weight: 800; }
+.plans tr.open td, .plans tr.open th { font-weight: 800; border-bottom: 2px solid var(--fg); }
+i { font-style: normal; font-weight: 900; }
+sup.b2b { font-size: 9px; font-weight: 800; color: var(--bad); margin-left: 1px; }
 @media (max-width: 599px) {
   .plans th:first-child { width: 11%; font-size: 10px; }
   .plans .total { width: 8%; }
@@ -649,43 +662,44 @@ sup.b2b { font-size: 9px; font-weight: 700; color: var(--bad); margin-left: 1px;
   .plans thead small, .plans .long { display: none; }
 }
 .legend { font-size: 12px; margin-top: 6px; }
-.skip { font-size: 13px; color: var(--fg); border-left: 3px solid var(--warn); padding-left: 8px; }
+.skip { font-size: 13px; color: var(--fg); border: 1.5px solid var(--lamp-off); padding: 4px 8px; }
 .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
-.filters .label { width: 100%; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-button.chip { font: inherit; font-size: 13px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
-              background: var(--bg); color: var(--fg); cursor: pointer; line-height: 1.2; min-height: 28px; }
-button.chip small { display: block; color: var(--muted); font-size: 11px; }
-button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: #fff; }
-button.chip[aria-pressed="true"] small { color: #ede9fe; }
-button.chip.none { opacity: .55; }
+.filters .label { width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); }
+button.chip { font: inherit; font-size: 13px; font-weight: 700; padding: 4px 9px; border: 1.5px solid var(--lamp-off);
+              border-radius: 0; background: var(--bg); color: var(--fg); cursor: pointer; line-height: 1.2;
+              min-height: 28px; }
+button.chip small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+button.chip:hover { border-color: var(--fg); }
+button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: var(--bg); }
+button.chip[aria-pressed="true"] small { color: var(--bg); }
+button.chip.none { color: var(--muted); border-style: dashed; }
 label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; min-height: 28px;
                cursor: pointer; }
-label.toggle input { width: 18px; height: 18px; margin: 0; }
+label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q); }
 .count { font-size: 12px; margin: 0 0 4px; }
 .fa { font-size: 13px; }
 .fa th.sort { white-space: nowrap; padding: 0; }
 .fa th.sort button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; width: 100%;
                      min-height: 28px; padding: 5px 4px; text-align: inherit; }
-.fa th.sort[aria-sort] { color: var(--q); }
+.fa th.sort[aria-sort] { color: var(--q); box-shadow: inset 0 -3px var(--q); }
 .fa th.day, .fa td.day { text-align: center; width: 26px; padding: 5px 0; }
-.fa th.day.sel { color: var(--q); }
-.fa td.sel { background: color-mix(in srgb, var(--q) 10%, transparent); }
+.fa th.day.sel { color: var(--q); box-shadow: inset 0 -3px var(--q); }
+.fa td.sel { background: color-mix(in srgb, var(--q) 12%, var(--bg)); }
 .fa small, .fa .sub { color: var(--muted); font-weight: 400; font-size: 11px; }
-.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
-.dot.fit { background: var(--q); }
+.dot { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; }
+.dot.fit { background: var(--fg); }
 .dot.game { border: 1.5px solid var(--muted); }
-.flag { display: inline-block; padding: 0 4px; border-radius: 4px; background: var(--good); color: #fff;
-        font-size: 11px; font-weight: 700; }
-.flag.up { background: var(--q); }
+.flag { display: inline-block; padding: 0 3px; border: 1.5px solid var(--fg); color: var(--fg);
+        font-size: 11px; font-weight: 800; line-height: 1.25; }
 .flag.next { background: var(--fg); color: var(--bg); }
 .neg { color: var(--muted); }
 .wide { display: none; }
 @media (min-width: 600px) { .fa .wide { display: table-cell; } }
-.status { display: inline-block; padding: 0 4px; border-radius: 4px; background: var(--warn); color: #1c1917;
-          font-size: 11px; font-weight: 700; }
+.status { display: inline-block; padding: 0 4px; background: var(--bad); color: var(--lab-on-red);
+          font-size: 11px; font-weight: 800; line-height: 1.4; }
 .ranking { font-size: 13px; }
 details.notes { margin: 16px 0 8px; color: var(--muted); }
-details.notes summary { cursor: pointer; color: var(--fg); font-weight: 600; width: fit-content; padding: 4px 0;
+details.notes summary { cursor: pointer; color: var(--fg); font-weight: 700; width: fit-content; padding: 4px 0;
                          min-height: 28px; }
 :focus-visible { outline: 2px solid var(--q); outline-offset: 2px; }
 .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
@@ -693,10 +707,12 @@ details.notes summary { cursor: pointer; color: var(--fg); font-weight: 600; wid
 details.notes p, details.notes table { margin: 6px 0 0; }
 </style>
 </head>
-<body>
-<main>
+<body class="lab">
+__MENU__
+<main class="lab-main"><div class="sheet">
 __BODY__
-</main>
+</div></main>
+__MENU_SCRIPT__
 </body>
 </html>
 """

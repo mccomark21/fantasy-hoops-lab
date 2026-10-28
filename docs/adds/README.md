@@ -40,7 +40,7 @@ One planning run does these steps:
 
 1. It reads your league from Yahoo.
 2. It makes the two plans for the planning window.
-3. It writes the page in `output/adds/`. It appends the time of each step to `output/adds/timings.csv`.
+3. It writes the page in `output/adds/`, with the font file in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
 4. It publishes the site to GitHub Pages, at `/adds/`.
 
 To write the page with no publish, add `--no-publish`:
@@ -127,7 +127,7 @@ Decision (2026-10-21, #76): the free-agent table of the page marks each free age
 
 1. The days are the first `next_week_open_days` (2) days after the last day of the week to plan. Next week starts on the same day as for the next-week games.
 2. The open slots of these days come from the same roster as this week: your roster without the players in the stream spots. The [status rules](#status-rules) of today apply.
-3. A free agent gets the mark if his NBA team plays on that day and an open slot takes one of his positions. Util takes all positions. This is the rule of the filled dot.
+3. A free agent gets the mark if his NBA team plays on that day and an open slot takes one of his positions. Util takes all positions. This is the rule of the filled square.
 4. A day with all slots full gives no mark.
 
 The mark changes no value and no plan. The legend under the table names each day and its open slots. The terminal does not show the mark.
@@ -258,7 +258,7 @@ Match is the market value with the matchup weights: the matchup value above the 
 
 A filter does not change Val or Match, because they are values per game.
 
-A filled dot is a game in an open slot that he can fill. An empty circle is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status. A player with a role-up mark gets the mark "UP", and his line names the absent starter. A player who fits an open slot on one of the first days of next week gets a mark such as "Mon open" (see [Next-week mark](#next-week-mark)).
+A filled square is a game in an open slot that he can fill. An empty square is a game with no open slot for him. A small "2" marks a game on a second night. A player with a market value of +1.5 or more gets the mark "FA?": a value this high is unusual for a free agent, so check his status. A player with a role-up mark gets the mark "UP", and his line names the absent starter. A player who fits an open slot on one of the first days of next week gets a mark such as "Mon open" (see [Next-week mark](#next-week-mark)).
 
 ### Role line
 

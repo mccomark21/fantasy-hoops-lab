@@ -21,6 +21,8 @@ from fantasyhoops.adds.role_up import Absence
 from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.spots import SpotPlan
+from fantasyhoops.core import publish as site
+from fantasyhoops.core import tokens
 from fantasyhoops.core.common import load_config
 
 MON = date(2027, 1, 4)
@@ -269,7 +271,7 @@ def test_the_page_explains_why_there_is_no_plan():
     assert "No stream spots" in text(page.render(DATA, DAYS, GAMES, [], [], today=WEEK[0]))
     assert "No free agent that the planner read" in text(page.render(DATA, DAYS, GAMES, SPOTS, [], today=WEEK[0]))
     # No options: no free-agent table and no script.
-    assert "<script" not in page.render(DATA, DAYS, GAMES, SPOTS, [], today=WEEK[0])
+    assert "fa-data" not in page.render(DATA, DAYS, GAMES, SPOTS, [], today=WEEK[0])
 
 
 CLAIM = Option(Player("Claim Guy", "CHI", ("C",), clear_day=WEEK[1]), 1.2)
@@ -332,6 +334,31 @@ def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, cap
     assert command.URL in out and command.URL.endswith("/adds/")
     assert "+Phi One (PHI) – Mon & Tue" in text(path.read_text(encoding="utf-8"))
     assert "Aggressive plan: the same as the schedule plan." in out
+    assert (tmp_path / "fonts" / "archivo-latin.woff2").read_bytes() == tokens.FONT.read_bytes()
+
+
+def test_the_page_shows_the_site_menu_with_the_adds_plan_current():
+    html = render()
+    assert (
+        html.index('<body class="lab">') < html.index('<nav class="lab-menu"') < html.index('<main class="lab-main">')
+    )
+    assert '<a href="../adds/" aria-current="page">Adds plan</a>' in html and '<a href="../">Roster</a>' in html
+    assert ">Auto</button>" in html and ">Light</button>" in html and ">Dark</button>" in html
+    assert html.index("<h1>") > html.index("</nav>")
+    assert html.rstrip().endswith(f"{site.MENU_SCRIPT}\n</body>\n</html>")
+
+
+def test_the_page_sets_the_saved_theme_in_the_head_and_uses_the_shared_tokens():
+    head = render().split("</head>")[0]
+    assert tokens.HEAD in head and head.index(tokens.THEME_SCRIPT) < head.index("<style>")
+    assert "font-family: Archivo" in head and "var(--lab-face)" in head
+
+
+def test_the_page_css_has_no_colors_of_its_own():
+    """#117: the colors come from core/tokens.py. The page CSS uses only var(--...)."""
+    css = render().split("</head>")[0].replace(tokens.HEAD, "")
+    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", css)
+    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", page.SCRIPT)
 
 
 def test_the_command_prints_the_comparison_and_shows_the_plans_for_one_roster_spot(monkeypatch, tmp_path, capsys):
