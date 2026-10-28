@@ -6,6 +6,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Projects
 
+- [Run of 2026-10-28](run-2026-10-28.md): the session of 2026-10-28 that merged PR #121 (closes #116) as `e740820`, with its follow-ups.
 - [Home page sample of 2026-10-27](home-page-sample-2026-10-27.md): the Impeccable home-page work of the evening of 2026-10-27 (surface brief, 5 candidate mocks, Card Back picked over Center-Hung, static samples), not approved and not committed as of 2026-10-28.
 - [Run of 2026-10-27](run-2026-10-27.md): the session of 2026-10-27 that closed #94, #95, #101, #104, #107, #108, #110 and #111, made the repo public and turned on Pages, with the state at the shutdown and the next steps.
 - [Run of 2026-10-26](run-2026-10-26.md): the planning run speed work of 2026-10-26 (#85 to #103), the open risk of a 5-add full week, and the next steps at the end of that day.
