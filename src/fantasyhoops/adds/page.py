@@ -101,8 +101,8 @@ def _day_head(d):
 
 
 def _moves(row):
-    """The moves of a SpotPlan: one line for each add, with the add day before the days of his started games.
-    A waiver claim also shows his clear day. The spot line above the row names the drop (#114)."""
+    """The moves of a SpotPlan: one line for each add, with the latest add day (the + day) before the days of his
+    started games. A waiver claim also shows his clear day. The spot line above the row names the drop (#114)."""
     lines = []
     for w in row.added:
         p = w.player.player
@@ -187,8 +187,8 @@ def plans_section(rows, days, spots, adds, today, nights=None):
         '<p class="legend">Each row is a plan for one roster spot, with different players in each row. The line '
         'above the days names the spot: "drop" and the player that the first add drops, or "open spot". '
         'The mark "same spot as row 1" shows that a row uses the spot of row 1, so you can do only one of the two rows. '
-        "A row can use more than one add in the same spot. Each add shows its add day, then the days of his "
-        "started games. A cell shows a started game of a new player. "
+        "A row can use more than one add in the same spot. Each add shows its latest add day (the + day), then the "
+        "days of his started games. A cell shows a started game of a new player. "
         f"<i>+</i> marks a latest add day. {B2B} marks the second game of a back-to-back. Gms: the started games "
         "of the new players minus the started games that the dropped player loses. A game of a player on the rest "
         f"list on a second night counts less than 1.</p>{note}</section>"
