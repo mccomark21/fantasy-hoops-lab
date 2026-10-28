@@ -2,7 +2,7 @@
 
 The stream spots are the empty roster spots (spots freed by IL included), then, up to [adds] stream_spots, the
 rostered players with the lowest season value who are not core. The planner keeps all other players. It never
-drops a core player, also when he is Out. A drop is a suggestion with its trade-off, never an order.
+drops a core player, also when he is Out. A drop is a suggestion, never an order.
 
 Season value: rostered players are not on the free-agent list. So their rank and value come from the season
 projections file of the draft tools: pg_value of core/valuation.py, and the rank by pg_value (pg_rank on the
@@ -14,9 +14,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from fantasyhoops.adds.planner import DIGITS, Option, StreamSpot, counted_games, schedule_plan
-from fantasyhoops.adds.rest import games_text
-from fantasyhoops.adds.slots import open_slots_by_day, roster_spots_used
+from fantasyhoops.adds.planner import Option, StreamSpot
+from fantasyhoops.adds.slots import roster_spots_used
 from fantasyhoops.core.common import latest_projections, name_key
 from fantasyhoops.core.valuation import value_players
 from fantasyhoops.draft.rankings import STATS
@@ -86,75 +85,6 @@ def kept_roster(roster, spots):
     return [p for p in roster if p not in holders]
 
 
-@dataclass(frozen=True)
-class Drop:
-    """A suggested drop: the add of window drops holder, and the plan gets gain more started games this week.
-
-    gain: the started games of the plan minus the started games of the best plan that keeps the holder. Both counts
-    include the started games of the holder and of the players who are kept. A fraction if a player on the rest
-    list starts on a second night of a back-to-back.
-    season: the SeasonValue of the holder, or None if he is not in the projections file.
-    """
-
-    window: object
-    holder: object
-    season: SeasonValue | None
-    gain: float
-
-    def text(self):
-        """For example "Drop Quickley (rank 90, season value -0.52) -> PHX Thu 01/07 to Sun 01/10: +2 started
-        games this week." """
-        w = self.window
-        season = (
-            f"rank {self.season.rank}, season value {self.season.value:+.2f}"
-            if self.season
-            else "not in the projections file"
-        )
-        games = "game" if self.gain == 1 else "games"
-        return (
-            f"Drop {self.holder.name} ({season}) -> {w.team} {w.add_day:%a %m/%d} to {w.last_day:%a %m/%d}: "
-            f"{games_text(self.gain, sign=True)} started {games} this week."
-        )
-
-
-def drop_trade_offs(plan, roster, spots, games, free_agents, adds_left, slots, values):
-    """A Drop for each holder that the plan drops.
-
-    The arguments are the arguments of schedule_plan(), and roster is the full roster (with the holders).
-    For each drop, the function makes the best plan that keeps the holder: he goes back to the roster, and his
-    stream spot is not in the plan.
-    """
-    out = []
-    base = _roster_starts(kept_roster(roster, spots), games, slots)
-    for s, spot in enumerate(spots):
-        added = [w for w in plan.windows if w.spot == s and w.add_day is not None]
-        if not spot.holder or not added:
-            continue
-        others = spots[:s] + spots[s + 1 :]
-        days = open_slots_by_day(kept_roster(roster, others), games, slots)
-        kept = schedule_plan(days, games, others, free_agents, adds_left, slots)
-        kept_starts = kept.started_games + _roster_starts(kept_roster(roster, others), games, slots, spots) - base
-        gain = round(plan.started_games - kept_starts, DIGITS)
-        out.append(
-            Drop(window=added[0], holder=spot.holder.player, season=season_value(spot.holder.player, values), gain=gain)
-        )
-    return out
-
-
-def _roster_starts(roster, games, slots, spots=()):
-    """The counted started games of the players on the roster in the days of games.
-
-    spots: the StreamSpots. A holder on the roster counts his games with his rest games (planner.counted_games()),
-    the same count as in the plan. Each other player counts each game as 1.
-    """
-    rests = {s.holder.player: s.holder.rest_games for s in spots if s.holder}
-    return sum(
-        counted_games(rests.get(p, ()), [d.date])
-        for d in open_slots_by_day(roster, games, slots)
-        for _, p in d.starters
-    )
-
-
 def value_warnings(plan, roster, spots, cfg, values):
     """A warning for each streamer (a window option) with a higher value than your lowest core player.
 
@@ -180,22 +110,3 @@ def value_warnings(plan, roster, spots, cfg, values):
                     f"You can make {o.player.name} core."
                 )
     return out
-
-
-def print_stream_spots(spots, values):
-    """Print the stream spots and the player who holds each spot."""
-    print()
-    print(f"Stream spots: {len(spots)}. The open slots above do not count the players in the stream spots.")
-    for n, spot in enumerate(spots, 1):
-        if not spot.holder:
-            print(f"  Spot {n}: empty.")
-            continue
-        p = spot.holder.player
-        season = season_value(p, values)
-        about = (
-            f"rank {season.rank}, season value {season.value:+.2f}"
-            if season
-            else "not in the projections file, so he has the lowest value"
-        )
-        status = f" {p.status}" if p.status else ""
-        print(f"  Spot {n}: {p.name}{status} ({p.team}, {about}). The plan can drop him.")

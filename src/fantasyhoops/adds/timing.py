@@ -1,9 +1,9 @@
 """The run time of each step of a planning run (#85). The design is in docs/adds/README.md, "Run time".
 
-Timings.step() times one step of plan.main(). It prints the step when it starts and its time when it ends.
+Timings.step() times one step of plan.main(). It prints nothing (#130): the Run time table of the plan page and
+output/adds/timings.csv show the times.
 WORK counts the work of the plan searches (planner._Search): the calls of best(), cache hits included, and the
-unique states that best() computes. During a search, WORK prints the calls and the states every PROGRESS_SECONDS.
-A search step writes the counts of all its searches in one row. The other steps write empty counts.
+unique states that best() computes. A search step writes the counts of all its searches in one row. The other steps write empty counts.
 Timings.part() times one sub-step of the open step (#89), for example the market pages of the Yahoo reads. A sub-step
 can have more than one timed block. Its row adds the seconds and the pages of all its blocks. The pages are the
 Yahoo pages that League.get() opens (session.py). The step row gets the sum of the pages of its sub-steps and comes
@@ -25,7 +25,6 @@ from datetime import datetime
 from fantasyhoops.core import common
 
 COLUMNS = ["run_at", "days", "open_days", "adds_left", "step", "seconds", "calls", "states", "pages"]
-PROGRESS_SECONDS = 10  # the time between two progress lines of a search
 
 
 def timings_path():
@@ -40,21 +39,14 @@ class Capped(Exception):
 class Work:
     """The counts of the plan searches. tick() counts one call of best(). state() counts one computed state.
 
-    When a step is open (begin()), tick() prints the calls and the states every PROGRESS_SECONDS.
     clock: a function that gives seconds, for the tests.
     limit: the most calls. seconds: the most seconds from the start of this Work, by clock. When the calls or the
     time pass the cap, tick() raises Capped. None: no cap. Each cap check costs time, so leave seconds None in CI.
     """
 
     def __init__(self, clock=time.monotonic, limit=None, seconds=None):
-        self.clock, self.calls, self.states, self.step, self.next_print = clock, 0, 0, None, None
+        self.clock, self.calls, self.states = clock, 0, 0
         self.limit, self.stop = limit, None if seconds is None else clock() + seconds
-
-    def begin(self, step):
-        self.step, self.next_print = step, self.clock() + PROGRESS_SECONDS
-
-    def end(self):
-        self.step = self.next_print = None
 
     def tick(self):
         self.calls += 1
@@ -62,9 +54,6 @@ class Work:
             raise Capped(f"The search passed {self.limit:,} calls.")
         if self.stop is not None and self.clock() >= self.stop:
             raise Capped(f"The search passed its time limit at {self.calls:,} calls.")
-        if self.next_print is not None and self.clock() >= self.next_print:
-            self.next_print += PROGRESS_SECONDS
-            print(f"  {self.step}: {self.calls:,} calls, {self.states:,} states so far", flush=True)
 
     def state(self):
         self.states += 1
@@ -115,10 +104,7 @@ class Timings:
         if not self.on:
             yield
             return
-        print(f"Step: {name} ...", flush=True)
         calls, states = self.work.calls, self.work.states
-        if search:
-            self.work.begin(name)
         self.parts = {}
         start = self.clock()
         try:
@@ -127,20 +113,14 @@ class Timings:
             self._flush(stopped=True)
             raise
         finally:
-            self.work.end()
             parts, self.parts = self.parts, None
         seconds = self.clock() - start
         pages = sum(p for _, p in parts.values()) if parts else None
         if search:
             done = StepTime(name, seconds, self.work.calls - calls, self.work.states - states, pages)
-            text = f"{seconds:.2f} s, {done.calls:,} calls, {done.states:,} states"
         else:
             done = StepTime(name, seconds, pages=pages)
-            text = f"{seconds:.2f} s"
-        print(f"Step: {name}: {text}" + ("" if pages is None else f", {pages:,} pages"), flush=True)
         done = [done] + [StepTime(f"{name}: {part}", s, pages=p, parent=name) for part, (s, p) in parts.items()]
-        for d in done[1:]:
-            print(f"  {d.step}: {d.seconds:.2f} s, {d.pages:,} pages", flush=True)
         self.steps += done
         self.waiting += done
         self._flush()

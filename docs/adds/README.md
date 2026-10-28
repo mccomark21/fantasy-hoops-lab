@@ -1,8 +1,8 @@
 # Weekly adds planner
 
-Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, prints the open starting slots of each day, ranks the NBA teams by the open days that they cover and prints the schedule plan for the stream spots, with the trade-off of each drop and the contingency plans. The schedule plan uses the blended value for the option order and the tiebreak. Then it prints the category totals of the current matchup with the matchup weights, the aggressive plan, the comparison of the two plans and the best plans for one roster spot. The aggressive plan uses the matchup value. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the best plans for one roster spot, the matchup weights and a free-agent table with filters. It does not show the schedule plan, the aggressive plan or the comparison. The planner times each step of the run. The page shows the times in the Run time section, and the run appends them to `output/adds/timings.csv`.
+Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, finds the open starting slots of each day, ranks the NBA teams by the open days that they cover and makes the schedule plan for the stream spots, the contingency plans and the best plans for one roster spot. The schedule plan uses the blended value for the option order and the tiebreak. The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the best plans for one roster spot, the matchup weights, the warnings, the contingency plans and a free-agent table with filters. It does not show the schedule plan. The terminal prints a short summary (see [Terminal summary](#terminal-summary)). The planner times each step of the run. The page shows the times in the Run time section, and the run appends them to `output/adds/timings.csv`.
 
-The planner shows how to use your adds in the current fantasy week. It gives two plans. The schedule plan chooses NBA teams first, then the free agents on those teams. The aggressive plan starts from the best free agents and uses more adds. For the terms that all tools share, see the [glossary](../glossary.md).
+The planner shows how to use your adds in the current fantasy week. The schedule plan chooses NBA teams first, then the free agents on those teams. The best plans for one roster spot use the same search for each stream spot alone. For the terms that all tools share, see the [glossary](../glossary.md).
 
 ## Table of contents
 
@@ -25,9 +25,7 @@ The planner shows how to use your adds in the current fantasy week. It gives two
 
 The schedule plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with the higher blended value of the started games wins. If the value is also the same, the plan whose last streamers have more games next week wins.
 
-The aggressive plan gets the most value from your stream spots: the sum of the matchup value above an empty slot of its started games, plus a bonus for the games next week of its last streamers. It can give up started games for better players. The matchup value weights the categories by the state of the current matchup (see [Matchup weights](#matchup-weights)).
-
-The two plans give you a real choice: few adds and a good schedule, or more adds and better players.
+Since #130 (2026-10-28), a planning run does not make the aggressive plan. The owner did not use it, and no output showed it. `aggressive_plan()` stays in `planner.py` for the benchmark (see [Search benchmark](#search-benchmark)). The aggressive plan gets the most value from your stream spots: the sum of the blended value above an empty slot of its started games, plus a bonus for the games next week of its last streamers. It can give up started games for better players.
 
 A started game of a player on the rest list on the second night of a back-to-back counts less than 1 started game. See [Rest on back-to-backs](#rest-on-back-to-backs).
 
@@ -40,7 +38,7 @@ python -m fantasyhoops.adds.plan
 One planning run does these steps:
 
 1. It reads your league from Yahoo.
-2. It makes the two plans for the planning window.
+2. It makes the plans for the planning window.
 3. It writes the page in `output/adds/`, with the font file and its license in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
 4. It writes the home page in `output/home/` (see [Home page](#home-page)).
 5. It publishes the site to GitHub Pages: the plan page at `/adds/` and the home page at `/`.
@@ -64,6 +62,26 @@ You can run the planner on any day. Run it before the week starts for the full p
 On the last day of a fantasy week, the planner plans the next week. The planning window is the whole next week, and all the adds of the weekly limit are left (5).
 
 The planning window starts today. The main plan does not use the game times. An add for today helps only if his game has not started.
+
+### Terminal summary
+
+Decision (2026-10-28, #130): the terminal prints a short summary. The page shows all other results of the run. At the end of the run, the summary prints these lines in this order:
+
+1. The page path: "Wrote the plan page: <path>".
+2. The best plan for one roster spot, the first row of the page, for example "Plan page: best plan for one roster spot: +2 started games with 1 add." The line shows only when the page has a row.
+3. The URL after a publish, or "The run did not publish the page (--no-publish)."
+4. The warnings of `value_warnings()`, one line each. The page shows the same warnings.
+
+During the run, the terminal can also print these lines:
+
+- The Yahoo sign-in prompts, when the saved session has expired (`adds/session.py`).
+- "Warning: the waiver list shows <name> as "<cell>" with no clear day. The planner skips him." (`adds/readers.py`).
+- "Warning: no role-up marks. These files are missing in data/: <files>." (`adds/role_up.py`).
+- "Warning: the run did not write the page in the cache ..." (`adds/cache.py`). The run continues.
+- "Wrote the home page: <path>" before the plan page, only in a run that publishes (`adds/home.py`).
+- "The run did not make the home page. The error:" and the traceback, if the home page fails (`adds/home.py`).
+
+The schedule plan, the aggressive plan, the drop trade-offs and the comparison of the two plans show in no output.
 
 ## The plans
 
@@ -91,12 +109,12 @@ The skip must change no plan. The tests compare the plans with and without the s
 
 ### Aggressive plan
 
-Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left. Since 2026-10-21 (#59), the score uses the [matchup value](#matchup-weights).
+Decision (2026-10-20): the score of the aggressive plan is the sum of the value above an empty slot of its started games. So the aggressive plan can give up started games for better players. It uses no more than the adds that are left. From 2026-10-21 (#59) to #130 (2026-10-28), the score of a planning run used the [matchup value](#matchup-weights). Since #130, only the benchmark makes the aggressive plan, and its score uses the blended value.
 
 The aggressive plan uses the same free agents and the same exact search as the schedule plan, with a different plan score:
 
-1. Each started game counts its value above an empty slot: the matchup value of the player minus the matchup value of an empty slot. With all categories tied, the matchup value is the blended value.
-2. The plan adds the next-week bonus: for each of its [next-week games](#next-week-games), the matchup value above an empty slot of that player. The bonus is never less than 0.
+1. Each started game counts its value above an empty slot: the blended value of the player minus the value of an empty slot.
+2. The plan adds the next-week bonus: for each of its [next-week games](#next-week-games), the blended value above an empty slot of that player. The bonus is never less than 0.
 3. The plan with the highest sum wins. Ties go to the plan with fewer adds, then to the plan with more started games.
 4. The plan uses more adds, up to the adds that are left, when the better players give a higher sum.
 
@@ -108,7 +126,6 @@ Two other reference values were checked and not used. Replacement level (rank 14
 
 A holder who is not in the projections file counts as an empty slot in the aggressive plan. The schedule plan counts him as 0.
 
-The planner shows no drop trade-offs for the aggressive plan, because the gain of a drop counts started games. The windows of the aggressive plan show which players it drops.
 
 ### Next-week games
 
@@ -119,11 +136,9 @@ Decision (2026-10-21, #60): a player who holds a stream spot on the last day of 
 3. A game next week counts `next_week_weight` (0.5) of a game this week, because injuries and role changes can occur before then.
 4. A player who is Out gets no next-week games. An empty spot also gets none.
 
-The schedule plan uses the next-week games only as the last tiebreak. The aggressive plan adds their matchup value above an empty slot to its score as a bonus. The bonus is a separate term and never less than 0, so it never lowers the part of the score from this week. The aggressive plan can choose a plan with a lower value this week if the bonus is larger than the difference.
+The schedule plan uses the next-week games only as the last tiebreak. The aggressive plan (benchmark only) adds their blended value above an empty slot to its score as a bonus. The bonus is a separate term and never less than 0, so it never lowers the part of the score from this week. The aggressive plan can choose a plan with a lower value this week if the bonus is larger than the difference.
 
-The planner adds a player only on a day that he starts this week. It does not add a player only for his games next week. The best plans for one roster spot, the drop trade-offs and the contingency plans do not use the next-week games.
-
-The terminal shows the games next week of each window option, and the games next week of the last players of each plan.
+The planner adds a player only on a day that he starts this week. It does not add a player only for his games next week. The best plans for one roster spot and the contingency plans do not use the next-week games.
 
 #### Next-week mark
 
@@ -134,11 +149,7 @@ Decision (2026-10-21, #76): the free-agent table of the page marks each free age
 3. A free agent gets the mark if his NBA team plays on that day and an open slot takes one of his positions. Util takes all positions. This is the rule of the filled square.
 4. A day with all slots full gives no mark.
 
-The mark changes no value and no plan. The key above the table shows the mark. The legend in "Columns and marks" under the table names each day and its open slots. The terminal does not show the mark.
-
-### Comparison
-
-The terminal shows the two plans side by side: the adds that each plan uses, its started games and the blended value of those started games. The blended value is the sum of the blended values of the started games. A free agent usually has a value below 0, so a plan with more started games can have a lower sum. So the comparison also shows the value above an empty slot. The last row is the matchup value above an empty slot, the score of the aggressive plan for this week. The rows have no next-week bonus. With all matchup weights at 1, the last two rows are the same. If the two plans are the same, the planner says so and shows the aggressive plan in one line.
+The mark changes no value and no plan. The key above the table shows the mark. The legend in "Columns and marks" under the table names each day and its open slots.
 
 ## Rest on back-to-backs
 
@@ -156,7 +167,7 @@ On each day, the lineup puts the players with no rest risk in the open slots fir
 
 The draft tools do not change. There, `rests_b2b` changes only the playoff game counts, never the season games or the value. `[adds] rest_chance` is separate from `[risk] rest_chance` of the auction simulator.
 
-The page marks each second night with a small "2", for all players. The terminal marks it with "b2b".
+The page marks each second night with a small "2", for all players.
 
 ## Value
 
@@ -179,7 +190,7 @@ Early in the season, the weight w of the recent line is small, but the recent vi
 1. Before the recent view, the run gets the largest possible w from `data/schedule.csv`: the most games that one NBA team played from 14 days ago to today, ÷ 14. These 15 days hold the window of `S_AL14` with or without today.
 2. If this w is below `recent_skip_weight` in `[adds]`, the run reads no page of the recent view.
 3. Each option then has no recent value, and the blended line is the projected line. A player with no projection is not a candidate, also when he has recent games.
-4. The page shows a line in the Run time section: the most games of one team, the largest possible w and the setting. Above the free-agent table, one short sentence says that Val uses the projection only (#118). The terminal prints the full line. The Recent column shows "—" for each player.
+4. The page shows a line in the Run time section: the most games of one team, the largest possible w and the setting. Above the free-agent table, one short sentence says that Val uses the projection only (#118). The Recent column shows "—" for each player.
 
 A player who changed teams in those days can have more games than one team. The run ignores this case. With 0.3, the run skips the recent view while no team played more than 4 games in those days.
 
@@ -205,7 +216,7 @@ The market pages are the pages of the full free-agent list, best Yahoo rank firs
 4. The guard uses the blended value. While the run skips the recent view, the blended value is the projected value.
 5. With fewer than 15 free agents with a value before a page, the guard does not stop the read. The guard counts the same players as the replacement value: the players who play and have a value.
 
-The page shows a line in the Run time section: the market pages that the run read and why the read stopped (#118). For example, "Market: 2 of 3 pages. Page 2 had no new player above the replacement value ..." or "Market: 3 of 3 pages (the limit)." The terminal prints the same line.
+The page shows a line in the Run time section: the market pages that the run read and why the read stopped (#118). For example, "Market: 2 of 3 pages. Page 2 had no new player above the replacement value ..." or "Market: 3 of 3 pages (the limit)."
 
 The [Yahoo reads study](../wiki/yahoo-reads-study.md) of 2026-10-26 found the 15 best market values on market page 3 or earlier. That is the evidence of one run on one day. The run never reads a market page after page 3, also when the guard does not stop the read.
 
@@ -213,7 +224,7 @@ The stat lines come from Yahoo. The season projections file of the draft tools g
 
 ### Matchup weights
 
-Decision (2026-10-21, #59): the aggressive plan weights the 6 categories by the state of the current matchup. The schedule plan, the option order and the best plans for one roster spot keep the blended value.
+Decision (2026-10-21, #59): the aggressive plan weights the 6 categories by the state of the current matchup. The schedule plan, the option order and the best plans for one roster spot keep the blended value. Since #130 (2026-10-28), a planning run makes no aggressive plan. The run uses the matchup weights only for the matchup section and the Match column of the page.
 
 The planner reads the category totals of your team and your opponent from the score table of the matchup page. The planner finds the score table by its stat headers (PTS, REB, AST, 3PTM, ST, BLK). On 2026-10-21, after the first games, the table had no Score header (#73). The margin of a category is your total minus the total of your opponent. Each category then gets a matchup weight:
 
@@ -223,11 +234,11 @@ The planner reads the category totals of your team and your opponent from the sc
 
 The `close` and `large` margins in `config.toml` are for a whole week. The planner multiplies them by the share of the week that is left: the days of the planning window ÷ the days of the fantasy week. A lead of 5 3PM is close with 6 days left. With 1 day left, it is a large lead.
 
-The matchup value of a player is his value with each category weight times its matchup weight, on the same category scale. A holder gets the matchup value of his season projection. With all categories tied, all weights are 1, so the matchup value equals the blended value. On the first day of a week, and when the planner plans the next week, the totals are 0, so the weights are 1.
+The matchup value of a player is his value with each category weight times its matchup weight, on the same category scale. Since #130, a holder in a stream spot gets no matchup value. With all categories tied, all weights are 1, so the matchup value equals the blended value. On the first day of a week, and when the planner plans the next week, the totals are 0, so the weights are 1.
 
-Example: you lead 3PM by 15 with the whole week left. The weight of 3PM goes from 0.70 to 0.35. A streamer who adds 3PM is then worth less in the aggressive plan. If you trail blocks by 2, blocks keep their weight.
+Example: you lead 3PM by 15 with the whole week left. The weight of 3PM goes from 0.70 to 0.35. A free agent who adds 3PM then has a lower Match value on the page. If you trail blocks by 2, blocks keep their weight.
 
-If the matchup page has no score table, all weights are 1, and the terminal and the page say so.
+If the matchup page has no score table, all weights are 1, and the page says so.
 
 ## The page
 
@@ -320,8 +331,6 @@ Decision (2026-10-26, #85): the planner times each step of a planning run. The o
 | absence read | `read_absences()` |
 | value options | The values of the free agents (`value_options()`) and the role-up marks |
 | schedule search | The schedule plan (`schedule_plan()`) |
-| drop trade-offs | `drop_trade_offs()`: one search for each holder |
-| aggressive search | The aggressive plan (`matchup_plan()`) |
 | spot plans | The best plans for one roster spot: up to 2 searches for each row |
 | contingency plans | `contingency_plans()`. It does not search. |
 | role read | `read_roles()` |
@@ -357,7 +366,7 @@ For each search step, the planner also counts the search work:
 
 A step with more than one search adds the counts of all its searches. A step with no search has no counts.
 
-The terminal shows each step when it starts and its time when it ends. During a search step, the terminal shows the calls and the states every 10 seconds. A search that does not end still shows that it works. When the Yahoo reads end, the terminal shows the time and the pages of each sub-step.
+Since #130 (2026-10-28), the terminal shows no step line and no progress line. The step times are in the Run time table and in `output/adds/timings.csv`. The rows of the steps "drop trade-offs" and "aggressive search" stopped with #130, because the run no longer makes these searches.
 
 Above the table, the Run time section shows the lines about the run: the skip of the recent view, the market read and the pages from the cache (#118). Each line shows only when it applies. The page shows the Run time table: the step, the seconds, the calls, the states and the pages. The sub-steps of the Yahoo reads follow the Yahoo reads row, indented. The table has no row for the page write, because the run writes the page before that step ends.
 
@@ -410,12 +419,11 @@ The run writes the page before the plan page, so that the Run time table has the
 
 - The core list in `config.toml` holds the players that the planner never suggests to drop. The rule also holds for a core player who is Out.
 - The stream spots are the empty roster spots first, also the spots that IL frees. Then, up to `stream_spots` (3), the rostered players with the lowest season value who are not core and not on IL hold a stream spot. The planner keeps all other players, as it keeps the core players.
-- A player in a stream spot plays until the first add to his spot. That add drops him. A drop is a suggestion, never an order. The output shows the trade-off, for example "Drop Quickley (rank 90, season value -0.52) -> PHX Thu 01/07 to Sun 01/10: +2 started games this week".
-- The gain of a drop is the started games of the plan minus the started games of the best plan that keeps him. Both counts include the started games of the kept players.
-- The plan score counts this week's started games, and the next-week games as a tiebreak or a bonus (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The season cost of a drop is shown, not scored. You decide.
+- A player in a stream spot plays until the first add to his spot. That add drops him. A drop is a suggestion, never an order. Since #130 (2026-10-28), the planner does not compute the trade-off of a drop.
+- The plan score counts this week's started games, and the next-week games as a tiebreak or a bonus (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The season value of a player in a stream spot is not in the score. You decide.
 - A dropped player who is still a free agent next week can come back in a later plan.
 
-Rostered players are not on the free-agent list. So their rank and season value come from the season projections file of the draft tools: the per-game value (`pg_value` of `core/valuation.py`) and the rank by that value (`pg_rank` on the draft board). The free-agent values use the same category scale, so the numbers compare. A player who is not in the projections file has the lowest value, and the output says so.
+Rostered players are not on the free-agent list. So their rank and season value come from the season projections file of the draft tools: the per-game value (`pg_value` of `core/valuation.py`) and the rank by that value (`pg_rank` on the draft board). The free-agent values use the same category scale, so the numbers compare. A player who is not in the projections file has the lowest value.
 
 The page also warns you when a streamer (a window option) has a higher blended value than the season value of your lowest core player. If no core player is on your roster, the warning uses your lowest kept player. You can then make the streamer core.
 
@@ -439,7 +447,7 @@ A flagged player gets a plan only for the days on which he starts. On a day when
 
 The game times come from the `time` column of `data/schedule.csv` (US Eastern). A schedule file without this column still works. The plan then lists each free agent who plays that day and fits, and tells you to check that his game starts after the game of the flagged player.
 
-The planner does not keep an add back for contingency plans. The page shows the cost, and you decide. The terminal prints the contingency plans after the main plan.
+The planner does not keep an add back for contingency plans. The page shows the cost, and you decide.
 
 ## Role up
 
@@ -454,7 +462,7 @@ The planner finds the absent starters in the rotation log (`core/rotation.py`). 
 5. `core/identity.py` links his ESPN name to his Yahoo positions in `data/yahoo_players.csv`. A row of `data/name_overrides.csv` applies when its `espn_name` matches.
 6. A free agent on his team who shares one of his positions gets the mark "role up", with the name of the absent starter.
 
-The terminal prints each absent starter and the free agents at his positions. Each window option with the mark ends with "role up: <name> absent". The page shows the mark in the free-agent table and lists the marks in the section "Role up".
+The page shows the mark in the free-agent table and lists the marks in the section "Role up".
 
 Limits:
 
@@ -477,11 +485,10 @@ Limits:
 Only players with status FA are free agents. Players on waivers (W) are not. The planner reads the waiver players separately, each with his clear day:
 
 - A plan can use a waiver player from the day after his clear day. Example: a player who clears on Wed can start in a Thu window.
-- A waiver claim is not sure. A team with a higher waiver priority can claim him first. The terminal and the page mark each waiver player with W.
+- A waiver claim is not sure. A team with a higher waiver priority can claim him first. The page marks each waiver player with W.
 - A waiver claim uses one add of the weekly limit.
 - The Roster Status cell has no year. The planner uses the year of the run day, or the next year if that date is more than 180 days before the run day.
 - A W cell without a valid date gives no clear day, for example "W" or "W (Feb 29)" in a year with no Feb 29. The planner prints a warning and skips that player.
-- The terminal list and the page show the same Val: the market value of the free-agent table.
 - The free-agent table and the replacement value use only the players with status FA.
 
 Playwright uses a manual sign-in with Microsoft Edge. The first run opens an Edge window, and you sign in to Yahoo by hand. Later runs use the saved session in `.auth/yahoo/` until it expires. Each run opens a visible Edge window and closes it at the end. If the session has expired, the planner tells you to sign in in that window and then continues. On each page, the planner waits for the element that its reader needs, for example the player table. It does not wait for all network requests to stop, because Yahoo pages keep loading ads (#74). On a matchup page, the planner also waits up to 0.5 s for the score table. Some matchup pages have no score table, so this wait is short. Before #93, the wait was 2 s. See [ADR 1](../adr/0001-playwright-for-league-data.md).
@@ -543,7 +550,7 @@ At the start of each run, the run deletes the same-day entries of the days befor
 
 The cache is only a speed-up. The run treats a bad cache entry as a miss and reads the page from Yahoo. If the run cannot write an entry, it prints a warning and continues.
 
-When a page comes from the cache, the Run time section of the page and the terminal say so (#118), for example "The recent view: 14 pages from the cache of 2026-10-26 09:14." The time is the earliest read time of the cached recent pages. The page count of the Run time table counts only the pages from Yahoo. While the run skips the recent view (#90), only the Transaction Trends pages of earlier days come from the cache.
+When a page comes from the cache, the Run time section of the page says so (#118), for example "The recent view: 14 pages from the cache of 2026-10-26 09:14." The time is the earliest read time of the cached recent pages. The page count of the Run time table counts only the pages from Yahoo. While the run skips the recent view (#90), only the Transaction Trends pages of earlier days come from the cache.
 
 ## Configuration
 
@@ -593,14 +600,14 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 |---|---|
 | Started game | A game that a player plays in a starting slot. A game on a day with all 6 slots full is not a started game. A started game of a player on the rest list on a second night counts `1 - rest_chance`. |
 | Open day | A day of the planning window with at least one open starting slot. |
-| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games, then to the plan with more next-week games. Aggressive plan: the sum of the matchup value above an empty slot of the started games, plus the next-week bonus. Ties go to the plan with fewer adds, then to the plan with more started games. |
+| Plan score | The score that chooses a plan. Schedule plan: first the started games of the stream spots in the planning window. Ties go to the plan with fewer adds, then to the plan with the higher blended value of the started games, then to the plan with more next-week games. Aggressive plan (benchmark only): the sum of the blended value above an empty slot of the started games, plus the next-week bonus. Ties go to the plan with fewer adds, then to the plan with more started games. |
 | Next-week games | The games next week of the players who hold a stream spot on the last day of the week, x `next_week_weight`. |
 | Next-week mark | The mark of a free agent who fits an open slot on one of the first days of next week, for example "Mon open". The mark changes no value. |
-| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan uses the matchup value of the player and of the empty slot. |
+| Value above an empty slot | The blended value of a player minus the value of an empty slot (a stat line of zeros, about -11.8). The aggressive plan (benchmark only) uses it. |
 | Matchup weight | The weight of a category from your margin in the current matchup: 1 for a close category, down to `min_weight` for a large lead or deficit. |
 | Matchup value | The value of a player with each category weight times its matchup weight. With all categories tied, it equals the blended value. |
 | Schedule plan | The plan that chooses NBA teams by the open days that they cover, then free agents on those teams, with the fewest adds. |
-| Aggressive plan | The plan with the highest sum of the matchup value above an empty slot of its started games. It can use more adds and give up started games for better players. |
+| Aggressive plan | The plan with the highest sum of the blended value above an empty slot of its started games. It can use more adds and give up started games for better players. Since #130 (2026-10-28), only the search benchmark makes it. A planning run does not. |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team, for example "CHA Mon–Wed". |

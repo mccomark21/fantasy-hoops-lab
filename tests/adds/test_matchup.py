@@ -2,22 +2,17 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.matchup import (
     Matchup,
     category_weight,
-    matchup_plan,
-    matchup_score,
-    matchup_spots,
     matchup_weights,
     read_matchup,
     weighted_cfg,
 )
-from fantasyhoops.adds.planner import Option, StreamSpot, aggressive_plan
+from fantasyhoops.adds.planner import Option
 from fantasyhoops.adds.readers import FreeAgent, Player
-from fantasyhoops.adds.slots import open_slots_by_day
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CATS = ("pts", "reb", "ast", "threes", "blk", "stl")
@@ -129,102 +124,6 @@ def test_a_large_lead_lowers_the_matchup_value_of_a_player_who_adds_that_categor
     assert o.match == 12.0
     # An Option with no matchup value uses the blended value.
     assert Option(Player("B", "PHI", ("C",)), 1.0).match == 1.0
-
-
-def test_the_matchup_value_of_a_holder_comes_from_his_season_projection():
-    # Season totals in 10 games. Per game: 10 pts, 10 reb, 10 ast, 1 3PM, 1 stl, 1 blk.
-    projections = pd.DataFrame(
-        {
-            "first_name": ["Old"],
-            "last_name": ["Streamer"],
-            "games": [10],
-            "field_goals": [40],
-            "threes": [10],
-            "free_throws": [10],
-            "offensive_rebounds": [50],
-            "defensive_rebounds": [50],
-            "assists": [100],
-            "steals": [10],
-            "blocks": [10],
-        }
-    )
-    holder = Option(Player("Old Streamer", "MIA", ("C",)), 6.0)
-    mcfg = weighted_cfg(CFG, {c: 1.0 for c in CATS} | {"pts": 0.5})
-    spots = matchup_spots([StreamSpot(), StreamSpot(holder)], SCALE, CFG, mcfg, projections)
-    assert spots[0] == StreamSpot()
-    assert spots[1].holder.value == 6.0 and spots[1].holder.matchup_value == pytest.approx(28.0)
-    # A holder who is not in the projections file keeps no matchup value.
-    other = Option(Player("New Guy", "MIA", ("C",)), float("-inf"))
-    assert matchup_spots([StreamSpot(other)], SCALE, CFG, mcfg, projections)[0].holder.matchup_value is None
-
-
-def test_two_players_with_the_same_name_give_the_line_of_the_player_with_the_higher_value():
-    # drops.rank_players() keeps the player with the higher season value for a shared name key. So the matchup
-    # value must come from the same player: here the second row (20 pts a game), not the first (5 pts a game).
-    projections = pd.DataFrame(
-        {
-            "first_name": ["Same", "Same"],
-            "last_name": ["Name", "Name"],
-            "games": [10, 10],
-            "field_goals": [25, 100],
-            "threes": [0, 0],
-            "free_throws": [0, 0],
-            "offensive_rebounds": [0, 0],
-            "defensive_rebounds": [0, 0],
-            "assists": [0, 0],
-            "steals": [0, 0],
-            "blocks": [0, 0],
-        }
-    )
-    holder = Option(Player("Same Name", "MIA", ("C",)), 20.0)
-    mcfg = weighted_cfg(CFG, {c: 1.0 for c in CATS} | {"pts": 0.5})
-    (spot,) = matchup_spots([StreamSpot(holder)], SCALE, CFG, mcfg, projections)
-    assert spot.holder.matchup_value == pytest.approx(10.0)
-
-
-def fa(name, team, value, match=None):
-    return Option(Player(name, team, ("SF",)), value, blended_value=value, matchup_value=match)
-
-
-def test_the_matchup_plan_equals_the_aggressive_plan_when_all_weights_are_1():
-    games = {WEEK[0]: {"ATL", "CHI"}, WEEK[1]: {"ATL"}}
-    days = open_slots_by_day([], games, SLOTS)
-    fas = [fa("Bad", "ATL", -6, -6), fa("Good", "CHI", -1, -1)]
-    a = aggressive_plan(days, games, [StreamSpot()], fas, 1, SLOTS, -10.0)
-    m = matchup_plan(days, games, [StreamSpot()], fas, 1, SLOTS, -10.0)
-    assert m == a
-
-
-def test_the_matchup_plan_scores_the_matchup_values_and_shows_the_blended_values():
-    # Mon and Tue are open. Bad (ATL) plays both days, Good (CHI) plays Mon only. With the blended values, 1 game of
-    # Good (9 above an empty slot) beats 2 games of Bad (2 x 4). The matchup lowers Good to -6 (4 above).
-    games = {WEEK[0]: {"ATL", "CHI"}, WEEK[1]: {"ATL"}}
-    days = open_slots_by_day([], games, SLOTS)
-    fas = [fa("Bad", "ATL", -6, -6), fa("Good", "CHI", -1, -6)]
-    m = matchup_plan(days, games, [StreamSpot()], fas, 1, SLOTS, -10.0)
-    assert [w.player.player.name for w in m.windows] == ["Bad"]
-    # The plan holds the Options with their blended values, so the value of the plan is the blended value.
-    assert m.windows[0].player is fas[0] and m.value == -12
-    assert matchup_score(m, -10.0) == 8
-
-
-def test_the_matchup_plan_uses_the_next_week_bonus_with_the_matchup_values():
-    # Mon is open. With the matchup values, Good (CHI, -6) and Bad (ATL, -6) tie this week. Bad has 4 games next
-    # week, so the bonus chooses him. The next-week value of the plan uses his blended value (-8).
-    games = {WEEK[0]: {"ATL", "CHI"}}
-    days = open_slots_by_day([], games, SLOTS)
-    fas = [fa("Good", "CHI", -1, -6), fa("Bad", "ATL", -8, -6)]
-    m = matchup_plan(days, games, [StreamSpot()], fas, 1, SLOTS, -10.0, next_week={"ATL": 4}, next_weight=0.5)
-    assert [w.player.player.name for w in m.windows] == ["Bad"]
-    assert (m.next_games, m.next_value) == (2.0, -16.0)
-
-
-def test_the_matchup_score_counts_a_holder_with_no_value_as_an_empty_slot():
-    games = {WEEK[0]: {"DEN"}}
-    days = open_slots_by_day([], games, SLOTS)
-    holder = Option(Player("Holder", "DEN", ("C",)), float("-inf"))
-    m = matchup_plan(days, games, [StreamSpot(holder)], [], 1, SLOTS, -10.0)
-    assert m.started_games == 1 and matchup_score(m, -10.0) == 0
 
 
 def test_config_has_a_close_and_a_large_margin_for_each_category():

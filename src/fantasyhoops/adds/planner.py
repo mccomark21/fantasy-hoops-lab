@@ -211,7 +211,7 @@ def aggressive_score(empty_value):
     """The score of the aggressive plan, as a function for schedule_plan(score=...).
 
     The score is the sum of the value above an empty slot of each started game: the total blended value minus
-    empty_value for each started game. empty_value is the value of a stat line of zeros (value.empty_slot_value()),
+    empty_value for each started game. empty_value is the value of a stat line of zeros,
     so each started game counts more than 0, and a better player counts more. Ties go to the plan with fewer
     adds, then to the plan with more started games.
     The next-week bonus adds the value above an empty slot of the weighted games next week (Plan.next_games and

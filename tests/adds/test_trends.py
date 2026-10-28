@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from fantasyhoops.adds.plan import print_plan, with_trends
-from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamWindow, option_order, schedule_plan
-from fantasyhoops.adds.readers import Adds, Player, Week
+from fantasyhoops.adds.plan import with_trends
+from fantasyhoops.adds.planner import Option, StreamSpot, option_order, schedule_plan
+from fantasyhoops.adds.readers import Player, Week
 from fantasyhoops.adds.slots import open_slots_by_day
 from fantasyhoops.adds.trends import Trend, read_trends, trend_days, trends_path, week_trends
 
@@ -94,16 +94,3 @@ def test_with_trends_gives_none_for_a_player_who_is_not_on_the_pages():
     a, b = option("A", 1.0), option("B", 1.0)
     out = with_trends([a, b], {"A": Trend(3, 9)})
     assert [o.trend for o in out] == [Trend(3, 9), None]
-
-
-def test_print_plan_shows_the_adds_or_a_dash(capsys):
-    on_page, off_page = option("On page", 1.0, Trend(228, 1500)), option("Off page", 0.5)
-    window = TeamWindow(
-        spot=0, team="PHI", add_day=MON, last_day=MON, started=(MON,), player=on_page, options=(on_page, off_page)
-    )
-    print_plan(
-        Plan(windows=(window,), started_games=1, adds=1), [StreamSpot()], Adds(used=0, limit=5), MON - timedelta(days=1)
-    )
-    lines = capsys.readouterr().out.splitlines()
-    assert next(line for line in lines if "On page" in line).endswith("adds today 228, this week 1500")
-    assert next(line for line in lines if "Off page" in line).endswith("adds -")

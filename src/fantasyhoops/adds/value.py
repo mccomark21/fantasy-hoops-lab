@@ -31,16 +31,6 @@ def line_value(line, scale, cfg):
     return float(pg_value(pd.Series(line), scale, cfg)) if line else None
 
 
-def empty_slot_value(cfg, scale=None):
-    """The value of an empty starting slot: the per-game value of a stat line of zeros.
-
-    The aggressive plan counts the value of each started game above this value (planner.aggressive_score()).
-    scale: from projection_scale(). If None, the function reads the projections file.
-    """
-    scale = projection_scale(cfg) if scale is None else scale
-    return line_value({cat: 0.0 for cat in cfg["weights"]}, scale, cfg)
-
-
 def replacement_value(options, rank=REPLACEMENT_RANK):
     """The value of the free agent at rank (1 = best) among the options who play and have a value.
 

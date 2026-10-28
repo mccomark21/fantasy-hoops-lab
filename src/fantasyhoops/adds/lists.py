@@ -187,7 +187,7 @@ def read_market_free_agents(yahoo, recent=True, found=(), found_recent=(), value
 
 
 def market_line(market):
-    """The line of the page and the terminal that says how many market pages the run read and why it stopped."""
+    """The line of the Run time section of the page that says how many market pages the run read and why it stopped."""
     head = f"Market: {market.pages} of {MARKET_PAGES} pages"
     if market.stop == "guard":
         return (
@@ -232,7 +232,7 @@ def skips_recent_view(limit, cfg):
 
 
 def recent_skip_line(most, limit, cfg):
-    """The line of the page and the terminal that says that the run skipped the recent view, and why."""
+    """The line of the Run time section of the page that says that the run skipped the recent view, and why."""
     return (
         f"The run skipped the recent view (last {RECENT_DAYS} days). The most games of one team from "
         f"{RECENT_DAYS} days ago to today is {most}, so w is {limit:.2f} at most. This is below [adds] "
