@@ -72,6 +72,8 @@ The owner looked at the sample and gave these points. The direction stays Card B
 6. Gentle vertical rules separate the column sections (Team, Rank and Player | season stats | playoff starts and games | day grid). Rules also separate the playoff weeks: Wk19 | Wk20 | Wk21 in the weekly columns, and the three 7-day weeks in the day grid. The rules are thin and low in contrast in both themes. On a phone, the rules are inside the opened row.
 7. The site menu gets a light and dark theme switch. The default follows the system setting. A choice overrides the system setting and stays in the browser. The switch is in the shared site menu, so that each tool page can use it later. Point 7 replaces the earlier instruction of the same day not to add a switch.
 
+8. The team-starts footer shows the totals the way the draft board shows them: the starts that the team gets, the total possible starts, and the percent of the starts that the team uses. The footer shows them for each week and the total, in both themes and on a phone.
+
 This answers the dark-theme question in the brief: the page has both themes.
 
 ### What changed in the sample
@@ -97,6 +99,25 @@ The script copied the engine rule of `draft/team_builder.js`: slots PG, SG, SF, 
 | Total | 101 | 104 |
 
 With the IL players in the pool, 26 starts are lost to a full lineup (Black 9, Mitchell 8, Gobert 3, Quickley 3, White 3), and 8 slots are open on quality days. Coby White has `rests_b2b` = 1, so he rests on one back-to-back night (Mar 11).
+
+### Point 8: the footer totals
+
+The draft board does not use the term "potential starts". Its team-table footer (`src/fantasyhoops/draft/board.py`, `renderFooter`, lines 1259-1305) has two percent rows. The sample copies both rows with their labels and math:
+
+- **Used (started / games)**: the started games / the games of the players. A rest night of a player with `rests_b2b` = 1 is not a game (`plays()`, line 1119).
+- **vs ideal**: the started games / min(the number of players × the most games of any NBA team that week, 6 slots × the days of the week) (line 1268). The draft board has 6 starting slots (PG, SG, SF, PF, C and Util), not 8.
+
+The board shows each cell as `started/all · N%`. The sample shows the percent in bold with `started/all` below it, because the week columns are narrow.
+
+| Row | Wk19 | Wk20 | Wk21 | Total |
+| --- | --- | --- | --- | --- |
+| Started | 35 | 36 | 33 | 104 |
+| Used (started / games) | 35/43 · 81% | 36/41 · 88% | 33/46 · 72% | 104/130 · 80% |
+| vs ideal | 35/42 · 83% | 36/42 · 86% | 33/42 · 79% | 104/126 · 83% |
+
+The 12 players are more than 6 slots × 7 days can hold, so the ideal for each week is 42, the slot limit. The board colors a percent green at 90% or more, yellow at 70% to 89% and red below 70%. The sample does not copy these colors, because the Card Back palette has no yellow or green. The footnote now gives the two definitions. The per-player week cells still count a rest night as a game, as before. Thus the games of a week in the Used row can be smaller than the sum of the player cells (Wk19: 43, not 44, because of the rest night of Coby White).
+
+The screenshots `desktop.png`, `desktop-dark.png` and `mobile.png` were taken again after this change.
 
 ### Contrast check
 
