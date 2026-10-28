@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 
 from fantasyhoops import draft
-from fantasyhoops.adds import bench, page, timing
+from fantasyhoops.adds import page, timing, week_file
 from fantasyhoops.adds import cache as page_cache
 from fantasyhoops.core import common, home
 from fantasyhoops.core.common import ROOT, name_key, weeks
@@ -41,14 +41,14 @@ def test_the_output_files_go_under_common_out_with_no_other_patch(tmp_path, caps
         pass
     timings.window([], 0)
     page_cache.PageCache(date(2027, 1, 4)).save(page_cache.DAY, "players?a", "<p>a</p>")
-    bench.append(bench.bench_path(), [])
+    week_file.write_record(date(2027, 1, 4), week_file.WeekRecord())
     auction.write_benchmark(pd.DataFrame([{f"bench_{c}": 1.0 for c in CATS}]))
     capsys.readouterr()
     assert (tmp_path / "adds" / "adds_plan.html").read_text(encoding="utf-8") == "<p>plan</p>"
     assert (tmp_path / "home" / "index.html").read_text(encoding="utf-8") == "<p>home</p>"
     assert "schedule read" in (tmp_path / "adds" / "timings.csv").read_text(encoding="utf-8")
     assert any((tmp_path / "adds" / "cache" / "day").rglob("*.json"))
-    assert (tmp_path / "adds" / "bench.csv").exists()
+    assert (tmp_path / "adds" / "week_plan_2027-01-04.json").exists()
     assert load_benchmark() == {c: 1.0 for c in CATS}  # it reads output/draft/category_benchmark.csv by default
     assert (tmp_path / "draft" / "category_benchmark.csv").exists()
 
@@ -60,6 +60,6 @@ def test_the_default_output_paths_do_not_change(monkeypatch):
     assert timing.timings_path() == out / "adds" / "timings.csv"
     assert page_cache.cache_dir() == out / "adds" / "cache"
     assert page_cache.PageCache(date(2027, 1, 4)).folder == out / "adds" / "cache"
-    assert bench.bench_path() == out / "adds" / "bench.csv"
+    assert week_file.week_path(date(2027, 1, 4)) == out / "adds" / "week_plan_2027-01-04.json"
     assert home.page_path() == out / "home" / "index.html"
     assert draft.out_dir() == out / "draft"

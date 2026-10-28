@@ -113,17 +113,17 @@ Each page reads like the back of a basketball card: white coated stock, royal-bl
 | `lab-on-red` | `#ffffff` | `#0e1a2e` | Text on `lab-red`. |
 | `mark` | `#1d4f91` | `#8fb3ff` | Heading rules, the page title, links, and the selected or sorted state. |
 | `zebra` | `#eff3f8` | `#142540` | Every second table row. |
-| `qcol` / `qcol-z` | `#e0e8f4` / `#dae3f1` | `#1c3254` / `#223a60` | A shaded cell: a started game in the plan grid. `-z` is the shade on a zebra row. |
+| `qcol` / `qcol-z` | `#e0e8f4` / `#dae3f1` | `#1c3254` / `#223a60` | A shaded cell: a quality day or a started game on the home page. `-z` is the shade on a zebra row. |
 | `vrule` | `#d2d9e4` | `#2e4264` | Vertical rules between table sections. |
 | `lamp-off` | `#6f7889` | `#7d8eab` | Chip borders and marks that are off. |
 | `lab-scrim` | `rgb(8 16 32 / .5)` | same | The shade behind the open drawer. |
 
-All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-red` on `qcol-z` in the plan grid: 4.55:1 in light and 4.65:1 in dark (#115). `lamp-off` on `lab-stock` is 4.45:1, so use it only for borders and marks, not for text.
+All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-red` on `qcol-z`: 4.55:1 in light and 4.65:1 in dark (#115). `lamp-off` on `lab-stock` is 4.45:1, so use it only for borders and marks, not for text.
 
 ### Named Rules
 **The One Source Rule.** A new color goes into `core/tokens.py` with a light value and a dark value. A page never writes a hex value.
 
-**The Text Accent Rule.** As text color, `mark` shows only the page title, links, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. Other marks (the fit square, the `+` add mark, the open row, the FA?, MIN+ and UP flags) use ink.
+**The Text Accent Rule.** As text color, `mark` shows only the page title, links, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. The teams of an add cell in the week grid are buttons, so they show as `mark` text with an underline, as a link. Other marks (the fit square, the band and the start square of the week grid, the FA?, MIN+ and UP flags) use ink.
 
 **The Red Is Alert Rule.** `lab-red` marks only something that needs attention. It is never a decoration.
 
@@ -147,7 +147,7 @@ All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-r
 - The side menu is 216px wide and fixed at the left at 900px and wider. The main area starts at its right edge.
 - Below 900px, the menu is a drawer. A 48px blue bar at the top holds the site name and a Menu button. The drawer moves the focus to its Close button, closes on Escape and on the scrim, and makes the page behind it inert.
 - The adds page body is 720px wide at most, with 28px side padding (16px below 600px). The home page body is 640px.
-- The plan grid hides long labels below 600px. The free-agent table shows its wide columns at 600px and wider.
+- The week grid shows its 7 day columns at each width. Below 600px, it shows short labels ("M" and "26"). The free-agent table shows its wide columns at 600px and wider.
 
 ## Elevation & Depth
 
@@ -179,8 +179,11 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 - **Style:** full width, collapsed borders, 1px `lab-rule` row rules, zebra rows, and a 2px `mark` rule under the head.
 - **Sorted column and selected day:** `mark` text and a 3px `mark` bar under the header. Cells of a selected day have a 12% `mark` tint.
 
-### Plan grid (signature component)
-- **Style:** a fixed-layout table with one row for each plan and one column for each day. A started game is a `qcol` cell with a bold number. The Open row is bold, with a 2px ink rule below it.
+### Week grid (signature component)
+- **Style:** the team plan of the adds page (#140, the approved C3 heat sample). A fixed-layout table with one column for each day of the fantasy week and the rows Games, Add 1 and Add 2. The games of the day shade the whole column with a `mark` tint, 0% to 40%, mixed with `lab-stock`. The Games row has a 2px ink rule below it.
+- **Add cell:** a box of `lab-stock` with a 1.5px ink border and a 3px top border: "+<slots>" in condensed caps, then the teams. Hover: the `zebra` ground. Selected (the cell that set the filters): `lab-stock` text on a solid `mark` block. Focus: a 2px ink outline. A day header that set the filters has the same selected state.
+- **Band:** a 6px ink band through the days that the new player holds the spot, with an 18px ink square (14px below 600px) on each day that he starts.
+- **Past day:** a 10% `lab-mute` ground and `lab-mute` text. A past add is a dashed `lamp-off` box with `lab-mute` text. A past band and its square are `lab-mute`.
 
 ## Do's and Don'ts
 

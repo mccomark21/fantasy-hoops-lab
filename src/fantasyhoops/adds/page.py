@@ -2,16 +2,16 @@
 
 render() makes the page from one PlanningRun (adds/plan.py). Each section of the page comes from one small function.
 A section shows only the parts that exist. The main sections:
-- Best plans for one roster spot: the SpotPlans of adds/spots.py, as a table of days. A line above each row names
-  its roster spot and marks a row that uses the same spot as an earlier row (#114).
+- Team plan: the week grid of adds/grid.py (#140). It shows the adds of the team plan (adds/team_plan.py) and the
+  saved adds of the past days (adds/week_file.py). A click on an add or a day sets the filters of the free-agent table.
 - Matchup: the category scores of the current matchup and the weight of each category (adds/matchup.py).
-- Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
+- Free agents: a table with filters for days, positions and teams. The page holds its data as JSON, and one inline
   script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
   Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py), with the
   starter flag and the closer flag (core/role_flags.py).
   A mark such as "Mon open" names each of the first days of next week on which he plays and fills an open slot (#76).
 A third section lists the waiver players (W) with their clear days.
-A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
+A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the free-agent table.
 The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
 The Run time table shows the time of each step of the run (adds/timing.py, #85), with the sub-steps of the Yahoo
 reads and their Yahoo pages below the Yahoo reads row (#89). The Run time section also holds the lines about the run:
@@ -23,12 +23,12 @@ write() uses publish.write_page(), which also writes the font file to fonts/ nex
 
 import html
 import json
+from dataclasses import replace
 from datetime import date, timedelta
 
-from fantasyhoops.adds.contingency import contingency_lines
+from fantasyhoops.adds import grid
 from fantasyhoops.adds.planner import waiver_options
 from fantasyhoops.adds.readers import STAT_COLUMNS
-from fantasyhoops.adds.rest import games_text
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import common
@@ -86,112 +86,6 @@ def warnings_section(warnings):
     """The warnings, for example the core warning. Nothing if there are none."""
     items = "".join(f"<li>{_e(w)}</li>" for w in warnings)
     return f'<section class="warning"><ul>{items}</ul></section>' if items else ""
-
-
-def _and(words):
-    """For example "Tue, Thu & Sun"."""
-    return " & ".join(filter(None, [", ".join(words[:-1]), words[-1]])) if words else ""
-
-
-def _day_head(d):
-    """A day column header: "Tue" and "10/20". On a phone, the page shows only the first letter."""
-    name = f"{d:%a}"
-    return f'<th>{name[0]}<span class="long">{name[1:]}</span><br><small>{d.month}/{d.day}</small></th>'
-
-
-def _moves(row):
-    """The moves of a SpotPlan: one line for each add, with the latest add day (the + day) before the days of his
-    started games. A waiver claim also shows his clear day. The spot line above the row names the drop (#114)."""
-    lines = []
-    for w in row.added:
-        p = w.player.player
-        clears = f", clears {p.clear_day:%a}" if p.on_waivers else ""
-        lines.append(
-            f'<div>+{_player(p)} ({_e(w.team)}) <span class="add">add {w.add_day:%a}{clears}</span> '
-            f"<span>– starts {_and([f'{d:%a}' for d in w.started])}</span></div>"
-        )
-    return "".join(lines)
-
-
-def _spots(rows, spots):
-    """The spot of each row: (text, n), with n the number of an earlier row that uses the same spot, or None.
-
-    A held spot is the same spot as each other row that drops the same player. The rows that use an open spot take
-    the open spots in turn. When there are more such rows than open spots, a row shares the spot of an earlier row.
-    """
-    empty = max(1, sum(s.holder is None for s in spots))
-    first, opens, out = {}, [], []
-    for n, row in enumerate(rows, 1):
-        holder = row.spot.holder
-        if holder:
-            key, label = holder.player.name, f"drop {holder.player.name}"
-        else:
-            key, label = ("open", len(opens) % empty), "open spot"
-            opens.append(n)
-        out.append((label, first.get(key)))
-        first.setdefault(key, n)
-    return out
-
-
-def plans_section(rows, days, spots, adds, today, nights=None):
-    """The best plans for one roster spot: for each SpotPlan, a spot line, then one row with one column for each
-    day, then the adds, the games gained and the moves. A short message if there is no plan.
-
-    The spot line names the roster spot of the row: "drop <name>" or "open spot". A text mark names the earlier row
-    that uses the same spot, because the owner can do only one of those rows (#114).
-    nights: from rest.second_nights(). B2B marks a started game of a new player on a second night of his team."""
-    nights = nights or {}
-    title = "<h2>Best plans for one roster spot</h2>"
-    if not spots:
-        return (
-            f"<section>{title}\n<p>No stream spots. All roster spots hold a player, and [adds] stream_spots is 0. "
-            "There are no adds to plan.</p></section>"
-        )
-    if not adds.left:
-        return (
-            f"<section>{title}\n<p>No adds left this week ({adds.used} of {adds.limit} used). "
-            "There are no adds to plan.</p></section>"
-        )
-    if not days:
-        return f"<section>{title}\n<p>The fantasy week is over. There are no days to plan.</p></section>"
-    if not rows:
-        return f"<section>{title}\n<p>No free agent that the planner read gives a started game.</p></section>"
-    head = "".join(_day_head(d.date) for d in days)
-    open_row = "".join(f'<td title="{_e(", ".join(d.open) or "no open slots")}">{len(d.open)}</td>' for d in days)
-    body = [f'<tr class="open"><th>Open</th>{open_row}<td></td><td></td><td></td></tr>']
-    for n, (row, (spot, same)) in enumerate(zip(rows, _spots(rows, spots), strict=True), 1):
-        cells = []
-        for d in days:
-            started = sum(d.date in w.started for w in row.added)
-            add = "<i>+</i>" if any(w.add_day == d.date for w in row.added) else ""
-            b2b = B2B if any(d.date in w.started and w.team in nights.get(d.date, ()) for w in row.added) else ""
-            cells.append(f'<td class="on"><b>{started}{add}{b2b}</b></td>' if started else f"<td>{add or '·'}</td>")
-        z = " z" if n % 2 else ""
-        mark = f' <span class="same">same spot as row {same}</span>' if same else ""
-        body.append(
-            f'<tr class="spot{z}"><th rowspan="2">{n}</th>'
-            f'<td colspan="{len(days) + 3}"><b>{_e(spot)}</b>{mark}</td></tr>'
-            f'<tr class="days{z}">{"".join(cells)}<td class="total">{row.plan.adds}</td>'
-            f'<td class="total">{games_text(row.gain, sign=True)}</td>'
-            f'<td class="moves">{_moves(row)}</td></tr>'
-        )
-    note = ""
-    if any(w.add_day == today for row in rows for w in row.added):
-        note = '\n<p class="muted">An add for today helps only if his game has not started.</p>'
-    if any(w.player.player.on_waivers for row in rows for w in row.added):
-        note += f'\n<p class="muted">{CLAIM_NOTE}</p>'
-    return (
-        f'<section>{title}\n<table class="plans"><thead><tr><th></th>{head}<th class="total">Adds</th>'
-        f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
-        '<p class="legend">Each row is a plan for one roster spot, with different players in each row. The line '
-        'above the days names the spot: "drop" and the player that the first add drops, or "open spot". '
-        'The mark "same spot as row 1" shows that a row uses the spot of row 1, so you can do only one of the two rows. '
-        "A row can use more than one add in the same spot. Each add shows its latest add day (the + day), then the "
-        "days of his started games. A cell shows a started game of a new player. "
-        f"<i>+</i> marks a latest add day. {B2B} marks the second game of a back-to-back. Gms: the started games "
-        "of the new players minus the started games that the dropped player loses. A game of a player on the rest "
-        f"list on a second night counts less than 1.</p>{note}</section>"
-    )
 
 
 def matchup_section(matchup, weights):
@@ -410,11 +304,14 @@ def free_agents_section(run):
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     skip = f'<p class="skip" id="skip-note">{SKIP_NOTE}</p>\n' if run.recent_skip else ""
     return (
-        "<section><h2>Free agents</h2>\n"
+        '<section id="fa"><h2>Free agents</h2>\n'
+        '<p class="from" id="fa-from" hidden><span id="fa-from-text"></span> '
+        '<a href="#plan">Back to the team plan</a></p>\n'
         '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
+        '<div class="filters" id="team-chips"></div>\n'
         '<div class="tools"><label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill '
         'an open slot</label>\n<button type="button" class="chip act" id="fa-reset">Reset filters</button></div>\n'
-        f'{skip}{fa_key(roles, minutes_rise, next_days)}<p class="count" id="fa-count" aria-live="polite"></p>\n'
+        f'{skip}{fa_key(roles, minutes_rise, next_days)}<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>\n'
         '<div class="empty" id="fa-empty" hidden><p id="fa-empty-text"></p>'
         '<button type="button" class="chip act" id="fa-clear-days">Clear days</button></div>\n'
         '<table class="fa" id="fa-table"></table>\n'
@@ -432,7 +329,7 @@ def free_agents_section(run):
 
 
 def waivers_section(options, replacement):
-    """The waiver players (W), best value first: the clear day, the first day for a plan and the market value.
+    """The waiver players (W), best value first: the clear day, the first day that he can play and the market value.
 
     Nothing if no option is on waivers.
     """
@@ -455,7 +352,7 @@ def waivers_section(options, replacement):
         '<table class="ranking"><thead><tr><th class="name">Player</th><th class="name">Team</th>'
         '<th class="name">Pos</th><th>Clears</th><th>First day</th><th>Val</th></tr></thead>'
         f"<tbody>{rows}</tbody></table>\n"
-        '<p class="legend">First day: the first day that a plan can use him, the day after he clears waivers. '
+        '<p class="legend">First day: the first day that he can play for you, the day after he clears waivers. '
         f"Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>"
     )
 
@@ -479,12 +376,6 @@ def role_up_section(options):
         "His backups can get more minutes. Their recent line does not show the new role yet. The mark changes "
         "no value.</p></section>"
     )
-
-
-def contingency_section(contingencies):
-    """The contingency plans, one text line each. Nothing if there are none."""
-    items = "".join(f"<li>{_e(c)}</li>" for c in contingencies)
-    return f"<section><h2>Contingency plans</h2>\n<ul>{items}</ul></section>" if items else ""
 
 
 def timings_section(timings, market=None, cache=None, recent_skip=None):
@@ -561,8 +452,8 @@ def method_note():
         "A player scores only on a day when his NBA team plays and he is in a starting slot.</p>\n"
         "<p>The team keeps its core players all season. The other roster spots are stream spots. "
         "The league gives 5 adds each week, so the team can change the players in the stream spots.</p>\n"
-        "<p>The planner finds the days with open starting slots. For each stream spot, it finds the free agents "
-        "who give the most started games with the fewest adds. Each row of the plans is one roster spot.</p>\n"
+        "<p>The planner finds the days with open starting slots. For each stream spot, it finds the NBA teams whose "
+        "games fill the most open slots with the fewest adds. You pick the player in the free-agent table.</p>\n"
         "<p>The value of a player is his value per game in the 6 categories that this league counts, above a "
         f"replacement free agent: 0 is the value of the free agent at rank {REPLACEMENT_RANK}.</p></details>"
     )
@@ -571,29 +462,29 @@ def method_note():
 def render(run):
     """The plan page of a PlanningRun (plan.py) as HTML text. The page uses these fields of run:
 
-    data (week, adds, roster, next_week, matchup), days, games, spots, rows (the SpotPlans of adds/spots.py),
-    options, ranking, read, today, replacement, match_replacement, warnings, weights (None: no matchup section),
-    nights (the B2B marks), contingencies (the Contingency plans, one text line each), roles, next_days, next_games,
-    timings (the Run time table) and the run lines recent_skip, market and cache (timings_section()).
+    data (week, adds, roster, next_week, matchup), days, games, spots, plan, record, week_games (the team plan,
+    grid.plan_section()), options, ranking, read, today, replacement, match_replacement, warnings, weights (None: no
+    matchup section), nights (the B2B marks), roles, next_days, next_games, timings (the Run time table) and the run
+    lines recent_skip, market and cache (timings_section()).
     [adds] minutes_rise and [adds.flags] of run.cfg give the legends of the role marks.
     [league] teams of run.cfg gives the team count in the site menu.
     """
     today = run.today or date.today()
-    contingencies = [" ".join(line.strip() for line in contingency_lines(c)) for c in run.contingencies]
+    run = replace(run, today=today)
+    free_agents = free_agents_section(run)
     sections = [
         header(run.data, run.days, run.spots, today),
         warnings_section(run.warnings),
-        plans_section(run.rows, run.days, run.spots, run.data.adds, today, run.nights),
+        grid.plan_section(run, interactive=bool(free_agents)),
         matchup_section(run.data.matchup, run.weights),
-        free_agents_section(run),
+        free_agents,
         waivers_section(run.options, run.replacement),
         role_up_section(run.options),
-        contingency_section(contingencies),
         ranking_section(run.ranking, run.read),
         timings_section(run.timings, run.market, run.cache, run.recent_skip),
         method_note(),
     ]
-    shell = site.shell(HTML.replace("__TITLE__", TITLE), "adds", run.cfg)
+    shell = site.shell(HTML.replace("__TITLE__", TITLE).replace("__GRID_CSS__", grid.CSS.strip()), "adds", run.cfg)
     return shell.replace("__BODY__", "\n".join(s for s in sections if s))
 
 
@@ -646,36 +537,9 @@ thead th { font-size: 11px; font-weight: 800; vertical-align: bottom; border-bot
 tbody tr:nth-child(even) > * { background: var(--zebra); }
 th.name, td.name { text-align: left; overflow-wrap: anywhere; }
 td.name.sub { padding-left: 20px; color: var(--muted); }
-.plans { table-layout: fixed; font-size: 12px; }
-.plans th, .plans td { text-align: center; padding: 4px 1px; }
-.plans th:first-child { width: 6%; }
-.plans .total { width: 9%; font-weight: 800; font-size: 14px; }
-.plans thead .total { font-size: 11px; }
-.plans .moves { width: 36%; text-align: left; padding: 4px 6px; font-size: 11px; line-height: 1.35; }
-.plans td.moves div + div { margin-top: 3px; }
-.plans td.moves span { color: var(--muted); }
-.plans td.moves .status { color: var(--lab-on-red); }
-.plans small { color: var(--muted); font-weight: 400; }
-.plans tbody tr > * { background: transparent; }
-.plans tbody tr.z > * { background: var(--zebra); }
-.plans td.on { background: var(--qcol); }
-.plans tbody tr.z > td.on { background: var(--qcol-z); }
-.plans tr.spot td { text-align: left; padding: 6px 6px 0; border-bottom: 0; font-size: 12px; overflow-wrap: anywhere; }
-.plans tr.spot td b { font-size: 12px; }
-.plans td.moves span.add { color: var(--fg); font-weight: 700; white-space: nowrap; }
-.plans .same { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1.5px solid var(--fg);
-               font-size: 11px; font-weight: 700; }
-.plans td b { font-size: 14px; font-weight: 800; }
-.plans tr.open td, .plans tr.open th { font-weight: 800; border-bottom: 2px solid var(--fg); }
 i { font-style: normal; font-weight: 900; }
 sup.b2b { font-size: 9px; font-weight: 800; color: var(--bad); margin-left: 1px; }
-@media (max-width: 599px) {
-  .plans th:first-child { width: 11%; font-size: 10px; }
-  .plans .total { width: 8%; }
-  .plans thead .total { font-size: 9px; }
-  .plans .moves { width: 38%; }
-  .plans thead small, .plans .long { display: none; }
-}
+__GRID_CSS__
 .legend { font-size: 12px; margin-top: 6px; max-width: 75ch; }
 .skip { font-size: 13px; color: var(--fg); border: 1.5px solid var(--lamp-off); padding: 4px 8px; width: fit-content; }
 .key { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; margin: 0 0 6px; }
@@ -748,7 +612,9 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const fmt = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2);
 const B2B = '<sup class="b2b" title="second game of a back-to-back">2</sup>';
-const state = {days: new Set(), pos: new Set(), fit: true, sort: "value"};
+const state = {days: new Set(), pos: new Set(), teams: new Set(), fit: true, sort: "value"};
+// The team filter (issue 140): a chip for each team of the free agents that the run read.
+const TEAMS = [...new Set(DATA.players.map(p => p.team))].sort();
 const hits = p => state.fit ? p.fits : p.plays;
 const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
 const SORTS = {value: p => p.value, games: p => games(p) * 100 + p.value, recent: p => p.recent ?? -99,
@@ -771,7 +637,10 @@ function chips() {
       `${plural(d.open, "open slot")}, ${plural(d.nba, "NBA game")}`, !d.open)).join("");
   $("pos-chips").innerHTML = `<span class="label">Positions (any)</span>`
     + DATA.positions.map(p => chip(p, "", "", false)).join("");
+  $("team-chips").innerHTML = `<span class="label">Teams (any)</span>`
+    + TEAMS.map(t => chip(t, "", "", false)).join("");
   $("day-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.days, i));
+  $("team-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.teams, TEAMS[i]));
   $("pos-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.pos, DATA.positions[i]));
 }
 
@@ -779,16 +648,19 @@ function pressed() {
   $("day-chips").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", state.days.has(i)));
   $("pos-chips").querySelectorAll("button").forEach((b, i) =>
     b.setAttribute("aria-pressed", state.pos.has(DATA.positions[i])));
+  $("team-chips").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", state.teams.has(TEAMS[i])));
 }
 
 function render() {
   pressed();
   const rows = DATA.players.filter(p => [...state.days].every(i => hits(p)[i])
-    && (!state.pos.size || p.pos.some(x => state.pos.has(x))))
+    && (!state.pos.size || p.pos.some(x => state.pos.has(x)))
+    && (!state.teams.size || state.teams.has(p.team)))
     .sort((a, b) => SORTS[state.sort](b) - SORTS[state.sort](a));
   $("fa-count").textContent = rows.length
     ? `Top ${Math.min(DATA.rows, rows.length)} of ${rows.length} free agents that match the filters`
     : "0 free agents match the filters";
+  if (state.teams.size) $("fa-count").textContent += ` (teams: ${[...state.teams].sort().join(", ")})`;
   // With no match, the table hides and a message shows. With selected days, the message has a Clear days button.
   $("fa-empty").hidden = rows.length > 0;
   $("fa-table").hidden = !rows.length;
@@ -833,11 +705,32 @@ $("fa-clear-days").onclick = () => {
   const first = $("day-chips").querySelector("button");
   if (first) first.focus();
 };
-// Reset filters restores the defaults: no days, no positions, only games that fill an open slot, sort by Val.
+// The plan button that set the filters shows as selected (aria-current) until the next filter change from the plan.
+const PLAN = $("plan");
+const current = b => PLAN && PLAN.querySelectorAll("button").forEach(x =>
+  x.setAttribute("aria-current", x === b ? "true" : "false"));
+// Reset filters restores the defaults: no days, no positions, no teams, only games that fill an open slot, sort by Val.
 $("fa-reset").onclick = () => {
-  state.days.clear(); state.pos.clear(); state.fit = true; state.sort = "value"; $("fit-only").checked = true;
+  state.days.clear(); state.pos.clear(); state.teams.clear(); state.fit = true; state.sort = "value";
+  $("fit-only").checked = true; $("fa-from").hidden = true; current(null);
   render();
 };
+// The team plan (issue 140): an add cell or a day header sets the filters of the table from its data attributes.
+// data-days: the indexes of the days of the table. data-pos: the slots, empty for Util (any position). data-teams.
+const list = s => (s || "").split(",").filter(Boolean);
+if (PLAN) PLAN.querySelectorAll("button[data-days]").forEach(b => b.addEventListener("click", () => {
+  state.days = new Set(list(b.dataset.days).map(Number));
+  state.pos = new Set(list(b.dataset.pos));
+  state.teams = new Set(list(b.dataset.teams));
+  state.fit = true; $("fit-only").checked = true;
+  $("fa-from-text").textContent = `Filters from the team plan: ${b.dataset.from}.`;
+  $("fa-from").hidden = false;
+  current(b);
+  render();
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("fa").scrollIntoView({behavior: still ? "auto" : "smooth", block: "start"});
+  $("fa-count").focus({preventScroll: true});
+}));
 chips();
 render();
 """

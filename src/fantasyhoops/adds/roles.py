@@ -6,7 +6,7 @@ core/rotation.py reads the log (data/rotation_log.csv and data/rotation_scores.c
 - Starts: his starts in his games of the last 14 days.
 - Closes: his closes in the close games of his NBA team in the last 14 days. core/rotation.py defines a close game.
 - Starter flag and closer flag: core/role_flags.py, over his last games and the last close games of his team.
-The role is a mark only. It does not change the blended value or the plans. This module writes no file.
+The role is a mark only. It does not change the blended value or the plan. This module writes no file.
 """
 
 from dataclasses import dataclass

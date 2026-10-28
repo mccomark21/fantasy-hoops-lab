@@ -5,7 +5,7 @@ projections file, the same pool as the draft tools. So a value here is on the sc
 
 The plan page shows the market value: the value above a replacement free agent, the free agent at rank
 REPLACEMENT_RANK by value. The planner itself uses the values on the scale of the projections. A market value is
-the same value minus one number, so it does not change the order of the players or of the plans.
+the same value minus one number, so it does not change the order of the players.
 """
 
 import pandas as pd

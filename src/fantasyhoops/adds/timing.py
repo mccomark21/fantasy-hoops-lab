@@ -2,8 +2,9 @@
 
 Timings.step() times one step of plan.main(). It prints nothing (#130): the Run time table of the plan page and
 output/adds/timings.csv show the times.
-WORK counts the work of the plan searches (planner._Search): the calls of best(), cache hits included, and the
-unique states that best() computes. A search step writes the counts of all its searches in one row. The other steps write empty counts.
+WORK counts the work of the team plan search (team_plan._Search, #140): the calls of best(), cache hits included, and
+the unique states that best() computes. A search step writes the counts of its search in one row. The other steps
+write empty counts.
 Timings.part() times one sub-step of the open step (#89), for example the market pages of the Yahoo reads. A sub-step
 can have more than one timed block. Its row adds the seconds and the pages of all its blocks. The pages are the
 Yahoo pages that League.get() opens (session.py). The step row gets the sum of the pages of its sub-steps and comes
@@ -12,8 +13,6 @@ Each step appends its row to output/adds/timings.csv when it ends, so a run that
 of its finished steps. The first steps end before the run knows the planning window. Their rows wait until
 Timings.window() gives it, or until a step stops the run. Then they get empty window columns.
 A timings file with an older header gets the new header at the next write. Its old rows get empty new columns.
-A Work with a cap (limit, seconds) raises Capped in tick() when the search passes the cap. The benchmark (#100,
-adds/bench.py) uses it. WORK has no cap, so a planning run never stops for it.
 """
 
 import csv
@@ -32,28 +31,14 @@ def timings_path():
     return common.OUT / "adds" / "timings.csv"
 
 
-class Capped(Exception):
-    """A search passed the cap of its Work. The search does not end under the cap."""
-
-
 class Work:
-    """The counts of the plan searches. tick() counts one call of best(). state() counts one computed state.
+    """The counts of the team plan search. tick() counts one call of best(). state() counts one computed state."""
 
-    clock: a function that gives seconds, for the tests.
-    limit: the most calls. seconds: the most seconds from the start of this Work, by clock. When the calls or the
-    time pass the cap, tick() raises Capped. None: no cap. Each cap check costs time, so leave seconds None in CI.
-    """
-
-    def __init__(self, clock=time.monotonic, limit=None, seconds=None):
-        self.clock, self.calls, self.states = clock, 0, 0
-        self.limit, self.stop = limit, None if seconds is None else clock() + seconds
+    def __init__(self):
+        self.calls, self.states = 0, 0
 
     def tick(self):
         self.calls += 1
-        if self.limit is not None and self.calls > self.limit:
-            raise Capped(f"The search passed {self.limit:,} calls.")
-        if self.stop is not None and self.clock() >= self.stop:
-            raise Capped(f"The search passed its time limit at {self.calls:,} calls.")
 
     def state(self):
         self.states += 1

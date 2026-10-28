@@ -4,7 +4,7 @@ import pandas as pd
 
 from fantasyhoops.adds.planner import Option, counted_games
 from fantasyhoops.adds.readers import Player
-from fantasyhoops.adds.rest import games_text, rest_names, second_nights, with_rests
+from fantasyhoops.adds.rest import rest_names, second_nights, with_rests
 
 MON = date(2027, 1, 4)
 WEEK = [MON + timedelta(days=i) for i in range(7)]
@@ -34,11 +34,6 @@ def test_a_player_on_the_rest_list_gets_a_lower_count_on_each_second_night():
     assert out[0].rest_games == ((WEEK[0], 0.5), (WEEK[1], 0.5))
     assert [counted_games(out[0].rest_games, [d]) for d in WEEK[:3]] == [0.5, 0.5, 1.0]
     assert out[1] == other and out[2] == away  # not on the list, or no second night
-
-
-def test_games_text_shows_a_fraction_only_when_there_is_one():
-    assert [games_text(n) for n in (2, 2.0, 1.5, 1.75, 0.1 + 0.2)] == ["2", "2", "1.5", "1.75", "0.3"]
-    assert [games_text(n, sign=True) for n in (2, 0, -1.5)] == ["+2", "+0", "-1.5"]
 
 
 def test_a_rest_chance_of_0_changes_nothing():

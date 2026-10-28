@@ -10,9 +10,10 @@ from fantasyhoops.adds.drops import (
     rank_players,
     value_warnings,
 )
-from fantasyhoops.adds.planner import Option, schedule_plan
+from fantasyhoops.adds.planner import Option
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
+from fantasyhoops.adds.team_plan import TeamAdd, team_plan
 from fantasyhoops.core.common import load_config, name_key
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
@@ -37,11 +38,11 @@ def values(**ranks):
     return {name_key(name): SeasonValue(*rv) for name, rv in ranks.items()}
 
 
-def run(roster, games, free_agents, cfg, vals, adds=5):
-    """The stream spots and the plan for a roster."""
+def run(roster, games, cfg, vals, adds=5):
+    """The stream spots and the team plan for a roster."""
     spots = choose_stream_spots(roster, cfg, vals)
     days = open_slots_by_day(kept_roster(roster, spots), games, SLOTS)
-    plan = schedule_plan(days, games, spots, free_agents, adds, SLOTS)
+    plan = team_plan(days, games, spots, adds, SLOTS)
     return spots, plan
 
 
@@ -73,9 +74,9 @@ def test_the_plan_never_drops_a_core_player_also_when_he_is_out():
     games = {d: {"PHI"} for d in WEEK}
     roster = [player("Core", "BOS", status="O"), player("Bench", "DEN")]
     vals = values(Core=(300, -3.0), Bench=(100, 0.0))
-    spots, plan = run(roster, games, [fa("Phi", "PHI")], config(2, core=["Core"], stream_spots=1), vals)
+    spots, plan = run(roster, games, config(2, core=["Core"], stream_spots=1), vals)
     assert [s.holder.player.name for s in spots] == ["Bench"]
-    assert all(w.player.player.name != "Core" for w in plan.windows)
+    assert [a.spot for a in plan.adds] == [0]  # the add drops Bench, the holder of spot 0
     # All players are core: no stream spots, so no plan can drop a player.
     spots = choose_stream_spots(roster, config(2, core=["Core", "Bench"], stream_spots=1), vals)
     assert spots == []
@@ -85,34 +86,39 @@ def test_an_out_holder_has_no_games():
     # The holder is Out. His team plays all week, but he gives no started games. The plan drops him on Mon.
     games = {d: {"BOS", "PHI"} for d in WEEK}
     roster = [player("Hurt", "BOS", status="O")]
-    spots, plan = run(roster, games, [fa("Phi", "PHI")], config(1, stream_spots=1), values())
-    assert (plan.started_games, plan.adds) == (7, 1)
+    spots, plan = run(roster, games, config(1, stream_spots=1), values())
+    assert (plan.started_games, len(plan.adds)) == (7, 1)
 
 
 def test_no_drop_when_the_holder_gives_the_same_started_games():
     # Quickley plays all days. A drop gains nothing, so the plan keeps him and uses no add.
     games = {d: {"TOR", "PHX"} for d in WEEK}
-    spots, plan = run(
-        [player("Quickley", "TOR")], games, [fa("Sun", "PHX")], config(1, stream_spots=1), values(Quickley=(90, -0.52))
-    )
-    assert (plan.started_games, plan.adds) == (7, 0)
+    spots, plan = run([player("Quickley", "TOR")], games, config(1, stream_spots=1), values(Quickley=(90, -0.52)))
+    assert (plan.started_games, plan.adds) == (7, ())
 
 
 def test_a_warning_shows_for_a_streamer_with_a_higher_value_than_the_lowest_core_player():
     games = {d: {"PHI"} for d in WEEK}
     roster = [player("Core", "BOS"), player("Star", "BOS")]
     vals = values(Core=(130, 0.1), Star=(10, 2.0))
-    fas = [fa("Good", "PHI", value=0.5), fa("Weak", "PHI", value=-1.0)]
+    # #140: the streamers are the free agents of the teams of the team plan who fit the slots of an add.
+    fas = [fa("Good", "PHI", value=0.5), fa("Weak", "PHI", value=-1.0), fa("Other team", "DEN", value=3.0)]
+    guard = Option(Player("Guard", "PHI", ("PG",)), 4.0)
     cfg = config(3, core=["Core", "Star"])
-    spots, plan = run(roster, games, fas, cfg, vals)
-    assert value_warnings(plan, roster, spots, cfg, vals) == [
+    spots, plan = run(roster, games, cfg, vals)
+    assert [(a.teams, a.slots) for a in plan.adds] == [(("PHI",), ("Util",))]
+    sf_only = [TeamAdd(0, WEEK[0], WEEK[6], ("SF",), ("PHI",), (WEEK[0],))]
+    assert value_warnings(fas + [guard], sf_only, roster, spots, cfg, vals) == [
         "Warning: Good (PHI) has a value of +0.50. Your lowest core player, Core, has a season value of +0.10. "
         "You can make Good core."
     ]
+    # Util takes all positions, so the PHI guard fits too. The best value comes first.
+    names = [w.split(" (")[0] for w in value_warnings(fas + [guard], plan.adds, roster, spots, cfg, vals)]
+    assert names == ["Warning: Guard", "Warning: Good"]
     # With no core list, the comparison uses the lowest kept player.
     cfg = config(3)
-    assert value_warnings(plan, roster, spots, cfg, vals)[0].startswith("Warning: Good (PHI)")
-    assert "lowest kept player, Core," in value_warnings(plan, roster, spots, cfg, vals)[0]
+    assert value_warnings(fas, plan.adds, roster, spots, cfg, vals)[0].startswith("Warning: Good (PHI)")
+    assert "lowest kept player, Core," in value_warnings(fas, plan.adds, roster, spots, cfg, vals)[0]
 
 
 def test_rank_players_ranks_by_per_game_value():

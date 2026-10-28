@@ -17,6 +17,8 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: Install the package and the test dependencies
         run: python -m pip install -e ".[test]"
+      - name: Install Chromium for the Playwright page tests (#140), so that they run and do not skip
+        run: python -m playwright install --with-deps chromium
       - name: Run the tests
         run: python -m pytest -q -rs
 

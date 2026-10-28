@@ -14,7 +14,7 @@ from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.planner import Option, StreamSpot
 from fantasyhoops.adds.readers import Adds, FreeAgent, Player, Week
 from fantasyhoops.adds.drops import SeasonValue
-from fantasyhoops.adds.rest import games_text
+from fantasyhoops.adds import week_file
 from fantasyhoops.adds.role_up import Absence
 from fantasyhoops.core import common, tokens
 from fantasyhoops.core.common import name_key
@@ -23,15 +23,15 @@ from tests.adds.test_page import SKIP_LINE, WEEK, option, run_time, text
 MON = date(2027, 1, 4)
 
 
-def test_the_command_shows_the_waiver_players_and_uses_one_after_his_clear_day(monkeypatch, tmp_path, capsys):
+def test_the_command_shows_the_waiver_players_on_the_page(monkeypatch, tmp_path, capsys):
     # PHI plays Mon and Tue. The waiver player clears on Mon, so the plan adds him on Tue. The DEN free agent has no
     # game. He is the replacement free agent (value 0.1), so the market value of the waiver player is +0.20.
     claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
     runs = report_runs(monkeypatch)
     run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)])
     assert "Phi Claim W PHI SF Mon 1/4 Tue 1/5 +0.20" in text(page.page_path().read_text(encoding="utf-8"))
-    (added,) = runs[0].rows[0].added
-    assert (added.player.player.name, added.add_day) == ("Phi Claim", WEEK[1])
+    # #140: the team plan uses no free agent. It recommends PHI, the team of the waiver player.
+    assert [a.teams for a in runs[0].plan.adds] == [("PHI",)]
     assert "Waiver players" not in capsys.readouterr().out  # #130: the page shows them, the terminal does not
     assert lists.free_agent_path(None, 25, status="W").startswith("players?status=W&")
 
@@ -43,31 +43,30 @@ def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, cap
     assert published == [(command.ROOT, "adds", path)]
     out = capsys.readouterr().out
     assert f"Wrote the plan page: {path}" in out
-    assert "Plan page: best plan for one roster spot: +2 started games with 1 add." in out
     assert command.URL in out and command.URL.endswith("/adds/")
-    assert "+Phi One (PHI) add Mon – starts Mon & Tue" in text(path.read_text(encoding="utf-8"))
+    assert "+Util PHI" in text(path.read_text(encoding="utf-8"))
     assert out.splitlines() == [
         "",
         f"Wrote the plan page: {path}",
-        "Plan page: best plan for one roster spot: +2 started games with 1 add.",
+        "Team plan: Add 1, Mon 1/4: +Util PHI. Starts Mon & Tue.",
         f"Published the plan page to {command.URL}. GitHub can take a few minutes to show the new page.",
     ]
     assert (path.parent / "fonts" / "archivo-latin.woff2").read_bytes() == tokens.FONT.read_bytes()
     assert (path.parent / "fonts" / "OFL.txt").read_bytes() == tokens.LICENSE.read_bytes()
 
 
-def test_the_page_shows_the_plans_for_one_roster_spot_and_no_output_shows_the_aggressive_plan(
-    monkeypatch, tmp_path, capsys
-):
-    # PHI plays Mon and Tue, BOS plays Mon. Each row of the page has different players: the PHI player first
-    # (2 games), then the BOS player (1 game). #130: no output shows the aggressive plan or the comparison.
+def test_the_page_shows_the_team_plan_and_no_player_plan(monkeypatch, tmp_path, capsys):
+    # PHI plays Mon and Tue, BOS plays Mon. #140: the plan names the team PHI, not a player.
     options = [option("Phi Weak", "PHI", -6.0), option("Bos Good", "BOS", -1.0)]
     run_command(monkeypatch, tmp_path, [], publish=False, options=options)
     out = capsys.readouterr().out
-    shown = text(page.page_path().read_text(encoding="utf-8"))
+    html = page.page_path().read_text(encoding="utf-8")
+    shown = text(html)
     for output in (out, shown):
-        assert "Comparison" not in output and "Aggressive" not in output and "Schedule plan" not in output
-    assert "+Phi Weak (PHI) add Mon – starts Mon & Tue" in shown and "+Bos Good (BOS) add Mon – starts Mon" in shown
+        assert "Best plans for one roster spot" not in output and "Contingency" not in output
+        assert "Aggressive" not in output and "Schedule plan" not in output
+    assert '<section id="plan"><h2>Team plan</h2>' in html and "+Util PHI" in shown
+    assert 'data-days="0,1" data-pos="" data-teams="PHI"' in html
 
 
 def test_the_command_does_not_publish_with_no_publish(monkeypatch, tmp_path, capsys):
@@ -78,13 +77,14 @@ def test_the_command_does_not_publish_with_no_publish(monkeypatch, tmp_path, cap
     assert "did not publish" in capsys.readouterr().out
 
 
-def test_the_command_counts_a_second_night_of_a_player_on_the_rest_list_as_less_than_1_game(
-    monkeypatch, tmp_path, capsys
-):
+def test_the_command_marks_a_second_night_of_a_player_on_the_rest_list(monkeypatch, tmp_path):
     # PHI plays Mon and Tue. Phi One is on the rest list, and [adds] rest_chance is 0.5.
+    runs = report_runs(monkeypatch)
     run_command(monkeypatch, tmp_path, [], publish=False, rests={"phi one"})
-    assert "best plan for one roster spot: +1.5 started games with 1 add." in capsys.readouterr().out
     assert 'class="b2b"' in page.page_path().read_text(encoding="utf-8")
+    assert runs[0].options[0].rest_games == ((WEEK[1], 0.5),)
+    # #140: the team plan names no player, so the rest list does not change it.
+    assert runs[0].plan.started_games == 2
 
 
 def test_the_command_marks_the_role_up_free_agents_on_the_page(monkeypatch, tmp_path):
@@ -121,18 +121,15 @@ STEPS = [
     "Yahoo reads",
     "absence read",
     "value options",
-    "schedule search",
-    "spot plans",
-    "contingency plans",
+    "team plan",
     "role read",
     "page write and publish",
 ]
-SEARCH_STEPS = {"schedule search", "spot plans"}
+SEARCH_STEPS = {"team plan"}
 NO_READ_STEPS = [
     "schedule read",
     "season values",
     "Yahoo reads",
-    "contingency plans",
     "role read",
     "page write and publish",
 ]
@@ -266,14 +263,14 @@ def test_an_old_timings_file_stays_readable(monkeypatch, tmp_path):
 
 
 def test_a_run_that_stops_keeps_the_rows_of_the_finished_steps(monkeypatch, tmp_path):
-    def stop(*args):
-        raise KeyboardInterrupt  # the owner stops the run with Ctrl+C during the spot plans
+    def stop(*args, **kw):
+        raise KeyboardInterrupt  # the owner stops the run with Ctrl+C during the team plan
 
-    monkeypatch.setattr(command, "spot_plans", stop)
+    monkeypatch.setattr(command, "team_plan", stop)
     with pytest.raises(KeyboardInterrupt):
         run_command(monkeypatch, tmp_path, [], publish=False)
     _, rows = timing_rows(tmp_path)
-    assert [r["step"] for r in rows] == ROWS[: ROWS.index("spot plans")]
+    assert [r["step"] for r in rows] == ROWS[: ROWS.index("team plan")]
     assert {(r["days"], r["open_days"], r["adds_left"]) for r in rows} == {("2", "2", "1")}
 
 
@@ -302,7 +299,7 @@ def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(common, "OUT", tmp_path / str(timed))
         run_command(monkeypatch, tmp_path, [], publish=False, options=options, league=league, timed=timed)
     timed_run, untimed_run = runs
-    assert timed_run.rows
+    assert timed_run.plan.adds
     assert timed_run == untimed_run
     assert not (tmp_path / "False" / "adds" / "timings.csv").exists()
     assert "Step:" not in capsys.readouterr().out
@@ -356,7 +353,7 @@ def test_one_parse_of_each_list_page_changes_no_plan(monkeypatch, tmp_path, sett
         found[once] = (runs[-1], inputs, yahoo.paths)
         monkeypatch.setattr(lists, "parse", real_parse)
     run, inputs, paths = found[True]
-    assert run.rows
+    assert run.plan.adds
     fas, recent = inputs[0]
     # With the recent view skipped (#90), the run reads only the projected view, and recent is empty.
     views = 1 if settings else 2
@@ -590,8 +587,8 @@ def test_the_plans_with_the_recent_view_skipped_are_the_plans_with_recent_weight
     skip = _plans(monkeypatch, tmp_path / "skip", recent, SKIP)
     zero = _plans(monkeypatch, tmp_path / "zero", [replace(f, games=0) for f in recent], {"recent_skip_weight": 0.0})
     assert skip.recent_skip and zero.recent_skip is None
-    assert skip.rows  # the best plans for one roster spot
-    # The best plans for one roster spot, the warnings, the contingency plans and the options are equal.
+    assert skip.plan.adds
+    # The team plan, the warnings and the options are equal.
     # The settings and the skip line are different.
     assert replace(skip, cfg=None, recent_skip=None) == replace(zero, cfg=None)
     # Without the skip, the recent lines of the test data move the values. So the test can see a difference.
@@ -769,9 +766,9 @@ def report_runs(monkeypatch):
     return runs
 
 
-def test_the_terminal_shows_only_the_page_path_the_best_plan_and_the_warnings(monkeypatch, tmp_path, capsys):
+def test_the_terminal_shows_only_the_page_path_the_team_plan_and_the_warnings(monkeypatch, tmp_path, capsys):
     """#130: a fixed run with each section of the page. The terminal prints the summary lines and no other line.
-    <page> stands for the path of the page."""
+    <page> stands for the path of the page. #140: one line for each add of the team plan."""
     roster = [Player("Flag Guy", "PHI", ("PG",), status="Q"), Player("Hurt Guy", "BOS", ("C",), status="O")]
     league = command.LeagueData(roster=roster, adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2])))
     claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
@@ -792,13 +789,12 @@ def test_the_terminal_shows_only_the_page_path_the_best_plan_and_the_warnings(mo
         pages={("market", lists.PROJECTED): 2, ("market", lists.RECENT): 2},
     )
     (run,) = runs
-    assert run.warnings and run.contingencies and run.market
+    assert run.warnings and run.market
     out = capsys.readouterr().out.replace(str(page.page_path()), "<page>")
     assert out.splitlines() == [
         "",
         "Wrote the plan page: <page>",
-        f"Plan page: best plan for one roster spot: {games_text(run.rows[0].gain, sign=True)} started games with "
-        "1 add.",
+        "Team plan: Add 1, Mon 1/4: +Util PHI. Starts Mon & Tue.",
         "The run did not publish the page (--no-publish).",
         *run.warnings,
     ]
@@ -806,3 +802,29 @@ def test_the_terminal_shows_only_the_page_path_the_best_plan_and_the_warnings(mo
     html = text(page.page_path().read_text(encoding="utf-8"))
     for line in (*run.warnings, run.market, "Star Wing is absent."):
         assert line in html
+
+
+def test_each_run_writes_the_week_file_and_a_later_run_keeps_the_past_day(monkeypatch, tmp_path):
+    # #140: the run of Mon recommends +Util PHI on Mon. The run of Tue keeps the Mon add, and the page shows it as past.
+    league = command.LeagueData(roster=[], adds=Adds(3, 5), week=Week(12, tuple(WEEK[:2])))
+    run_command(monkeypatch, tmp_path, [], publish=False, league=league)
+    monday = week_file.read_record(WEEK[0])
+    assert week_file.week_path(WEEK[0]) == common.OUT / "adds" / "week_plan_2027-01-04.json"
+    assert monday.runs == (WEEK[0],)
+    assert [(a.row, a.day, a.slots, a.teams) for a in monday.adds] == [(1, WEEK[0], ("Util",), ("PHI",))]
+    run_command(monkeypatch, tmp_path, [], publish=False, league=league, today=WEEK[1])
+    tuesday = week_file.read_record(WEEK[0])
+    assert tuesday.runs == (WEEK[0], WEEK[1])
+    assert tuesday.adds[0] == monday.adds[0]
+    assert [a.day for a in tuesday.adds] == [WEEK[0], WEEK[1]]
+    html = page.page_path().read_text(encoding="utf-8")
+    assert '<td class="add past"><span class="addc was"' in html
+    assert "No saved plan" not in html
+
+
+def test_a_run_with_no_adds_left_writes_a_week_file_with_no_add(monkeypatch, tmp_path):
+    league = command.LeagueData(roster=[], adds=Adds(5, 5), week=Week(12, tuple(WEEK[:2])))
+    run_command(monkeypatch, tmp_path, [], publish=False, league=league, today=WEEK[1])
+    record = week_file.read_record(WEEK[0])
+    assert (record.runs, record.adds) == ((WEEK[1],), ())
+    assert "No saved plan for Mon." in page.page_path().read_text(encoding="utf-8")

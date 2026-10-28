@@ -21,12 +21,13 @@ One planning run:
    good. The page of today comes from Yahoo (#91).
    read_absences(): find the absent starters in the rotation log. mark_role_ups() marks the free agents at their
    positions (adds/role_up.py). The mark changes no value.
-6. schedule_plan(): choose the team windows for the stream spots. The plan gives the warnings (value_warnings())
-   and the main plan of the contingency plans. It gets a bonus for the games next week of the last players in the
-   stream spots (next_week_games()). spot_plans(): the best plans for one roster spot, the rows of the plan page.
-   Before the plans, with_rests() marks the rest games of the players on the rest list (adds/rest.py).
+6. team_plan(): choose the adds of the stream spots as NBA teams and open slots (adds/team_plan.py, #140). The search
+   uses no free agent. The games next week of the last teams in the stream spots are the last tiebreak
+   (next_week_games()). value_warnings() checks the free agents of the teams of the plan.
+   Before the plan, with_rests() marks the rest games of the players on the rest list (adds/rest.py).
    matchup_weights() gives the matchup values of the free agents, the Match column of the page.
-7. contingency_plans(): a contingency plan for each game day of each flagged player.
+7. save_week(): write the adds of the plan to the week file, output/adds/week_plan_<first day>.json
+   (adds/week_file.py). The run replaces the saved adds of today and later. The saved adds of the past days stay.
 8. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
    The run does not update the log. Without data/rotation_log.csv, the page has no role lines.
 9. next_week_window(): find the open slots of your kept roster on the first days of next week
@@ -37,8 +38,8 @@ One planning run:
     Before the plan page, build_home() writes the home page in output/home/ (adds/home.py, #120). The publish puts
     it at the root of the site. --no-publish also skips the home page.
     The page shows how many pages came from the cache (PageCache.line()).
-    The terminal prints a short summary (#130): the page path, the best plan for one roster spot, the URL or the
-    --no-publish line (publish_page()), then the warnings (print_summary()). The page shows all other results.
+    The terminal prints a short summary (#130): the page path, one line for each add of the team plan, the URL or
+    the --no-publish line (publish_page()), then the warnings (print_summary()). The page shows all other results.
 12. Time each step (adds/timing.py, #85). The terminal shows no step line.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
     The Yahoo reads step also times its sub-steps and counts their Yahoo pages (#89): browser start, league and
@@ -55,18 +56,17 @@ from datetime import date
 from fantasyhoops.adds import page, timing
 from fantasyhoops.adds.cache import PageCache
 from fantasyhoops.adds.blend import blended_options
-from fantasyhoops.adds.contingency import contingency_plans, game_times
 from fantasyhoops.adds.home import build_home
 from fantasyhoops.adds.lists import read_lists, recent_skip_line, recent_weight_limit, skips_recent_view
 from fantasyhoops.adds.drops import choose_stream_spots, kept_roster, season_values, value_warnings
 from fantasyhoops.adds.matchup import matchup_weights, read_matchup, weighted_cfg
-from fantasyhoops.adds.planner import StreamSpot, rank_teams, schedule_plan, teams_to_read
+from fantasyhoops.adds import grid, week_file
+from fantasyhoops.adds.planner import StreamSpot, rank_teams, teams_to_read
 from fantasyhoops.adds.roles import read_roles
 from fantasyhoops.adds.readers import Adds, read_adds, read_roster, read_week
-from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, games_text, read_rest_names, second_nights, with_rests
+from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, read_rest_names, second_nights, with_rests
 from fantasyhoops.adds.role_up import mark_role_ups, read_absences
 from fantasyhoops.adds.session import WAIT_SECONDS, open_league
-from fantasyhoops.adds.spots import spot_plans
 from fantasyhoops.adds.slots import (
     NEXT_WEEK_OPEN_DAYS,
     next_week_games,
@@ -76,6 +76,7 @@ from fantasyhoops.adds.slots import (
     plans_next_week,
     team_games,
 )
+from fantasyhoops.adds.team_plan import team_plan
 from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import projection_scale, replacement_value
 from fantasyhoops.core import publish as site
@@ -110,8 +111,10 @@ class PlanningRun:
     spots: the StreamSpots. ranking: the TeamRanks. read: the teams whose free agents the run read. options: the
     Options of the free agents. replacement, match_replacement: the value and the matchup value of a replacement free
     agent, or None. weights: the matchup weights, or None if the run read no free agents.
-    warnings: text lines (drops.value_warnings()). rows: the SpotPlans of the best plans for one roster spot.
-    contingencies: the Contingency plans. roles: {(name, team): Role}, or None with no rotation log.
+    warnings: text lines (drops.value_warnings()). plan: the team_plan.TeamPlan, or None if the run made no plan.
+    record: the week_file.WeekRecord after this run: the saved adds of the past days and the adds of the plan.
+    week_games: {day: NBA games} for each day of the fantasy week. roles: {(name, team): Role}, or None with no
+    rotation log.
     next_days, next_games: the Days and the games of the first days of next week (slots.next_week_window()).
     timings: the timing.StepTimes of the run. recent_skip, market, cache: the run lines, or None.
     """
@@ -130,8 +133,9 @@ class PlanningRun:
     match_replacement: float = None
     weights: dict = None
     warnings: list = ()
-    rows: list = ()
-    contingencies: list = ()
+    plan: object = None
+    record: object = None
+    week_games: dict = None
     roles: dict = None
     next_days: list = ()
     next_games: dict = None
@@ -186,30 +190,41 @@ def with_trends(options, trends):
     return [replace(o, trend=trends.get(o.player.name)) for o in options]
 
 
-def _count(n, word):
-    """For example "1 add", "2 adds" and "1.5 started games"."""
-    return f"{games_text(n)} {word}" + ("" if n == 1 else "s")
-
-
 def print_summary(run):
     """Print the warnings of a PlanningRun (drops.value_warnings()), one line each. publish_page() prints the page
-    path, the best plan and the URL. The page shows all other results of the run (#130)."""
+    path, the adds of the team plan and the URL. The page shows all other results of the run (#130)."""
     for line in run.warnings:
         print(line)
 
 
-def publish_page(path, rows, cfg, publish=True, home=None):
-    """Print the path and the best row of the plan page, then publish the site with the page at /adds/.
+def plan_lines(run):
+    """The terminal lines of the team plan: one line for each add of today and later (grid.add_text())."""
+    adds = [a for a in (run.record.adds if run.record else ()) if a.day >= run.today]
+    return [f"Team plan: {grid.add_text(a, grid.team_count_at(run.cfg))}" for a in adds]
+
+
+def save_week(week, today, plan, spots):
+    """Write the adds of plan to the week file of week, and give the new week_file.WeekRecord.
+
+    plan: the TeamPlan, or None for a plan with no add. spots: the StreamSpots, for the rows (week_file.assign_rows()).
+    """
+    record = week_file.read_record(week.start)
+    adds = plan.adds if plan else ()
+    rows = week_file.assign_rows(adds, [s.holder for s in spots], week_file.past_adds(record, today))
+    record = week_file.merged(record, today, adds, rows)
+    week_file.write_record(week.start, record)
+    return record
+
+
+def publish_page(path, lines, cfg, publish=True, home=None):
+    """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
     home: the home page (adds/home.py) for the root of the site, or None. cfg: the config of the run.
     """
     print()
     print(f"Wrote the plan page: {path}")
-    if rows:
-        print(
-            f"Plan page: best plan for one roster spot: {games_text(rows[0].gain, sign=True)} started games with "
-            f"{_count(rows[0].plan.adds, 'add')}."
-        )
+    for line in lines:
+        print(line)
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
@@ -219,7 +234,7 @@ def publish_page(path, rows, cfg, publish=True, home=None):
 
 def main(today=None, publish=True, timed=True, cache=True):
     """One planning run (see the module docstring). timed False: no step times, no timings.csv and no Run time
-    table. The plans are the same. cache False (--no-cache): the run reads each page from Yahoo and writes it over
+    table. The team plan is the same. cache False (--no-cache): the run reads each page from Yahoo and writes it over
     the cached page (adds/cache.py)."""
     timings = timing.Timings(timed)
     step = timings.step
@@ -228,7 +243,7 @@ def main(today=None, publish=True, timed=True, cache=True):
     slots = cfg["league"]["slots"]
     with step("schedule read"):
         sched = read_schedule()
-    plan, read, options, warnings, rows, weights, match_replacement = None, [], [], [], [], None, None
+    plan, read, options, warnings, weights, match_replacement = None, [], [], [], None, None
     recent, skip_line, market_text = [], None, None
     pages = PageCache(today, use=cache)
     pages.remove_old_days()
@@ -288,21 +303,15 @@ def main(today=None, publish=True, timed=True, cache=True):
             )
             options = mark_role_ups(options, absences)
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
-        with step("schedule search", search=True):
-            plan = schedule_plan(
-                days, games, spots, options, data.adds.left, slots, next_week=games_next, next_weight=weight
-            )
-        warnings = value_warnings(plan, data.roster, spots, cfg, values)
+        with step("team plan", search=True):
+            plan = team_plan(days, games, spots, data.adds.left, slots, next_week=games_next, next_weight=weight)
+        warnings = value_warnings(options, plan.adds, data.roster, spots, cfg, values)
         match_replacement = replacement_value(
             [replace(o, blended_value=o.match) for o in options if not o.player.on_waivers]
         )
-        with step("spot plans", search=True):
-            rows = spot_plans(data.roster, spots, games, options, data.adds.left, slots)
     cache_text = pages.line()
-    with step("contingency plans"):
-        contingencies = contingency_plans(
-            days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched)
-        )
+    record = save_week(data.week, today, plan, spots)
+    week_games = {d: len(teams) // 2 for d, teams in team_games(sched, data.week.days).items()}
     with step("role read"):
         roles = read_roles([o.player for o in options], cfg, today)
     run = PlanningRun(
@@ -320,8 +329,9 @@ def main(today=None, publish=True, timed=True, cache=True):
         match_replacement=match_replacement,
         weights=weights,
         warnings=warnings,
-        rows=rows,
-        contingencies=contingencies,
+        plan=plan,
+        record=record,
+        week_games=week_games,
         roles=roles,
         next_days=early_days,
         next_games=early_games,
@@ -337,7 +347,7 @@ def main(today=None, publish=True, timed=True, cache=True):
     with step("page write and publish"):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
-        publish_page(page.write(text), rows, cfg, publish, home)
+        publish_page(page.write(text), plan_lines(run), cfg, publish, home)
     print_summary(run)
 
 

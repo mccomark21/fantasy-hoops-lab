@@ -4,9 +4,9 @@ from datetime import date, timedelta
 import pytest
 
 from fantasyhoops.adds import timing
-from fantasyhoops.adds.planner import Option, StreamSpot, schedule_plan
-from fantasyhoops.adds.readers import Player
+from fantasyhoops.adds.planner import StreamSpot
 from fantasyhoops.adds.slots import open_slots_by_day
+from fantasyhoops.adds.team_plan import team_plan
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON = date(2027, 1, 4)
@@ -33,8 +33,7 @@ def clock(step):
 def search():
     games = {d: {"PHI"} if i % 2 else {"BOS"} for i, d in enumerate(WEEK)}
     days = open_slots_by_day([], games, SLOTS)
-    fas = [Option(Player("Phi", "PHI", ("SF",)), 1.0), Option(Player("Bos", "BOS", ("C",)), 0.5)]
-    return schedule_plan(days, games, [StreamSpot(), StreamSpot()], fas, 3, SLOTS)
+    return team_plan(days, games, [StreamSpot(), StreamSpot()], 3, SLOTS)
 
 
 def test_a_step_prints_nothing_and_keeps_its_time(capsys):
@@ -50,7 +49,7 @@ def test_a_search_step_has_the_calls_and_the_states_of_its_searches(monkeypatch)
     work = timing.Work()
     monkeypatch.setattr(timing, "WORK", work)
     timings = timing.Timings()
-    with timings.step("spot plans", search=True):
+    with timings.step("team plan", search=True):
         search()
         first = (work.calls, work.states)
         search()
@@ -64,15 +63,15 @@ def test_a_search_step_has_the_calls_and_the_states_of_its_searches(monkeypatch)
 
 def test_the_counts_change_no_plan(monkeypatch):
     before = search()
-    monkeypatch.setattr(timing, "WORK", timing.Work(clock=clock(100.0)))
+    monkeypatch.setattr(timing, "WORK", timing.Work())
     assert search() == before
 
 
 def test_a_long_search_prints_no_progress_line(monkeypatch, capsys):
-    work = timing.Work(clock=clock(4.0))  # 4 s for each call: before #130, a progress line after each 10 s
+    work = timing.Work()
     monkeypatch.setattr(timing, "WORK", work)
-    timings = timing.Timings(clock=clock(1.0))
-    with timings.step("schedule search", search=True):
+    timings = timing.Timings(clock=clock(4.0))  # before #130, a progress line after each 10 s
+    with timings.step("team plan", search=True):
         search()
     assert work.calls > 3 and capsys.readouterr().out == ""
 
@@ -94,7 +93,7 @@ def test_each_step_appends_its_row_when_it_ends(tmp_path):
     assert not path.exists()  # the row waits for the window columns
     timings.window(days, 4)
     assert len(read_rows(path)[1]) == 1
-    with timings.step("schedule search", search=True):
+    with timings.step("team plan", search=True):
         work.calls += 40
         work.states += 12
     columns, rows = read_rows(path)
@@ -110,7 +109,7 @@ def test_each_step_appends_its_row_when_it_ends(tmp_path):
         "states": "",
         "pages": "",
     }
-    assert (rows[1]["step"], rows[1]["calls"], rows[1]["states"]) == ("schedule search", "40", "12")
+    assert (rows[1]["step"], rows[1]["calls"], rows[1]["states"]) == ("team plan", "40", "12")
     assert len(rows[0]["run_at"]) == len("2026-10-25T21:04:33")
 
 
@@ -123,7 +122,7 @@ def test_a_stopped_step_keeps_the_rows_of_the_earlier_steps(tmp_path):
     with timings.step("Yahoo reads"):
         pass
     with pytest.raises(KeyboardInterrupt):
-        with timings.step("schedule search", search=True):
+        with timings.step("team plan", search=True):
             raise KeyboardInterrupt  # the owner stops the run with Ctrl+C
     assert [r["step"] for r in read_rows(path)[1]] == ["schedule read", "Yahoo reads"]
 
@@ -241,24 +240,3 @@ def test_a_run_with_no_timers_writes_no_file(tmp_path):
         pass
     timings.window([], 5)
     assert not (tmp_path / "timings.csv").exists()
-
-
-def test_a_work_with_a_call_limit_stops_after_the_limit():
-    work = timing.Work(limit=3)
-    for _ in range(3):
-        work.tick()
-    with pytest.raises(timing.Capped):
-        work.tick()
-    assert work.calls == 4
-
-
-def test_a_work_with_a_time_limit_stops_at_the_limit():
-    work = timing.Work(clock=clock(1.0), seconds=2.5)  # the clock reads 1 s at the start, so the stop is 3.5 s
-    work.tick()  # 2 s
-    work.tick()  # 3 s
-    with pytest.raises(timing.Capped):
-        work.tick()  # 4 s
-
-
-def test_the_work_of_a_planning_run_has_no_cap():
-    assert (timing.WORK.limit, timing.WORK.stop) == (None, None)

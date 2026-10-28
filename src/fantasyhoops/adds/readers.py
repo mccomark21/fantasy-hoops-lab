@@ -20,11 +20,6 @@ OUT_STATUSES = {"O", "OFS", "NA", "SUSP"}
 OUT_TITLES = ("out", "not active", "suspen")
 
 
-def available_on(clear_day, day):
-    """The waiver rule: a plan can use a player on day if he has no clear day (None) or day is after it."""
-    return clear_day is None or day > clear_day
-
-
 @dataclass(frozen=True)
 class Player:
     """One player on a Yahoo roster or in a Yahoo player list.
@@ -47,12 +42,8 @@ class Player:
 
     @property
     def on_waivers(self):
-        """True if the player is on waivers (W). A plan can use him only after his clear day."""
+        """True if the player is on waivers (W). He can play for you only after his clear day."""
         return self.clear_day is not None
-
-    def available(self, day):
-        """True if a plan can use him on day: he is not on waivers, or day is after his clear day."""
-        return available_on(self.clear_day, day)
 
     @property
     def on_il(self):
@@ -217,7 +208,7 @@ def read_waiver_players(html, today, totals=True):
     """The players on waivers (W) on one page of the player list with status=W, each with his clear day.
 
     The Roster Status cell shows the clear day, for example "W (Oct 22)" (seen on 2026-10-21).
-    A W cell without a valid clear day: the plans cannot tell when he is free. The function prints a warning
+    A W cell without a valid clear day: the planner cannot tell when he is free. The function prints a warning
     and skips him. today: the day of the run, for the year of the clear day. totals and html: see read_free_agents().
     """
 
