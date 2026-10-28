@@ -30,18 +30,21 @@ One planning run:
    the rows of the plan page.
    Before the plans, with_rests() marks the rest games of the players on the rest list (adds/rest.py).
    Both plans get a bonus for the games next week of the last players in the stream spots (next_week_games()).
-7. Print the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings,
-   the aggressive plan, the comparison of the two plans and the plans for one roster spot.
-8. contingency_plans(): print a contingency plan for each game day of each flagged player.
-9. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
+7. contingency_plans(): a contingency plan for each game day of each flagged player.
+8. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
    The run does not update the log. Without data/rotation_log.csv, the page has no role lines.
-10. next_week_window(): find the open slots of your kept roster on the first days of next week
-    ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
-11. Write the plan page in output/adds/ (adds/page.py) and publish the site at /adds/. --no-publish: no publish.
+9. next_week_window(): find the open slots of your kept roster on the first days of next week
+   ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
+10. One PlanningRun holds the results of the steps above (#128). print_report() prints the terminal report from it:
+    the open slots, the stream spots, the team ranking, the schedule plan with the drops and the warnings, the
+    aggressive plan, the comparison of the two plans, the plans for one roster spot and the contingency plans.
+11. page.render() makes the plan page from the same PlanningRun. The run writes the page in output/adds/ and
+    publishes the site at /adds/. --no-publish: no publish.
     Before the plan page, build_home() writes the home page in output/home/ (adds/home.py, #120). The publish puts
     it at the root of the site. --no-publish also skips the home page.
     The page and the terminal show how many pages came from the cache (PageCache.line()).
 12. Time each step (adds/timing.py, #85). The terminal shows each step when it starts and its time when it ends.
+    The report prints after the role read, so its lines come after the step lines of steps 7 and 8.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
     The Yahoo reads step also times its sub-steps and counts their Yahoo pages (#89): browser start, league and
     matchup pages, projected pass, recent pass, market pages, waiver list and trends.
@@ -51,7 +54,7 @@ NBA schedule: data/schedule.csv (fetch/espn.py).
 
 import argparse
 from contextlib import ExitStack
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 
 import pandas as pd
@@ -59,7 +62,7 @@ import pandas as pd
 from fantasyhoops.adds import page, timing
 from fantasyhoops.adds.cache import PageCache, get_all
 from fantasyhoops.adds.blend import RECENT_DAYS, blended_options, recent_weight
-from fantasyhoops.adds.contingency import contingency_lines, contingency_plans, game_times, print_contingencies
+from fantasyhoops.adds.contingency import contingency_plans, game_times, print_contingencies
 from fantasyhoops.adds.home import build_home
 from fantasyhoops.adds.drops import (
     choose_stream_spots,
@@ -148,6 +151,57 @@ class LeagueData:
     week: object
     next_week: bool = False
     matchup: object = None
+
+
+@dataclass(frozen=True)
+class PlanningRun:
+    """What one planning run gives the plan page (page.render()) and the terminal report (print_report()).
+
+    cfg: the settings of config.toml. today: the date of the run. data: the LeagueData. days: the Days of the
+    planning window. games: {day: set of NBA teams that play}. nights: from rest.second_nights().
+    spots: the StreamSpots. values: the season values of drops.season_values(). ranking: the TeamRanks. read: the
+    teams whose free agents the run read. options: the Options of the free agents. replacement, match_replacement:
+    the value and the matchup value of a replacement free agent, or None. absences: the Absences of the rotation log.
+    weights: the matchup weights, or None if the run read no free agents.
+    plan, aggressive: the schedule plan and the aggressive plan, or None. drops: the Drops of the schedule plan.
+    warnings: text lines. empty, match_empty: the value of an empty slot without and with the matchup weights.
+    next_week: {team: games next week}, or None. rows: the SpotPlans of the best plans for one roster spot.
+    contingencies: the Contingency plans. roles: {(name, team): Role}, or None with no rotation log.
+    next_days, next_games: the Days and the games of the first days of next week (slots.next_week_window()).
+    timings: the timing.StepTimes of the run. recent_skip, market, cache: the run lines, or None.
+    """
+
+    data: object
+    days: list
+    games: dict
+    spots: list
+    today: date = None
+    cfg: dict = field(default_factory=dict)
+    nights: dict = None
+    values: dict = None
+    ranking: list = ()
+    read: list = ()
+    options: list = ()
+    replacement: float = None
+    match_replacement: float = None
+    absences: list = ()
+    weights: dict = None
+    plan: object = None
+    aggressive: object = None
+    drops: list = ()
+    warnings: list = ()
+    empty: float = None
+    match_empty: float = None
+    next_week: dict = None
+    rows: list = ()
+    contingencies: list = ()
+    roles: dict = None
+    next_days: list = ()
+    next_games: dict = None
+    timings: tuple = ()
+    recent_skip: str = None
+    market: str = None
+    cache: str = None
 
 
 def read_league(yahoo, cfg, today):
@@ -635,6 +689,47 @@ def print_spot_plans(rows, nights=None):
             )
 
 
+def print_report(run):
+    """Print the terminal report of a PlanningRun: the open slots, the stream spots, the ranking, the run lines, the
+    waiver players, the matchup, the role ups, the two plans, the comparison, the plans for one roster spot and the
+    contingency plans."""
+    data = run.data
+    print_open_slots(data, run.days, run.cfg)
+    print_stream_spots(run.spots, run.values)
+    print_ranking(run.ranking, run.read)
+    for line in (run.market, run.recent_skip, run.cache):
+        if line:
+            print()
+            print(line)
+    print_waivers(run.options, run.replacement)
+    if run.weights is not None:
+        print()
+        for line in matchup_lines(data.matchup, run.weights):
+            print(line)
+    print_role_ups(run.absences, run.options)
+    plan, aggressive = run.plan, run.aggressive
+    print_plan(
+        plan, run.spots, data.adds, run.today, run.drops, run.warnings, nights=run.nights, next_week=run.next_week
+    )
+    if aggressive is not None and aggressive.windows == plan.windows:
+        print()
+        print("Aggressive plan: the same as the schedule plan.")
+    elif aggressive is not None:
+        print_plan(
+            aggressive,
+            run.spots,
+            data.adds,
+            run.today,
+            title="Aggressive plan",
+            notes=False,
+            nights=run.nights,
+            next_week=run.next_week,
+        )
+    print_comparison(plan, aggressive, run.empty, run.match_empty)
+    print_spot_plans(run.rows, run.nights)
+    print_contingencies(run.contingencies)
+
+
 def publish_page(path, rows, publish=True, home=None):
     """Print the path and the best row of the plan page, then publish the site with the page at /adds/.
 
@@ -763,78 +858,54 @@ def main(today=None, publish=True, timed=True, cache=True):
         )
         with step("spot plans", search=True):
             rows = spot_plans(data.roster, spots, games, options, data.adds.left, slots)
-    print_open_slots(data, days, cfg)
-    print_stream_spots(spots, values)
-    print_ranking(ranking, read)
     cache_text = pages.line()
-    for line in (market_text, skip_line, cache_text):
-        if line:
-            print()
-            print(line)
-    replacement = replacement_value([o for o in options if not o.player.on_waivers])
-    print_waivers(options, replacement)
-    if weights is not None:
-        print()
-        for line in matchup_lines(data.matchup, weights):
-            print(line)
-    print_role_ups(absences, options)
-    print_plan(plan, spots, data.adds, today, drops, warnings, nights=nights, next_week=games_next)
-    if aggressive is not None and aggressive.windows == plan.windows:
-        print()
-        print("Aggressive plan: the same as the schedule plan.")
-    elif aggressive is not None:
-        print_plan(
-            aggressive,
-            spots,
-            data.adds,
-            today,
-            title="Aggressive plan",
-            notes=False,
-            nights=nights,
-            next_week=games_next,
-        )
-    print_comparison(plan, aggressive, empty, match_empty)
-    print_spot_plans(rows, nights)
     with step("contingency plans"):
         contingencies = contingency_plans(
             days, games, plan, len(spots), options, data.adds.left, slots, game_times(sched)
         )
-    print_contingencies(contingencies)
     with step("role read"):
         roles = read_roles([o.player for o in options], cfg, today)
+    run = PlanningRun(
+        cfg=cfg,
+        today=today,
+        data=data,
+        days=days,
+        games=games,
+        nights=nights,
+        spots=spots,
+        values=values,
+        ranking=ranking,
+        read=read,
+        options=options,
+        replacement=replacement_value([o for o in options if not o.player.on_waivers]),
+        match_replacement=match_replacement,
+        absences=absences,
+        weights=weights,
+        plan=plan,
+        aggressive=aggressive,
+        drops=drops,
+        warnings=warnings,
+        empty=empty,
+        match_empty=match_empty,
+        next_week=games_next,
+        rows=rows,
+        contingencies=contingencies,
+        roles=roles,
+        next_days=early_days,
+        next_games=early_games,
+        recent_skip=skip_line,
+        market=market_text,
+        cache=cache_text,
+    )
+    print_report(run)
     home = None
     if publish:
         # Before the plan page, so that the Run time table of the plan page has this step.
         with step("home page"):
             home = build_home(data, cfg, sched, today)
     with step("page write and publish"):
-        text = page.render(
-            data,
-            days,
-            games,
-            spots,
-            rows,
-            options,
-            ranking,
-            read,
-            today,
-            replacement=replacement,
-            warnings=warnings,
-            matchup=data.matchup,
-            weights=weights,
-            match_replacement=match_replacement,
-            nights=nights,
-            contingencies=[" ".join(line.strip() for line in contingency_lines(c)) for c in contingencies],
-            roles=roles,
-            minutes_rise=cfg["adds"].get("minutes_rise"),
-            flags=cfg["adds"].get("flags"),
-            next_days=early_days,
-            next_games=early_games,
-            timings=timings.steps,
-            recent_skip=skip_line,
-            market=market_text,
-            cache=cache_text,
-        )
+        # The Run time table shows the steps that ended before the page write.
+        text = page.render(replace(run, timings=tuple(timings.steps)))
         publish_page(page.write(text), rows, publish, home)
     if timed:
         print(f"Wrote the step times: {timing.timings_path()}")
