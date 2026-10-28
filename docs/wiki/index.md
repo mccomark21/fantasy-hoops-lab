@@ -23,6 +23,8 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Decisions
 
+- [Team plan of 2026-10-28](team-plan-2026-10-28.md): the owner decision to recommend teams and positions, not players (#140), the prototype rounds and the approved C3 week grid.
+
 - [Architecture refactors of 2026-10-28](architecture-refactors-2026-10-28.md): the 7 refactor issues #127 to #133 from the architecture scan, the owner decisions, the waves, 6 merges (#131 closed as not planned) and the lessons of the run.
 
 - [Adds build decisions](adds-build-decisions.md): the decisions of 2026-10-20 in the adds build (aggressive score, NA and suspended players, next week on the last day, 3 stream spots), with links to the guide.
