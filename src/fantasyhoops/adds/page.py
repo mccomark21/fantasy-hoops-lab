@@ -651,6 +651,12 @@ label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q
   .fa th.pl { padding-left: 6px; }
   .fa .pl b { font-size: 15px; }
 }
+/* At 320px, the value cells and the sort buttons get less padding, so that a wide fallback font also fits. */
+@media (max-width: 359px) {
+  .fa td.n { padding: 0 2px; font-size: 13px; }
+  .fa th.sort button { padding: 0 2px 6px; }
+  .fa td.band { font-size: 13px; }
+}
 .dot { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; }
 .dot.fit { background: var(--fg); }
 .dot.game { border: 1.5px solid var(--muted); }
