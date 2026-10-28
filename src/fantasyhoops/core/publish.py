@@ -9,6 +9,10 @@ The site menu (#117): a royal-blue side panel on a desktop, and a top bar with a
 It has a link to each page of the site and the Auto, Light and Dark theme switch.
 The page shell (#132): shell() puts site_head() in the <head> of a page, site_menu() first in its <body> and
 MENU_SCRIPT last in its <body>. The plan page, the home page and the tool list (home_page()) use shell().
+The shared tables (#143): shell() puts TABLE_STYLE in place of __TABLE_CSS__ in a page template. A table with the
+class lab-t gets the look of the Roster table: the head, the rows, the team band and the player cell. The Roster
+table of the home page and the Free agents and Waiver players tables of the adds page use it. band_style() gives the
+team colors of a band.
 write_page() writes a page and the font next to it. The plan page and the home page use it.
 site_menu() and publish() get the config from the caller. The module does not read config.toml.
 """
@@ -88,13 +92,25 @@ def site_menu(current, teams):
     return MENU.replace("__ROOT__", root).replace("__TEAMS__", str(teams)).replace("__LINKS__", links)
 
 
+def band_style(team):
+    """The style attribute of a team band: the team color (core/tokens.py) and the text color on it.
+
+    A team with no color in tokens.TEAM_COLORS gets lab-blue with lab-on-blue text.
+    """
+    color = tokens.TEAM_COLORS.get(team)
+    if color is None:
+        return "--team:var(--lab-blue);--team-ink:var(--lab-on-blue)"
+    return f"--team:{color};--team-ink:{tokens.team_ink(color)}"
+
+
 def shell(template, current, cfg):
-    """Fill the site shell of a page template: __HEAD__, __MENU__ and __SCRIPT__.
+    """Fill the site shell of a page template: __HEAD__, __MENU__, __SCRIPT__ and __TABLE_CSS__ (TABLE_STYLE).
 
     current: the page in the site menu (site_menu()). cfg: the config. [league] teams gives the team count.
     """
     return (
         template.replace("__HEAD__", site_head())
+        .replace("__TABLE_CSS__", TABLE_STYLE)
         .replace("__MENU__", site_menu(current, cfg["league"]["teams"]))
         .replace("__SCRIPT__", MENU_SCRIPT)
     )
@@ -235,6 +251,41 @@ body.lab-locked { overflow: hidden; }
 .lab-seg button[aria-pressed="true"] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 900; }
 .lab-seg button:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; position: relative;
   z-index: 1; }"""
+
+TABLE_STYLE = """/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. The phone row
+   of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that a class rule
+   of a page wins over them. */
+table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+:where(.lab-t) thead th, :where(.lab-t) thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right;
+  padding: 0 6px 6px; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+:where(.lab-t) thead .l { text-align: left; }
+:where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px;
+  text-align: right; vertical-align: middle; font-weight: 400; }
+:where(.lab-t) tbody tr:nth-child(even) > * { background: var(--zebra); }
+.lab-t .s1 { border-left: 1px solid var(--vrule); }
+.lab-t td.band, .m-p .band { background: var(--team) !important; color: var(--team-ink); font-weight: 900;
+  font-stretch: 70%; }
+.lab-t td.band { width: 44px; padding: 0; text-align: center; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+.lab-t td.rk, .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; }
+.lab-t td.rk { font-size: 21px; padding-right: 8px; }
+.lab-t th.pl { text-align: left; padding: 6px 6px 6px 10px; line-height: 1; overflow-wrap: anywhere; }
+.lab-t .pl b, .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase;
+  line-height: 1; }
+.lab-t .pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
+.lab-t td.n { font-size: 14px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lab-t td.band, :root:not([data-theme="light"]) .m-p .band {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+}
+:root[data-theme="dark"] .lab-t td.band, :root[data-theme="dark"] .m-p .band {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+/* Phone: the sizes of the phone row of the Roster. */
+@media (max-width: 899px) {
+  :where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 52px; }
+  .lab-t td.band, .m-p .band { font-size: 17px; }
+  .lab-t td.rk, .m-p .rk { font-size: 19px; }
+  .lab-t .pl b, .m-p .nm b { font-size: 18px; }
+}"""
 
 # The drawer on a phone, then the theme switch. The theme choice stays in localStorage (core/tokens.py).
 MENU_SCRIPT = f"""<script>

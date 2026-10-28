@@ -19,6 +19,7 @@ from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.team_plan import UTIL
 from fantasyhoops.adds.week_file import SavedAdd, WeekRecord
+from fantasyhoops.core import home as home_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
 from fantasyhoops.core.common import load_config
@@ -302,10 +303,42 @@ def test_the_page_lists_the_waiver_players_with_the_clear_day():
     html = render(options=OPTIONS + [CLAIM])
     shown = text(html)
     assert "Waiver players" in shown
-    assert "Claim Guy W CHI C Tue 1/5 Wed 1/6 +0.70" in shown
+    assert "CHI Claim Guy W CHI · C Tue 1/5 Wed 1/6 +0.70" in shown
     # The free-agent table holds only the players with status FA.
     raw = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
     assert "Claim Guy" not in [p["name"] for p in json.loads(raw)["players"]]
+
+
+# A roster of one player for the home page: one playoff day.
+HOME_ARGS = (
+    [home_page.RosterPlayer("Guard One", "BOS", ("PG",), "PG", rank=1)],
+    [home_page.Day(WEEK[0], "wk19", False, frozenset({"BOS"}), frozenset())],
+    {"league": {"slots": ["PG"], "espn_season": 2027, "teams": 14}, "flags": {"avoid_week_games": 1}},
+)
+
+
+def test_the_home_page_and_the_adds_page_get_the_table_css_from_the_same_source():
+    """#143: publish.TABLE_STYLE is the one source of the table CSS. No page holds a copy of its rules."""
+    adds_html = render(options=OPTIONS + [CLAIM])
+    home_html = site.shell(home_page.PAGE_HTML, "home", LEAGUE)
+    for html in (adds_html, home_html):
+        assert html.count(site.TABLE_STYLE) == 1
+    for own in (page.HTML, home_page.PAGE_HTML):
+        assert "__TABLE_CSS__" in own
+        for rule in (".lab-t td.band", ".lab-t .pl b", ".lab-t th.pl"):
+            assert rule not in own.replace("__TABLE_CSS__", ""), rule
+    assert '<table class="desk lab-t">' in home_page.render(*HOME_ARGS)
+    assert (
+        '<table class="fa lab-t" id="fa-table">' in adds_html and '<table class="wv lab-t" id="wv-table">' in adds_html
+    )
+
+
+def test_the_waiver_table_has_the_team_band_and_the_player_cell_of_the_roster_table():
+    html = render(options=OPTIONS + [CLAIM])
+    table = html.split('id="wv-table">')[1].split("</table>")[0]
+    assert f'<td class="band" style="{site.band_style("CHI")}">CHI</td>' in table
+    assert '<th class="pl" scope="row"><b>Claim Guy</b> <span class="status"' in table
+    assert "<small>CHI · C</small></th>" in table
 
 
 def test_the_page_has_no_waiver_section_with_no_waiver_players():
@@ -402,9 +435,9 @@ def test_the_page_script_draws_the_next_week_badge_in_the_free_agent_row():
     )
     table = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True, encoding="utf-8").stdout
     rows = {
-        re.match(r'<td class="name">([^<]*)', row).group(1).strip(): row
+        re.search(r'<th class="pl" scope="row"><b>([^<]*)', row).group(1).strip(): row
         for row in re.findall(r"<tr>(.*?)</tr>", table)
-        if row.startswith('<td class="name">')
+        if '<th class="pl" scope="row">' in row
     }
     assert '<span class="flag next">Mon open</span>' in rows["Phi &amp; One"]
     assert '<span class="flag next">' not in rows["Chi One"]
@@ -480,7 +513,7 @@ def test_the_page_script_puts_a_button_in_each_sort_header_and_names_the_chips_a
     table = els["fa-table"]
     assert '<caption class="vh">Free agents, sorted by Val, highest first</caption>' in table
     assert (
-        '<th class="sort " aria-sort="descending"><button type="button" data-sort="value">Val'
+        '<th class="sort s1" aria-sort="descending"><button type="button" data-sort="value">Val'
         '<span aria-hidden="true"> ▼</span></button></th>'
     ) in table
     assert '<th class="sort "><button type="button" data-sort="match">Match</button></th>' in table
@@ -757,6 +790,32 @@ MATCHUP_FIT = r"""width => {
   return bad;
 }"""
 
+# The tables of the Roster look (#143): the run of GRID_RUN, with a free agent and a waiver player with a long name.
+LONG = option("Nickeil Alexander-Walker", "PHI", 0.8, ("SG", "SF"))
+WAIVER = Option(Player("Jonas Valanciunas", "CHI", ("C",), clear_day=WEEK[3]), 0.9)
+TABLE_RUN = replace(GRID_RUN, options=GRID_RUN.options + [LONG, WAIVER])
+
+# The free-agent table and the waiver table (#143): each table is inside the page, and each child box of a cell
+# is inside the cell, with no sideways scroll of a cell.
+TABLE_FIT = r"""width => {
+  const bad = [], inside = (r, c) => r.left >= c.left - 0.5 && r.right <= c.right + 0.5
+    && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5;
+  ["#fa-table", "#wv-table"].forEach(id => {
+    const table = document.querySelector(id), t = table.getBoundingClientRect();
+    if (t.left < 0 || t.right > width) bad.push(`${id} is ${t.left} to ${t.right}`);
+    table.querySelectorAll("thead th, thead td, tbody th, tbody td").forEach(c => {
+      const box = c.getBoundingClientRect();
+      if (c.scrollWidth > c.clientWidth + 1) bad.push(`${id}: "${c.textContent}" scrolls sideways`);
+      c.querySelectorAll("*").forEach(el => {
+        const r = el.getBoundingClientRect();
+        if ((r.width || r.height) && !inside(r, box)) bad.push(`${id}: "${el.textContent}" leaves its cell`);
+      });
+    });
+  });
+  return bad;
+}"""
+
+
 # For each add cell and each band cell: each child box must be inside the cell box and inside the add box.
 FIT = r"""() => {
   const bad = [], inside = (r, c) => r.left >= c.left - 0.5 && r.right <= c.right + 0.5
@@ -785,11 +844,12 @@ FIT = r"""() => {
 @pytest.mark.parametrize("width", [320, 390, 768, 1280])
 def test_each_add_cell_and_band_fits_its_cell_and_the_page_has_no_horizontal_scroll(width):
     with browser_page(width=width) as pg:
-        pg.set_content(page.render(GRID_RUN))
+        pg.set_content(page.render(TABLE_RUN))
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             assert pg.evaluate(FIT) == [], (width, theme)
             assert pg.evaluate(MATCHUP_FIT, width) == [], (width, theme)
+            assert pg.evaluate(TABLE_FIT, width) == [], (width, theme)
             assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
             # The 7 columns of the week fit, with no sideways scroll of the grid.
             assert pg.locator("#plan thead th[scope=col]").count() == 8
@@ -840,7 +900,7 @@ BAND_CONTRAST = r"""() => {
 @pytest.mark.parametrize("width", [390, 1280])
 def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_theme(width):
     with browser_page(width=width) as pg:
-        pg.set_content(page.render(GRID_RUN))
+        pg.set_content(page.render(TABLE_RUN))
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
 
@@ -882,6 +942,9 @@ def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_t
             assert matchup.locator("td.lead, td.trail, td.w0, td.w1, td.w2, td.w3").count() == 10
             assert pg.evaluate(CELL_CONTRAST, matchup.element_handle()) == [], (theme, width, "matchup")
             assert pg.locator("#plan td.band.past .mk").count() == 1  # the Mon add starts on Tue (past)
+            # Each text of the free-agent table and the waiver table (#143): the bands, the names, the tags and the values.
+            for table in ("#fa-table", "#wv-table"):
+                assert pg.evaluate(CELL_CONTRAST, pg.locator(table).element_handle()) == [], (theme, width, table)
 
 
 def test_a_click_on_an_add_sets_the_day_the_position_and_the_team_filters():

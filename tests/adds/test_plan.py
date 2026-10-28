@@ -29,7 +29,7 @@ def test_the_command_shows_the_waiver_players_on_the_page(monkeypatch, tmp_path,
     claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
     runs = report_runs(monkeypatch)
     run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)])
-    assert "Phi Claim W PHI SF Mon 1/4 Tue 1/5 +0.20" in text(page.page_path().read_text(encoding="utf-8"))
+    assert "PHI Phi Claim W PHI · SF Mon 1/4 Tue 1/5 +0.20" in text(page.page_path().read_text(encoding="utf-8"))
     # #140: the team plan uses no free agent. It recommends PHI, the team of the waiver player.
     assert [a.teams for a in runs[0].plan.adds] == [("PHI",)]
     assert "Waiver players" not in capsys.readouterr().out  # #130: the page shows them, the terminal does not
