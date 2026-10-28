@@ -1,8 +1,10 @@
+import re
 import subprocess
 
 import pytest
 
-from fantasyhoops.core.publish import BRANCH, publish
+from fantasyhoops.core import tokens
+from fantasyhoops.core.publish import BRANCH, MENU_SCRIPT, home_page, publish, site_head, site_menu
 
 
 def page(repo, name, text):
@@ -12,80 +14,130 @@ def page(repo, name, text):
     return path
 
 
-def test_publish_draft_keeps_adds(repo, remote_pages):
+def git(repo, *args, data=None):
+    return subprocess.run(
+        ["git", *args], cwd=repo, input=data, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def push_old_site(repo, files):
+    """Put a gh-pages commit in origin with files ({path: text}, one folder level at most), as an old publish did."""
+    folders = {}
+    for name, text in files.items():
+        folder, _, leaf = name.rpartition("/")
+        folders.setdefault(folder, {})[leaf] = git(repo, "hash-object", "-w", "--stdin", data=text)
+
+    def tree(entries):
+        return git(repo, "mktree", data="".join(f"{m} {k} {s}\t{n}\n" for n, (m, k, s) in sorted(entries.items())))
+
+    root = {n: ("100644", "blob", s) for n, s in folders.pop("", {}).items()}
+    for folder, blobs in folders.items():
+        root[folder] = ("040000", "tree", tree({n: ("100644", "blob", s) for n, s in blobs.items()}))
+    git(repo, "push", "origin", f"{git(repo, 'commit-tree', tree(root), '-m', 'old')}:refs/heads/{BRANCH}")
+
+
+def test_publish_adds_writes_its_folder_the_home_page_and_the_font(repo, remote_pages):
     publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"))
-    publish(repo, "draft", page(repo, "draft/board.html", "<p>board</p>"))
     pages = remote_pages(repo)
     assert pages["adds/index.html"] == "<p>plan</p>"
-    assert pages["draft/index.html"] == "<p>board</p>"
-
-
-def test_publish_adds_keeps_draft(repo, remote_pages):
-    window = page(repo, "draft/draft_board_wk20-wk22.html", "<p>wk20</p>")
-    publish(repo, "draft", page(repo, "draft/board.html", "<p>board</p>"), [window])
-    publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"))
-    assert set(remote_pages(repo)) == {
-        ".nojekyll",
-        "index.html",
-        "adds/index.html",
-        "draft/index.html",
-        "draft/draft_board_wk20-wk22.html",
-    }
+    font = tokens.FONT_HREF
+    ofl = "fonts/OFL.txt"
+    assert set(pages) == {".nojekyll", "index.html", "adds/index.html", font, f"adds/{font}", ofl, f"adds/{ofl}"}
+    assert (
+        "Copyright 2020 The Archivo Project Authors" in pages[ofl] and "SIL OPEN FONT LICENSE" in pages[f"adds/{ofl}"]
+    )
+    assert git(repo, "rev-parse", f"FETCH_HEAD:{font}") == git(repo, "hash-object", str(tokens.FONT))
 
 
 def test_publish_replaces_only_its_own_folder(repo, remote_pages):
     publish(repo, "adds", page(repo, "adds/old.html", "<p>old</p>"), [page(repo, "adds/extra.html", "")])
     publish(repo, "adds", page(repo, "adds/new.html", "<p>new</p>"))
-    assert set(remote_pages(repo)) == {".nojekyll", "index.html", "adds/index.html"}
-    assert remote_pages(repo)["adds/index.html"] == "<p>new</p>"
+    pages = remote_pages(repo)
+    assert "adds/extra.html" not in pages
+    assert pages["adds/index.html"] == "<p>new</p>"
 
 
-def test_home_page_links_to_each_tool_on_the_site(repo, remote_pages):
-    publish(repo, "draft", page(repo, "draft/board.html", "<p>board</p>"))
-    home = remote_pages(repo)["index.html"]
-    assert "Fantasy Hoops Lab" in home
-    assert 'href="draft/"' in home and 'href="adds/"' not in home
+def test_draft_folder_goes_away_at_the_next_adds_publish(repo, remote_pages):
+    """The owner took the draft board off the site on 2026-10-28 (#117)."""
+    push_old_site(
+        repo,
+        {
+            "index.html": "<p>old home</p>",
+            "draft/index.html": "<p>board</p>",
+            "draft/draft_board_wk20-wk22.html": "<p>wk20</p>",
+            "adds/index.html": "<p>old plan</p>",
+        },
+    )
     publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"))
-    home = remote_pages(repo)["index.html"]
-    assert 'href="draft/"' in home and 'href="adds/"' in home
+    pages = remote_pages(repo)
+    assert not [n for n in pages if n.startswith("draft/")]
+    assert pages["adds/index.html"] == "<p>plan</p>"
+    assert 'href="draft/"' not in pages["index.html"]
 
 
 def test_old_board_at_the_root_goes_away(repo, remote_pages):
     """Before the site had tool folders, the board was index.html at the root of gh-pages."""
-
-    def git(*args, data=None):
-        return subprocess.run(
-            ["git", *args], cwd=repo, input=data, check=True, capture_output=True, text=True
-        ).stdout.strip()
-
-    blob = git("hash-object", "-w", "--stdin", data="<p>old board</p>")
-    tree = git("mktree", data=f"100644 blob {blob}\tdraft_board_wk20-wk22.html\n100644 blob {blob}\tindex.html\n")
-    git("push", "origin", f"{git('commit-tree', tree, '-m', 'old')}:refs/heads/{BRANCH}")
-    publish(repo, "draft", page(repo, "draft/board.html", "<p>board</p>"))
+    push_old_site(repo, {"draft_board_wk20-wk22.html": "<p>old board</p>", "index.html": "<p>old board</p>"})
+    publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"))
     pages = remote_pages(repo)
-    assert set(pages) == {".nojekyll", "index.html", "draft/index.html"}
+    assert "draft_board_wk20-wk22.html" not in pages
     assert "Fantasy Hoops Lab" in pages["index.html"]
 
 
-def test_unknown_tool_stops_with_an_error(repo):
-    with pytest.raises(ValueError, match="draft, adds"):
-        publish(repo, "trades", page(repo, "trades/x.html", ""))
+@pytest.mark.parametrize("tool", ["draft", "trades"])
+def test_unknown_tool_stops_with_an_error(repo, tool):
+    with pytest.raises(ValueError, match="The tools are: adds."):
+        publish(repo, tool, page(repo, f"{tool}/x.html", ""))
 
 
-def test_each_page_gets_a_nav_bar_with_the_tools_on_the_site(repo, remote_pages):
-    publish(repo, "draft", page(repo, "draft/board.html", "<html><body class='x'><p>board</p></body></html>"))
-    publish(
-        repo,
-        "adds",
-        page(repo, "adds/plan.html", "<body><p>plan</p></body>"),
-        [page(repo, "adds/notes.html", "<body><p>notes</p></body>")],
-    )
+def test_publish_does_not_change_the_pages(repo, remote_pages):
+    text = "<html><body class='x'><p>plan</p></body></html>"
+    publish(repo, "adds", page(repo, "adds/plan.html", text), [page(repo, "adds/notes.html", "<body>n</body>")])
     pages = remote_pages(repo)
-    plan = pages["adds/index.html"]
-    assert plan.index("<body>") < plan.index('<nav class="site-nav">') < plan.index("<p>plan</p>")
-    assert 'href="../">Home</a>' in plan and 'href="../draft/">Draft board</a>' in plan
-    assert 'href="../adds/" aria-current="page">Weekly adds plan</a>' in plan
-    assert 'class="site-nav"' in pages["adds/notes.html"]
-    # The draft board had its publish before the adds plan was on the site: it has no adds link yet.
-    board = pages["draft/index.html"]
-    assert "<body class='x'><style>" in board and 'href="../adds/"' not in board
+    assert pages["adds/index.html"] == text and pages["adds/notes.html"] == "<body>n</body>"
+
+
+def test_the_menu_has_roster_and_adds_plan_only():
+    home, adds = site_menu("home"), site_menu("adds")
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == ["Roster", "Adds plan"]
+    assert '<a href="./" aria-current="page">Roster</a>' in home and '<a href="adds/">Adds plan</a>' in home
+    assert '<a href="../">Roster</a>' in adds and '<a href="../adds/" aria-current="page">Adds plan</a>' in adds
+    assert "Draft board" not in home + adds and "Keeper report" not in home + adds
+
+
+def test_the_menu_has_the_auto_light_and_dark_switch():
+    menu = site_menu("adds")
+    assert re.findall(r'data-set="(\w+)" aria-pressed="\w+">(\w+)<', menu) == [
+        ("system", "Auto"),
+        ("light", "Light"),
+        ("dark", "Dark"),
+    ]
+    assert 'aria-controls="lab-menu" aria-expanded="false">Menu</button>' in menu
+    assert f'localStorage.setItem("{tokens.THEME_KEY}", t)' in MENU_SCRIPT and "catch (e)" in MENU_SCRIPT
+
+
+def test_the_head_sets_the_saved_theme_before_the_tokens_and_loads_the_font():
+    head = site_head()
+    assert head.index(f'localStorage.getItem("{tokens.THEME_KEY}")') < head.index("<style>")
+    assert f'<link rel="preload" href="{tokens.FONT_HREF}" as="font"' in head
+    assert "font-family: Archivo" in head and f"url({tokens.FONT_HREF})" in head
+    assert ':root[data-theme="dark"]' in head and ':root:not([data-theme="light"])' in head
+
+
+def test_each_token_has_a_light_and_a_dark_value():
+    assert set(tokens.LIGHT) == set(tokens.DARK)
+    assert tokens.LIGHT["lab-blue"] == "#1d4f91" and tokens.DARK["lab-stock"] == "#0e1a2e"
+
+
+def test_the_site_css_has_no_colors_outside_the_token_file():
+    """#117: core/tokens.py is the one source of the colors. The menu and the home page use only var(--...)."""
+    for text in (home_page({"adds"}).replace(tokens.HEAD, ""), site_menu("home"), MENU_SCRIPT):
+        assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", text)
+
+
+def test_home_page_shows_the_menu_and_links_to_each_tool_on_the_site():
+    home = home_page({"adds"})
+    assert home.index('<body class="lab">') < home.index('<nav class="lab-menu"') < home.index('<main class="lab-main')
+    assert '<a href="adds/">Adds plan</a>' in home
+    assert home.rstrip().endswith("</script>\n</body>\n</html>")
+    assert "<span>How to use" in home and "<span>How to use" not in home_page(set())

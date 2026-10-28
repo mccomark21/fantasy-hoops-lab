@@ -25,7 +25,7 @@ The project started as custom draft rankings. Now it holds one tool for each par
 | Draft tools: rankings, draft board, auction simulator, keeper report | `fantasyhoops.draft` | Used for the 2026-27 draft | [docs/draft/](docs/draft/README.md) |
 | Weekly adds planner | `fantasyhoops.adds` | Planned | [docs/adds/](docs/adds/README.md) |
 
-The tools publish their pages to one public site on GitHub Pages: `https://mccomark21.github.io/fantasy-hoops-lab/`. The home page links to each tool. The draft board is at `/draft/` and the adds plan is at `/adds/`. The shared publish step is `core/publish.py`.
+The adds planner publishes its page to one public site on GitHub Pages: `https://mccomark21.github.io/fantasy-hoops-lab/`. The adds plan is at `/adds/`. The shared publish step and the site menu are in `core/publish.py`. The site colors and the font are in `core/tokens.py`. The draft board is not on the site.
 
 The terms that more than one tool uses are in the [glossary](docs/glossary.md). Each important decision has an ADR in [docs/adr/](docs/adr/).
 
@@ -117,7 +117,7 @@ All settings are in [`config.toml`](config.toml). The `[league]` section applies
 python -m pytest
 ```
 
-The publish tests (`tests/core/test_publish.py`, `tests/draft/test_publish.py`) make temporary Git repos, so they need `git` on the `PATH`.
+The publish tests (`tests/core/test_publish.py`) make temporary Git repos, so they need `git` on the `PATH`.
 
 ## Roadmap
 

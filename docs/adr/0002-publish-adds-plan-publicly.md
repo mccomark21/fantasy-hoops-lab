@@ -2,7 +2,7 @@
 
 Date: 2026-10-20
 
-Status: Accepted
+Status: Accepted. The owner decision of 2026-10-28 on #117 replaces the `/draft/` part (see the note at the end).
 
 ## Context
 
@@ -30,3 +30,7 @@ The user wants to show this work. The user's portfolio is a separate site, and i
 - The draft board moves from the root to `/draft/`. The old URL of the board stops working.
 - `draft/publish.py` becomes the shared publish step. It no longer replaces the pages of the other tools.
 - A new tool adds one folder and one line on the home page.
+
+## Note of 2026-10-28
+
+The owner decision of 2026-10-28 on #117 replaces the `/draft/` part of this ADR. The site does not show the draft board now. `TOOLS` in `core/publish.py` holds only `adds`, so the next adds publish removes `/draft/` from `gh-pages`. `draft/publish.py` is removed. The shared publish step stays in `core/publish.py`. The rest of this ADR stays in force.
