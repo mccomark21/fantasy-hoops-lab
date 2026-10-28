@@ -50,8 +50,8 @@ The contract says that the build ends with a finish review, a verdict, and an up
 
 ## Unresolved items in the brief
 
-- Where the home-page data is built: at the end of each adds run, or in a separate step.
-- The dark theme of the world. The decision sketch was light only. The contract names a deep navy card back with white ink for the dark theme, and the session took dark screenshots. The brief still lists the dark theme as unresolved.
+- Where the home-page data is built: at the end of each adds run, or in a separate step. **Answered on 2026-10-28: at the end of each adds run.**
+- The dark theme of the world. **Answered on 2026-10-28: both themes (light = white stock, dark = navy card back), with a theme switch in the site menu.** The decision sketch was light only. The contract names a deep navy card back with white ink for the dark theme, and the session took dark screenshots. The brief still lists the dark theme as unresolved.
 
 ## State on 2026-10-28
 
@@ -134,10 +134,28 @@ In `.impeccable/review/`: `desktop.png`, `desktop-dark.png`, `mobile.png` (rows 
 ### Open
 
 - The owner has not approved the revised sample. No issue is filed.
-- The brief still lists where the home-page data is built.
+- The brief still listed where the home-page data is built. The owner decisions of 2026-10-28 below answer it.
 
 ## Point 9 (2026-10-28)
 
 A player week cell with 2 or fewer games (rest nights not counted) now shows its games numeral in a red box, for example `2/[2]`. The red numeral of the starts stays the sign for starts lost, so the two signs are different: the box is a shape, and the color is not the only cue. The cell has the screen-reader text "2 or fewer games". The T cell is not marked. The key has a new item: "/[2] 2 or fewer games in the week". On a phone, the mark is in the week cells of the opened row. The closed row shows only the total playoff games, so it has no mark. One cell is marked: Rudy Gobert, Wk20 2/2. The red is at 5.3:1 or more on the page and the zebra in both themes.
 
 The same check found a bug in the phone grid: on an even (zebra) row, the header block of a quality day lost its solid fill, and its text was not readable. The fix restores the solid block on all rows. The screenshots `desktop.png`, `desktop-dark.png`, `mobile.png`, `mobile-open.png` and `mobile-dark.png` were taken again.
+
+## Owner decisions of 2026-10-28
+
+1. **(a) Approved.** The owner approved the revised sample (`.impeccable/review/sample-index.html`).
+2. **(b) Data build.** The home-page data is built at the end of each adds run.
+3. **(c) Colored footer percents.** The percents in the Used and vs ideal rows have a color.
+
+Both "Unresolved" items of the brief are now answered: the data is built at the end of each adds run, and the page has both themes with a theme switch.
+
+For (c), the sample uses the thresholds of the draft board (`src/fantasyhoops/draft/board.py:1257`, `pctClass`): 90% or more, 70% to 89%, and less than 70%. The draft board uses green, yellow and red. The sample uses the two Card Back inks:
+
+- 90% or more: royal blue (`#1d4f91` light, `#8fb3ff` dark), 3 bars of a small bar meter.
+- 70% to 89%: card red (`#c8102e` light, `#ff6b7d` dark), 2 bars.
+- Less than 70%: white text on a solid card-red block (`#c8102e`), 1 bar.
+
+The number of bars is the sign that does not depend on color. Screen readers get the band as text, for example "(70% to 89%)". The key has a new item for the three bands. Contrast on the page background: blue 8.1:1 light and 8.3:1 dark, red 5.9:1 light and 6.3:1 dark, white on the red block 5.9:1. All the current percents (72% to 88%) are in the middle band, so all show red with 2 bars. The screenshots `desktop.png`, `desktop-dark.png`, `mobile.png`, `mobile-open.png` and `mobile-dark.png` were taken again.
+
+Next step by the brief: with the sample approved, an issue for the home-page generator can be filed. This work did not file one.
