@@ -670,9 +670,11 @@ button.chip { font: inherit; font-size: 13px; font-weight: 700; padding: 4px 9px
               min-height: 28px; }
 button.chip small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
 button.chip:hover { border-color: var(--fg); }
+/* A day with no open slot: a dashed chip. This rule comes before the pressed rule, so that a pressed chip
+   has stock text on the blue fill. */
+button.chip.none { color: var(--muted); border-style: dashed; }
 button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: var(--bg); }
 button.chip[aria-pressed="true"] small { color: var(--bg); }
-button.chip.none { color: var(--muted); border-style: dashed; }
 label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; min-height: 28px;
                cursor: pointer; }
 label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q); }

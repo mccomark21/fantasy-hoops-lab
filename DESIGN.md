@@ -15,7 +15,7 @@ colors:
   mark: "#1d4f91"
   zebra: "#eff3f8"
   qcol: "#e0e8f4"
-  qcol-z: "#d6e0ef"
+  qcol-z: "#dae3f1"
   vrule: "#d2d9e4"
   lamp-off: "#6f7889"
 typography:
@@ -109,16 +109,16 @@ Each page reads like the back of a basketball card: white coated stock, royal-bl
 | `lab-blue` | `#1d4f91` | `#16305a` | The menu ground. |
 | `lab-blue-deep` | `#163f75` | `#1f3f73` | The hover of a menu item. |
 | `lab-on-blue` | `#ffffff` | `#ffffff` | Text on the menu. |
-| `lab-red` | `#c8102e` | `#ff6b7d` | Alerts: warnings, injury status, back-to-back marks, the current-page marker. |
+| `lab-red` | `#c8102e` | `#ff7d8d` | Alerts: warnings, injury status, back-to-back marks, the current-page marker. |
 | `lab-on-red` | `#ffffff` | `#0e1a2e` | Text on `lab-red`. |
 | `mark` | `#1d4f91` | `#8fb3ff` | Heading rules, the page title, links, and the selected or sorted state. |
 | `zebra` | `#eff3f8` | `#142540` | Every second table row. |
-| `qcol` / `qcol-z` | `#e0e8f4` / `#d6e0ef` | `#1c3254` / `#223a60` | A shaded cell: a started game in the plan grid. `-z` is the shade on a zebra row. |
+| `qcol` / `qcol-z` | `#e0e8f4` / `#dae3f1` | `#1c3254` / `#223a60` | A shaded cell: a started game in the plan grid. `-z` is the shade on a zebra row. |
 | `vrule` | `#d2d9e4` | `#2e4264` | Vertical rules between table sections. |
 | `lamp-off` | `#6f7889` | `#7d8eab` | Chip borders and marks that are off. |
 | `lab-scrim` | `rgb(8 16 32 / .5)` | same | The shade behind the open drawer. |
 
-All small text is at least 4.5:1 in both themes. `lamp-off` on `lab-stock` is 4.45:1, so use it only for borders and marks, not for text.
+All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-red` on `qcol-z` in the plan grid: 4.55:1 in light and 4.65:1 in dark (#115). `lamp-off` on `lab-stock` is 4.45:1, so use it only for borders and marks, not for text.
 
 ### Named Rules
 **The One Source Rule.** A new color goes into `core/tokens.py` with a light value and a dark value. A page never writes a hex value.
@@ -167,7 +167,7 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 ### Chips
 - **Style:** a square button with a 1.5px `lamp-off` border on `lab-stock`. A second line in small muted text can show a count.
 - **Selected:** a solid `mark` fill with `lab-stock` text (`aria-pressed="true"`).
-- **Empty:** a chip with no matching players has a dashed border and muted text.
+- **Empty:** a day chip with no open slot has a dashed border and muted text. When it is selected, it keeps the dashed border and has the `mark` fill with `lab-stock` text, as the other selected chips (#115).
 
 ### Stats
 - **Style:** no box. Each stat is a muted 12px label above a 24px condensed value. A 1px rule separates the stats.
