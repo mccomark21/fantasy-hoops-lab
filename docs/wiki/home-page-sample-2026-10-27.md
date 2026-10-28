@@ -166,3 +166,10 @@ The number of bars is the sign that does not depend on color. Screen readers get
 - Wiki commits of this page on 2026-10-28: 53c0de5, fa5c2be, 62d9736, 0c26060, 63cec17 and 05bd565.
 - #117 got a comment with the approval and the list of what it must now deliver: the shared tokens in `core/` for both themes, Archivo, the side menu, the Auto, Light and Dark switch in the shared menu, and the adds page. Its label changed from ready-for-human to ready-for-agent.
 - #120 builds the home page from the sample, at the end of each adds run. It is blocked by #117. The owner approved this new issue as an exception to the rule to finish the open issues before a new one is filed.
+
+## Owner decision of 2026-10-28: no draft board or keeper report page
+
+The project will not build or redesign a draft board page or a keeper report page. The site menu shows only Roster (the home page) and Adds plan. This overrides the four-item menu of the sample (`.impeccable/review/sample-index.html:286-289`), which also shows "Draft board" and "Keeper report". The site stops publishing `/draft/`. The draft code stays in the repo, because #120 uses `scoreCore` (`draft/team_builder.js`) and `renderFooter` and `pctClass` (`draft/board.py`). The keeper report has no publish step today.
+
+- #117 comment with the scope change and the lines of `core/publish.py` that change: https://github.com/mccomark21/fantasy-hoops-lab/issues/117#issuecomment-6472448580
+- #120 comment about the two-item menu: https://github.com/mccomark21/fantasy-hoops-lab/issues/120#issuecomment-6472451109

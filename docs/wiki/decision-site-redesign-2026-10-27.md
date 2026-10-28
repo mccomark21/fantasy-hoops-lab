@@ -34,3 +34,7 @@ Two agents assessed `output/adds/adds_plan.html` apart from each other: a design
 ## Home page work (evening of 2026-10-27)
 
 Later on 2026-10-27, the owner ran Impeccable on the home page and the site menu. See [home-page-sample-2026-10-27](home-page-sample-2026-10-27.md).
+
+## Owner decision of 2026-10-28: no draft board or keeper report page
+
+The project will not build or redesign a draft board page or a keeper report page. The site menu shows only Roster (the home page) and Adds plan. The site stops publishing `/draft/`. The "later issue" of #117 that moves the draft board and the keeper report to the shared tokens is dropped. The draft code stays in the repo, because #120 reuses parts of it. See the #117 comment: https://github.com/mccomark21/fantasy-hoops-lab/issues/117#issuecomment-6472448580
