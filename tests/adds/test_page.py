@@ -18,6 +18,7 @@ from fantasyhoops.adds.matchup import Matchup, matchup_weights, read_matchup
 from fantasyhoops.adds.planner import Option, Plan, StreamSpot, TeamRank, TeamWindow
 from fantasyhoops.adds.readers import Adds, FreeAgent, Player, Week
 from fantasyhoops.adds.role_up import Absence
+from fantasyhoops.core import common
 from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.spots import SpotPlan
@@ -325,7 +326,7 @@ def test_the_command_prints_the_waiver_players_and_uses_one_after_his_clear_day(
     assert "Waiver players (a claim is not sure, and it uses an add):" in out
     assert "Phi Claim (PHI) SF  clears Mon 01/04, first plan day Tue 01/05, Val +0.20" in out
     # The page shows the same Val.
-    assert "Phi Claim W PHI SF Mon 1/4 Tue 1/5 +0.20" in text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
+    assert "Phi Claim W PHI SF Mon 1/4 Tue 1/5 +0.20" in text(page.page_path().read_text(encoding="utf-8"))
     assert "Spot 1: PHI Tue 01/05 to Tue 01/05" in out
     assert "1. Phi Claim W (waiver claim, not sure)" in out
     assert command.free_agent_path(None, 25, status="W").startswith("players?status=W&")
@@ -334,7 +335,7 @@ def test_the_command_prints_the_waiver_players_and_uses_one_after_his_clear_day(
 def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, capsys):
     published = []
     run_command(monkeypatch, tmp_path, published, publish=True)
-    path = tmp_path / "adds_plan.html"
+    path = page.page_path()
     assert published == [(command.ROOT, "adds", path)]
     out = capsys.readouterr().out
     assert f"Wrote the plan page: {path}" in out
@@ -342,8 +343,8 @@ def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, cap
     assert command.URL in out and command.URL.endswith("/adds/")
     assert "+Phi One (PHI) add Mon – starts Mon & Tue" in text(path.read_text(encoding="utf-8"))
     assert "Aggressive plan: the same as the schedule plan." in out
-    assert (tmp_path / "fonts" / "archivo-latin.woff2").read_bytes() == tokens.FONT.read_bytes()
-    assert (tmp_path / "fonts" / "OFL.txt").read_bytes() == tokens.LICENSE.read_bytes()
+    assert (path.parent / "fonts" / "archivo-latin.woff2").read_bytes() == tokens.FONT.read_bytes()
+    assert (path.parent / "fonts" / "OFL.txt").read_bytes() == tokens.LICENSE.read_bytes()
 
 
 def test_the_page_shows_the_site_menu_with_the_adds_plan_current():
@@ -390,7 +391,7 @@ def test_the_command_prints_the_comparison_and_shows_the_plans_for_one_roster_sp
     # The read_league() of this test gives no matchup scores, so all weights are 1.
     assert "the planner did not find the category scores" in out
     # Each row of the page has different players: the PHI player first (2 games), then the BOS player (1 game).
-    shown = text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
+    shown = text(page.page_path().read_text(encoding="utf-8"))
     assert "Comparison" not in shown and "Aggressive" not in shown
     assert "+Phi Weak (PHI) add Mon – starts Mon & Tue" in shown and "+Bos Good (BOS) add Mon – starts Mon" in shown
     assert "  1. +2 started games with 1 add" in out and "  2. +1 started games with 1 add" in out
@@ -400,7 +401,7 @@ def test_the_command_does_not_publish_with_no_publish(monkeypatch, tmp_path, cap
     published = []
     run_command(monkeypatch, tmp_path, published, publish=False)
     assert published == []
-    assert (tmp_path / "adds_plan.html").exists()
+    assert page.page_path().exists()
     assert "did not publish" in capsys.readouterr().out
 
 
@@ -505,7 +506,7 @@ def test_the_command_counts_a_second_night_of_a_player_on_the_rest_list_as_less_
     assert "Schedule plan: 1.5 started games with 1 add" in out
     assert "Started games: 1.5 (Mon 01/04, Tue 01/05 b2b)." in out
     assert "  1. +1.5 started games with 1 add" in out
-    assert 'class="b2b"' in (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    assert 'class="b2b"' in page.page_path().read_text(encoding="utf-8")
 
 
 def test_the_free_agent_data_and_the_page_show_the_role_up_mark_and_the_absent_teammate():
@@ -531,9 +532,7 @@ def test_the_command_marks_the_role_up_free_agents_in_the_window_options(monkeyp
     lines = out.splitlines()
     assert next(line for line in lines if "1. Phi One" in line).endswith("role up: Star Wing absent")
     assert not next(line for line in lines if "2. Phi Guard" in line).endswith("absent")
-    assert "Star Wing is absent. Role up: Phi One (PHI)." in text(
-        (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
-    )
+    assert "Star Wing is absent. Role up: Phi One (PHI)." in text(page.page_path().read_text(encoding="utf-8"))
 
 
 def test_the_free_agent_data_marks_a_game_on_an_open_day_early_next_week():
@@ -597,7 +596,7 @@ def test_the_page_has_no_next_week_mark_with_no_days_to_check():
 def test_the_command_marks_the_free_agents_who_play_on_an_open_day_early_next_week(monkeypatch, tmp_path, capsys):
     # The week is Mon and Tue. Next week starts on Wed, and PHI plays then. The roster is empty, so all slots are open.
     run_command(monkeypatch, tmp_path, [], publish=False, extra_games=[(WEEK[2], "PHI")])
-    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8")
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert data["players"][0]["next_open"] == ["Wed open"]
     assert "he has a game next Wednesday 1/6" in text(html)
@@ -609,7 +608,7 @@ def test_on_the_last_day_of_the_week_the_mark_checks_the_days_after_the_planned_
     run_command(
         monkeypatch, tmp_path, [], publish=False, league=league, extra_games=[(WEEK[2], "PHI"), (WEEK[4], "PHI")]
     )
-    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8")
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert data["players"][0]["next_open"] == ["Fri open"]
     assert "next Friday 1/8" in text(html) and "next Saturday 1/9" in text(html)
@@ -664,7 +663,7 @@ NO_READ_ROWS = rows_of(NO_READ_STEPS, YAHOO_PARTS[:2])  # no free agent read, so
 
 
 def timing_rows(tmp_path):
-    with open(tmp_path / "timings.csv", newline="", encoding="utf-8") as f:
+    with open(timing.timings_path(), newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         return reader.fieldnames, list(reader)
 
@@ -752,7 +751,8 @@ def test_an_old_timings_file_stays_readable(monkeypatch, tmp_path):
         "run_at,days,open_days,adds_left,step,seconds,calls,states\n"
         "2026-10-26T09:00:00,2,2,1,schedule search,1.50,40,12\n"
     )
-    (tmp_path / "timings.csv").write_text(old, encoding="utf-8")
+    timing.timings_path().parent.mkdir(parents=True)
+    timing.timings_path().write_text(old, encoding="utf-8")
     run_command(monkeypatch, tmp_path, [], publish=False)
     columns, rows = timing_rows(tmp_path)
     assert columns == timing.COLUMNS
@@ -784,7 +784,7 @@ def test_a_run_that_stops_keeps_the_rows_of_the_finished_steps(monkeypatch, tmp_
 
 def test_the_page_shows_the_run_time_table(monkeypatch, tmp_path):
     run_command(monkeypatch, tmp_path, [], publish=False)
-    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8")
     table = re.search(r"<summary>Run time</summary>.*?<tbody>(.*?)</tbody>", html, re.S).group(1)
     assert "<th>Pages</th>" in html
     rows = re.findall(r"<tr>(.*?)</tr>", table)
@@ -827,7 +827,8 @@ def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
             command, "print_plan", lambda plan, *a, **kw: (plans.append(plan), real_print_plan(plan, *a, **kw))
         )
         monkeypatch.setattr(page, "render", lambda *a, **kw: (pages.append((a, kw)), real_render(*a, **kw))[1])
-        run_command(monkeypatch, tmp_path / str(timed), [], publish=False, options=options, league=league, timed=timed)
+        monkeypatch.setattr(common, "OUT", tmp_path / str(timed))
+        run_command(monkeypatch, tmp_path, [], publish=False, options=options, league=league, timed=timed)
         args, kw = pages[0]
         kw.pop("timings")
         found[timed] = (plans, args, kw)
@@ -835,7 +836,7 @@ def test_the_timers_change_no_plan(monkeypatch, tmp_path, capsys):
         monkeypatch.setattr(page, "render", real_render)
     assert found[True][0] and found[True][0][0] is not None
     assert found[True] == found[False]
-    assert not (tmp_path / "False" / "timings.csv").exists()
+    assert not (tmp_path / "False" / "adds" / "timings.csv").exists()
     # The run with no timers comes second, after the last step line of the timed run. It prints no step line.
     assert "Step:" not in capsys.readouterr().out.split("Step: page write and publish:")[-1]
 
@@ -926,7 +927,8 @@ def run_command(
 ):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
-    The page, timings.csv and the page cache (cache/) go in tmp_path. timed: the timed argument of plan.main().
+    The page, timings.csv and the page cache go in common.OUT. The autouse fixture of tests/conftest.py points it at
+    tmp_path, so run_command patches no path. timed: the timed argument of plan.main().
     today: the date of the run (default: WEEK[0]). cache: the cache argument of plan.main(). The default is False,
     because the fake readers open the same path for each page, and a cache would give the second page.
     pages: the pages that each fake reader opens, by "league", "trends" or (reader, view). The readers are "team",
@@ -1001,9 +1003,6 @@ def run_command(
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "empty_slot_value", lambda cfg, scale=None: -10.0)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
-    monkeypatch.setattr(page, "PAGE", tmp_path / "adds_plan.html")
-    monkeypatch.setattr(timing, "TIMINGS", tmp_path / "timings.csv")
-    monkeypatch.setattr(page_cache, "CACHE", tmp_path / "cache")
     monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
     # A home page goes last in the record of the publish.
     monkeypatch.setattr(
@@ -1133,7 +1132,7 @@ def test_the_page_and_the_terminal_show_the_market_read(monkeypatch, tmp_path, c
         pages={("market", command.PROJECTED): 2, ("market", command.RECENT): 2},
     )
     line = "Market: 2 of 3 pages. Page 2 was the last page of the list."
-    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8")
     assert line in text(run_time(html))  # in the Run time section, not above the free-agent table (#118)
     assert line not in text(html.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
     assert line in capsys.readouterr().out
@@ -1181,7 +1180,7 @@ def test_the_page_and_the_terminal_say_that_the_run_skipped_the_recent_view(monk
         settings=SKIP,
         free_agents={command.PROJECTED: projected, command.RECENT: recent},
     )
-    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8")
     above = text(html.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
     # Above the free-agent table: one short sentence. The full line is in the Run time section (#118).
     assert page.SKIP_NOTE in above and SKIP_LINE not in above
@@ -1194,7 +1193,7 @@ def test_a_run_with_the_recent_view_has_no_skip_line(monkeypatch, tmp_path, caps
     run_command(
         monkeypatch, tmp_path, [], publish=False, free_agents={command.PROJECTED: projected, command.RECENT: recent}
     )
-    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8")
     assert "<h2>Free agents</h2>" in html
     assert "skipped the recent view" not in text(html)
     assert 'class="skip"' not in html
@@ -1232,7 +1231,7 @@ def test_a_second_run_on_the_same_day_reads_the_recent_view_from_the_cache(monke
     first = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True)
     assert len(_recent_lists(first.paths)) == 3  # PHI, BOS and the market page
     assert "from the cache" not in capsys.readouterr().out
-    assert 'id="cache-read"' not in (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    assert 'id="cache-read"' not in page.page_path().read_text(encoding="utf-8")
     second = run_command(monkeypatch, tmp_path, [], publish=False, settings=BOTH, yahoo=ViewPages(), cache=True)
     assert _recent_lists(second.paths) == []
     # The run never takes the league pages, the projected view or the waiver list from the cache.
@@ -1243,7 +1242,7 @@ def test_a_second_run_on_the_same_day_reads_the_recent_view_from_the_cache(monke
     assert recent == ["2", "0"]  # the page count counts only the pages from Yahoo
     line = re.search(r"The recent view: 3 pages from the cache of \d{4}-\d\d-\d\d \d\d:\d\d\.", capsys.readouterr().out)
     assert line
-    html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8")
     assert f'<p class="legend" id="cache-read">{line.group(0)}</p>' in run_time(html)
 
 
@@ -1256,7 +1255,7 @@ def test_a_run_on_the_next_day_reads_the_recent_view_from_yahoo(monkeypatch, tmp
     assert projected and _recent_lists(tuesday.paths) == [
         p.replace(command.PROJECTED, command.RECENT) for p in projected
     ]
-    assert [d.name for d in (tmp_path / "cache" / "day").iterdir()] == [f"{WEEK[1]:%Y-%m-%d}"]
+    assert [d.name for d in (page_cache.cache_dir() / "day").iterdir()] == [f"{WEEK[1]:%Y-%m-%d}"]
 
 
 def test_no_cache_reads_each_page_from_yahoo(monkeypatch, tmp_path, capsys):

@@ -16,7 +16,7 @@ import pandas as pd
 from fantasyhoops.core.common import load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
-from fantasyhoops.draft import OUT
+from fantasyhoops.draft import out_dir
 from fantasyhoops.draft.board import load as load_board
 from fantasyhoops.draft.team_score import make_playoffs
 
@@ -98,10 +98,10 @@ def best_rosters(runs, info, top_groups, days, playoffs, cfg):
 
 def report_data(cfg):
     """The data of the page, from the simulation_*.csv files."""
-    summary = pd.read_csv(OUT / "simulation_summary.csv")
-    players = pd.read_csv(OUT / "simulation_players.csv")
-    groups = pd.read_csv(OUT / "simulation_groups.csv")
-    runs = pd.read_csv(OUT / "simulation_runs.csv")
+    summary = pd.read_csv(out_dir() / "simulation_summary.csv")
+    players = pd.read_csv(out_dir() / "simulation_players.csv")
+    groups = pd.read_csv(out_dir() / "simulation_groups.csv")
+    runs = pd.read_csv(out_dir() / "simulation_runs.csv")
     days = playoff_schedule(read_schedule(), cfg)[1]
     board, playoffs = make_playoffs(load_board(cfg), days, cfg)
     info = board.set_index("name")[
@@ -125,16 +125,16 @@ def report_data(cfg):
 
 
 def main():
-    missing = [f for f in ["summary", "players", "groups", "runs"] if not (OUT / f"simulation_{f}.csv").exists()]
+    missing = [f for f in ["summary", "players", "groups", "runs"] if not (out_dir() / f"simulation_{f}.csv").exists()]
     if missing:
         raise SystemExit(
             "output/draft/ does not have the auction simulator files. Run python -m fantasyhoops.draft.auction first."
         )
     data = report_data(load_config())
-    (OUT / "keeper_report.html").write_text(
+    (out_dir() / "keeper_report.html").write_text(
         HTML.replace("__DATA__", json.dumps(data, ensure_ascii=False)), encoding="utf-8"
     )
-    print(f"Wrote keeper_report.html to {OUT}")
+    print(f"Wrote keeper_report.html to {out_dir()}")
 
 
 HTML = """<title>Which Keeper Wins Titles?</title>

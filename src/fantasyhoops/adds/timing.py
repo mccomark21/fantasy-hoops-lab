@@ -22,11 +22,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 
-from fantasyhoops.core.common import OUT
+from fantasyhoops.core import common
 
-TIMINGS = OUT / "adds" / "timings.csv"
 COLUMNS = ["run_at", "days", "open_days", "adds_left", "step", "seconds", "calls", "states", "pages"]
 PROGRESS_SECONDS = 10  # the time between two progress lines of a search
+
+
+def timings_path():
+    """The timings file: output/adds/timings.csv, from common.OUT at the time of the call."""
+    return common.OUT / "adds" / "timings.csv"
 
 
 class Capped(Exception):
@@ -88,7 +92,7 @@ class StepTime:
 class Timings:
     """The step times of one planning run. on False: step() does nothing, and the run writes no row.
 
-    path: the timings file (default: TIMINGS at the time of the first write).
+    path: the timings file (default: timings_path() at the time of the first write).
     """
 
     def __init__(self, on=True, clock=time.perf_counter, work=None, path=None):
@@ -178,7 +182,7 @@ class Timings:
             for s in self.waiting
         ]
         self.waiting = []
-        append(self.path or TIMINGS, rows)
+        append(self.path or timings_path(), rows)
 
 
 def append(path, rows):

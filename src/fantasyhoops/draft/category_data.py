@@ -10,16 +10,19 @@ units: the per-game mean and standard deviation of the pool in each category. Th
 import numpy as np
 import pandas as pd
 
-from fantasyhoops.draft import OUT
+from fantasyhoops.draft import out_dir
 
-BENCHMARK_FILE = OUT / "category_benchmark.csv"
 MAX_PRICE = 60  # the last price of the filler curve
 FILLER_PLAYERS = 5  # players in the mean for each price
 FILLER_MAX_RANK = 140  # a player with a larger rank number is not a filler
 
 
-def load_benchmark(path=BENCHMARK_FILE):
-    """The benchmark as a dict of category -> weighted z-score sum, or None when the file is missing."""
+def load_benchmark(path=None):
+    """The benchmark as a dict of category -> weighted z-score sum, or None when the file is missing.
+
+    path: the benchmark file (default: output/draft/category_benchmark.csv, from out_dir() at the time of the call).
+    """
+    path = path or out_dir() / "category_benchmark.csv"
     if not path.exists():
         return None
     row = pd.read_csv(path).iloc[0]

@@ -837,7 +837,7 @@ def main(today=None, publish=True, timed=True, cache=True):
         )
         publish_page(page.write(text), rows, publish, home)
     if timed:
-        print(f"Wrote the step times: {timing.TIMINGS}")
+        print(f"Wrote the step times: {timing.timings_path()}")
 
 
 if __name__ == "__main__":

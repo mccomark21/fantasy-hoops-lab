@@ -25,12 +25,6 @@ def run(case, prune=None):
     return bench.run_case(case, prune=prune)
 
 
-@pytest.fixture(autouse=True)
-def no_real_file(monkeypatch, tmp_path):
-    """The tests never write the real output/adds/bench.csv."""
-    monkeypatch.setattr(bench, "BENCH", tmp_path / "bench.csv")
-
-
 @pytest.mark.parametrize("case", CI_CASES, ids=lambda c: f"{c.search}-D{c.days}-A{c.adds}")
 def test_the_calls_and_the_states_stay_below_the_ceiling(case):
     r = run(case)
@@ -96,7 +90,7 @@ def test_main_prints_the_table_and_appends_the_rows(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "Start: schedule D=5 A=3 ..." in out
     assert "End: aggressive D=7 A=5: capped" in out
-    lines = bench.BENCH.read_text(encoding="utf-8").splitlines()
+    lines = bench.bench_path().read_text(encoding="utf-8").splitlines()
     assert lines[0] == ",".join(bench.COLUMNS)
     assert len(lines) == 5  # one header, then 2 rows for each run
     assert [line.split(",")[-1] for line in lines[1:]] == ["False", "True"] * 2
