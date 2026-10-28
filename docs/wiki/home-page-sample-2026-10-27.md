@@ -115,9 +115,11 @@ The board shows each cell as `started/all · N%`. The sample shows the percent i
 | Used (started / games) | 35/43 · 81% | 36/41 · 88% | 33/46 · 72% | 104/130 · 80% |
 | vs ideal | 35/42 · 83% | 36/42 · 86% | 33/42 · 79% | 104/126 · 83% |
 
-The 12 players are more than 6 slots × 7 days can hold, so the ideal for each week is 42, the slot limit. The board colors a percent green at 90% or more, yellow at 70% to 89% and red below 70%. The sample does not copy these colors, because the Card Back palette has no yellow or green. The footnote now gives the two definitions. The per-player week cells still count a rest night as a game, as before. Thus the games of a week in the Used row can be smaller than the sum of the player cells (Wk19: 43, not 44, because of the rest night of Coby White).
+The 12 players are more than 6 slots × 7 days can hold, so the ideal for each week is 42, the slot limit. The board colors a percent green at 90% or more, yellow at 70% to 89% and red below 70%. The sample does not copy these colors, because the Card Back palette has no yellow or green. The footnote now gives the two definitions. At first, the per-player week cells counted a rest night as a game. The next paragraph records the fix.
 
 The screenshots `desktop.png`, `desktop-dark.png` and `mobile.png` were taken again after this change.
+
+2026-10-28, later: the player week cells now follow the project rule that `rests_b2b` changes the playoff columns. A rest night is not a game in the Wk19, Wk20, Wk21 and T cells. The rest mark stays in the day grid. One player changed: Coby White, Wk19 2/4 to 2/3 and T 7/11 to 7/10 (and 10 playoff games in the closed phone row). The week columns now add up to the games of the Used row: 43, 41, 46 and 130. The screenshots were taken again.
 
 ### Contrast check
 
