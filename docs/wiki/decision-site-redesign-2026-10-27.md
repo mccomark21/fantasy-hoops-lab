@@ -30,3 +30,7 @@ Two agents assessed `output/adds/adds_plan.html` apart from each other: a design
 | #118 | P2 | ready-for-agent | Move the run diagnostics into Run time, put the key above the table, add an empty state |
 
 #117 needs the owner for the palette and the type pairing. It refers to `PRODUCT.md` and `DESIGN.md`, so those files must be on `main` before a build starts.
+
+## Home page work (evening of 2026-10-27)
+
+Later on 2026-10-27, the owner ran Impeccable on the home page and the site menu. See [home-page-sample-2026-10-27](home-page-sample-2026-10-27.md).
