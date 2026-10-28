@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T00:00:00Z",
+  "title": "Design System: Fantasy Hoops Lab",
+  "extensions": {
+    "colorMeta": {
+      "stone-page":    { "role": "neutral", "displayName": "Stone Page",    "dark": "#1c1917", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#d6d3d1", "#f5f5f4", "#fafaf9"] },
+      "stone-header":  { "role": "neutral", "displayName": "Stone Header",  "dark": "#292524", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#d6d3d1", "#f5f5f4", "#fafaf9"] },
+      "stone-rule":    { "role": "neutral", "displayName": "Stone Rule",    "dark": "#44403c", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#d6d3d1", "#e7e5e4", "#fafaf9"] },
+      "stone-average": { "role": "neutral", "displayName": "Stone Average", "dark": "#57534e", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#57534e", "#a8a29e", "#d6d3d1", "#fafaf9"] },
+      "stone-muted":   { "role": "neutral", "displayName": "Stone Muted",   "dark": "#a8a29e", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#a8a29e", "#d6d3d1", "#fafaf9"] },
+      "stone-ink":     { "role": "neutral", "displayName": "Stone Ink",     "dark": "#f5f5f4", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#a8a29e", "#d6d3d1", "#fafaf9"] },
+      "accent-violet": { "role": "primary", "displayName": "Accent Violet (provisional)", "dark": "#a78bfa", "tonalRamp": ["#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ede9fe"] },
+      "signal-good":   { "role": "signal",  "displayName": "Signal Good",   "dark": "#22c55e", "tonalRamp": ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#86efac", "#dcfce7"] },
+      "signal-bad":    { "role": "signal",  "displayName": "Signal Bad",    "dark": "#ef4444", "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fee2e2"] },
+      "signal-warn":   { "role": "signal",  "displayName": "Signal Warn",   "dark": "#facc15", "tonalRamp": ["#713f12", "#854d0e", "#a16207", "#ca8a04", "#eab308", "#facc15", "#fde047", "#fef9c3"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "The page title (h1)." },
+      "title":    { "displayName": "Title",    "purpose": "Section headings (h2)." },
+      "body":     { "displayName": "Body",     "purpose": "Paragraphs and most text." },
+      "data":     { "displayName": "Data",     "purpose": "Table cells, with tabular figures." },
+      "label":    { "displayName": "Label",    "purpose": "Uppercase stat labels and filter group labels." }
+    },
+    "shadows": [
+      { "name": "menu", "value": "0 4px 12px rgba(0,0,0,.2)", "purpose": "The dropdown menu on the draft board. It is the only shadow on the site." }
+    ],
+    "motion": [],
+    "breakpoints": [
+      { "name": "narrow", "value": "599px", "purpose": "Below this width the plan grid hides long labels and the free-agent table hides its wide columns." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "A round toggle button for a filter. A second line can show a count.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"false\">PG<small>12</small></button>",
+      "css": ".ds-chip { font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 4px 9px; border: 1px solid #e7e5e4; border-radius: 999px; background: #fafaf9; color: #1c1917; cursor: pointer; } .ds-chip small { display: block; color: #78716c; font-size: 11px; } .ds-chip:hover { border-color: #78716c; } .ds-chip:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }"
+    },
+    {
+      "name": "Filter Chip (selected)",
+      "kind": "chip",
+      "refersTo": "chip-selected",
+      "description": "The selected state of a filter chip.",
+      "html": "<button class=\"ds-chip-on\" aria-pressed=\"true\">SG<small>8</small></button>",
+      "css": ".ds-chip-on { font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 4px 9px; border: 1px solid #7c3aed; border-radius: 999px; background: #7c3aed; color: #fff; cursor: pointer; } .ds-chip-on small { display: block; color: #ede9fe; font-size: 11px; } .ds-chip-on:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }"
+    },
+    {
+      "name": "Stat",
+      "kind": "custom",
+      "refersTo": "stat",
+      "description": "A small inline value with an uppercase label.",
+      "html": "<div class=\"ds-stat\"><b>4</b><span>Games left</span></div>",
+      "css": ".ds-stat { display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 10px; border: 1px solid #e7e5e4; border-radius: 6px; background: #f5f5f4; color: #1c1917; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; } .ds-stat b { font-size: 17px; font-variant-numeric: tabular-nums; } .ds-stat span { font-size: 11px; color: #78716c; text-transform: uppercase; letter-spacing: .04em; }"
+    },
+    {
+      "name": "Flags",
+      "kind": "custom",
+      "refersTo": "flag-good",
+      "description": "Inline labels for new, up, next week and player status.",
+      "html": "<span class=\"ds-flag ds-new\">NEW</span> <span class=\"ds-flag ds-up\">UP</span> <span class=\"ds-flag ds-next\">NEXT</span> <span class=\"ds-flag ds-status\">GTD</span>",
+      "css": ".ds-flag { display: inline-block; padding: 0 4px; border-radius: 4px; font: 700 11px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #fff; } .ds-new { background: #16a34a; } .ds-up { background: #7c3aed; } .ds-next { background: #1c1917; color: #fafaf9; } .ds-status { background: #eab308; color: #1c1917; }"
+    },
+    {
+      "name": "Data Table",
+      "kind": "custom",
+      "refersTo": "table-header",
+      "description": "A flat table with tabular figures, thin rules and a tinted header. The sorted column is violet.",
+      "html": "<table class=\"ds-table\"><thead><tr><th class=\"ds-name\">Player</th><th aria-sort=\"descending\">Value</th><th>GP</th></tr></thead><tbody><tr><td class=\"ds-name\">Player A</td><td>+1.42</td><td>4</td></tr><tr><td class=\"ds-name\">Player B</td><td>+0.87</td><td>3</td></tr></tbody></table>",
+      "css": ".ds-table { border-collapse: collapse; width: 100%; font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; color: #1c1917; } .ds-table th, .ds-table td { padding: 5px 4px; text-align: right; border-bottom: 1px solid #e7e5e4; } .ds-table thead th { background: #f5f5f4; font-weight: 600; cursor: pointer; } .ds-table th[aria-sort] { color: #7c3aed; } .ds-table .ds-name { text-align: left; } .ds-table tbody tr:hover td { background: #fafaf9; }"
+    },
+    {
+      "name": "Site Nav",
+      "kind": "nav",
+      "refersTo": "site-nav",
+      "description": "The bar at the top of each published page.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\">Home</a> · <a href=\"#\" aria-current=\"page\">Adds</a> · <a href=\"#\">Draft</a></nav>",
+      "css": ".ds-nav { padding: 8px 16px; font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; background: #fafaf9; color: #78716c; border-bottom: 1px solid #e7e5e4; } .ds-nav a { color: #7c3aed; font-weight: 600; text-decoration: none; } .ds-nav a[aria-current] { color: #1c1917; } .ds-nav a:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Tailored Box Score",
+    "overview": "The site presents data in a clean, minimal way. Each table and chart is cut to fit its numbers, like a tailored suit: sleek and stylish, but never loud. The data carries the page. Type, rules and one accent give the data shape. Decoration does not. The current pages are dense and flat. They use one neutral stone ramp, one violet accent and three signal colors. All type is the system font. The current system meets the minimal part of the North Star. It does not yet meet the stylish part.",
+    "keyCharacteristics": [
+      "The numbers come first: tabular figures, right-aligned columns and thin rules.",
+      "One neutral ramp (warm stone) and one accent (violet).",
+      "The design is flat. Tone and rules show depth, not shadows.",
+      "One page body is 720px wide at most (the adds plan). The home page is 640px.",
+      "Python generators write all CSS inline. The pages load no external files."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Violet is the only interaction color. If an element is selected, sorted or chosen, it is violet. No other element is violet.", "section": "colors" },
+      { "name": "The Copied Token Problem", "body": "Each page generator holds its own copy of the tokens. The site nav uses literal hex values. The keeper report uses a different palette. The redesign must move all pages to one shared token source.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "All numbers use font-variant-numeric: tabular-nums, so that the digits align in each column.", "section": "typography" },
+      { "name": "The Flat Page Rule", "body": "Surfaces have no shadow. Only a floating menu has a shadow.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use tabular figures for all numbers.",
+      "Do keep violet for the selected state, the sorted state and links only.",
+      "Do keep surfaces flat, with 1px Stone Rule borders and the Stone Header tint.",
+      "Do supply a light theme and a dark theme for each token, and support the data-theme override."
+    ],
+    "donts": [
+      "Don't add a new page with its own palette. The keeper report shows the problem.",
+      "Don't put white text on Signal Good. White on #16a34a is approximately 3.3:1, which fails WCAG AA for 11px text. The \"new\" flag does this now.",
+      "Don't add new side-stripe borders. The skip notice on the adds plan uses a 3px left border in Signal Warn. The redesign must replace it.",
+      "Don't show good and bad with color only. PRODUCT.md requires a sign, a label or a shape too."
+    ]
+  }
+}

@@ -17,3 +17,7 @@ output/
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Impeccable critique snapshots and live-mode state (local only)
+.impeccable/critique/
+.impeccable/live/
