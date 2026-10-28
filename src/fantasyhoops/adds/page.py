@@ -17,7 +17,8 @@ The Run time table shows the time of each step of the run (adds/timing.py, #85),
 reads and their Yahoo pages below the Yahoo reads row (#89). The Run time section also holds the lines about the run:
 the market read, the pages from the cache and the skip of the recent view (#118).
 The page has inline CSS and no files from other sites. The colors and the font come from core/tokens.py, and the site
-menu comes from core/publish.py (#117). write() also writes the font file to fonts/ next to the page.
+menu comes from core/publish.py (#117). publish.shell() gives the head, the menu and the menu script (#132).
+write() uses publish.write_page(), which also writes the font file to fonts/ next to the page.
 """
 
 import html
@@ -30,7 +31,6 @@ from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.rest import games_text
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core import publish as site
-from fantasyhoops.core import tokens
 from fantasyhoops.core import common
 
 TITLE = "Weekly adds plan"
@@ -576,6 +576,7 @@ def render(run):
     nights (the B2B marks), contingencies (the Contingency plans, one text line each), roles, next_days, next_games,
     timings (the Run time table) and the run lines recent_skip, market and cache (timings_section()).
     [adds] minutes_rise and [adds.flags] of run.cfg give the legends of the role marks.
+    [league] teams of run.cfg gives the team count in the site menu.
     """
     today = run.today or date.today()
     contingencies = [" ".join(line.strip() for line in contingency_lines(c)) for c in run.contingencies]
@@ -592,13 +593,8 @@ def render(run):
         timings_section(run.timings, run.market, run.cache, run.recent_skip),
         method_note(),
     ]
-    return (
-        HTML.replace("__TITLE__", TITLE)
-        .replace("__HEAD__", site.site_head())
-        .replace("__MENU__", site.site_menu("adds"))
-        .replace("__MENU_SCRIPT__", site.MENU_SCRIPT)
-        .replace("__BODY__", "\n".join(s for s in sections if s))
-    )
+    shell = site.shell(HTML.replace("__TITLE__", TITLE), "adds", run.cfg)
+    return shell.replace("__BODY__", "\n".join(s for s in sections if s))
 
 
 def page_path():
@@ -608,11 +604,7 @@ def page_path():
 
 def write(text, path=None):
     """Write the page text to path (default: page_path()), and the font file to fonts/ next to it. Return the path."""
-    path = path or page_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    tokens.copy_font(path.parent)
-    return path
+    return site.write_page(path or page_path(), text)
 
 
 HTML = """<!doctype html>
@@ -745,7 +737,7 @@ __MENU__
 <main class="lab-main"><div class="sheet">
 __BODY__
 </div></main>
-__MENU_SCRIPT__
+__SCRIPT__
 </body>
 </html>
 """

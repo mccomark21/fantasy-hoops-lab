@@ -78,7 +78,8 @@ OPTIONS = [
 
 
 # BASE: the fewest fields of a PlanningRun. RUN: the test defaults of a page with plans and free agents.
-BASE = command.PlanningRun(data=DATA, days=DAYS, games=GAMES, spots=SPOTS, today=WEEK[0])
+LEAGUE = {"league": {"teams": 14}}  # the team count of the site menu (#132)
+BASE = command.PlanningRun(data=DATA, days=DAYS, games=GAMES, spots=SPOTS, today=WEEK[0], cfg=LEAGUE)
 RUN = replace(BASE, rows=[ROW1, ROW2], options=OPTIONS, ranking=RANKING, read=["PHI"], replacement=0.5)
 
 
@@ -223,7 +224,9 @@ def test_the_free_agent_data_has_the_minutes_the_starts_and_the_closes():
     assert not players["Star"]["rise"]
     # A player who is not in the rotation log has no role text.
     assert players["Chi One"]["role"] is None and not players["Chi One"]["rise"]
-    shown = text(render(roles=roles, cfg={"adds": {"minutes_rise": 4.0, "flags": load_config()["adds"]["flags"]}}))
+    shown = text(
+        render(roles=roles, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0, "flags": load_config()["adds"]["flags"]}})
+    )
     assert "Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d)" in shown
     assert "MIN+ L5 is 4 minutes or more above 14d" in shown
     assert "The word after Starts is the starter flag, from his last 10 games (5 or more)." in shown
@@ -256,7 +259,7 @@ def test_the_page_shows_the_starter_flag_and_the_closer_flag_in_the_html():
             closer="Regular",
         ),
     }
-    html = render(roles=roles, cfg={"adds": {"minutes_rise": 4.0}})
+    html = render(roles=roles, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0}})
     assert "Starts 1/5 (Inconsistent) · Closes 0/4" in html
     assert "Closes 0/4 (" not in html  # no closer flag: no word after the closes
     assert "Starts 5/5 (New) · Closes 4/4 (Regular)" in html
@@ -709,7 +712,7 @@ def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_the_chips_pre
         rows=[ROW1, ROW2, claim_row],
         options=OPTIONS + [CLAIM],
         nights=nights,
-        cfg={"adds": {"minutes_rise": 3}},
+        cfg={**LEAGUE, "adds": {"minutes_rise": 3}},
         timings=[timing.StepTime("Yahoo reads", 1.0)],
     )
     assert html.count('class="b2b"') >= 2 and ">W</span>" in html
@@ -782,7 +785,7 @@ def test_the_key_of_the_dots_and_the_flags_is_above_the_free_agent_table():
 def test_the_key_shows_the_minutes_flag_only_with_role_lines():
     assert "MIN+" not in re.search(r'id="fa-key">(.*?)</p>', render()).group(1)
     role = Role(26.0, 20.0, 4, 3, 1, 2, True)
-    html = render(roles={("Phi One", "PHI"): role}, cfg={"adds": {"minutes_rise": 4.0}})
+    html = render(roles={("Phi One", "PHI"): role}, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0}})
     assert "MIN+</span> more minutes" in re.search(r'id="fa-key">(.*?)</p>', html).group(1)
 
 
@@ -824,9 +827,14 @@ def test_the_reset_button_restores_the_default_filters_and_sort():
         assert pg.evaluate("document.activeElement.id") == "fa-reset"
 
 
-def test_the_page_of_a_fixed_run_is_the_page_of_render_before_the_planning_run():
+def test_the_page_of_a_fixed_run_is_the_page_of_render_before_the_planning_run(monkeypatch):
     """#128: fixtures/page_before_128.html is the HTML of render() before the PlanningRun, from the same values in
-    the old parameters. The page has each section."""
+    the old parameters. The page has each section.
+
+    #132: the page is also the same as before publish.shell(). The render reads no config.toml: the team count of
+    the menu comes from run.cfg (14 teams, as in config.toml when the fixture was made).
+    """
+    monkeypatch.setattr(site, "load_config", lambda: pytest.fail("The render read config.toml."))
     nmon = WEEK[6] + timedelta(days=1)
     claim_window = TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5], WEEK[6]), CLAIM, (CLAIM,))
     claim_row = SpotPlan(SPOTS[0], Plan(windows=(claim_window,), started_games=2, adds=1), 2)
@@ -849,7 +857,7 @@ def test_the_page_of_a_fixed_run_is_the_page_of_render_before_the_planning_run()
             Contingency(flag_two, WEEK[5], None, late_adds=((PHI, "21:00"),)),
         ],
         roles={("Phi & One", "PHI"): Role(28.0, 22.0, 4, 3, 1, 2, True, "Regular", "New")},
-        cfg={"adds": {"minutes_rise": 4.0, "flags": flags}},
+        cfg={**LEAGUE, "adds": {"minutes_rise": 4.0, "flags": flags}},
         next_days=[Day(nmon, 4, (), (), ("SF", "Util"))],
         next_games={nmon: {"PHI"}},
         timings=[

@@ -9,7 +9,9 @@ likely be back by the playoffs. A player with rests_b2b gets no game on the seco
 The vs ideal row uses lineup.ideal_games(), and the percent bands use lineup.BANDS. The draft board gets the same
 rules from core/lineup.py.
 
-The module takes its data from the caller and opens no file and no web page. write() writes output/home/index.html.
+publish.shell() gives the head, the menu and the menu script of the page (#132).
+The module takes its data from the caller and opens no file and no web page. write() writes output/home/index.html
+with publish.write_page(), which also writes the font to fonts/ next to the page.
 """
 
 import html
@@ -422,6 +424,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None)
     players: RosterPlayer list in any order. days: Day list (playoff_days()). cfg: config.toml.
     week: the number of the current fantasy week, or None. adds: (used, limit) of this week, or None.
     today: the date of the run. team_name: the name in the page header (default "Roster").
+    [league] teams of cfg gives the team count in the site menu.
     """
     slots = cfg["league"]["slots"]
     few_limit = cfg.get("flags", {}).get("avoid_week_games", FEW_GAMES)
@@ -467,12 +470,9 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None)
         "vs ideal: started / the games of the same number of players with the most games of the week, at most "
         f"{len(slots) + UTIL} starters a day. Both rows use the math of the draft board.{made}"
     )
+    template = PAGE_HTML.replace("__DAYS1__", str(n_days + 1)).replace("__DAYS__", str(n_days))
     return (
-        PAGE_HTML.replace("__DAYS1__", str(n_days + 1))
-        .replace("__DAYS__", str(n_days))
-        .replace("__HEAD__", site.site_head())
-        .replace("__MENU__", site.site_menu("home"))
-        .replace("__SCRIPT__", site.MENU_SCRIPT)
+        site.shell(template, "home", cfg)
         .replace("__TITLE__", _title(team_name or "Roster"))
         .replace("__META__", "\n".join(meta))
         .replace("__DESK__", desk)
@@ -488,11 +488,7 @@ def page_path():
 
 def write(text, path=None):
     """Write the page to path (default page_path()) with the font next to it. Return the path."""
-    path = path or page_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    tokens.copy_font(path.parent)
-    return path
+    return site.write_page(path or page_path(), text)
 
 
 PAGE_STYLE = """/* Card Back roster page (#120): zebra rows, full-height quality-day columns, section rules, IL in the starts. */

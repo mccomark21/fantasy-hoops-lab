@@ -484,7 +484,7 @@ def run_command(
     games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
     sched = pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
     cfg = {
-        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10},
+        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10, "teams": 14},
         "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
         "weights": {"pts": 1.0},
     }
