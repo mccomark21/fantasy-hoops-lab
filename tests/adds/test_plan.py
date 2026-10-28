@@ -828,3 +828,20 @@ def test_a_run_with_no_adds_left_writes_a_week_file_with_no_add(monkeypatch, tmp
     record = week_file.read_record(WEEK[0])
     assert (record.runs, record.adds) == ((WEEK[1],), ())
     assert "No saved plan for Mon." in page.page_path().read_text(encoding="utf-8")
+
+
+class TeamAndMatchup:
+    """A fake session.League that gives the fixture team page with the team overview, and the matchup page."""
+
+    def get(self, path):
+        fixtures = Path(__file__).parent / "fixtures"
+        if path.startswith("matchup"):
+            return (fixtures / "matchup.html").read_text(encoding="utf-8")
+        overview = (fixtures / "team_record.html").read_text(encoding="utf-8").split("<body>")[1].split("</body>")[0]
+        return (fixtures / "team.html").read_text(encoding="utf-8").replace("<body>", "<body>" + overview)
+
+
+def test_read_league_reads_the_record_from_the_team_page():
+    cfg = {"adds": {"team": 10}}
+    data = command.read_league(TeamAndMatchup(), cfg, date(2026, 10, 21))
+    assert data.record == "4-2-1" and len(data.roster) == 10

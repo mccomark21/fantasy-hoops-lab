@@ -155,6 +155,18 @@ def read_adds(html):
     return Adds(used=int(found[1]), limit=int(found[2]))
 
 
+def read_record(html):
+    """The season record of your team (W-L-T) on your team page, for example "4-2-1". None if the page has no record.
+
+    The team overview has the team name (data-tst="fantasy-team-overview-name"). The next element starts with the
+    record, for example "0-0-0 | <manager>" (seen on 2026-10-20). A missing record does not stop the run (#142).
+    """
+    name = _soup(html).select_one('[data-tst="fantasy-team-overview-name"]')
+    line = name.find_next_sibling() if name else None
+    found = re.match(r"\s*(\d+)\s*-\s*(\d+)\s*-\s*(\d+)\b", line.get_text(" ")) if line else None
+    return "-".join(found.groups()) if found else None
+
+
 def read_week(html):
     """The current fantasy week, from the matchup page (/nba/<league>/matchup?mid1=<team>).
 

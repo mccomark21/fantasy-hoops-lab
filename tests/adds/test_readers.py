@@ -11,6 +11,7 @@ from fantasyhoops.adds.readers import (
     parse,
     read_adds,
     read_free_agents,
+    read_record,
     read_roster,
     read_waiver_players,
     read_week,
@@ -39,6 +40,20 @@ def test_read_roster_gives_each_player_in_page_order():
         "Rudy Gobert",
     ]
     assert [p.slot for p in roster] == ["PG", "SG", "SF", "PF", "C", "Util", "BN", "BN", "BN", "BN"]
+
+
+def test_read_record_reads_the_season_record_of_the_team_overview():
+    assert read_record(fixture("team_record.html")) == "4-2-1"
+    # The matchup page writes the record with spaces ("0 - 0 - 0"). The reader allows them.
+    spaced = fixture("team_record.html").replace(">4-2-1<", ">10 - 3 - 0<")
+    assert read_record(spaced) == "10-3-0"
+
+
+def test_read_record_gives_none_with_no_record():
+    # The roster fixture has no team overview.
+    assert read_record(fixture("team.html")) is None
+    # A team overview with no record in its line.
+    assert read_record(fixture("team_record.html").replace(">4-2-1<", "><")) is None
 
 
 def test_read_roster_maps_the_team_and_splits_the_positions():

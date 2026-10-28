@@ -1,8 +1,8 @@
 """The data of the home page at the end of a planning run (#120). It writes output/home/index.html (core/home.py).
 
-The roster comes from your Yahoo team page, which the run reads (LeagueData.roster). The rank and rests_b2b come from
-draft/rankings.py. The season stats come from one ESPN statistics/byathlete request (fetch/espn.py). The playoff days
-come from data/schedule.csv (core/schedule.py).
+The roster and the season record come from your Yahoo team page, which the run reads (LeagueData.roster and
+LeagueData.record). The rank and rests_b2b come from draft/rankings.py. The season stats come from one ESPN
+statistics/byathlete request (fetch/espn.py). The playoff days come from data/schedule.csv (core/schedule.py).
 """
 
 import traceback
@@ -75,6 +75,7 @@ def build_home(data, cfg, sched, today):
             adds=(data.adds.used, data.adds.limit),
             today=today,
             team_name=cfg["adds"].get("team_name"),
+            record=data.record,
         )
         path = home.write(text)
     except Exception:

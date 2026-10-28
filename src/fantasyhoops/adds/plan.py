@@ -63,7 +63,7 @@ from fantasyhoops.adds.matchup import matchup_weights, read_matchup, weighted_cf
 from fantasyhoops.adds import grid, week_file
 from fantasyhoops.adds.planner import StreamSpot, rank_teams, teams_to_read
 from fantasyhoops.adds.roles import read_roles
-from fantasyhoops.adds.readers import Adds, read_adds, read_roster, read_week
+from fantasyhoops.adds.readers import Adds, read_adds, read_record, read_roster, read_week
 from fantasyhoops.adds.rest import DEFAULT_REST_CHANCE, read_rest_names, second_nights, with_rests
 from fantasyhoops.adds.role_up import mark_role_ups, read_absences
 from fantasyhoops.adds.session import WAIT_SECONDS, open_league
@@ -93,6 +93,7 @@ class LeagueData:
 
     next_week: True if today is the last day of the current week, so that the run plans the next week.
     matchup: the matchup.Matchup of the week to plan, or None if the matchup page shows no category scores.
+    record: your season record (W-L-T) from the team page, for example "4-2-1", or None (#142).
     """
 
     roster: list
@@ -100,6 +101,7 @@ class LeagueData:
     week: object
     next_week: bool = False
     matchup: object = None
+    record: str = None
 
 
 @dataclass(frozen=True)
@@ -164,6 +166,7 @@ def read_league(yahoo, cfg, today):
         week=week,
         next_week=next_week,
         matchup=read_matchup(matchup_page, team),
+        record=read_record(team_page),
     )
 
 

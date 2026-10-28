@@ -418,12 +418,14 @@ def _title(name):
     return _e(name).replace("™", "<sup>™</sup>")
 
 
-def render(players, days, cfg, week=None, adds=None, today=None, team_name=None):
+def render(players, days, cfg, week=None, adds=None, today=None, team_name=None, record=None):
     """The HTML of the home page.
 
     players: RosterPlayer list in any order. days: Day list (playoff_days()). cfg: config.toml.
     week: the number of the current fantasy week, or None. adds: (used, limit) of this week, or None.
     today: the date of the run. team_name: the name in the page header (default "Roster").
+    record: the season record (W-L-T) of the team, for example "4-2-1", or None. The header shows it after the
+    name, then the This week and Playoffs items (#142). With None, the header has no record.
     [league] teams of cfg gives the team count in the site menu.
     """
     slots = cfg["league"]["slots"]
@@ -439,6 +441,8 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None)
     first, last = _week_label(week_names[0]), week_names[-1]
     digits = "".join(c for c in last if c.isdigit())
     meta = []
+    if record:
+        meta.append(f'<div class="rec"><dt>Record</dt><dd><strong>{_e(record)}</strong></dd></div>')
     if week is not None:
         used = f' · <strong class="red">{adds[0]}</strong> of {adds[1]} adds used' if adds else ""
         meta.append(f"<div><dt>This week</dt><dd><strong>Week {week}</strong>{used}</dd></div>")
@@ -474,6 +478,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None)
     return (
         site.shell(template, "home", cfg)
         .replace("__TITLE__", _title(team_name or "Roster"))
+        .replace("__METACLASS__", "meta with-rec" if record else "meta")
         .replace("__META__", "\n".join(meta))
         .replace("__DESK__", desk)
         .replace("__MOB__", mobile)
@@ -503,11 +508,13 @@ PAGE_STYLE = """/* Card Back roster page (#120): zebra rows, full-height quality
 .head h1 { margin: 0; color: var(--mark); font-weight: 900; font-stretch: 66%; font-size: clamp(32px, 4vw, 44px);
   line-height: .9; text-transform: uppercase; text-wrap: balance; }
 .head h1 sup { font-size: .35em; font-stretch: 100%; vertical-align: top; }
-.meta { display: flex; flex-wrap: wrap; gap: 8px 0; margin: 0 0 0 auto; font-size: 13px; }
+/* The record and the week items follow the name on the same line (#142). They go below the name on a narrow page. */
+.meta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 0; margin: 0; font-size: 13px; }
 .meta div { padding: 0 16px; border-left: 1px solid var(--lab-rule); }
 .meta dt { color: var(--lab-mute); font-size: 12px; margin-bottom: 3px; }
 .meta dd { margin: 0; }
 .meta strong { font-weight: 800; font-size: 15px; }
+.meta .rec strong { font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }
 .red { color: var(--lab-red); }
 .flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red); background: var(--lab-red);
   padding: 1px 4px; vertical-align: 3px; margin-left: 4px; }
@@ -619,8 +626,11 @@ tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; pad
 @media (max-width: 899px) {
   .roster { padding-block: 16px 24px; padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right)); }
-  .meta { margin-left: 0; }
   .meta div:first-child { padding-left: 0; border-left: 0; }
+  /* With a record, the record takes the left column and the two week items stack at its right, so no item wraps
+     alone under the record at 390px. */
+  .meta.with-rec { display: grid; grid-template-columns: auto 1fr; row-gap: 8px; }
+  .meta.with-rec .rec { grid-row: span 2; align-self: center; padding-right: 16px; }
   .scroll { display: none; }
   .mob { display: block; margin: 10px -16px 0; }
   .m-head, .m-p summary { display: grid; grid-template-columns: 44px 34px 1fr 30px 46px 26px; align-items: center;
@@ -727,7 +737,7 @@ __MENU__
 <main class="lab-main roster">
 <header class="head">
 <h1>__TITLE__</h1>
-<dl class="meta">
+<dl class="__METACLASS__">
 __META__
 </dl>
 </header>
