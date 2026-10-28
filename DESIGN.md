@@ -12,6 +12,7 @@ colors:
   lab-on-blue: "#ffffff"
   lab-red: "#c8102e"
   lab-on-red: "#ffffff"
+  lab-green: "#17743a"
   mark: "#1d4f91"
   zebra: "#eff3f8"
   qcol: "#e0e8f4"
@@ -109,8 +110,9 @@ Each page reads like the back of a basketball card: white coated stock, royal-bl
 | `lab-blue` | `#1d4f91` | `#16305a` | The menu ground. |
 | `lab-blue-deep` | `#163f75` | `#1f3f73` | The hover of a menu item. |
 | `lab-on-blue` | `#ffffff` | `#ffffff` | Text on the menu. |
-| `lab-red` | `#c8102e` | `#ff7d8d` | Alerts: warnings, injury status, back-to-back marks, the current-page marker. |
+| `lab-red` | `#c8102e` | `#ff7d8d` | Alerts: warnings, injury status, back-to-back marks, the current-page marker, a deficit in the matchup table. |
 | `lab-on-red` | `#ffffff` | `#0e1a2e` | Text on `lab-red`. |
+| `lab-green` | `#17743a` | `#6fd08c` | A lead in the matchup table of the adds page (#144). |
 | `mark` | `#1d4f91` | `#8fb3ff` | Heading rules, the page title, links, and the selected or sorted state. |
 | `zebra` | `#eff3f8` | `#142540` | Every second table row. |
 | `qcol` / `qcol-z` | `#e0e8f4` / `#dae3f1` | `#1c3254` / `#223a60` | A shaded cell: a quality day or a started game on the home page. `-z` is the shade on a zebra row. |
@@ -125,7 +127,9 @@ All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-r
 
 **The Text Accent Rule.** As text color, `mark` shows only the page title, links, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. The teams of an add cell in the week grid are buttons, so they show as `mark` text with an underline, as a link. Other marks (the fit square, the band and the start square of the week grid, the FA?, MIN+ and UP flags) use ink.
 
-**The Red Is Alert Rule.** `lab-red` marks only something that needs attention. It is never a decoration.
+**The Red Is Alert Rule.** `lab-red` marks only something that needs attention. It is never a decoration. A category that you trail in the matchup needs attention, so its margin is `lab-red`.
+
+**The Green Is Lead Rule.** `lab-green` marks only a category that you lead in the matchup table. It is text only. On `zebra`, it is 5.2:1 in light and 8.1:1 in dark.
 
 ## Typography
 
@@ -178,6 +182,12 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 ### Tables
 - **Style:** full width, collapsed borders, 1px `lab-rule` row rules, zebra rows, and a 2px `mark` rule under the head.
 - **Sorted column and selected day:** `mark` text and a 3px `mark` bar under the header. Cells of a selected day have a 12% `mark` tint.
+
+### Matchup table
+- **Style:** the matchup section of the adds page (#144), above the team plan. One column for each category and the rows You, Opp, Margin and Weight, in a fixed layout that fits 320px.
+- **Margin:** ink for a close margin, `lab-green` for a lead, `lab-red` for a deficit. A large margin is bold (800). The sign stays.
+- **Weight:** 1.00 in bold ink. Lower weights step to a 50% mix of ink and `lab-mute`, then to `lab-mute`.
+- **Key:** a line under the table shows each look.
 
 ### Week grid (signature component)
 - **Style:** the team plan of the adds page (#140, the approved C3 heat sample). A fixed-layout table with one column for each day of the fantasy week and the rows Games, Add 1 and Add 2. The games of the day shade the whole column with a `mark` tint, 0% to 40%, mixed with `lab-stock`. The Games row has a 2px ink rule below it.

@@ -232,9 +232,22 @@ Example: you lead 3PM by 15 with the whole week left. The weight of 3PM goes fro
 
 If the matchup page has no score table, all weights are 1, and the page says so.
 
+Decision (2026-10-28, #144): the matchup table has one column for each category, in the order of the score table (PTS, REB, AST, 3PTM, BLK, ST). Its rows are You, Opp, Margin and Weight. The text color of the Margin row and the Weight row shows the state of each category:
+
+| Cell | State | Look |
+| --- | --- | --- |
+| Margin | Close: weight 1 (inside `close` times the share of the week that is left), or a tie | Ink |
+| Margin | A lead outside the close margin | `lab-green` |
+| Margin | A deficit outside the close margin | `lab-red` |
+| Margin | A large lead or deficit: weight `min_weight` | The same color, bold |
+| Weight | 1.00 | Ink, bold |
+| Weight | 3 equal steps from 1 down to `min_weight` (0.83 and 0.67 with 0.5) | Ink, then a 50% mix of ink and `lab-mute`, then `lab-mute` |
+
+The margin keeps its sign (+ or -), so the state does not depend on color only. A key under the table shows each look. Each color has 4.5:1 or more on its cell in both themes. Page tests check the contrast and that the 6 columns fit at 320, 390, 768 and 1280px.
+
 ## The page
 
-The page has two main sections: the team plan, and the free-agent table. Between them, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight. The page is public, so it does not show the name of the opponent. After the free-agent table, a section lists the waiver players. The next section lists the role-up marks (see [Role up](#role-up)). Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
+The page has two main sections: the team plan, and the free-agent table. Above the team plan, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight (#144). The page is public, so it does not show the name of the opponent. After the free-agent table, a section lists the waiver players. The next section lists the role-up marks (see [Role up](#role-up)). Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
 
 ### Team plan
 
