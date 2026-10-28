@@ -101,7 +101,8 @@ def run_time(html):
 
 
 def plan_rows(html):
-    return re.findall(r"<tr><th>\d</th>(.*?)</tr>", html)
+    """The day rows of the plans. A spot line comes before each one (#114)."""
+    return re.findall(r'<tr class="days[^"]*">(.*?)</tr>', html)
 
 
 def test_each_row_shows_the_started_games_of_each_day_and_the_add_days():
@@ -118,8 +119,10 @@ def test_each_row_shows_its_adds_its_gain_and_its_moves():
     assert re.findall(r'<td class="total">([^<]*)</td>', rows[1]) == ["1", "+2"]
     shown = text(html)
     assert "+Phi &amp; One" in html and "Phi & One" not in html.split("<script")[0]
-    assert "+Phi & One (PHI) – Mon, Tue & Sat +Chi One Q (CHI) – Sun" in shown
-    assert "+Phi & One (PHI) – Tue & Sat drop Old Streamer" in shown
+    assert "+Phi & One (PHI) add Mon – starts Mon, Tue & Sat +Chi One Q (CHI) add Sun – starts Sun" in shown
+    assert "+Phi & One (PHI) add Tue – starts Tue & Sat" in shown
+    # The spot line above the row names the drop, so the Moves cell does not (#114).
+    assert "drop" not in "".join(re.findall(r'<td class="moves">(.*?)</td>', html))
     assert "An add for today helps only if his game has not started." in shown
 
 
@@ -309,7 +312,7 @@ def test_a_move_marks_a_waiver_claim():
         2,
     )
     shown = text(page.render(DATA, DAYS, GAMES, SPOTS, [row], [CLAIM], today=WEEK[0]))
-    assert "+Claim Guy W (CHI) – Sat & Sun" in shown
+    assert "+Claim Guy W (CHI) add Wed, clears Tue – starts Sat & Sun" in shown
     assert "W: a waiver claim. It is not sure" in shown
 
 
@@ -337,7 +340,7 @@ def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, cap
     assert f"Wrote the plan page: {path}" in out
     assert "Plan page: best plan for one roster spot: +2 started games with 1 add." in out
     assert command.URL in out and command.URL.endswith("/adds/")
-    assert "+Phi One (PHI) – Mon & Tue" in text(path.read_text(encoding="utf-8"))
+    assert "+Phi One (PHI) add Mon – starts Mon & Tue" in text(path.read_text(encoding="utf-8"))
     assert "Aggressive plan: the same as the schedule plan." in out
     assert (tmp_path / "fonts" / "archivo-latin.woff2").read_bytes() == tokens.FONT.read_bytes()
     assert (tmp_path / "fonts" / "OFL.txt").read_bytes() == tokens.LICENSE.read_bytes()
@@ -389,7 +392,7 @@ def test_the_command_prints_the_comparison_and_shows_the_plans_for_one_roster_sp
     # Each row of the page has different players: the PHI player first (2 games), then the BOS player (1 game).
     shown = text((tmp_path / "adds_plan.html").read_text(encoding="utf-8"))
     assert "Comparison" not in shown and "Aggressive" not in shown
-    assert "+Phi Weak (PHI) – Mon & Tue" in shown and "+Bos Good (BOS) – Mon" in shown
+    assert "+Phi Weak (PHI) add Mon – starts Mon & Tue" in shown and "+Bos Good (BOS) add Mon – starts Mon" in shown
     assert "  1. +2 started games with 1 add" in out and "  2. +1 started games with 1 add" in out
 
 
@@ -420,6 +423,77 @@ def test_a_fractional_gain_shows_one_decimal():
     row = SpotPlan(ROW2.spot, ROW2.plan, 1.5)
     html = page.render(DATA, DAYS, GAMES, SPOTS, [row], OPTIONS, today=WEEK[0])
     assert re.findall(r'<td class="total">([^<]*)</td>', plan_rows(html)[0]) == ["1", "+1.5"]
+
+
+def spot_lines(html):
+    """The text of each spot line of the plans: the row number, the spot and the same-spot mark (#114)."""
+    return [text(line).strip() for line in re.findall(r'<tr class="spot[^"]*">(.*?)</tr>', html)]
+
+
+def test_each_plan_row_shows_its_roster_spot_above_the_days():
+    html = page.plans_section([ROW1, ROW2], DAYS, SPOTS, DATA.adds, WEEK[0])
+    assert spot_lines(html) == ["1 open spot", "2 drop Old Streamer"]
+    # The spot line comes before the days of its row, and the row number spans both lines.
+    assert re.search(r'<tr class="spot z"><th rowspan="2">1</th><td colspan="10"><b>open spot</b></td></tr>'
+                     r'<tr class="days z">', html)  # fmt: skip
+    assert 'class="same"' not in html
+
+
+def test_a_row_that_uses_the_same_spot_as_a_row_above_it_has_a_text_mark():
+    other = option("Other Guy", "CHI", 0.2)
+    row3 = SpotPlan(
+        SPOTS[1], replace(ROW2.plan, windows=(ROW2.plan.windows[0], replace(ROW1.plan.windows[1], player=other))), 1
+    )
+    html = page.plans_section([ROW2, ROW1, row3], DAYS, SPOTS, DATA.adds, WEEK[0])
+    assert spot_lines(html) == ["1 drop Old Streamer", "2 open spot", "3 drop Old Streamer same spot as row 1"]
+    assert '<span class="same">same spot as row 1</span>' in html
+    assert 'The mark "same spot as row 1" shows that a row uses the spot of row 1' in text(html)
+
+
+def test_rows_that_use_more_open_spots_than_the_roster_has_share_a_spot():
+    spots = [StreamSpot(), StreamSpot()]  # two open spots
+    rows = [ROW1, replace(ROW1, gain=3), replace(ROW1, gain=2)]
+    html = page.plans_section(rows, DAYS, spots, DATA.adds, WEEK[0])
+    assert spot_lines(html) == ["1 open spot", "2 open spot", "3 open spot same spot as row 1"]
+    one = page.plans_section(rows[:2], DAYS, SPOTS, DATA.adds, WEEK[0])
+    assert spot_lines(one) == ["1 open spot", "2 open spot same spot as row 1"]
+
+
+def test_each_add_shows_its_add_day_before_its_started_days():
+    html = page.plans_section([ROW1, ROW2], DAYS, SPOTS, DATA.adds, WEEK[0])
+    moves = [text(m).strip() for m in re.findall(r'<td class="moves">(.*?)</td>', html)]
+    assert moves == [
+        "+Phi & One (PHI) add Mon – starts Mon, Tue & Sat +Chi One Q (CHI) add Sun – starts Sun",
+        "+Phi & One (PHI) add Tue – starts Tue & Sat",
+    ]
+    assert '<span class="add">add Tue</span>' in html
+    # The + mark stays in the day grid.
+    assert plan_rows(html)[1].count("<i>+</i>") == 1
+
+
+def test_a_waiver_claim_shows_its_add_day_its_w_flag_and_its_clear_day():
+    row = SpotPlan(SPOTS[0], Plan((TeamWindow(0, "CHI", WEEK[2], WEEK[6], (WEEK[5],), CLAIM, (CLAIM,)),), 1, 1), 1)
+    html = page.plans_section([row], DAYS, SPOTS, DATA.adds, WEEK[0])
+    assert ">W</span>" in html and '<span class="add">add Wed, clears Tue</span>' in html
+
+
+def test_at_390px_the_plans_have_no_horizontal_scroll_and_show_the_spot_and_the_add_day():
+    row3 = SpotPlan(SPOTS[1], replace(ROW2.plan, windows=(ROW2.plan.windows[0], replace(ROW1.plan.windows[1]))), 1)
+    html = page.render(DATA, DAYS, GAMES, SPOTS, [ROW1, ROW2, row3], OPTIONS, today=WEEK[0])
+    with browser_page(width=390) as pg:
+        pg.set_content(html)
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate("document.documentElement.scrollWidth") <= 390, theme
+            for selector in ("tr.spot b", ".plans .same", ".plans span.add"):
+                boxes = pg.locator(selector).evaluate_all(
+                    "els => els.map(e => { const r = e.getBoundingClientRect();"
+                    " return [r.left, r.right, r.width, getComputedStyle(e).visibility]; })"
+                )
+                assert boxes, selector
+                for left, right, width, visibility in boxes:
+                    assert width > 0 and left >= 0 and right <= 390 and visibility == "visible", (selector, theme)
+            assert pg.evaluate(CONTRAST) == [], theme
 
 
 def test_the_command_counts_a_second_night_of_a_player_on_the_rest_list_as_less_than_1_game(

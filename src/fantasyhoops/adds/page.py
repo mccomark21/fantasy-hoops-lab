@@ -2,7 +2,8 @@
 
 render() makes the page from the data of one planning run. Each section of the page comes from one small function.
 A section shows only the parts that exist. The main sections:
-- Best plans for one roster spot: the SpotPlans of adds/spots.py, as a table of days.
+- Best plans for one roster spot: the SpotPlans of adds/spots.py, as a table of days. A line above each row names
+  its roster spot and marks a row that uses the same spot as an earlier row (#114).
 - Matchup: the category scores of the current matchup and the weight of each category (adds/matchup.py).
 - Free agents: a table with filters for days and positions. The page holds its data as JSON, and one inline
   script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
@@ -100,20 +101,45 @@ def _day_head(d):
 
 
 def _moves(row):
-    """The moves of a SpotPlan: one line for each add, then the drop."""
-    lines = [
-        f"<div>+{_player(w.player.player)} ({_e(w.team)}) <span>– {_and([f'{d:%a}' for d in w.started])}</span></div>"
-        for w in row.added
-    ]
-    if row.spot.holder:
-        lines.append(f"<div><span>drop {_e(row.spot.holder.player.name)}</span></div>")
+    """The moves of a SpotPlan: one line for each add, with the add day before the days of his started games.
+    A waiver claim also shows his clear day. The spot line above the row names the drop (#114)."""
+    lines = []
+    for w in row.added:
+        p = w.player.player
+        clears = f", clears {p.clear_day:%a}" if p.on_waivers else ""
+        lines.append(
+            f'<div>+{_player(p)} ({_e(w.team)}) <span class="add">add {w.add_day:%a}{clears}</span> '
+            f"<span>– starts {_and([f'{d:%a}' for d in w.started])}</span></div>"
+        )
     return "".join(lines)
 
 
-def plans_section(rows, days, spots, adds, today, nights=None):
-    """The best plans for one roster spot: one row for each SpotPlan, one column for each day, then the adds,
-    the games gained and the moves. A short message if there is no plan.
+def _spots(rows, spots):
+    """The spot of each row: (text, n), with n the number of an earlier row that uses the same spot, or None.
 
+    A held spot is the same spot as each other row that drops the same player. The rows that use an open spot take
+    the open spots in turn. When there are more such rows than open spots, a row shares the spot of an earlier row.
+    """
+    empty = max(1, sum(s.holder is None for s in spots))
+    first, opens, out = {}, [], []
+    for n, row in enumerate(rows, 1):
+        holder = row.spot.holder
+        if holder:
+            key, label = holder.player.name, f"drop {holder.player.name}"
+        else:
+            key, label = ("open", len(opens) % empty), "open spot"
+            opens.append(n)
+        out.append((label, first.get(key)))
+        first.setdefault(key, n)
+    return out
+
+
+def plans_section(rows, days, spots, adds, today, nights=None):
+    """The best plans for one roster spot: for each SpotPlan, a spot line, then one row with one column for each
+    day, then the adds, the games gained and the moves. A short message if there is no plan.
+
+    The spot line names the roster spot of the row: "drop <name>" or "open spot". A text mark names the earlier row
+    that uses the same spot, because the owner can do only one of those rows (#114).
     nights: from rest.second_nights(). B2B marks a started game of a new player on a second night of his team."""
     nights = nights or {}
     title = "<h2>Best plans for one roster spot</h2>"
@@ -134,15 +160,19 @@ def plans_section(rows, days, spots, adds, today, nights=None):
     head = "".join(_day_head(d.date) for d in days)
     open_row = "".join(f'<td title="{_e(", ".join(d.open) or "no open slots")}">{len(d.open)}</td>' for d in days)
     body = [f'<tr class="open"><th>Open</th>{open_row}<td></td><td></td><td></td></tr>']
-    for n, row in enumerate(rows, 1):
+    for n, (row, (spot, same)) in enumerate(zip(rows, _spots(rows, spots), strict=True), 1):
         cells = []
         for d in days:
             started = sum(d.date in w.started for w in row.added)
             add = "<i>+</i>" if any(w.add_day == d.date for w in row.added) else ""
             b2b = B2B if any(d.date in w.started and w.team in nights.get(d.date, ()) for w in row.added) else ""
             cells.append(f'<td class="on"><b>{started}{add}{b2b}</b></td>' if started else f"<td>{add or '·'}</td>")
+        z = " z" if n % 2 else ""
+        mark = f' <span class="same">same spot as row {same}</span>' if same else ""
         body.append(
-            f'<tr><th>{n}</th>{"".join(cells)}<td class="total">{row.plan.adds}</td>'
+            f'<tr class="spot{z}"><th rowspan="2">{n}</th>'
+            f'<td colspan="{len(days) + 3}"><b>{_e(spot)}</b>{mark}</td></tr>'
+            f'<tr class="days{z}">{"".join(cells)}<td class="total">{row.plan.adds}</td>'
             f'<td class="total">{games_text(row.gain, sign=True)}</td>'
             f'<td class="moves">{_moves(row)}</td></tr>'
         )
@@ -154,8 +184,11 @@ def plans_section(rows, days, spots, adds, today, nights=None):
     return (
         f'<section>{title}\n<table class="plans"><thead><tr><th></th>{head}<th class="total">Adds</th>'
         f'<th class="total">Gms</th><th class="moves">Moves</th></tr></thead><tbody>{"".join(body)}</tbody></table>\n'
-        '<p class="legend">Each row is a plan for one roster spot, with different players in each row. A row can '
-        "use more than one add in the same spot. A cell shows a started game of a new player. "
+        '<p class="legend">Each row is a plan for one roster spot, with different players in each row. The line '
+        'above the days names the spot: "drop" and the player that the first add drops, or "open spot". '
+        'The mark "same spot as row 1" shows that a row uses the spot of row 1, so you can do only one of the two rows. '
+        "A row can use more than one add in the same spot. Each add shows its add day, then the days of his "
+        "started games. A cell shows a started game of a new player. "
         f"<i>+</i> marks a latest add day. {B2B} marks the second game of a back-to-back. Gms: the started games "
         "of the new players minus the started games that the dropped player loses. A game of a player on the rest "
         f"list on a second night counts less than 1.</p>{note}</section>"
@@ -676,8 +709,15 @@ td.name.sub { padding-left: 20px; color: var(--muted); }
 .plans td.moves span { color: var(--muted); }
 .plans td.moves .status { color: var(--lab-on-red); }
 .plans small { color: var(--muted); font-weight: 400; }
+.plans tbody tr > * { background: transparent; }
+.plans tbody tr.z > * { background: var(--zebra); }
 .plans td.on { background: var(--qcol); }
-.plans tbody tr:nth-child(even) > td.on { background: var(--qcol-z); }
+.plans tbody tr.z > td.on { background: var(--qcol-z); }
+.plans tr.spot td { text-align: left; padding: 6px 6px 0; border-bottom: 0; font-size: 12px; overflow-wrap: anywhere; }
+.plans tr.spot td b { font-size: 12px; }
+.plans td.moves span.add { color: var(--fg); font-weight: 700; white-space: nowrap; }
+.plans .same { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1.5px solid var(--fg);
+               font-size: 11px; font-weight: 700; }
 .plans td b { font-size: 14px; font-weight: 800; }
 .plans tr.open td, .plans tr.open th { font-weight: 800; border-bottom: 2px solid var(--fg); }
 i { font-style: normal; font-weight: 900; }
