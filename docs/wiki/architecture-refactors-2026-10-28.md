@@ -41,3 +41,10 @@ The issue filer checked the report against the code at `5e89567`. The report had
 - Wave 3: #129 (`adds/lists.py`) and #132 (site shell) in parallel, because they change different files.
 - Wave 4: #130 after #129, because both change `adds/plan.py`. Review nit on #136: #130 can remove the `PlanningRun` fields that only the report uses.
 - Wave 5: #131 after #130. #130 can remove the terminal-only outputs, such as the drop trade-offs, and #131 bundles the inputs of the searches that remain.
+
+## Wave 3 results (2026-10-28)
+
+- On 2026-10-28, PR #138 (#129) merged as `mccomark21/fantasy-hoops-lab@9276275`. `adds/lists.py` holds the list reads, and `read_lists()` times its own four sub-steps. Review nits, not built: `ListPages` has a copy in `tests/adds/test_lists.py` and in `tests/adds/test_plan.py`; `test_the_page_shows_why_the_market_read_stopped` tests only `lists.market_line()`.
+- On 2026-10-28, PR #137 (#132) merged as `mccomark21/fantasy-hoops-lab@8efb0f7`. The first review (at `591edb8`) found a blocker: the builder made `cfg` optional in `publish()` so that `adds/plan.py` did not change, and the None path read `config.toml`. That brought back the hidden read that #132 set out to remove. The fix made `cfg` required. A dated Decision comment on #132 supersedes the "optional" claim.
+- Lesson of 2026-10-28: a "Do not change file X" line in a builder brief can push the builder to an optional parameter that hides the old behaviour. A brief should allow a minimal call-site change in a shared file, as the fix brief for #137 did.
+- Lesson of 2026-10-28: a SendMessage to a builder that is still working queues. The builder of #137 finished its first task and reported before it read the queued rebase message. Check the head (ancestor of `origin/main`, the expected diff) before you start a reviewer.
