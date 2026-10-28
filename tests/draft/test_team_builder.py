@@ -2,30 +2,36 @@ import json
 import random
 import shutil
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from fantasyhoops import draft
+from fantasyhoops.core import home
 from fantasyhoops.core.common import DATA, ROOT, load_config
+from fantasyhoops.core.lineup import band
+from fantasyhoops.draft.board import lineup_rules
 
 ENGINE = Path(draft.__file__).parent / "team_builder.js"
 # best() and reference() for the speed tests (see node_timing.js).
 TIMING_JS = (Path(__file__).parent / "node_timing.js").read_text(encoding="utf-8")
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node is not on PATH")
 
-# Reads {"data", "core": [ids], "fit": [ids], "slow"} on stdin. Writes {"score", "fits", "ms", "baseline_ms", "slots", "bench"}:
+# Reads {"data", "core": [ids], "fit": [ids], "slow", "ratios"} on stdin.
+# Writes {"score", "fits", "ms", "baseline_ms", "slots", "bench", "footer", "bands"}:
 # ms = best() of all fit calls. baseline_ms = best() of reference() (node_timing.js). slow (default 1) calls fit
 # that many times for each player, to make a fit that is slow times slower. slots and bench: slotRoster of the core
-# in the order of core, as player names.
+# in the order of core, as player names. footer: footerWeeks of the core, if data has ideal. bands: band of each
+# ratio, if data has bands.
 DRIVER = (
     TIMING_JS
     + """
-const { scoreCore, fit, slotRoster } = require(process.argv[1]);
+const { scoreCore, fit, slotRoster, footerWeeks, band } = require(process.argv[1]);
 let text = "";
 process.stdin.on("data", c => (text += c));
 process.stdin.on("end", () => {
-  const { data, core, fit: ids, slow = 1 } = JSON.parse(text);
+  const { data, core, fit: ids, slow = 1, ratios = [] } = JSON.parse(text);
   const byId = new Map(data.players.map(p => [p.id, p]));
   const team = core.map(id => byId.get(id));
   const score = scoreCore(team, data);
@@ -38,17 +44,21 @@ process.stdin.on("end", () => {
   const baseline_ms = best(reference);
   const roster = slotRoster(team, data);
   const slots = Object.fromEntries(Object.entries(roster.slots).map(([s, p]) => [s, p.name]));
-  process.stdout.write(JSON.stringify({ score, fits, ms, baseline_ms, slots, bench: roster.bench.map(p => p.name) }));
+  const footer = data.ideal ? footerWeeks(team, score, data) : null;
+  const bands = data.bands ? ratios.map(r => band(r, data)) : null;
+  process.stdout.write(
+    JSON.stringify({ score, fits, ms, baseline_ms, slots, bench: roster.bench.map(p => p.name), footer, bands })
+  );
 });
 """
 )
 
 
-def engine(data, core, fit=(), slow=1):
-    """Run team_builder.js in node. core and fit are lists of player ids."""
+def engine(data, core, fit=(), slow=1, ratios=()):
+    """Run team_builder.js in node. core and fit are lists of player ids. ratios: the ratios for band()."""
     out = subprocess.run(
         ["node", "-e", DRIVER, str(ENGINE)],
-        input=json.dumps({"data": data, "core": core, "fit": list(fit), "slow": slow}),
+        input=json.dumps({"data": data, "core": core, "fit": list(fit), "slow": slow, "ratios": list(ratios)}),
         capture_output=True,
         text=True,
         check=True,
@@ -329,3 +339,70 @@ def test_random_core_agrees_with_python_game_counts(real, size):
     assert result["weeks"] == expected["weeks"]
     assert result["total"] == expected["total"]
     assert result["finals"] == expected["finals"]
+
+
+# The board and the home page (#133): the same roster on the same days. Value order on the board = rank order on the
+# home page. (name, team, positions, rank, rests_b2b)
+SAME_SLOTS = ["PG", "C"]
+SAME_ROSTER = [
+    ("Guard One", "AAA", "PG", 10, 0),
+    ("Big Man", "CCC", "C", 20, 0),
+    ("Second Guard", "AAA", "PG/SG", 30, 1),
+    ("Third Guard", "BBB", "PG", 40, 0),
+    ("Wing", "BBB", "SF", 50, 0),
+]
+SAME_DAYS = [  # (week, teams, b2b, quality)
+    ("wk19", ["AAA", "BBB", "CCC"], [], False),
+    ("wk19", ["AAA", "BBB"], ["AAA"], False),
+    ("wk20", ["BBB", "CCC"], [], False),
+    ("wk20", ["AAA"], [], True),
+    ("wk21", ["AAA", "BBB", "CCC"], ["BBB"], True),
+]
+
+
+def same_case():
+    """(page data, home Fit) of SAME_ROSTER on SAME_DAYS."""
+    days = [day(t, week=w, quality=q, b2b=b, date=f"2027-03-{8 + i:02d}") for i, (w, t, b, q) in enumerate(SAME_DAYS)]
+    players = [
+        {**player(i, team, pos, 100 - rank, rest), "name": name, "pos": [s for s in pos.split("/") if s in SAME_SLOTS]}
+        for i, (name, team, pos, rank, rest) in enumerate(SAME_ROSTER, 1)
+    ]
+    page = data(days, players)
+    page["slots"] = SAME_SLOTS
+    page.update(lineup_rules(days, page["weeks"], SAME_SLOTS, page["spots"]))
+    roster = [
+        home.RosterPlayer(name, team, tuple(pos.split("/")), rank=rank, rests_b2b=bool(rest))
+        for name, team, pos, rank, rest in SAME_ROSTER
+    ]
+    home_days = [
+        home.Day(date(2027, 3, 8 + i), w, q, frozenset(t), frozenset(b)) for i, (w, t, b, q) in enumerate(SAME_DAYS)
+    ]
+    return page, home.lineup_fit(roster, home_days, SAME_SLOTS)
+
+
+def test_the_board_footer_gives_the_used_and_vs_ideal_of_the_home_page():
+    page, fit = same_case()
+    out = engine(page, [p["id"] for p in page["players"]])
+    footer = dict(zip(page["weeks"], out["footer"]))
+    for week in page["weeks"]:
+        started, games, ideal = fit.team_week(week)
+        assert (footer[week]["started"], footer[week]["games"], footer[week]["ideal"]) == (started, games, ideal)
+    # The numbers by hand. wk19: 5 + 3 games (a rest night), 3 + 2 starters, ideal min(5 × 2, 3 × 2).
+    assert [(w["started"], w["games"], w["ideal"]) for w in out["footer"]] == [(5, 8, 6), (5, 5, 5), (3, 5, 3)]
+
+
+def test_the_board_footer_of_a_smaller_core_uses_the_ideal_of_that_core():
+    page, _ = same_case()
+    out = engine(page, [1, 2])
+    # Before #133: min(core × the most games of a team, starters × game days)
+    assert [w["ideal"] for w in out["footer"]] == [min(2 * 2, 3 * 2), min(2 * 1, 3 * 2), min(2 * 1, 3 * 1)]
+
+
+def test_the_board_bands_are_the_bands_of_the_home_page():
+    page, fit = same_case()
+    ratios = [1.0, 0.9, 0.899, 0.75, 0.7, 0.699, 0.0]
+    ratios += [g / a for w in page["weeks"] for g, a in [fit.team_week(w)[:2], fit.team_week(w)[::2]] if a]
+    out = engine(page, [1], ratios=ratios)
+    assert out["bands"] == [band(r)[0] for r in ratios]
+    # pctClass before #133: r >= 0.9 ? "g-good" : r >= 0.7 ? "g-warn" : "g-bad"
+    assert out["bands"][:7] == ["good", "good", "warn", "warn", "warn", "bad", "bad"]

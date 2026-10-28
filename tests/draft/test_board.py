@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from fantasyhoops.draft import board as draft_board
+from fantasyhoops.draft import out_dir
 from fantasyhoops.draft.board import filter_bar
 
 DF = pd.DataFrame(
@@ -209,11 +210,10 @@ PAGE_DF = pd.DataFrame(
 
 def write_page(monkeypatch, tmp_path, sim=None, days=None, benchmark=None):
     """The HTML page for PAGE_DF, with no board table and no filter bar."""
-    monkeypatch.setattr(draft_board, "OUT", tmp_path)
     monkeypatch.setattr(draft_board, "html_table", lambda df, cfg, need=False: "")
     monkeypatch.setattr(draft_board, "filter_bar", lambda df: "")
     draft_board.write_html(PAGE_DF, PAGE_CFG, sim, days, benchmark=benchmark)
-    return (tmp_path / "draft_board.html").read_text(encoding="utf-8")
+    return (out_dir() / "draft_board.html").read_text(encoding="utf-8")
 
 
 def test_board_has_the_core_combos_tab_only_when_the_simulator_has_run(monkeypatch, tmp_path):
@@ -229,7 +229,7 @@ def test_board_has_the_core_combos_tab_only_when_the_simulator_has_run(monkeypat
         index=pd.Index(["Flagg", "Buzelis"], name="keeper"),
     )
     draft_board.write_html(df, cfg, (combos, summary))
-    html = (tmp_path / "draft_board.html").read_text(encoding="utf-8")
+    html = (out_dir() / "draft_board.html").read_text(encoding="utf-8")
     assert re.findall(r'data-tab="(\w+)"', html) == ["board", "combos"]
     assert re.findall(r'<option value="([^"]*)"', html) == ["Flagg", "Buzelis"]
     assert "Keeper cost $56" in html and ">+10</td>" in html and ">$50</td>" in html
@@ -286,11 +286,16 @@ def test_page_has_one_team_data_block_with_the_contract_keys(monkeypatch, tmp_pa
         "weak_week_started",
         "weeks",
         "days",
+        "bands",
+        "ideal",
         "players",
         "category",
     ]
     assert data["category"] is None and "wz" not in data["players"][0]  # no benchmark file
     assert (data["util"], data["budget"], data["spots"]) == (1, 200, 10)
+    # The lineup-fit rules of core/lineup.py (#133): the bands, and the ideal games of a core of 0 to 10 players
+    assert data["bands"] == [[0.9, "good"], [0.7, "warn"], [0.0, "bad"]]
+    assert data["ideal"]["wk19"] == [0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6]
     # No [team_builder] in the config: the defaults
     assert (data["core_max_rank"], data["weak_week_started"]) == (75, 0)
     assert data["days"] == [
@@ -336,7 +341,6 @@ def test_page_inlines_team_builder_js_when_the_file_is_there(monkeypatch, tmp_pa
 
 
 def test_markdown_board_has_no_team_builder_columns(monkeypatch, tmp_path):
-    monkeypatch.setattr(draft_board, "OUT", tmp_path)
     cfg = {**PAGE_CFG, "board": {"low_games": 60, "tiers": [20]}}
     df = PAGE_DF.assign(
         player=PAGE_DF.name,
@@ -352,7 +356,7 @@ def test_markdown_board_has_no_team_builder_columns(monkeypatch, tmp_path):
         stats="20.0",
     )
     draft_board.write_markdown(df, cfg)
-    md = (tmp_path / "draft_board.md").read_text(encoding="utf-8")
+    md = (out_dir() / "draft_board.md").read_text(encoding="utf-8")
     assert (
         "| Rank | Player | Flags | Team | Pos | $ | League $ | Diff | Sched | Playoffs | Quality | Games | Stats |"
     ) in md

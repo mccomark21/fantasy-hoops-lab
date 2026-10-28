@@ -133,6 +133,7 @@ The draft tools write these files. Do not edit them.
 | Change the limits for draft board flags | `[flags]` in [`config.toml`](../../config.toml) |
 | Change how player value is calculated | [`core/valuation.py`](../../src/fantasyhoops/core/valuation.py) |
 | Change a playoff-week rule (week value, quality days, schedule score, short weeks) | [`core/schedule.py`](../../src/fantasyhoops/core/schedule.py) |
+| Change a lineup-fit rule (best lineup, Util count, ideal games, percent bands) | [`core/lineup.py`](../../src/fantasyhoops/core/lineup.py). The board gets the rules in its page data. `draft/team_builder.js` keeps a copy of the matching and the rest rule. Change both. |
 | Add a column to the rankings | [`draft/rankings.py`](../../src/fantasyhoops/draft/rankings.py) |
 | Change the layout or the columns of the draft board | [`draft/board.py`](../../src/fantasyhoops/draft/board.py) |
 | Fix a player with no team or no Yahoo data | `data/name_overrides.csv`. See [Players who do not match](#players-who-do-not-match). |
