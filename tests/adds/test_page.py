@@ -95,6 +95,11 @@ def text(html):
     return re.sub(r"\s+", " ", " ".join(parts))
 
 
+def run_time(html):
+    """The HTML of the Run time section."""
+    return re.search(r'<details class="notes" id="run-time">.*?</details>', html, re.S).group(0)
+
+
 def plan_rows(html):
     return re.findall(r"<tr><th>\d</th>(.*?)</tr>", html)
 
@@ -1049,8 +1054,8 @@ def test_the_page_and_the_terminal_show_the_market_read(monkeypatch, tmp_path, c
     )
     line = "Market: 2 of 3 pages. Page 2 was the last page of the list."
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
-    section = html.split("<h2>Free agents</h2>")[1]
-    assert line in text(section.split('id="fa-table"')[0])  # above the free-agent table
+    assert line in text(run_time(html))  # in the Run time section, not above the free-agent table (#118)
+    assert line not in text(html.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
     assert line in capsys.readouterr().out
 
 
@@ -1097,8 +1102,10 @@ def test_the_page_and_the_terminal_say_that_the_run_skipped_the_recent_view(monk
         free_agents={command.PROJECTED: projected, command.RECENT: recent},
     )
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
-    section = html.split("<h2>Free agents</h2>")[1]
-    assert SKIP_LINE in text(section.split('id="fa-table"')[0])  # above the free-agent table
+    above = text(html.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
+    # Above the free-agent table: one short sentence. The full line is in the Run time section (#118).
+    assert page.SKIP_NOTE in above and SKIP_LINE not in above
+    assert SKIP_LINE in text(run_time(html))
     assert SKIP_LINE in capsys.readouterr().out
 
 
@@ -1157,7 +1164,7 @@ def test_a_second_run_on_the_same_day_reads_the_recent_view_from_the_cache(monke
     line = re.search(r"The recent view: 3 pages from the cache of \d{4}-\d\d-\d\d \d\d:\d\d\.", capsys.readouterr().out)
     assert line
     html = (tmp_path / "adds_plan.html").read_text(encoding="utf-8")
-    assert f'<p class="legend" id="cache-read">{line.group(0)}</p>' in html
+    assert f'<p class="legend" id="cache-read">{line.group(0)}</p>' in run_time(html)
 
 
 def test_a_run_on_the_next_day_reads_the_recent_view_from_yahoo(monkeypatch, tmp_path):
@@ -1393,3 +1400,99 @@ def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_the_chips_pre
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             assert pg.evaluate(CONTRAST) == [], f"{theme}, pressed"
+
+
+# The run lines, the key and the empty state (#118).
+MARKET = "Market: 3 of 3 pages (the limit)."
+CACHE = "The recent view: 3 pages from the cache of 2027-01-04 09:14."
+
+
+def test_the_run_lines_are_in_run_time_and_nothing_about_the_run_is_above_the_filters():
+    html = render(market=MARKET, cache=CACHE, recent_skip=SKIP_LINE, timings=[timing.StepTime("Yahoo reads", 1.0)])
+    section = html.split("<h2>Free agents</h2>")[1]
+    above_filters = section.split('id="day-chips"')[0]
+    assert text(above_filters).strip() == ""
+    above_table = text(section.split('id="fa-table"')[0])
+    for line in (MARKET, CACHE, SKIP_LINE):
+        assert line not in above_table
+        assert line in text(run_time(html))
+    assert '<p class="skip" id="skip-note">' + page.SKIP_NOTE + "</p>" in section.split('id="fa-table"')[0]
+    assert 'id="market-read"' in run_time(html) and 'id="cache-read"' in run_time(html)
+
+
+def test_the_run_lines_show_in_run_time_also_with_no_step_times():
+    html = render(market=MARKET)
+    assert MARKET in text(run_time(html)) and "<th>Seconds</th>" not in run_time(html)
+
+
+def test_a_run_with_the_recent_view_has_no_skip_note():
+    assert 'id="skip-note"' not in render()
+
+
+def test_the_page_has_no_side_stripe_border():
+    # The styles of the adds page. A 1px rule between the stats is a separator, not a stripe. The site menu of
+    # core/publish.py has its own styles.
+    assert not re.search(r"border-(left|right)\s*:\s*(?!0\b|1px)\d", page.HTML)
+    assert ".skip { font-size: 13px; color: var(--fg); border: 1.5px solid" in page.HTML
+
+
+def test_the_key_of_the_dots_and_the_flags_is_above_the_free_agent_table():
+    nmon = WEEK[6] + timedelta(days=1)
+    html = render(next_days=[Day(nmon, 4, (), (), ("SF", "Util"))], next_games={nmon: {"PHI"}})
+    section = html.split("<h2>Free agents</h2>")[1]
+    key = re.search(r'<p class="key" id="fa-key">(.*?)</p>', section).group(1)
+    assert section.index('id="fa-key"') < section.index('id="fa-table"')
+    assert text(key) == text(
+        "Key: game, open slot game, no open slot 2 back-to-back FA? unusual value UP role up Mon open slot next week"
+    )
+    assert '<span class="dot fit"></span>' in key and page.B2B in key
+    # The long legends are in a <details> below the table.
+    notes = section.split('id="fa-table"')[1]
+    assert '<details class="notes" id="fa-notes"><summary>Columns and marks</summary>' in notes
+    assert "Val: blended value per game" in text(notes.split("</details>")[0])
+    assert "he has a game next Monday" in text(notes.split("</details>")[0])
+
+
+def test_the_key_shows_the_minutes_flag_only_with_role_lines():
+    assert "MIN+" not in re.search(r'id="fa-key">(.*?)</p>', render()).group(1)
+    role = Role(26.0, 20.0, 4, 3, 1, 2, True)
+    html = render(roles={("Phi One", "PHI"): role}, minutes_rise=4.0)
+    assert "MIN+</span> more minutes" in re.search(r'id="fa-key">(.*?)</p>', html).group(1)
+
+
+def test_the_legends_are_75_characters_wide_at_most():
+    assert ".legend { font-size: 12px; margin-top: 6px; max-width: 75ch; }" in render()
+
+
+def test_with_no_match_the_page_shows_a_message_and_a_button_that_clears_the_days():
+    with browser_page() as pg:
+        pg.set_content(render())
+        assert pg.locator("#fa-empty").is_hidden()
+        # PHI plays on Mon and CHI plays on Sun. No free agent plays on both days.
+        pg.get_by_role("button", name="Mon 1/4", exact=False).first.click()
+        pg.locator("#day-chips button").nth(6).click()
+        assert pg.locator("#fa-empty").is_visible()
+        assert pg.locator("#fa-table").is_hidden()
+        assert pg.locator("#fa-empty-text").inner_text() == "No free agent plays on all selected days."
+        assert pg.locator("#fa-count").inner_text() == "0 free agents match the filters"
+        pg.get_by_role("button", name="Clear days").click()
+        assert pg.locator("#fa-empty").is_hidden() and pg.locator("#fa-table").is_visible()
+        assert pg.locator('#day-chips button[aria-pressed="true"]').count() == 0
+        assert pg.evaluate("document.activeElement.textContent").startswith("Mon 1/4")
+
+
+def test_the_reset_button_restores_the_default_filters_and_sort():
+    with browser_page() as pg:
+        pg.set_content(render())
+        default = pg.locator("#fa-table").inner_html()
+        pg.locator("#day-chips button").nth(5).click()
+        pg.get_by_role("button", name="SF", exact=True).click()
+        pg.locator("#fit-only").uncheck()
+        pg.get_by_role("button", name="Gms", exact=True).click()
+        assert pg.locator("#fa-table").inner_html() != default
+        pg.get_by_role("button", name="Reset filters").click()
+        assert pg.locator('button.chip[aria-pressed="true"]').count() == 0
+        assert pg.locator("#fit-only").is_checked()
+        assert pg.locator("th.sort[aria-sort] button").get_attribute("data-sort") == "value"
+        assert pg.locator("#fa-table").inner_html() == default
+        assert pg.evaluate("document.activeElement.id") == "fa-reset"

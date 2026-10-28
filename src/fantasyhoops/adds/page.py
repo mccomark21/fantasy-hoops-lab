@@ -13,7 +13,8 @@ A third section lists the waiver players (W) with their clear days.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the plans and the free agents.
 The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
 The Run time table shows the time of each step of the run (adds/timing.py, #85), with the sub-steps of the Yahoo
-reads and their Yahoo pages below the Yahoo reads row (#89).
+reads and their Yahoo pages below the Yahoo reads row (#89). The Run time section also holds the lines about the run:
+the market read, the pages from the cache and the skip of the recent view (#118).
 The page has inline CSS and no files from other sites. The colors and the font come from core/tokens.py, and the site
 menu comes from core/publish.py (#117). write() also writes the font file to fonts/ next to the page.
 """
@@ -323,6 +324,28 @@ def next_week_legend(next_days):
     return '<p class="legend">' + " ".join(lines) + " The mark changes no value and no plan.</p>\n"
 
 
+SKIP_NOTE = "Val uses the projection only in this run. Run time below gives the reason."
+
+
+def fa_key(roles, minutes_rise, next_days):
+    """The one-line key of the dots and the flags, above the free-agent table (#118). MIN+ shows only with roles
+    and minutes_rise. The next-week flag shows only if a day of next week has an open slot."""
+    items = [
+        '<span class="dot fit"></span> game, open slot',
+        '<span class="dot game"></span> game, no open slot',
+        f"{B2B} back-to-back",
+        '<span class="flag">FA?</span> unusual value',
+        '<span class="flag up">UP</span> role up',
+    ]
+    if roles and minutes_rise is not None:
+        items.append('<span class="flag">MIN+</span> more minutes')
+    early = next((d for d in next_days if d.open), None)
+    if early:
+        items.append(f'<span class="flag next">{_open_label(early.date)}</span> slot next week')
+    spans = "".join(f"<span>{item}</span>" for item in items)
+    return f'<p class="key" id="fa-key"><span class="vh">Key: </span>{spans}</p>\n'
+
+
 def free_agents_section(
     options,
     days,
@@ -336,8 +359,6 @@ def free_agents_section(
     next_days=(),
     next_games=None,
     recent_skip=None,
-    market=None,
-    cache=None,
 ):
     """The free-agent table with its filters. A script fills the table from the data. Nothing with no options.
 
@@ -345,26 +366,27 @@ def free_agents_section(
     roles and minutes_rise: the Roles of adds/roles.py and [adds] minutes_rise, for the role line of each player.
     flags: [adds.flags], for the legend of the starter flag and the closer flag.
     next_days and next_games: the first days of next week, for the next-week marks (see free_agent_data()).
-    recent_skip: the line that says that the run skipped the recent view (plan.recent_skip_line(), #90). It shows
-    above the table. None: the run read the recent view, and no line shows.
-    market: the line that says how many market pages the run read and why the read stopped (plan.market_line(),
-    #92). It shows above the table. None: no line.
-    cache: the line that says which pages came from the same-day cache (cache.PageCache.line(), #91). It shows above
-    the table. None: no page came from the cache, and no line shows.
+    recent_skip: the line that says that the run skipped the recent view (plan.recent_skip_line(), #90). With a
+    line, SKIP_NOTE shows above the table, and the full line shows in the Run time section (#118). None: no note.
+    The key of the marks shows above the table. The long legends are in a <details> below the table (#118).
+    The script shows a message with a "Clear days" button when no free agent matches the filters.
     """
     options = [o for o in options if not o.player.on_waivers]
     if not options or not days:
         return ""
     data = free_agent_data(options, days, games, replacement, match_replacement, nights, roles, next_days, next_games)
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    skip = f'<p class="skip">{_e(recent_skip)}</p>' if recent_skip else ""
-    read = f'<p class="legend" id="market-read">{_e(market)}</p>' if market else ""
-    cached = f'<p class="legend" id="cache-read">{_e(cache)}</p>' if cache else ""
+    skip = f'<p class="skip" id="skip-note">{SKIP_NOTE}</p>\n' if recent_skip else ""
     return (
-        "<section><h2>Free agents</h2>" + read + cached + skip + "\n"
+        "<section><h2>Free agents</h2>\n"
         '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
-        '<label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot'
-        '</label>\n<p class="count" id="fa-count" aria-live="polite"></p>\n<table class="fa" id="fa-table"></table>\n'
+        '<div class="tools"><label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill '
+        'an open slot</label>\n<button type="button" class="chip act" id="fa-reset">Reset filters</button></div>\n'
+        f'{skip}{fa_key(roles, minutes_rise, next_days)}<p class="count" id="fa-count" aria-live="polite"></p>\n'
+        '<div class="empty" id="fa-empty" hidden><p id="fa-empty-text"></p>'
+        '<button type="button" class="chip act" id="fa-clear-days">Clear days</button></div>\n'
+        '<table class="fa" id="fa-table"></table>\n'
+        '<details class="notes" id="fa-notes"><summary>Columns and marks</summary>\n'
         '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
         f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
         "Val: blended value per game above a "
@@ -372,7 +394,7 @@ def free_agents_section(
         "with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. "
         '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
         '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
-        f"{role_legend(roles, minutes_rise, flags)}{next_week_legend(next_days)}"
+        f"{role_legend(roles, minutes_rise, flags)}{next_week_legend(next_days)}</details>\n"
         f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>'
     )
 
@@ -433,13 +455,16 @@ def contingency_section(contingencies):
     return f"<section><h2>Contingency plans</h2>\n<ul>{items}</ul></section>" if items else ""
 
 
-def timings_section(timings):
-    """The Run time table: the seconds of each step of the run, the calls and the states of each search step, and
-    the Yahoo pages of each step with sub-steps.
+def timings_section(timings, market=None, cache=None, recent_skip=None):
+    """The Run time section: the lines about the run, then a table with the seconds of each step of the run, the
+    calls and the states of each search step, and the Yahoo pages of each step with sub-steps.
 
-    timings: the timing.StepTimes of the run. Nothing if there are none. A sub-step row follows the row of its
-    step and shows only the sub-step name, indented. The page write has no row, because the run writes the page
-    before that step ends. timings.csv has its row.
+    timings: the timing.StepTimes of the run. A sub-step row follows the row of its step and shows only the
+    sub-step name, indented. The page write has no row, because the run writes the page before that step ends.
+    timings.csv has its row.
+    market: the line of the market read (plan.market_line(), #92). cache: the line of the pages from the same-day
+    cache (cache.PageCache.line(), #91). recent_skip: the line of the skip of the recent view
+    (plan.recent_skip_line(), #90). Each line is None when it does not apply. Nothing with no timings and no lines.
     """
 
     def count(n):
@@ -455,10 +480,15 @@ def timings_section(timings):
         f"<td>{count(s.states)}</td><td>{count(s.pages)}</td></tr>"
         for s in timings
     )
+    lines = "".join(
+        f'<p class="legend" id="{key}">{_e(line)}</p>\n'
+        for key, line in (("skip-read", recent_skip), ("market-read", market), ("cache-read", cache))
+        if line
+    )
     if not body:
-        return ""
+        return f'<details class="notes" id="run-time"><summary>Run time</summary>\n{lines}</details>' if lines else ""
     return (
-        '<details class="notes"><summary>Run time</summary>\n'
+        f'<details class="notes" id="run-time"><summary>Run time</summary>\n{lines}'
         '<table class="ranking"><thead><tr><th class="name">Step</th><th>Seconds</th><th>Calls</th>'
         f"<th>States</th><th>Pages</th></tr></thead><tbody>{body}</tbody></table>\n"
         '<p class="muted">Calls: the calls of the plan search, cache hits included. States: the unique states '
@@ -548,9 +578,9 @@ def render(
     next_days: the Days of the first days of next week from the core roster. next_games: {day: set of teams} of
     those days. With both, the free-agent table marks each player who fits an open slot on one of these days.
     timings: the timing.StepTimes of the run, for the Run time table.
-    recent_skip: the line that says that the run skipped the recent view, or None (free_agents_section()).
-    market: the line of the market read, or None (free_agents_section()).
-    cache: the line of the pages from the cache, or None (free_agents_section()).
+    recent_skip: the line that says that the run skipped the recent view, or None (timings_section()).
+    market: the line of the market read, or None (timings_section()).
+    cache: the line of the pages from the cache, or None (timings_section()).
     """
     today = today or date.today()
     sections = [
@@ -571,14 +601,12 @@ def render(
             next_days,
             next_games,
             recent_skip,
-            market,
-            cache,
         ),
         waivers_section(options, replacement),
         role_up_section(options),
         contingency_section(contingencies),
         ranking_section(ranking, read),
-        timings_section(timings),
+        timings_section(timings, market, cache, recent_skip),
         method_note(),
     ]
     return (
@@ -661,8 +689,15 @@ sup.b2b { font-size: 9px; font-weight: 800; color: var(--bad); margin-left: 1px;
   .plans .moves { width: 38%; }
   .plans thead small, .plans .long { display: none; }
 }
-.legend { font-size: 12px; margin-top: 6px; }
-.skip { font-size: 13px; color: var(--fg); border: 1.5px solid var(--lamp-off); padding: 4px 8px; }
+.legend { font-size: 12px; margin-top: 6px; max-width: 75ch; }
+.skip { font-size: 13px; color: var(--fg); border: 1.5px solid var(--lamp-off); padding: 4px 8px; width: fit-content; }
+.key { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; margin: 0 0 6px; }
+.key > span { white-space: nowrap; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 0 0 8px; }
+.tools label.toggle { margin: 0; }
+.empty { border: 1.5px solid var(--lamp-off); padding: 10px 12px; margin: 0 0 8px; }
+.empty p { color: var(--fg); font-weight: 700; }
+.empty[hidden], .fa[hidden], .empty button[hidden] { display: none; }
 .filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
 .filters .label { width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); }
 button.chip { font: inherit; font-size: 13px; font-weight: 700; padding: 4px 9px; border: 1.5px solid var(--lamp-off);
@@ -675,6 +710,7 @@ button.chip:hover { border-color: var(--fg); }
 button.chip.none { color: var(--muted); border-style: dashed; }
 button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: var(--bg); }
 button.chip[aria-pressed="true"] small { color: var(--bg); }
+button.chip.act { min-height: 32px; }
 label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; min-height: 28px;
                cursor: pointer; }
 label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q); }
@@ -763,7 +799,15 @@ function render() {
   const rows = DATA.players.filter(p => [...state.days].every(i => hits(p)[i])
     && (!state.pos.size || p.pos.some(x => state.pos.has(x))))
     .sort((a, b) => SORTS[state.sort](b) - SORTS[state.sort](a));
-  $("fa-count").textContent = `Top ${Math.min(DATA.rows, rows.length)} of ${rows.length} free agents that match the filters`;
+  $("fa-count").textContent = rows.length
+    ? `Top ${Math.min(DATA.rows, rows.length)} of ${rows.length} free agents that match the filters`
+    : "0 free agents match the filters";
+  // With no match, the table hides and a message shows. With selected days, the message has a Clear days button.
+  $("fa-empty").hidden = rows.length > 0;
+  $("fa-table").hidden = !rows.length;
+  $("fa-empty-text").textContent = state.days.size
+    ? "No free agent plays on all selected days." : "No free agent matches the filters.";
+  $("fa-clear-days").hidden = !state.days.size;
   // Each sort header holds a button. The th of the sorted column has aria-sort and shows an arrow.
   const th = (key, cls) => `<th class="sort ${cls || ""}"${state.sort === key ? ' aria-sort="descending"' : ""}>`
     + `<button type="button" data-sort="${key}">${SORT_NAMES[key]}`
@@ -796,6 +840,17 @@ function render() {
 }
 
 $("fit-only").onchange = e => { state.fit = e.target.checked; render(); };
+// Clear days hides itself, so the focus goes to the first day chip.
+$("fa-clear-days").onclick = () => {
+  state.days.clear(); render();
+  const first = $("day-chips").querySelector("button");
+  if (first) first.focus();
+};
+// Reset filters restores the defaults: no days, no positions, only games that fill an open slot, sort by Val.
+$("fa-reset").onclick = () => {
+  state.days.clear(); state.pos.clear(); state.fit = true; state.sort = "value"; $("fit-only").checked = true;
+  render();
+};
 chips();
 render();
 """
