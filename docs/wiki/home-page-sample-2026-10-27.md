@@ -59,3 +59,54 @@ The contract says that the build ends with a finish review, a verdict, and an up
 - No issue was filed for the home page or the generator. By the brief, an issue waits for the owner approval of the sample.
 - `.impeccable/mocks/`, `.impeccable/review/` and `.impeccable/surfaces/` were not committed.
 - The scope of the sample touches the scope of #117 (one shared token source and a new visual identity for the home page, the nav and the adds page). The session left no record that links the two.
+
+## Owner feedback of 2026-10-28
+
+The owner looked at the sample and gave these points. The direction stays Card Back. The revision does not choose a new direction.
+
+1. The owner likes the Card Back style. The rows must be easier to scan, with gentle zebra stripes like `canon.html`.
+2. In the 21-day playoff grid, a quality day must be a shaded column for the full height of the table, not only a mark in the header.
+3. On a phone, each player is a row that opens and closes. The closed row shows Team, Rank, Player, POS, GP and the total playoff games. A tap shows the rest: the stats, the weekly starts and games, and the day grid.
+4. The playoff starts include the IL players. They count in the lineup fit, the weekly starts and the team totals, because they will likely be back by the playoffs. The rule stays the same: the best lineup each day, higher rank first. The IL players keep a visible IL marker. The key and the footnote change to match.
+5. The page keeps both themes. Light is the white stock, and dark is the navy card back. Both follow the system setting. Both themes must meet WCAG 2.2 AA contrast, also on the zebra rows and the shaded columns.
+6. Gentle vertical rules separate the column sections (Team, Rank and Player | season stats | playoff starts and games | day grid). Rules also separate the playoff weeks: Wk19 | Wk20 | Wk21 in the weekly columns, and the three 7-day weeks in the day grid. The rules are thin and low in contrast in both themes. On a phone, the rules are inside the opened row.
+7. The site menu gets a light and dark theme switch. The default follows the system setting. A choice overrides the system setting and stays in the browser. The switch is in the shared site menu, so that each tool page can use it later. Point 7 replaces the earlier instruction of the same day not to add a switch.
+
+This answers the dark-theme question in the brief: the page has both themes.
+
+### What changed in the sample
+
+The revised sample is `.impeccable/review/sample-index.html`. The old sample is `.impeccable/review/sample-index-v1.html`, and its screenshots are in `.impeccable/review/v1-screens/`. A script in the session scratchpad wrote the new sample from the data of the old sample, `data/schedule.csv` and `data/projection_risk.csv`. Neither `.impeccable/` nor `src/` is committed.
+
+- Zebra rows: every second row has a light tint (`#eff3f8` on white, `#142540` on navy). The phone rows use the same tint.
+- Quality days: the day grid now has one table column for each day. A quality day has a tinted column from the header to the team-starts row, and the header cell stays a solid block. The block is the sign that does not depend on color only.
+- Section rules: 1px rules in a low-contrast blue-gray (`#d2d9e4` light, `#2e4264` dark).
+- Phone: each player is a `<details>` row. The closed row shows the team band, the rank, the name with POS and the roster slot below it, GP and the total playoff games. The open row shows the 7 other stats, the 4 weekly cells and the 21-day grid. The desktop table is not shown on a phone.
+- IL: Paolo Banchero (rank 30) and Coby White (rank 77) are now in rank order with the other players and carry a red IL flag. The IL divider row ("Games only. Not in the team starts.") is removed. The "Game, on IL" mark is removed from the key. The key has new items for "Quality day" and "IL: on IL now, counts in the starts". The footnote says that the IL players are in the lineup pool because they will likely be back by the playoffs.
+- Theme switch: a group of three buttons in the side menu and in the phone menu: Auto, Light and Dark. The pressed button has `aria-pressed="true"` and a white fill. The choice is in `localStorage` (key `lab-theme`) inside `try`/`catch`. A small script in `<head>` sets the theme before the first paint.
+
+### New playoff starts
+
+The script copied the engine rule of `draft/team_builder.js`: slots PG, SG, SF, PF, C and one Util, players in custom-rank order, and no second night of a back-to-back for a player with `rests_b2b` = 1. Without the IL players, the script got the old totals again (34, 34 and 33 = 101, with 8 starts lost and 9 open slots on quality days). This check shows that the script copies the old sample.
+
+| Week | Old (IL out) | New (IL in) |
+| --- | --- | --- |
+| Wk19 | 34 | 35 |
+| Wk20 | 34 | 36 |
+| Wk21 | 33 | 33 |
+| Total | 101 | 104 |
+
+With the IL players in the pool, 26 starts are lost to a full lineup (Black 9, Mitchell 8, Gobert 3, Quickley 3, White 3), and 8 slots are open on quality days. Coby White has `rests_b2b` = 1, so he rests on one back-to-back night (Mar 11).
+
+### Contrast check
+
+The check computed the WCAG ratios for the text and the marks on the page, the zebra, the quality column and the quality column on a zebra row, in both themes. All text is at 4.5:1 or more where it appears. The red text appears only on the page and the zebra (5.28:1 light, 5.59:1 dark). The "no game" dash was at 2.79:1 on the shaded zebra cells in the light theme, so its color changed to `#6f7889` (3.34:1).
+
+### Screenshots (2026-10-28)
+
+In `.impeccable/review/`: `desktop.png`, `desktop-dark.png`, `mobile.png` (rows closed), `mobile-open.png` (the Banchero row open), `mobile-dark.png`, `mobile-menu.png` (the phone menu with the theme switch), `theme-auto-light.png`, `theme-dark-chosen.png` (Dark chosen on a light system) and `theme-light-chosen.png` (Light chosen on a dark system).
+
+### Open
+
+- The owner has not approved the revised sample. No issue is filed.
+- The brief still lists where the home-page data is built.
