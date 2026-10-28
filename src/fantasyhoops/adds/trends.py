@@ -2,7 +2,7 @@
 
 The page shows one day (date=). It has no view for a week, so "this week" is the sum of the pages of the days of
 the week up to today. Each page shows 50 players only. A player who is not on the page of a day counts 0 adds
-that day. The trend is evidence and the last tiebreak of the options. It never changes the plan score.
+that day. The trend is evidence only. It changes no value and no plan.
 """
 
 from dataclasses import dataclass

@@ -5,9 +5,10 @@
 - Blended line = (1 - w) x projected line + w x recent line. The weight w = games in the last 14 days / 14, 1 at most.
 - A player with no recent games: blended line = projected line.
 - A player with no projection but with recent games: blended line = recent line, because it is the only stat line
-  that the planner has for him. He is then a candidate for the plans. This does not hold while the run skips the
+  that the planner has for him. He then has a value in the free-agent table. This does not hold while the run skips the
   recent view ([adds] recent_skip_weight, #90): he then has no recent games and no value.
-  A player with no projection and no recent games has no blended value and is not a candidate.
+  A player with no projection and no recent games has no blended value, and the free-agent table does not
+  show him.
 """
 
 from fantasyhoops.adds.planner import Option

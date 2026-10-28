@@ -370,7 +370,7 @@ def test_the_page_has_no_next_week_mark_with_no_days_to_check():
 
 def test_the_page_has_no_run_time_table_with_no_step_times():
     assert "Run time" not in render()
-    html = render(timings=[timing.StepTime("schedule search", 1.234, 1200, 300)])
+    html = render(timings=[timing.StepTime("team plan", 1.234, 1200, 300)])
     assert "<td>1.23</td><td>1,200</td><td>300</td><td></td>" in html
 
 

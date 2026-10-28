@@ -234,7 +234,7 @@ def publish_page(path, lines, cfg, publish=True, home=None):
 
 def main(today=None, publish=True, timed=True, cache=True):
     """One planning run (see the module docstring). timed False: no step times, no timings.csv and no Run time
-    table. The plans are the same. cache False (--no-cache): the run reads each page from Yahoo and writes it over
+    table. The team plan is the same. cache False (--no-cache): the run reads each page from Yahoo and writes it over
     the cached page (adds/cache.py)."""
     timings = timing.Timings(timed)
     step = timings.step

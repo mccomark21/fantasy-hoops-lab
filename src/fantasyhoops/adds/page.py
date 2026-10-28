@@ -329,7 +329,7 @@ def free_agents_section(run):
 
 
 def waivers_section(options, replacement):
-    """The waiver players (W), best value first: the clear day, the first day for a plan and the market value.
+    """The waiver players (W), best value first: the clear day, the first day that he can play and the market value.
 
     Nothing if no option is on waivers.
     """
@@ -352,7 +352,7 @@ def waivers_section(options, replacement):
         '<table class="ranking"><thead><tr><th class="name">Player</th><th class="name">Team</th>'
         '<th class="name">Pos</th><th>Clears</th><th>First day</th><th>Val</th></tr></thead>'
         f"<tbody>{rows}</tbody></table>\n"
-        '<p class="legend">First day: the first day that a plan can use him, the day after he clears waivers. '
+        '<p class="legend">First day: the first day that he can play for you, the day after he clears waivers. '
         f"Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>"
     )
 

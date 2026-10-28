@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -194,15 +194,8 @@ def test_a_free_agent_row_gives_no_warning(capsys):
     assert capsys.readouterr().out == ""
 
 
-def test_a_waiver_player_is_available_from_the_day_after_his_clear_day():
-    wed = date(2026, 10, 21)
-    claim = Player("A", "BOS", ("C",), clear_day=wed)
-    assert [
-        claim.available(wed - timedelta(days=1)),
-        claim.available(wed),
-        claim.available(wed + timedelta(days=1)),
-    ] == [False, False, True]
-    assert Player("B", "BOS", ("C",)).available(wed)
+def test_a_player_with_a_clear_day_is_on_waivers():
+    claim = Player("A", "BOS", ("C",), clear_day=date(2026, 10, 21))
     assert claim.on_waivers and not Player("B", "BOS", ("C",)).on_waivers
 
 
