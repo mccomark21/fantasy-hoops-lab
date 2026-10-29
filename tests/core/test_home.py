@@ -1,3 +1,4 @@
+import base64
 import copy
 import re
 from datetime import date
@@ -94,11 +95,22 @@ FIT = r"""width => {
 }"""
 
 
+def with_font(html):
+    """The page with the site font inline, as on the site. set_content() has no fonts/ folder next to the page.
+
+    With no font, each machine uses its own fallback font, and the text widths change from machine to machine.
+    """
+    font = base64.b64encode(tokens.FONT.read_bytes()).decode()
+    return html.replace(f"url({tokens.FONT_HREF})", f"url(data:font/woff2;base64,{font})")
+
+
 @pytest.mark.parametrize("width", [320, 390, 768, 1280])
 def test_the_home_page_fits_and_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode(width):
     """#140 page tests for the Home page (#172): fit, no sideways scroll and contrast, in both themes."""
     with browser_page(width) as pg:
-        pg.set_content(home.render(CFG))
+        pg.set_content(with_font(home.render(CFG)))
+        pg.evaluate("document.fonts.ready")
+        assert pg.evaluate("document.fonts.check('900 20px Archivo')")
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             assert pg.evaluate(FIT, width) == [], (width, theme)
