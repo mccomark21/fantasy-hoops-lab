@@ -33,22 +33,31 @@ class TradeInputs:
     deadline_error: str | None
 
 
+def read_deadline(pages, reader, today):
+    """(the trade deadline, the error message): the deadline from the league settings page, through the cache.
+
+    pages: the cache.PageCache of the run. reader: pages.rostered(yahoo). today: the day of the run.
+    A missing deadline does not stop the read. The deadline is then None, and the message names the cache folder of
+    the settings page. Else the message is None.
+    """
+    try:
+        return read_trade_deadline(reader.get(SETTINGS_PATH), today), None
+    except TradeDeadlineNotFound as found:
+        folder = pages.folder / ROSTERED / f"{today:%Y-%m-%d}"
+        return None, f"{found} The page is in the cache folder {folder}."
+
+
 def read_trade_inputs(pages, yahoo, own_team, skip_recent, today):
     """Read the rostered list and the trade deadline. Give TradeInputs.
 
     pages: the cache.PageCache of the run. yahoo: the session.League. own_team: your team ID ([adds] team), or None
     to keep the rows of all teams (the trade run of #150 needs the rows of your team for their blended values).
-    skip_recent: see rostered.read_rostered(). today: the day of the run.
-    A missing deadline does not stop the read. deadline_error then names the cache folder of the settings page.
+    skip_recent: see rostered.read_rostered(). today: the day of the run. A missing deadline does not stop the read
+    (read_deadline()).
     """
     reader = pages.rostered(yahoo)
     rostered = read_rostered(reader, own_team, skip_recent)
-    try:
-        deadline, error = read_trade_deadline(reader.get(SETTINGS_PATH), today), None
-    except TradeDeadlineNotFound as found:
-        folder = pages.folder / ROSTERED / f"{today:%Y-%m-%d}"
-        deadline, error = None, f"{found} The page is in the cache folder {folder}."
-    return TradeInputs(rostered, deadline, error)
+    return TradeInputs(rostered, *read_deadline(pages, reader, today))
 
 
 def report(inputs):

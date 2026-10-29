@@ -7,7 +7,10 @@ table look from publish.TABLE_STYLE (the lab-t table) and publish.band_style().
 Under the table, the trade builder (#152) computes a custom trade in the browser. The page inlines
 draft/team_builder.js and trade/trade_builder.js, as draft/board.py does. A click on a suggestion loads it into the
 builder. The partner starts are an estimate ("est."), because the rostered list does not show the IL slots.
-render() takes its data from the caller. write() writes output/trade/index.html with publish.write_page().
+Warning lines (no trade deadline, players with no match in the data files) sit under the header (#153).
+After the trade deadline, render_deadline() gives a short page with only the header and the deadline line.
+render() and render_deadline() take their data from the caller. write() writes output/trade/index.html with
+publish.write_page().
 """
 
 import html
@@ -328,13 +331,47 @@ def builder_script(data):
     )
 
 
-def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", builder=None):
+def made_text(made):
+    """The header cell of the time of the run, for example "<strong>Thu 10/29</strong> 09:30"."""
+    return f"<strong>{made:%a} {made.month}/{made.day}</strong> {made:%H:%M}"
+
+
+def deadline_line(deadline):
+    """The line of the page after the trade deadline (#153)."""
+    return f"The trade deadline was {deadline:%A, %B} {deadline.day}, {deadline.year}. Yahoo accepts no more trades this season."
+
+
+def warning_block(warnings):
+    """The warning lines under the header, or "" with no warning. Each line starts with "Warning: "."""
+    if not warnings:
+        return ""
+    lines = "".join(f"<li>{_e(w)}</li>" for w in warnings)
+    return f'<ul class="warn" id="warnings" aria-label="Warnings">{lines}</ul>'
+
+
+def render_deadline(cfg, made, deadline):
+    """The HTML of the trade page after the trade deadline: the header and the deadline line (#153).
+
+    cfg: the config ([league] teams for the menu). made: the datetime of the run. deadline: the past trade deadline.
+    """
+    head = f"<strong>{deadline:%a %b} {deadline.day}</strong> · passed"
+    body = f'<div class="empty" id="deadline"><p>{_e(deadline_line(deadline))}</p></div>'
+    return (
+        site.shell(DEADLINE_PAGE, CURRENT, cfg)
+        .replace("__DEADLINE__", head)
+        .replace("__MADE__", made_text(made))
+        .replace("__BODY__", body)
+    )
+
+
+def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", builder=None, warnings=()):
     """The HTML of the trade page.
 
     result: the suggest.Suggestions. weeks: the names of the playoff weeks. cfg: the config ([trade] kept and
     per_player, [league] teams for the menu). made: the datetime of the run. today: the date of the run.
     deadline: the trade deadline, or None. rostered_line: the read time of the rostered pages (run.rostered_line()).
     builder: the page data of the trade builder (builder_data()), or None for a page with no builder.
+    warnings: the warning lines of the run (run.warnings()). They show under the header.
     """
     base = result.base
     starts = " · ".join(str(b) for b in base)
@@ -359,7 +396,8 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
         site.shell(PAGE, CURRENT, cfg)
         .replace("__DEADLINE__", deadline_text(deadline, today))
         .replace("__STARTS__", f"<strong>{starts}</strong> = {sum(base)}, {_e(span)}")
-        .replace("__MADE__", f"<strong>{made:%a} {made.month}/{made.day}</strong> {made:%H:%M}")
+        .replace("__MADE__", made_text(made))
+        .replace("__WARNINGS__", warning_block(warnings))
         .replace("__BODY__", body)
         .replace("__FOOT__", foot)
         .replace("__ROSTERED__", _e(rostered_line))
@@ -468,6 +506,10 @@ td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .mnow span:last-child { text-align: left; font-size: 12px; font-weight: 700; padding-left: 12px; }
 .empty { border: 1.5px solid var(--lamp-off); padding: 10px 12px; margin: 8px 0; color: var(--lab-ink); }
 .empty p { margin: 0; font-weight: 700; }
+/* The warning lines of the run (#153), under the header. */
+.warn { list-style: none; margin: 12px 0 0; padding: 8px 12px; border-left: 4px solid var(--lab-red);
+  background: var(--lab-stock); color: var(--lab-ink); font-size: 13px; max-width: 100ch; overflow-wrap: anywhere; }
+.warn li + li { margin-top: 4px; }
 
 /* Look 3 (#149): the starts now in one blue row. Each week cell has the new count, the change and a small bar.
    The bar: a tick at 0, 8px for each start, blue to the right for a gain, red with a gap to the left for a loss. */
@@ -761,6 +803,7 @@ __MENU__
 <div><dt>Made</dt><dd>__MADE__</dd></div>
 </dl>
 </header>
+__WARNINGS__
 <section id="sugg" aria-labelledby="sugg-h">
 <h2 id="sugg-h">Suggested trades</h2>
 __BODY__
@@ -774,6 +817,40 @@ __SCRIPT__
     + SCRIPT
     + """
 __BUILDER_JS__
+</body>
+</html>
+"""
+)
+
+# The page after the trade deadline (#153): the header and one line. No table, no builder and no script of its own.
+DEADLINE_PAGE = (
+    """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trades</title>
+__HEAD__
+<style>
+__TABLE_CSS__
+"""
+    + STYLE
+    + """
+</style>
+</head>
+<body class="lab">
+__MENU__
+<main class="lab-main trade">
+<header class="head">
+<h1>Trades</h1>
+<dl class="meta">
+<div class="dl"><dt>Trade deadline</dt><dd>__DEADLINE__</dd></div>
+<div><dt>Made</dt><dd>__MADE__</dd></div>
+</dl>
+</header>
+__BODY__
+</main>
+__SCRIPT__
 </body>
 </html>
 """

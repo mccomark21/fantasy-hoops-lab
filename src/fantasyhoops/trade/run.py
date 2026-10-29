@@ -7,6 +7,12 @@ league settings through the same-day cache (trade/reads.py). It scores the trade
 output/trade/index.html (trade/page.py). It times its steps in output/trade/timings.csv (adds/timing.py).
 The publish (publish_page()) puts the page at /trade/ on gh-pages and keeps the home page there (keep_home=True).
 With --no-publish, the run does not change gh-pages.
+Edge states (#153):
+1. The run reads the league settings first. After the trade deadline, it does not read your team page or the
+   rostered list. It writes and publishes a short page with the deadline line (page.render_deadline()).
+2. With no trade deadline, the run continues. The terminal and the page show a warning.
+3. A player with no match in the rankings, the [risk] file or the projections file gets a warning line.
+4. When the run cannot read Yahoo, it stops with the error (YahooReadFailed) and does not publish.
 """
 
 import argparse
@@ -14,6 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import pandas as pd
+from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
 from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.cache import ROSTERED, PageCache
@@ -21,7 +28,7 @@ from fantasyhoops.adds.drops import season_values
 from fantasyhoops.adds.home import read_ranks
 from fantasyhoops.adds.lists import recent_weight_limit, skips_recent_view
 from fantasyhoops.adds.readers import read_roster
-from fantasyhoops.adds.session import WAIT_SECONDS, open_league
+from fantasyhoops.adds.session import WAIT_SECONDS, PageNotReady, YahooBlocked, open_league
 from fantasyhoops.adds.timing import Timings
 from fantasyhoops.adds.value import projection_scale
 from fantasyhoops.core import common, home
@@ -31,10 +38,30 @@ from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
 from fantasyhoops.draft.rankings import load_risk
 from fantasyhoops.trade import page
-from fantasyhoops.trade.reads import read_trade_inputs
+from fantasyhoops.trade.reads import TradeInputs, read_deadline
+from fantasyhoops.trade.rostered import read_rostered
 from fantasyhoops.trade.suggest import TradePlayer, TradeSettings, player_value, suggest
 
 SCHEDULE_FETCH = "python -m fantasyhoops.fetch.espn"
+# The errors of a Yahoo read that stop the run: a block, a page that did not load, a sign-in that did not finish.
+YAHOO_ERRORS = (YahooBlocked, PageNotReady, PlaywrightTimeout)
+
+
+class YahooReadFailed(SystemExit):
+    """The run could not read Yahoo. It stops and does not publish, so the last good page stays on the site."""
+
+
+def yahoo_failed(error):
+    """The YahooReadFailed of a Yahoo error: the error, and the line that the run did not publish."""
+    return YahooReadFailed(
+        f"The trade run could not read Yahoo: {type(error).__name__}: {error} "
+        "The run did not publish. The last good page stays on the site."
+    )
+
+
+def deadline_passed(deadline, today):
+    """True if today is after the trade deadline. On the deadline day, Yahoo still accepts trades."""
+    return deadline is not None and today > deadline
 
 
 class MissingSchedule(SystemExit):
@@ -119,9 +146,33 @@ def trade_players(roster, read, own_team, ranks, risk, pre, scale, cfg):
 
 
 def read_risk(names, cfg):
-    """{name_key(name): rests_b2b} of the names, from the [risk] file (draft/rankings.py)."""
+    """{name_key(name): rests_b2b} of the names in the [risk] file (draft/rankings.py).
+
+    A name that is not in the file is not in the result. trade_players() then gives him rests_b2b 0.
+    """
     series = pd.Series(list(names))
-    return {name_key(n): int(r) for n, r in zip(series, load_risk(series, cfg).rests_b2b)}
+    known = set(pd.read_csv(common.ROOT / cfg["risk"]["file"]).name.map(name_key))
+    risk = load_risk(series, cfg).rests_b2b
+    return {name_key(n): int(r) for n, r in zip(series, risk) if name_key(n) in known}
+
+
+def missing_data(players, ranks, risk, pre):
+    """The warning lines of the players with no match in a data file, by common.name_key(). One line for each file.
+
+    players: the TradePlayers of both sides. ranks: {name_key: rank}. risk: {name_key: rests_b2b} of the names in
+    the [risk] file. pre: {name_key: SeasonValue} of the projections file. A name shows once in each line.
+    """
+    files = [
+        (ranks, "these players have no rank and go last in the lineup order"),
+        (risk, "these players are not in the [risk] file and get rests_b2b 0"),
+        (pre, "these players are not in the projections file and have no Pre value"),
+    ]
+    out = []
+    for found, text in files:
+        names = list(dict.fromkeys(p.name for p in players if name_key(p.name) not in found))
+        if names:
+            out.append(f"Warning: {text}: {', '.join(names)}.")
+    return out
 
 
 def rostered_line(hits, total, read_time, now):
@@ -157,8 +208,9 @@ def best_line(result):
     )
 
 
-def warnings(mine, inputs):
-    """The warning lines of the run: the trade deadline, rows with no team link and your players with no value."""
+def warnings(mine, inputs, missing=()):
+    """The warning lines of the run: the trade deadline, rows with no team link, your players with no value and the
+    lines of missing_data()."""
     out = []
     if inputs.deadline is None:
         out.append(f"Warning: no trade deadline. {inputs.deadline_error}")
@@ -167,7 +219,7 @@ def warnings(mine, inputs):
     none = [p.name for p in mine if p.value is None]
     if none:
         out.append(f"Warning: these players of your team have no value and are not in a trade: {', '.join(none)}.")
-    return out
+    return out + list(missing)
 
 
 def publish_page(path, cfg, publish=True):
@@ -200,27 +252,46 @@ def main(argv=None):
         local = read_local_files(cfg, today)
     pages = PageCache(today, use=not args.no_cache)
     pages.remove_old_days()
-    with timings.step("Yahoo reads"):
-        with open_league(cfg["adds"]["league"], cfg["adds"].get("page_wait", WAIT_SECONDS)) as yahoo:
-            with timings.part("team page", yahoo):
-                roster = read_roster(yahoo.get(str(own)))
-            with timings.part("rostered list and settings", yahoo):
-                # own_team None: the read keeps the rows of your team too, for the blended values of your players.
-                inputs = read_trade_inputs(pages, yahoo, None, local.skip_recent, today)
+    roster = None
+    try:
+        with timings.step("Yahoo reads"):
+            with open_league(cfg["adds"]["league"], cfg["adds"].get("page_wait", WAIT_SECONDS)) as yahoo:
+                reader = pages.rostered(yahoo)
+                with timings.part("settings", yahoo):
+                    deadline, error = read_deadline(pages, reader, today)
+                if not deadline_passed(deadline, today):
+                    with timings.part("team page", yahoo):
+                        roster = read_roster(yahoo.get(str(own)))
+                    with timings.part("rostered list", yahoo):
+                        # own_team None: the read keeps the rows of your team too, for the blended values.
+                        rostered = read_rostered(reader, None, local.skip_recent)
+    except YAHOO_ERRORS as failed:
+        raise yahoo_failed(failed) from failed
+    if roster is None:
+        with timings.step("Page"):
+            path = page.write(page.render_deadline(cfg, made, deadline))
+        print(f"Wrote the trade page: {path}")
+        print(page.deadline_line(deadline))
+        publish_page(path, cfg, publish=not args.no_publish)
+        print(f"Timings: {timings_path()}")
+        return
+    inputs = TradeInputs(rostered, deadline, error)
     with timings.step("Score"):
         names = [p.name for p in roster] + [r.player.name for r in inputs.rostered.projected]
         risk = read_risk(names, cfg)
         mine, others = trade_players(roster, inputs.rostered, own, local.ranks, risk, local.pre, local.scale, cfg)
         result = suggest(mine, others, local.days, cfg["league"]["slots"], weeks, settings)
+    lines = warnings(mine, inputs, missing_data(mine + others, local.ranks, risk, local.pre))
     with timings.step("Page"):
         total = sum(inputs.rostered.pages.values()) + 1  # the rostered pages of each view and the settings page
         line = rostered_line(pages.hits[ROSTERED], total, pages.rostered_time, made)
         builder = page.builder_data(result, mine, others, local.days, cfg["league"]["slots"], weeks, settings)
-        path = page.write(page.render(result, weeks, cfg, made, today, inputs.deadline, line, builder))
+        html = page.render(result, weeks, cfg, made, today, inputs.deadline, line, builder, lines)
+        path = page.write(html)
     print(f"Wrote the trade page: {path}")
     print(f"Suggestions: {len(result.rows)}. {best_line(result)}")
     publish_page(path, cfg, publish=not args.no_publish)
-    for w in warnings(mine, inputs):
+    for w in lines:
         print(w)
     print(f"Timings: {timings_path()}")
 

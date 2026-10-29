@@ -421,3 +421,73 @@ def test_each_builder_text_is_4_5_to_1_or_more_in_each_state_and_theme(width):
             for theme in ("light", "dark"):
                 pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
                 assert pg.evaluate(CONTRAST) == [], (width, theme, state)
+
+
+# The edge states of #153: the page after the trade deadline and the warning lines.
+
+PAST = date(2026, 3, 2)
+WARNINGS = [
+    'Warning: no trade deadline. The league settings page has no "Trade End Date".',
+    "Warning: these players have no rank and go last in the lineup order: "
+    + ", ".join(f"Very Long Unmatched Player Name{n}" for n in range(12))
+    + ".",
+]
+
+
+def test_the_deadline_page_has_the_header_with_the_time_of_the_run_and_the_deadline_line():
+    html = page.render_deadline(CFG, MADE, PAST)
+    assert "<strong>Mon Mar 2</strong> · passed" in html
+    assert "<strong>Thu 10/29</strong> 09:30" in html
+    line = "The trade deadline was Monday, March 2, 2026. Yahoo accepts no more trades this season."
+    assert f'<div class="empty" id="deadline"><p>{line}</p></div>' in html
+    assert 'id="sugg"' not in html and 'id="builder"' not in html
+    assert 'aria-current="page">Trades</a>' in html
+    assert "__" not in re.sub(r"<script.*?</script>", "", html, flags=re.S).replace("lab-t", "")
+
+
+def test_the_warning_lines_show_under_the_header_and_a_page_with_no_warning_has_no_block():
+    html = page.render(RESULT, WEEKS, CFG, MADE, TODAY, None, READ, None, WARNINGS)
+    assert html.index("</header>") < html.index('<ul class="warn" id="warnings"') < html.index('id="sugg"')
+    assert "<li>Warning: no trade deadline. The league settings page has no &quot;Trade End Date&quot;.</li>" in html
+    assert 'class="warn"' not in render()
+
+
+def edge_pages():
+    return {
+        "deadline": page.render_deadline(CFG, MADE, PAST),
+        "warnings": page.render(RESULT, WEEKS, CFG, MADE, TODAY, None, READ, None, WARNINGS),
+    }
+
+
+EDGE_FIT = r"""width => {
+  const bad = [];
+  document.querySelectorAll(".head, .meta div, #warnings li, #deadline p").forEach(c => {
+    const box = c.getBoundingClientRect();
+    if (box.left < 0 || box.right > width) bad.push(`"${c.textContent}" is ${box.left} to ${box.right}`);
+    if (c.scrollWidth > c.clientWidth + 1) bad.push(`"${c.textContent}" scrolls sideways`);
+  });
+  return bad;
+}"""
+
+
+@pytest.mark.parametrize("width", [320, 390, 768, 1280])
+def test_the_deadline_page_and_the_warning_lines_fit_with_no_horizontal_scroll(width):
+    with browser_page(width) as pg:
+        for name, html in edge_pages().items():
+            pg.set_content(html)
+            for theme in ("light", "dark"):
+                pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+                assert pg.evaluate(EDGE_FIT, width) == [], (name, width, theme)
+                assert pg.evaluate("document.documentElement.scrollWidth") <= width, (name, width, theme)
+                if name == "warnings":
+                    assert pg.evaluate(FIT, width) == [], (name, width, theme)
+
+
+@pytest.mark.parametrize("width", [320, 390, 768, 1280])
+def test_the_deadline_page_and_the_warning_lines_are_4_5_to_1_or_more_in_light_and_dark_mode(width):
+    with browser_page(width) as pg:
+        for name, html in edge_pages().items():
+            pg.set_content(html)
+            for theme in ("light", "dark"):
+                pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+                assert pg.evaluate(CONTRAST) == [], (name, width, theme)

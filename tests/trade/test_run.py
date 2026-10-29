@@ -1,4 +1,5 @@
 import csv
+import html
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -6,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from fantasyhoops.adds.session import PageNotReady, YahooBlocked
 from fantasyhoops.adds.teams import YAHOO_TEAMS, espn_code
 from fantasyhoops.core import common, home
 from fantasyhoops.core import publish as site
@@ -25,14 +27,18 @@ class Yahoo:
 
     def __init__(self, team):
         self.team, self.paths, self.pages = str(team), [], 0
+        self.settings = (FIXTURES / "league_settings.html").read_text(encoding="utf-8")
+        self.error = None  # an error that each get() raises, for the tests of a failed Yahoo read
 
     def get(self, path):
         self.paths.append(path)
         self.pages += 1
+        if self.error:
+            raise self.error
         if path == self.team:
             return TEAM_PAGE.read_text(encoding="utf-8")
         if path == SETTINGS_PATH:
-            return (FIXTURES / "league_settings.html").read_text(encoding="utf-8")
+            return self.settings
         view = "projected" if "stat1=S_PS7" in path else "recent"
         page = int(path.rsplit("count=", 1)[1]) // 25 + 1
         return (FIXTURES / f"rostered_{view}_{page}.html").read_text(encoding="utf-8")
@@ -84,13 +90,14 @@ def test_the_run_writes_the_trade_page_and_the_timings_and_does_not_publish(fake
     assert "Publish: skipped (--no-publish)." in out
     with open(tmp_path / "trade" / "timings.csv", encoding="utf-8") as f:
         steps = [r["step"] for r in csv.DictReader(f)]
-    assert steps[:4] == [
+    assert steps[:5] == [
         "Local files",
         "Yahoo reads",
+        "Yahoo reads: settings",
         "Yahoo reads: team page",
-        "Yahoo reads: rostered list and settings",
+        "Yahoo reads: rostered list",
     ]
-    assert steps[4:] == ["Score", "Page"]
+    assert steps[5:] == ["Score", "Page"]
 
 
 def test_the_run_publishes_the_page_to_trade_keeps_the_home_page_and_prints_the_url(
@@ -180,3 +187,97 @@ def test_the_trade_section_of_the_config_has_no_deadline():
         "per_player": 3,
         "rows": 20,
     }
+
+
+# The edge states of #153.
+
+PAST = "<html><body><table><tr><td>Trade End Date:</td><td>Mon, Mar 2, 2026</td></tr></table></body></html>"
+NO_DEADLINE = "<html><body><table><tr><td>Max Teams:</td><td>14</td></tr></table></body></html>"
+
+
+def test_after_the_deadline_the_run_reads_no_roster_and_writes_and_publishes_the_deadline_page(
+    fake_run, tmp_path, monkeypatch, capsys
+):
+    fake_run.settings = PAST
+    calls = []
+    monkeypatch.setattr(site, "publish", lambda *args, **kwargs: calls.append((args, kwargs)))
+    run.main([])
+    assert fake_run.paths == [SETTINGS_PATH]  # no team page and no rostered page
+    text = (tmp_path / "trade" / "index.html").read_text(encoding="utf-8")
+    line = "The trade deadline was Monday, March 2, 2026. Yahoo accepts no more trades this season."
+    assert f'<div class="empty" id="deadline"><p>{line}</p></div>' in text
+    assert "Suggested trades" not in text and 'id="builder"' not in text
+    assert '<a href="../" ' in text or '<a href="../">' in text  # the Roster link of the site menu stays
+    ((args, kwargs),) = calls
+    assert args[1] == "trade" and kwargs["keep_home"] is True and "home" not in kwargs
+    out = capsys.readouterr().out
+    assert line in out and f"Published the trade page to {site.URL}trade/." in out
+
+
+def test_on_the_deadline_day_the_run_still_suggests_trades():
+    today = datetime(2026, 3, 2).date()
+    assert not run.deadline_passed(today, today)
+    assert run.deadline_passed(today, today + timedelta(days=1))
+    assert not run.deadline_passed(None, today)
+
+
+def test_with_no_deadline_the_run_continues_and_the_page_and_the_terminal_show_the_warning(fake_run, tmp_path, capsys):
+    fake_run.settings = NO_DEADLINE
+    run.main(["--no-publish"])
+    out = capsys.readouterr().out
+    warning = [line for line in out.splitlines() if line.startswith("Warning: no trade deadline.")]
+    assert len(warning) == 1 and 'no "Trade End Date"' in warning[0]
+    text = (tmp_path / "trade" / "index.html").read_text(encoding="utf-8")
+    assert '<ul class="warn" id="warnings"' in text
+    assert "<li>Warning: no trade deadline. The league settings page has no &quot;Trade End Date&quot;." in text
+    assert "<strong>Not found</strong>" in text and "Suggested trades" in text
+
+
+def test_a_player_with_no_match_gets_a_warning_line_and_goes_last_in_the_lineup_order():
+    from fantasyhoops.adds.drops import SeasonValue
+
+    known = TradePlayer("Known Guy", "ATL", ("PG",), rank=40)
+    lost = TradePlayer("Lost Guy", "BOS", ("PG",))
+    ranks, risk, pre = {"known guy": 40}, {"known guy": 1}, {"known guy": SeasonValue(10, 0.5)}
+    lines = run.missing_data([lost, known, lost], ranks, risk, pre)
+    assert lines == [
+        "Warning: these players have no rank and go last in the lineup order: Lost Guy.",
+        "Warning: these players are not in the [risk] file and get rests_b2b 0: Lost Guy.",
+        "Warning: these players are not in the projections file and have no Pre value: Lost Guy.",
+    ]
+    order = home.rank_order([lost.roster_player(), known.roster_player()])
+    assert [p.name for p in order] == ["Known Guy", "Lost Guy"]
+
+
+def test_the_run_prints_the_missing_data_lines_and_the_page_lists_them(fake_run, tmp_path, capsys):
+    run.main(["--no-publish"])  # the fake run has no ranks, no risk file and no projections file
+    out = capsys.readouterr().out
+    line = next(x for x in out.splitlines() if x.startswith("Warning: these players have no rank"))
+    text = (tmp_path / "trade" / "index.html").read_text(encoding="utf-8")
+    assert f"<li>{html.escape(line)}</li>" in text
+
+
+def test_the_risk_read_leaves_out_the_names_that_are_not_in_the_risk_file(tmp_path, monkeypatch):
+    (tmp_path / "risk.csv").write_text("name,team,inj_risk,rests_b2b\nRest Guy,ATL,low,1\n", encoding="utf-8")
+    monkeypatch.setattr(common, "ROOT", tmp_path)
+    monkeypatch.setattr("fantasyhoops.draft.rankings.ROOT", tmp_path)
+    assert run.read_risk(["Rest Guy", "Lost Guy"], {"risk": {"file": "risk.csv"}}) == {"rest guy": 1}
+
+
+@pytest.mark.parametrize("error", [YahooBlocked("Yahoo blocked the session."), PageNotReady("No table.")])
+def test_a_yahoo_read_failure_stops_the_run_with_the_error_and_no_publish(fake_run, tmp_path, error):
+    fake_run.error = error  # fake_run fails the test on a publish
+    with pytest.raises(SystemExit) as stop:
+        run.main([])
+    assert isinstance(stop.value, run.YahooReadFailed)
+    assert str(error) in str(stop.value) and "The run did not publish." in str(stop.value)
+    assert not (tmp_path / "trade" / "index.html").exists()
+
+
+def test_a_sign_in_that_does_not_finish_stops_the_run_with_no_publish(fake_run, tmp_path):
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    fake_run.error = PlaywrightTimeout("Timeout 600000ms exceeded.")
+    with pytest.raises(run.YahooReadFailed, match="Timeout 600000ms exceeded"):
+        run.main([])
+    assert not (tmp_path / "trade" / "index.html").exists()
