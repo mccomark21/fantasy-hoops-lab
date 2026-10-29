@@ -548,7 +548,8 @@ h3 { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: var(--lab-ink); 
 @container (max-width: 599px) { .rt col.c-v { width: 0; } .rt td.v, .rt thead th.cv { font-size: 0; padding: 0;
   border-left: 0; } .rt td.v small { font-size: 0; } .rt th.sd small.rv { display: block; }
   .rt col.c-w { width: 44px; } .rt col.c-t { width: 54px; } .rt th.sd b { font-size: 16px; }
-  .rt .wk .cb { display: none; } .rt td.wk, .rt thead th { padding: 0 4px; } }
+  .rt .wk .cb { display: none; } .rt td.wk, .rt thead th { padding: 0 4px; }
+  .rt .wk small { display: block; margin-left: 0; } }
 .res .line { margin-top: 8px; }
 .mv { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 10px 0 0; font-size: 12px; color: var(--lab-mute); }
 .mv b { color: var(--lab-ink); font-weight: 800; }"""
