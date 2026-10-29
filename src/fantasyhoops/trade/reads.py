@@ -36,7 +36,8 @@ class TradeInputs:
 def read_trade_inputs(pages, yahoo, own_team, skip_recent, today):
     """Read the rostered list and the trade deadline. Give TradeInputs.
 
-    pages: the cache.PageCache of the run. yahoo: the session.League. own_team: your team ID ([adds] team).
+    pages: the cache.PageCache of the run. yahoo: the session.League. own_team: your team ID ([adds] team), or None
+    to keep the rows of all teams (the trade run of #150 needs the rows of your team for their blended values).
     skip_recent: see rostered.read_rostered(). today: the day of the run.
     A missing deadline does not stop the read. deadline_error then names the cache folder of the settings page.
     """

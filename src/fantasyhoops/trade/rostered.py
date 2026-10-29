@@ -138,6 +138,7 @@ def read_rostered(reader, own_team, skip_recent=False):
     """Read all pages of the rostered list in both views. Give a RosteredRead.
 
     reader: a reader with get(path), for example cache.PageCache.rostered(). own_team: your team ID ([adds] team).
+    own_team None keeps the rows of all teams.
     skip_recent: True while lists.skips_recent_view() skips the recent view. The read then reads the projected view
     only. The read takes page N of each open view together, then page N + 1 of each view that has a "Next 25" link.
     """
