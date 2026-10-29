@@ -69,3 +69,4 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - The home page on gh-pages has no Trades link yet, because a planning run before #156 published it. The next planning run from `main` adds the link.
 - On 2026-10-29, the owner asked for a planning run to add the Trades link. The run published gh-pages commit `171988b`. The live home page then showed the Trades link, and `/trade/` stayed. This supersedes the claim above that the home page has no Trades link.
 - On 2026-10-29, PR #157 (closes #152) opened at `2435d70`. The owner gave three standing approvals: merge #157 when its review is clean, then start the #153 builder, then publish the trade page after #153 merges.
+- On 2026-10-29, the #157 review found one blocker: the desktop table showed only the partner's total "est." starts, not Wk19 to Wk21. The chief of staff sent it back to the builder. The owner also approved: merge #153 when its review is clean.
