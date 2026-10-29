@@ -1,5 +1,6 @@
 import csv
 import html
+import re
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -304,6 +305,26 @@ def test_the_risk_read_leaves_out_the_names_that_are_not_in_the_risk_file(tmp_pa
     assert run.read_risk(["Rest Guy", "Lost Guy"], {"risk": {"file": "risk.csv"}}) == {"rest guy": 1}
 
 
+def test_the_risk_read_reads_the_file_one_time_and_keeps_the_load_risk_rules(tmp_path, monkeypatch):
+    from fantasyhoops.draft.rankings import load_risk
+
+    rows = (
+        "name,team,inj_risk,rests_b2b\nTwice Guy,ATL,low,1\nTwice Guy,ATL,low,0\nBlank Guy,BOS,med,\nRest Guy,NYK,,1\n"
+    )
+    (tmp_path / "risk.csv").write_text(rows, encoding="utf-8")
+    monkeypatch.setattr(common, "ROOT", tmp_path)
+    monkeypatch.setattr("fantasyhoops.draft.rankings.ROOT", tmp_path)
+    cfg = {"risk": {"file": "risk.csv"}}
+    names = ["Twice Guy", "Blank Guy", "Rest Guy", "Lost Guy"]
+    expected = load_risk(pd.Series(names[:3]), cfg).rests_b2b.tolist()  # the last row counts, empty is 0
+    reads = []
+    real_read = pd.read_csv
+    monkeypatch.setattr(pd, "read_csv", lambda path, **kw: reads.append(path) or real_read(path, **kw))
+    assert expected == [0, 0, 1]
+    assert run.read_risk(names, cfg) == {"twice guy": 0, "blank guy": 0, "rest guy": 1}
+    assert reads == [tmp_path / "risk.csv"]
+
+
 @pytest.mark.parametrize("error", [YahooBlocked("Yahoo blocked the session."), PageNotReady("No table.")])
 def test_a_yahoo_read_failure_stops_the_run_with_the_error_and_no_publish(fake_run, tmp_path, error):
     fake_run.error = error  # fake_run fails the test on a publish
@@ -314,10 +335,12 @@ def test_a_yahoo_read_failure_stops_the_run_with_the_error_and_no_publish(fake_r
     assert not (tmp_path / "trade" / "index.html").exists()
 
 
-def test_a_sign_in_that_does_not_finish_stops_the_run_with_no_publish(fake_run, tmp_path):
+@pytest.mark.parametrize("message", ["Timeout 600000ms exceeded.", "page.goto: Timeout 60000ms exceeded."])
+def test_any_playwright_timeout_stops_the_run_with_no_publish(fake_run, tmp_path, message):
+    """The sign-in wait (600 s) and a page load (60 s) give the same Playwright TimeoutError."""
     from playwright.sync_api import TimeoutError as PlaywrightTimeout
 
-    fake_run.error = PlaywrightTimeout("Timeout 600000ms exceeded.")
-    with pytest.raises(run.YahooReadFailed, match="Timeout 600000ms exceeded"):
+    fake_run.error = PlaywrightTimeout(message)
+    with pytest.raises(run.YahooReadFailed, match=re.escape(message)):
         run.main([])
     assert not (tmp_path / "trade" / "index.html").exists()

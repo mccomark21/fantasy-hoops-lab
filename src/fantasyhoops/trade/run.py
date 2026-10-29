@@ -38,14 +38,14 @@ from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import load_config, name_key
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
-from fantasyhoops.draft.rankings import load_risk
 from fantasyhoops.trade import page
 from fantasyhoops.trade.reads import TradeInputs, read_deadline
 from fantasyhoops.trade.rostered import read_rostered
 from fantasyhoops.trade.suggest import TradePlayer, TradeSettings, player_value, suggest
 
 SCHEDULE_FETCH = "python -m fantasyhoops.fetch.espn"
-# The errors of a Yahoo read that stop the run: a block, a page that did not load, a sign-in that did not finish.
+# The errors of a Yahoo read that stop the run: a block, a page that did not load, or any Playwright timeout.
+# A Playwright timeout can come from the sign-in wait or from a page load, for example page.goto().
 YAHOO_ERRORS = (YahooBlocked, PageNotReady, PlaywrightTimeout)
 
 
@@ -151,11 +151,12 @@ def read_risk(names, cfg):
     """{name_key(name): rests_b2b} of the names in the [risk] file (draft/rankings.py).
 
     A name that is not in the file is not in the result. trade_players() then gives him rests_b2b 0.
+    The function reads the file one time. It uses the rules of load_risk(): the last row of a name counts,
+    and an empty rests_b2b is 0.
     """
-    series = pd.Series(list(names))
-    known = set(pd.read_csv(common.ROOT / cfg["risk"]["file"]).name.map(name_key))
-    risk = load_risk(series, cfg).rests_b2b
-    return {name_key(n): int(r) for n, r in zip(series, risk) if name_key(n) in known}
+    file = pd.read_csv(common.ROOT / cfg["risk"]["file"])
+    rests = dict(zip(file.name.map(name_key), file.rests_b2b.fillna(0).astype(int)))
+    return {name_key(n): rests[name_key(n)] for n in names if name_key(n) in rests}
 
 
 def missing_data(players, ranks, risk, pre):
