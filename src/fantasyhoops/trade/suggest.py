@@ -3,7 +3,7 @@
 The playoff starts of a team count its kept set: the top [trade] kept players by value. The untouchable players
 ([trade] untouchable) and the IL players are always in it. In a trade, the player you get takes the spot of the
 player you give in the kept set. The run does not rank the kept set again after the trade (Decision comment on #150).
-The starts use the home page rules: core/roster.py lineup_fit() on the playoff days of roster_page.playoff_days().
+The starts use the Roster page rules: core/roster.py lineup_fit() on the playoff days of roster_page.playoff_days().
 A pair is a suggestion if the value of the player you get is in the value band of the player you give, and the trade
 raises your total playoff starts by 1 or more. The suggestions give only the players of the [trade] offer list (#170). An
 empty list offers each player who is not untouchable. The rank: the gain in total starts, then the gain of your weakest
@@ -177,7 +177,7 @@ def swap(kept, give, get):
 
 
 def week_starts(players, days, slots, weeks):
-    """The team starts of players in each week of weeks, with the home page rules (roster_page.lineup_fit())."""
+    """The team starts of players in each week of weeks, with the Roster page rules (roster_page.lineup_fit())."""
     fit = roster_page.lineup_fit([p.roster_player() for p in players], days, slots)
     return tuple(fit.team_week(w)[0] for w in weeks)
 

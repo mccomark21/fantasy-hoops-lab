@@ -341,8 +341,8 @@ def test_random_core_agrees_with_python_game_counts(real, size):
     assert result["finals"] == expected["finals"]
 
 
-# The board and the home page (#133): the same roster on the same days. Value order on the board = rank order on the
-# home page. (name, team, positions, rank, rests_b2b)
+# The board and the Roster page (#133): the same roster on the same days. Value order on the board = rank order on the
+# Roster page. (name, team, positions, rank, rests_b2b)
 SAME_SLOTS = ["PG", "C"]
 SAME_ROSTER = [
     ("Guard One", "AAA", "PG", 10, 0),

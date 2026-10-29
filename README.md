@@ -7,7 +7,7 @@
 <h1 align="center">Fantasy Hoops Lab</h1>
 
 <p align="center">
-  Custom fantasy basketball tools for one Yahoo league, published as a small website.
+  Custom fantasy basketball tools for one league, published as a small website.
 </p>
 
 <p align="center">
@@ -60,7 +60,7 @@ These are the tools for one person's team in one league. The settings, the punte
 
 | Setting | Value |
 | --- | --- |
-| Platform | Yahoo, head-to-head, 14 teams |
+| Format | Head-to-head, 14 teams |
 | Draft | Auction, $200 budget |
 | Roster | 10 spots: PG, SG, SF, PF, C, Util and 4 bench |
 | Adds | 5 each week |
@@ -69,9 +69,13 @@ These are the tools for one person's team in one league. The settings, the punte
 
 ## The site
 
+### Home
+
+The Home page at [`/`](https://mccomark21.github.io/fantasy-hoops-lab/) says what each page of the site does, tells the story of the project and lists the league settings.
+
 ### Roster
 
-The home page shows my roster in custom-rank order, with the season stats of each player from ESPN. For each playoff week, it shows how many games each player can start in the best lineup. It also shows how close the team is to the ideal count.
+The Roster page at [`/roster/`](https://mccomark21.github.io/fantasy-hoops-lab/roster/) shows my roster in custom-rank order, with the season stats of each player from public NBA stats. For each playoff week, it shows how many games each player can start in the best lineup. It also shows how close the team is to the ideal count.
 
 ### Adds plan
 
@@ -91,16 +95,16 @@ The draft tools (rankings, the draft board, an auction simulator and a keeper re
 
 ## How it works
 
-1. **Data.** The tools read my league from Yahoo with Playwright and a saved sign-in in Microsoft Edge. The NBA rosters, the schedule and the season stats come from ESPN. A rotation log of each check-in and check-out comes from the ESPN play-by-play. A season projections file gives the projected stats.
+1. **Data.** The tools read my league from the league site with Playwright and a saved sign-in in Microsoft Edge. The NBA rosters, the schedule and the season stats come from public NBA stats. A rotation log of each check-in and check-out comes from the public play-by-play of each game. A season projections file gives the projected stats.
 2. **Analysis.** The Python package `fantasyhoops` computes player values, lineups, plans and trades. It has one subpackage for each tool and a `core` package for the shared code.
-3. **Publish.** Each run writes static HTML pages and pushes them to the `gh-pages` branch. GitHub Pages serves the site.
+3. **Publish.** The adds planner and the trade tool write static HTML pages and push them to the `gh-pages` branch. GitHub Pages serves the site. Each publish also writes the Home page at `/`.
 
 ## Getting started
 
 ### Prerequisites
 
 - Python 3.11 or later.
-- Microsoft Edge, for the Yahoo sign-in of the adds planner and the trade tool.
+- Microsoft Edge, for the league site sign-in of the adds planner and the trade tool.
 - Node.js, for the tests of the JavaScript on the draft board. Without Node, pytest skips those tests.
 - `git` on the `PATH`. The publish step and its tests use it.
 - A season projections file. Git does not track CSV files, so a new clone does not include it.
@@ -115,7 +119,7 @@ The draft tools (rankings, the draft board, an auction simulator and a keeper re
 
    To also install ruff for the lint check, use `".[test,lint]"`.
 
-2. Install the browser that `fetch/yahoo.py` uses:
+2. Install the browser that the league reads use:
 
    ```sh
    python -m playwright install chromium
@@ -130,14 +134,14 @@ All settings are in [`config.toml`](config.toml). The `[league]` section applies
 Run each tool from the repo root with `python -m`:
 
 ```sh
-python -m fantasyhoops.fetch.espn       # Download NBA rosters and the schedule
+python -m fantasyhoops.fetch.espn       # Download the NBA rosters and the schedule (public NBA stats)
 python -m fantasyhoops.fetch.rotation   # Add the finished games to the rotation log
 python -m fantasyhoops.adds.plan        # Plan the adds, write the pages and publish the site
 python -m fantasyhoops.trade            # Suggest trades and publish the Trades page
 python -m fantasyhoops.draft.board      # Write the local draft board
 ```
 
-The first Yahoo run opens an Edge window. Sign in to Yahoo by hand in that window. Later runs use the saved session in `.auth/yahoo/`.
+The first run that reads the league site opens an Edge window. Sign in to the league site by hand in that window. Later runs use the saved session in `.auth/yahoo/`.
 
 To write the pages with no publish, add `--no-publish` to the adds or trade command.
 

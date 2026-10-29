@@ -6,7 +6,7 @@
 //   3. When you get more players than you give, you pick your drops. When you give more, the spot stays empty.
 //   4. When the partner gets more players than he gives, he drops his lowest value players that are not on IL.
 //   5. The starts come from scoreCore() of draft/team_builder.js. The engine gets value = -rank, so its value sort
-//      gives the lineup order of the home page (core/home.py rank_order()). A player with no rank goes last.
+//      gives the lineup order of the Roster page (core/roster.py rank_order()). A player with no rank goes last.
 //
 // trade/builder.py has the same rules in Python. tests/trade/test_parity.py shows that both give the same results.
 // The file has no DOM code. trade/page.py inlines it after team_builder.js. Node loads it with require(), after it

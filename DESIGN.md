@@ -99,7 +99,7 @@ Each page reads like the back of a basketball card: white coated stock, royal-bl
 
 ## Colors
 
-`core/tokens.py` holds each token with a light value and a dark value. `core/publish.py` (the menu and the home page) and `adds/page.py` use only `var(--...)`. The adds page gives some tokens short names (`--fg`, `--muted`, `--q`), but it defines no colors.
+`core/tokens.py` holds each token with a light value and a dark value. `core/publish.py` (the menu), `core/home.py` (the Home page) and `adds/page.py` use only `var(--...)`. The adds page gives some tokens short names (`--fg`, `--muted`, `--q`), but it defines no colors.
 
 | Token | Light | Dark | Job |
 | --- | --- | --- | --- |
@@ -115,7 +115,7 @@ Each page reads like the back of a basketball card: white coated stock, royal-bl
 | `lab-green` | `#17743a` | `#6fd08c` | A lead in the matchup table of the adds page (#144). |
 | `mark` | `#1d4f91` | `#8fb3ff` | Heading rules, the page title, links, and the selected or sorted state. |
 | `zebra` | `#eff3f8` | `#142540` | Every second table row. |
-| `qcol` / `qcol-z` | `#e0e8f4` / `#dae3f1` | `#1c3254` / `#223a60` | A shaded cell: a quality day or a started game on the home page. `-z` is the shade on a zebra row. |
+| `qcol` / `qcol-z` | `#e0e8f4` / `#dae3f1` | `#1c3254` / `#223a60` | A shaded cell: a quality day or a started game on the Roster page. `-z` is the shade on a zebra row. |
 | `vrule` | `#d2d9e4` | `#2e4264` | Vertical rules between table sections. |
 | `lamp-off` | `#6f7889` | `#7d8eab` | Chip borders and marks that are off. |
 | `lab-scrim` | `rgb(8 16 32 / .5)` | same | The shade behind the open drawer. |
@@ -150,7 +150,7 @@ All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-r
 
 - The side menu is 216px wide and fixed at the left at 900px and wider. The main area starts at its right edge.
 - Below 900px, the menu is a drawer. A 48px blue bar at the top holds the site name and a Menu button. The drawer moves the focus to its Close button, closes on Escape and on the scrim, and makes the page behind it inert.
-- The adds page body is 720px wide at most, with 28px side padding (16px below 600px). The home page body is 640px.
+- The adds page body is 720px wide at most, with 28px side padding (16px below 600px). The Home page body is 1000px wide at most. Below 1100px, each page row and the About section go to one column.
 - The week grid shows its 7 day columns at each width. Below 600px, it shows short labels ("M" and "26"). The free-agent table shows its wide columns at 600px and wider.
 
 ## Elevation & Depth
@@ -164,7 +164,7 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 ## Components
 
 ### Site menu
-- **Desktop:** a `lab-blue` panel with the site name in condensed caps, the league line, the items Roster, Adds plan and Trades, and the theme switch at the bottom.
+- **Desktop:** a `lab-blue` panel with the site name in condensed caps, the league line, the items Home, Roster, Adds plan, Free agents and Trades, and the theme switch at the bottom.
 - **Current page:** a `lab-stock` row with ink text and a 9px `lab-red` square.
 - **Theme switch:** three square buttons, Auto, Light and Dark, with `aria-pressed`. The pressed button is `lab-stock` with ink text. A script in `<head>` applies the saved choice before the first paint.
 
@@ -181,7 +181,7 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 
 ### Tables
 - **Style:** full width, collapsed borders, 1px `lab-rule` row rules, zebra rows, and a 2px `mark` rule under the head.
-- **Roster look (#143):** the Roster table of the home page, and the free-agent table and the waiver table of the adds page, use the class `lab-t`. `publish.TABLE_STYLE` in `core/publish.py` is the one source of its CSS. The head has 11px bold `mark` text. The first column is the team band: the color of the NBA team (`tokens.TEAM_COLORS`) with text at 4.5:1 or more (`publish.band_style()`). The player cell has the name in heavy condensed caps (20px, 18px below 900px) and a 12px muted line below it.
+- **Roster look (#143):** the Roster table of the Roster page, the examples of the Home page, and the free-agent table and the waiver table of the adds page, use the class `lab-t`. `publish.TABLE_STYLE` in `core/publish.py` is the one source of its CSS. The head has 11px bold `mark` text. The first column is the team band: the color of the NBA team (`tokens.TEAM_COLORS`) with text at 4.5:1 or more (`publish.band_style()`). The player cell has the name in heavy condensed caps (20px, 18px below 900px) and a 12px muted line below it.
 - **Sorted column and selected day:** a 3px `mark` bar under the header. The sorted column also has an arrow (▼). Cells of a selected day have a 12% `mark` tint.
 
 ### Matchup table

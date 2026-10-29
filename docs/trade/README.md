@@ -28,9 +28,9 @@ The terminal shows:
 The run publishes the page to `/trade/` of the site, for example `https://mccomark21.github.io/fantasy-hoops-lab/trade/`. GitHub can take a few minutes to show the new page.
 
 1. The site menu has the tab "Trades" after "Adds plan" (`publish.TOOLS`, #151).
-2. The trade run does not make the roster page. Its publish keeps the home page at `/` (`publish.publish()` with `keep_home=True`). If gh-pages has no home page, the root gets the list of the tools.
+2. The trade run does not make the Roster page. Its publish keeps the `/roster/` folder, because `roster` is in `publish.TOOLS` (#172). Each publish writes the Home page at `/`.
 3. The planning run of the adds planner keeps the `/trade/` folder, because `trade` is in `publish.TOOLS`.
-4. Each page carries its own site menu. The home page and the adds page show the Trades tab after their next run.
+4. Each page carries its own site menu. The Roster page and the adds page show the Trades tab after their next run.
 
 ## Kept set
 
@@ -54,7 +54,7 @@ The kept set belongs to the trade tool. It does not change the `stream_spots` of
 4. The rank: the gain in total starts, then min(weeks after) − min(weeks before), then the larger value change for you.
 5. At most 3 rows for each player you give (`[trade] per_player`), and 20 rows in all (`[trade] rows`).
 
-The playoff starts use the home page rules exactly: `core/home.py` `lineup_fit()` on the days of `home.playoff_days()`. The slots are `[league] slots` and one Util slot. The lineup order is the custom rank of `draft/rankings.py`, and a player with no rank goes last. A rest night on a back-to-back (`rests_b2b` of the `[risk] file`) is not a game. IL and injured players count, with their Yahoo status on the page.
+The playoff starts use the Roster page rules exactly: `core/roster.py` `lineup_fit()` on the days of `roster.playoff_days()`. The slots are `[league] slots` and one Util slot. The lineup order is the custom rank of `draft/rankings.py`, and a player with no rank goes last. A rest night on a back-to-back (`rests_b2b` of the `[risk] file`) is not a game. IL and injured players count, with their Yahoo status on the page.
 
 ## Offer list
 
@@ -94,8 +94,8 @@ The value of each player on both sides is the blended value of the adds planner 
 | The rostered list, projected view (next 7 days) | `players?status=T&...&stat1=S_PS7` | `trade/rostered.py` |
 | The rostered list, recent view (last 14 days) | `players?status=T&...&stat1=S_AL14` | `trade/rostered.py` |
 | The trade deadline ("Trade End Date") | The league settings page, `settings` | `trade/deadline.py` |
-| The playoff days | `data/schedule.csv` (`python -m fantasyhoops.fetch.espn`) | `core/home.py` `playoff_days()` |
-| The custom rank | The projections file and `data/` files of the draft tools | `adds/home.py` `read_ranks()` |
+| The playoff days | `data/schedule.csv` (`python -m fantasyhoops.fetch.espn`) | `core/roster.py` `playoff_days()` |
+| The custom rank | The projections file and `data/` files of the draft tools | `adds/roster.py` `read_ranks()` |
 | The preseason value | The newest projections file | `adds/drops.py` `season_values()` |
 | The rest list | `[risk] file` | `draft/rankings.py` `load_risk()` |
 
@@ -160,7 +160,7 @@ The result table shows both teams: the playoff starts of each week and the total
 
 The suggestions table shows the partner starts too, marked "Est.", under the partner name: the starts of each week and the total, before (first line) and after (second line). The row list on a phone shows the same numbers on one line.
 
-The page inlines `draft/team_builder.js` and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `team_builder.js` with value = −rank. So the engine starts the players in the lineup order of the home page. `team_builder.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
+The page inlines `draft/team_builder.js` and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `team_builder.js` with value = −rank. So the engine starts the players in the lineup order of the Roster page. `team_builder.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
 
 ## Edge states
 
@@ -193,7 +193,7 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 | Term | Meaning |
 |---|---|
 | Kept set | The players of a team that its playoff starts count. See [Kept set](#kept-set). |
-| Playoff starts | The started games of a team in the playoff weeks, with the home page rules. |
+| Playoff starts | The started games of a team in the playoff weeks, with the Roster page rules. |
 | Value band | The range of values of the player you get, from the value you give. |
 | Untouchable | A player that the tool never offers in a trade. |
 | Partner | The other fantasy team of a trade. |

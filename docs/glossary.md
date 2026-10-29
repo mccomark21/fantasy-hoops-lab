@@ -11,7 +11,7 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Starting slot | One of the 6 daily lineup slots: PG, SG, SF, PF, C and Util. |
 | IL | Injured list: 3 spots that are not roster spots. |
 | Kept set | The players of a team that its playoff starts count in the trade tool: the top 8 by value (`[trade] kept`). The untouchable players and the IL players are always in. See the [trade guide](trade/README.md#kept-set). |
-| Playoff starts | The started games of a team in the playoff weeks, with the home page rules (`core/home.py` `lineup_fit()`). A rest night on a back-to-back is not a start. |
+| Playoff starts | The started games of a team in the playoff weeks, with the Roster page rules (`core/roster.py` `lineup_fit()`). A rest night on a back-to-back is not a start. |
 
 ## League
 

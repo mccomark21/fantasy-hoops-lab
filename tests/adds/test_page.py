@@ -314,7 +314,7 @@ def test_the_page_lists_the_waiver_players_with_the_clear_day():
     assert "Claim Guy" not in [p["name"] for p in json.loads(raw)["players"]]
 
 
-# A roster of one player for the home page: one playoff day.
+# A roster of one player for the Roster page: one playoff day.
 HOME_ARGS = (
     [roster_page.RosterPlayer("Guard One", "BOS", ("PG",), "PG", rank=1)],
     [roster_page.Day(WEEK[0], "wk19", False, frozenset({"BOS"}), frozenset())],

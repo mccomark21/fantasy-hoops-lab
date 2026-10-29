@@ -136,7 +136,7 @@ def site_menu(current, teams):
 
     teams: the number of teams in the league ([league] teams of config.toml).
 
-    The home page is at the root of the site and each tool page is in its own folder, so the links are relative.
+    The Home page is at the root of the site and each tool page is in its own folder, so the links are relative.
     """
     up = "" if current == "home" else "../"
     root = up or "./"
