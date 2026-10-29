@@ -35,3 +35,7 @@ Dated observations of what the repo did not have. Each item names the date of th
 - On 2026-10-28, the owner approved a weekly wiki lint. It is the cloud routine "Weekly wiki lint (fantasy-hoops-lab)" (https://claude.ai/code/routines/trig_011n2vF4L2HPJ4pvrGcK2cz3). It runs each Monday at 14:00 UTC (9:00 New York time after 2026-11-01), with Claude Sonnet 5.5 and no MCP connectors. The first run is on 2026-11-02.
 - The routine changes only `docs/wiki/`. It commits to main as `docs(wiki): lint of YYYY-MM-DD` and makes no commit when nothing needs a change. This follows [Push wiki commits](decision-push-wiki-commits.md).
 - The cloud run cannot read the owner's `~/.claude/writing-style.md`, so its prompt states the main Simplified Technical English rules itself.
+
+## Worktrees have no data or auth (2026-10-29)
+
+- On 2026-10-29, the #150 builder found that a worktree has no `data/` and no `.auth/`, because git does not track them. For a live run, it linked the folders of the main checkout into the worktree and removed the links after. No script does this step.

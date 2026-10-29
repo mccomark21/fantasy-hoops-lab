@@ -59,3 +59,5 @@ An agent decides the remaining questions and proposes the issue split. The owner
 ## Resume (2026-10-29)
 
 - On 2026-10-29, the owner said to resume the trade tab. The chief of staff started a builder of #150 in a worktree at `mccomark21/fantasy-hoops-lab@ccab25c`. The brief told it that the swap rule of the Decision comment supersedes item 3.3 of the issue body.
+- On 2026-10-29, the builder opened PR #155 (closes #150) at head `c01b3f7`. It reported 692 tests passed and green CI. The first CI run failed on a 320 px overflow with the Linux fonts, and `c01b3f7` fixed it. Live run: 7.4 s of Yahoo reads with no cache, 3.7 s wall time with a full cache. The run found 4 suggestions.
+- The builder asked if the table shows the partner's starts as "est." The issue has no partner column. This question is for the owner.
