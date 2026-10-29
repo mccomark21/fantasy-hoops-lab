@@ -4,3 +4,4 @@
 - On 2026-10-29, the owner decided: `/` becomes the Home page, and the Roster page (at `/` since #121) moves to `/roster/`. Menu: Home, Roster, Adds plan, Free agents, Trades.
 - It follows the [README rewrite](readme-rewrite-2026-10-29.md). An earlier home-page sample of 2026-10-27 was about the roster table, not an about page; see [home page sample](home-page-sample-2026-10-27.md).
 - On 2026-10-29, the chief of staff started an Impeccable agent for a static sample in the session scratchpad. An issue waits for the owner's approval of the sample.
+- On 2026-10-29, the owner approved the sample ("merge and publish when the review is clean"). Sections: title and lede; the pages (Roster, Adds plan, Free agents, Trades, each with a link and an example); About this project with the league table; How it works in 3 steps; footer. The sample was copied to `output/home/sample/` (git ignores it). The owner approved: merge and publish when the review is clean.
