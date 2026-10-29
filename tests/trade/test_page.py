@@ -491,3 +491,9 @@ def test_the_deadline_page_and_the_warning_lines_are_4_5_to_1_or_more_in_light_a
             for theme in ("light", "dark"):
                 pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
                 assert pg.evaluate(CONTRAST) == [], (name, width, theme)
+
+
+def test_the_trade_pages_have_the_icon_links_and_the_preview_tags():
+    """#166: the head of the Trades page and of the deadline page has publish.page_meta()."""
+    assert site.page_meta("trade", "Trades") in render()
+    assert site.page_meta("trade", "Trades") in page.render_deadline(CFG, MADE, PAST)

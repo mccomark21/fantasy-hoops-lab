@@ -288,7 +288,7 @@ def test_the_page_holds_the_free_agent_data_as_safe_json():
     raw = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
     assert json.loads(raw)["players"][1]["name"] == "Phi & One"
     evil = fa(BASE, options=[option("</script><b>", "PHI", 1.0)])
-    assert "</script><b>" not in evil and "http" not in evil
+    assert "</script><b>" not in evil and "http" not in evil.split("</head>")[1]
 
 
 def test_the_page_explains_why_there_is_no_plan():
@@ -369,7 +369,8 @@ def test_the_page_sets_the_saved_theme_in_the_head_and_uses_the_shared_tokens():
 
 def test_the_page_css_has_no_colors_of_its_own():
     """#117: the colors come from core/tokens.py. The page CSS uses only var(--...)."""
-    css = render().split("</head>")[0].replace(tokens.HEAD, "")
+    # The theme-color tags (#166) take the lab-blue values of core/tokens.py.
+    css = re.sub(r'<meta name="theme-color"[^>]*>', "", render().split("</head>")[0].replace(tokens.HEAD, ""))
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", css)
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", page.SCRIPT)
 
@@ -1084,3 +1085,13 @@ def test_the_page_writes_the_free_agents_page_next_to_the_plan_page(monkeypatch,
     path = page.write_free_agents(fa())
     assert path == tmp_path / "adds" / "free_agents.html" and path.parent == page.page_path().parent
     assert (path.parent / "fonts" / tokens.FONT.name).exists()
+
+
+def test_the_plan_and_free_agents_pages_have_the_icon_links_and_the_preview_tags():
+    """#166: the head of each page has publish.page_meta() with the page title."""
+    from fantasyhoops.core import publish
+
+    plan, free = render(), fa()
+    plan_title = re.search(r"<title>(.*?)</title>", plan).group(1)
+    assert publish.page_meta("adds", plan_title) in plan
+    assert publish.page_meta("free-agents", page.FA_TITLE) in free
