@@ -560,6 +560,9 @@ td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .sg thead tr.now th, .sg thead tr.now td { font-size: 15px; font-weight: 900; padding: 6px; vertical-align: middle; }
 .sg thead tr.now th.l { font-size: 12px; font-weight: 800; text-align: left; padding-left: 10px; }
 .ms .nums .cb { width: 100%; max-width: 50px; }
+/* With 4 playoff weeks or more, a narrow week cell puts the change under the count (#160). */
+.ms .nums .wk { white-space: normal; }
+.ms .nums .wk small { display: inline-block; }
 .key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--lab-mute); margin: 8px 0 0;
   align-items: center; }
 .key .cb { display: inline-block; margin: 0 4px 0 0; vertical-align: middle; }
