@@ -87,3 +87,4 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - On 2026-10-29, the owner let the chief of staff manage #159 to #164 ("you can manage them"): merge each on a clean review, then publish the trade page.
 - On 2026-10-29, PR #174 (closes #159, warnings name up to 3 players, else "N players, such as A, B and C") had a clean review and merged as `mccomark21/fantasy-hoops-lab@8e495bd`. PR #175 (#160) and the #161 builder were in progress.
 - On 2026-10-29, PR #176 (closes #161, the fallback counts distinct (name, team) pairs) had a clean review and merged as `mccomark21/fantasy-hoops-lab@52a32ac`.
+- On 2026-10-29, PR #175 (closes #160; 3-week rows pixel-identical to main) had a clean review and merged as `mccomark21/fantasy-hoops-lab@1506faa`.
