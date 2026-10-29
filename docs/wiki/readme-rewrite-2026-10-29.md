@@ -9,3 +9,4 @@
 - On 2026-10-29, after the joint publish, the chief of staff started a builder for the README PR (screenshots from the live site, and the card text fix).
 - On 2026-10-29, the builder opened PR #169 at `63e1187`: the approved draft unchanged, 4 screenshots at 1280x800 (40 to 68 KB), and card.png with the 4 page names. A reviewer started.
 - On 2026-10-29, the #169 review was clean (nits: the Node.js line names only the draft board tests, trades.png shows the warning box, the card build script is not tracked). The owner approved the merge on a clean review. PR #169 merged as `mccomark21/fantasy-hoops-lab@358ff43`. The new card.png goes live with the next publish.
+- On 2026-10-29, the owner asked to update the README screenshots too. They are taken from the live site, so a small PR follows the last publish (after #159 to #164): Home, Roster, Adds plan, Free agents and Trades.
