@@ -222,3 +222,9 @@ def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_a_chip_presse
             for theme in ("light", "dark"):
                 pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
                 assert pg.evaluate(CONTRAST) == [], (width, theme, state)
+
+
+def test_a_value_change_that_rounds_to_0_has_no_sign_and_a_team_code_of_4_letters_gets_the_small_band():
+    assert page.change_text(0.004) == page.change_text(-0.004) == "±0.00"
+    assert page.change_text(-0.1) == "−0.10"
+    assert 'class="band b4"' in render() and ">UTAH</td>" in render()

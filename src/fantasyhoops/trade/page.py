@@ -48,7 +48,8 @@ def value_text(v):
 
 
 def change_text(v):
-    """A value change with its sign: "+0.19", "−0.10" or "±0.00"."""
+    """A value change with its sign: "+0.19", "−0.10" or "±0.00". A change that rounds to 0.00 gets "±"."""
+    v = round(v, 2)
     return ("+" if v > 0 else MINUS if v < 0 else "±") + f"{abs(v):.2f}"
 
 
