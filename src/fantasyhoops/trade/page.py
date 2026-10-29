@@ -92,19 +92,20 @@ def week_cell(before, after, total=False):
     return f"wk {kind}{' t' if total else ''}", inner
 
 
-def partner_cell(s):
-    """(class, inner HTML) of the partner starts cell of a suggestion: the new total, the change and the bar."""
+def partner_starts(s):
+    """The partner starts of a suggestion under the partner name: the total before and after, an estimate.
+
+    A text for a reader gives the starts of each week too.
+    """
     before, after = sum(s.partner_before), sum(s.partner_after)
-    cls, _ = week_cell(before, after, total=True)
     d = after - before
     said = "no change" if d == 0 else f"{'up' if d > 0 else 'down'} {abs(d)}"
     weeks = f"{' · '.join(map(str, s.partner_before))} before, {' · '.join(map(str, s.partner_after))} after"
-    inner = (
-        f'<span aria-hidden="true"><b>{after}</b><small>{signed(d)}</small>'
-        f'<span class="cb">{_bar(d, True)}</span></span>'
-        f'<span class="vh">Partner, an estimate: {after} starts, {said} from {before}. Weeks: {weeks}.</span>'
+    kind = "up" if d > 0 else "dn" if d < 0 else "eq"
+    return (
+        f'<small class="pe {kind}" aria-hidden="true">Est. {before} → <b>{after}</b> {signed(d)}</small>'
+        f'<span class="vh">Partner starts, an estimate: {after}, {said} from {before}. Weeks: {weeks}.</span>'
     )
-    return cls, inner
 
 
 def partner_line(s):
@@ -159,15 +160,14 @@ def desk_table(result, weeks):
     now = "".join(f"<td>{b}</td>" for b in base)
     head = (
         '<colgroup><col class="c-rk"><col class="c-band"><col><col class="c-band"><col><col class="c-pt">'
-        f'<col class="c-w" span="{len(weeks)}"><col class="c-t"><col class="c-t"><col class="c-v"><col class="c-v2">'
-        f'</colgroup><thead><tr class="grp"><td colspan="6"></td><th colspan="{len(weeks) + 2}" scope="colgroup" '
+        f'<col class="c-w" span="{len(weeks)}"><col class="c-t"><col class="c-v"><col class="c-v2"></colgroup>'
+        f'<thead><tr class="grp"><td colspan="6"></td><th colspan="{len(weeks) + 1}" scope="colgroup" '
         'class="fine s1">Playoff starts</th><th colspan="2" scope="colgroup" class="s1">Value change</th></tr>'
         '<tr><th scope="col">#</th><th scope="col" class="l" colspan="2">You give</th>'
-        '<th scope="col" class="l" colspan="2">You get</th><th scope="col" class="l">Partner</th>'
-        f'{head_weeks}<th scope="col">Total</th><th scope="col" class="pe">Them est.</th>'
-        '<th scope="col" class="s1">You</th><th scope="col">Them</th></tr>'
+        '<th scope="col" class="l" colspan="2">You get</th><th scope="col" class="l">Partner, est. starts</th>'
+        f'{head_weeks}<th scope="col">Total</th><th scope="col" class="s1">You</th><th scope="col">Them</th></tr>'
         f'<tr class="now"><th colspan="6" class="l" scope="row">Your starts now</th>{now}<td>{total}</td>'
-        '<td colspan="3"></td></tr></thead>'
+        '<td colspan="2"></td></tr></thead>'
     )
     rows = []
     for k, s in enumerate(result.rows, 1):
@@ -176,11 +176,10 @@ def desk_table(result, weeks):
             cls, inner = week_cell(b, a)
             cells.append(f'<td class="{cls}{" s1" if i == 0 else ""}">{inner}</td>')
         cls, inner = week_cell(total, sum(s.after), total=True)
-        pcls, pinner = partner_cell(s)
         rows.append(
             f'<tr data-give="{_e(s.give.name)}" data-k="{k - 1}"><td class="rk">{_load(k)}</td>{_band(s.give.team)}'
-            f'{_player_cell(s.give)}{_band(s.get.team)}{_player_cell(s.get)}<td class="pt">{_e(s.get.team_name)}</td>'
-            f'{"".join(cells)}<td class="{cls}">{inner}</td><td class="{pcls} pe">{pinner}</td>{_value_cells(s)}</tr>'
+            f'{_player_cell(s.give)}{_band(s.get.team)}{_player_cell(s.get)}<td class="pt">{_e(s.get.team_name)}'
+            f'{partner_starts(s)}</td>{"".join(cells)}<td class="{cls}">{inner}</td>{_value_cells(s)}</tr>'
         )
     return (
         '<table class="sg desk lab-t" id="sg-desk"><caption class="vh">Suggested 1-for-1 trades, the best gain in '
@@ -493,7 +492,8 @@ td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .key .cb { display: inline-block; margin: 0 4px 0 0; vertical-align: middle; }
 
 /* The partner starts of a suggestion (an estimate) and the button that loads a suggestion into the builder. */
-.sg th.pe { white-space: nowrap; }
+.sg td.pt small.pe { display: block; margin-top: 4px; font-size: 12px; color: var(--lab-ink); }
+.sg td.pt small.pe b { font-weight: 800; }
 .ms .pst { grid-column: 1 / -1; padding: 0 8px 8px; font-size: 12px; color: var(--lab-ink); overflow-wrap: anywhere; }
 .ms .pst em { font-style: normal; font-weight: 800; color: var(--mark); margin-right: 6px; }
 .ms .pst b { font-weight: 800; }
@@ -528,6 +528,7 @@ h3 { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: var(--lab-ink); 
 .pk tbody tr.on > *:not(.band) { background: var(--qcol); }
 .pk tbody tr.on > * { box-shadow: inset 0 2px var(--mark), inset 0 -2px var(--mark); }
 .pk td.n { font-size: 13px; }
+.pk td.band { font-size: 15px; }
 @container (max-width: 599px) { .pk col.c-band { width: 0; } .pk td.band { font-size: 0 !important; }
   .pk col.c-n { width: 50px; } }
 .line { font-size: 13px; color: var(--lab-ink); border: 1.5px solid var(--lamp-off); padding: 6px 10px; margin: 10px 0 0;
@@ -537,8 +538,8 @@ h3 { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: var(--lab-ink); 
 .res { margin-top: 18px; }
 .rt { table-layout: fixed; font-size: 13px; max-width: 860px; }
 .rt col.c-w { width: 64px; } .rt col.c-t { width: 74px; } .rt col.c-v { width: 104px; }
-.rt th.sd { text-align: left; padding-left: 10px; line-height: 1.15; overflow-wrap: anywhere; }
-.rt th.sd b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
+.rt th.sd { text-align: left; padding: 5px 6px 5px 10px; line-height: 1.15; overflow-wrap: anywhere; }
+.rt th.sd b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; display: block; }
 .rt th.sd small { display: block; font-size: 12px; color: var(--lab-mute); font-weight: 400; margin-top: 2px; }
 .rt tr.now th.sd small { color: var(--lab-on-blue); }
 .rt th.sd small.rv { display: none; }
@@ -590,7 +591,7 @@ BUILDER_SCRIPT = """<script>
   const st = {team: D.teams.length ? D.teams[0].id : null, give: new Set(), get: new Set(), drops: [], row: null};
   const team = () => D.teams.find(t => t.id === st.team);
   const flag = p => (p.il ? '<span class="status">IL</span>' : p.status ? `<span class="status">${esc(p.status)}</span>` : "");
-  const band = p => `<td class="band" style="${p.style}">${esc(p.team)}</td>`;
+  const band = p => `<td class="band${p.team.length > 3 ? " b4" : ""}" style="${p.style}">${esc(p.team)}</td>`;
 
   function bar(d, total) {
     if (d > 0) return `<i class="up" style="--d:${Math.min(d, total ? 6 : 4)}"></i>`;

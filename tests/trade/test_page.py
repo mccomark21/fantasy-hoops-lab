@@ -1,12 +1,14 @@
 import re
 from contextlib import contextmanager
-from datetime import date, datetime
+from dataclasses import replace
+from datetime import date, datetime, timedelta
 
 import pytest
 
+from fantasyhoops.core import home
 from fantasyhoops.core import publish as site
 from fantasyhoops.trade import page
-from fantasyhoops.trade.suggest import Suggestion, Suggestions, TradePlayer
+from fantasyhoops.trade.suggest import Suggestion, Suggestions, TradePlayer, TradeSettings
 
 WEEKS = ["wk19", "wk20", "wk21"]
 CFG = {"league": {"teams": 14}, "trade": {"kept": 8, "per_player": 3}}
@@ -49,7 +51,7 @@ def test_the_table_has_the_columns_of_the_suggestions_and_the_starts_now_row():
     html = render()
     table = html.split('<table class="sg desk lab-t" id="sg-desk">')[1].split("</table>")[0]
     heads = re.findall(r'<th scope="col"[^>]*>(.*?)</th>', table)
-    assert heads == ["#", "You give", "You get", "Partner", "Wk19", "Wk20", "Wk21", "Total", "Them est.", "You", "Them"]
+    assert heads == ["#", "You give", "You get", "Partner, est. starts", "Wk19", "Wk20", "Wk21", "Total", "You", "Them"]
     assert '<tr class="now"><th colspan="6" class="l" scope="row">Your starts now</th><td>28</td><td>27</td>' in table
     assert "<td>81</td>" in table
     assert table.count('<tr data-give="') == 4
@@ -66,7 +68,7 @@ def test_each_row_shows_both_players_the_partner_the_week_cells_and_both_value_c
     assert '<b>Hurt Point Guard</b><span class="status">IL</span><small>CHA · PG</small>' in row
     assert "Val <i>−1.89</i> · Pre <i>0.50</i>" in row
     assert "<b>Steady Combo Guard</b><small>ATL · PG/SG</small>" in row
-    assert '<td class="pt">Rival Squad</td>' in row
+    assert '<td class="pt">Rival Squad<small class="pe up" aria-hidden="true">' in row
     assert '<td class="wk up s1"><span aria-hidden="true"><b>29</b><small>+1</small>' in row
     assert '<span class="vh">29 starts, up 1 from 28</span>' in row
     assert '<td class="wk up t"><span aria-hidden="true"><b>86</b><small>+5</small>' in row
@@ -251,3 +253,168 @@ def test_the_open_menu_drawer_has_4_5_to_1_text_and_no_horizontal_scroll(width):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             assert pg.evaluate(CONTRAST) == [], (width, theme)
             assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
+
+
+# The trade builder (#152) -------------------------------------------------------------------------------------------
+
+SETTINGS = TradeSettings(frozenset({"star keeper"}), (0.95, 1.10), 8, 3, 20)
+TEAMS = ("ATL", "BOS", "CHA", "HOU", "NO", "UTAH", "WSH", "DAL")
+PLAYOFF = [
+    home.Day(date(2027, 3, 8) + timedelta(days=7 * w + d), name, d == 0, frozenset(TEAMS[d : d + 5]), frozenset())
+    for w, name in enumerate(WEEKS)
+    for d in range(3)
+]
+MINE = [
+    mine("Star Keeper", 3.06, team="DAL", pos=("SG", "SF", "PF"), slot="PF"),
+    GUARD,
+    WING,
+    mine("Bench Center", -0.73, team="ATL", pos=("C",), slot="BN"),
+    mine("Spare Guard", -1.42, team="BOS", pos=("PG", "SG"), slot="BN"),
+]
+OTHERS = [s.get for s in ROWS] + [
+    theirs("Rival Low Man", -3.1, team="DAL", pos=("C",)),
+    theirs("Rival Hurt Man", -2.0, team="NO", pos=("PF",), status="O"),
+    replace(theirs("Other Team Star", 2.2, team="BOS"), team_id=7, team_name="Second Squad"),
+]
+BUILDER = page.builder_data(RESULT, MINE, OTHERS, PLAYOFF, ["PG", "SG", "SF", "PF", "C"], WEEKS, SETTINGS)
+
+
+def render_builder():
+    return page.render(RESULT, WEEKS, CFG, MADE, TODAY, DEADLINE, READ, BUILDER)
+
+
+def test_the_builder_sits_under_the_suggestions_with_the_partner_pick_and_both_tables():
+    html = render_builder()
+    assert html.index('id="sg-read"') < html.index('<section id="builder"') < html.index("</main>")
+    assert '<h2 id="builder-h">Trade builder</h2>' in html
+    options = re.findall(r'<option value="(\d+)">([^<]+)</option>', html)
+    assert options == [("3", "Rival Squad"), ("7", "Second Squad")]
+    for part in ('id="pk-give"', 'id="pk-get"', 'id="open-me" hidden', 'id="drop" hidden', 'id="res"'):
+        assert part in html
+    assert 'id="builder"' not in render()  # a page with no builder data has no builder
+
+
+def test_the_builder_data_has_both_rosters_the_suggestions_and_the_engine_data():
+    me = {p["name"]: p for p in BUILDER["me"]}
+    assert me["Star Keeper"]["untouchable"] and not me[WING.name]["untouchable"]
+    assert me[GUARD.name]["il"] and me[GUARD.name]["val"] == -1.89 and me[GUARD.name]["pg"] == 0.5
+    assert [len(t["roster"]) for t in BUILDER["teams"]] == [6, 1]
+    first = BUILDER["sugg"][0]
+    assert first == {"team": 3, "give": [me[GUARD.name]["id"]], "get": [BUILDER["teams"][0]["roster"][0]["id"]]}
+    assert BUILDER["engine"]["util"] == 1 and BUILDER["engine"]["kept"] == 8 and len(BUILDER["engine"]["days"]) == 9
+    html = render_builder()
+    assert '<script type="application/json" id="trade-data">' in html
+    assert "const TeamBuilder = " in html and "const TradeBuilder = " in html
+
+
+def test_the_partner_starts_show_as_an_estimate_in_the_table_and_the_row_list():
+    html = render()
+    row = html.split('<tr data-give="Hurt Point Guard" data-k="0">')[1].split("</tr>")[0]
+    assert '<small class="pe up" aria-hidden="true">Est. 79 → <b>80</b> +1</small>' in row
+    assert "Partner starts, an estimate: 80, up 1 from 79. Weeks: 27 · 27 · 25 before, 26 · 28 · 26 after." in row
+    assert '<span class="pst"><em>Them, est.</em>27 · 27 · 25 = 79 → 26 · 28 · 26 = 80 <b>+1</b></span>' in html
+
+
+def test_the_page_data_escapes_a_closing_script_tag():
+    evil = replace(OTHERS[-1], name="</script><b>x")
+    data = page.builder_data(RESULT, MINE, OTHERS[:-1] + [evil], PLAYOFF, ["PG"], WEEKS, SETTINGS)
+    html = page.render(RESULT, WEEKS, CFG, MADE, TODAY, DEADLINE, READ, data)
+    assert "<\\/script><b>x" in html and "</script><b>x" not in html
+
+
+def test_a_click_on_a_suggestion_row_loads_it_into_the_builder():
+    with browser_page() as pg:
+        pg.set_content(render_builder())
+        assert pg.locator("#res").text_content() == "Pick at least 1 player to give and 1 player to get."
+        pg.locator('#sg-desk tr[data-k="1"] td.pt').click()
+        assert pg.locator("#partner").input_value() == "3"
+        assert pg.locator(f'#pk-give input[aria-label="Give {GUARD.name}"]').is_checked()
+        assert pg.locator('#pk-get input[aria-label="Get Long Name Forward Jr."]').is_checked()
+        assert pg.locator("#pk-give input:checked, #pk-get input:checked").count() == 2
+        assert pg.locator('#sg-desk tr[data-k="1"]').get_attribute("aria-current") == "true"
+        assert pg.locator("#live").text_content() == "Trade 2 is in the builder."
+        assert pg.locator("#rt tbody tr").count() == 4
+        assert "After the trade, est." in pg.locator("#rt").text_content()
+        assert pg.locator("#open-me").is_hidden() and pg.locator("#drop").is_hidden()
+
+
+def test_a_1_for_2_trade_shows_the_open_spot_line_and_the_partner_drop():
+    with browser_page() as pg:
+        pg.set_content(render_builder())
+        pg.locator('#sg-desk tr[data-k="0"] button.ld').click()
+        pg.locator('#pk-give input[aria-label="Give Bench Center"]').check()
+        assert pg.locator("#open-me").text_content() == "1 open roster spot: a free agent can fill it."
+        assert pg.locator("#sg-desk tr[aria-current]").count() == 0  # a changed trade is not the suggestion
+        # His lowest value player that he keeps: Rival Low Man (−3.10), not the player that he gives.
+        assert pg.locator("#drop-them").text_content().startswith("Rival Squad drops Rival Low Man")
+        assert pg.locator("#drop").is_hidden()
+
+
+def test_a_2_for_1_trade_asks_for_your_drop_and_the_partner_gets_an_open_spot():
+    with browser_page() as pg:
+        pg.set_content(render_builder())
+        pg.locator('#sg-desk tr[data-k="0"] button.ld').click()
+        pg.locator('#pk-get input[aria-label="Get Big Out Center"]').check()
+        assert pg.locator("#drop").is_visible()
+        assert "You get 1 more player than you give. Pick your drop." in pg.locator("#drop-chips").text_content()
+        pressed = pg.locator('#drop-chips button[aria-pressed="true"]')
+        assert pressed.count() == 1 and pressed.text_content().startswith("Spare Guard")  # the lowest value first
+        assert pg.locator('#drop-chips button:has-text("Star Keeper")').count() == 0  # never the untouchable
+        pg.locator('#drop-chips button:has-text("Bench Center")').click()
+        assert pg.locator('#drop-chips button[aria-pressed="true"]').text_content().startswith("Bench Center")
+        assert "You drop Bench Center" in pg.locator("#res").text_content()
+        assert pg.locator("#open-them").text_content() == "Rival Squad: 1 open roster spot: a free agent can fill it."
+
+
+def test_a_new_partner_clears_the_players_you_get():
+    with browser_page() as pg:
+        pg.set_content(render_builder())
+        pg.locator('#sg-desk tr[data-k="0"] button.ld').click()
+        pg.locator("#partner").select_option("7")
+        assert pg.locator("#pk-get tbody tr").count() == 1
+        assert pg.locator("#pk-get input:checked").count() == 0
+        assert pg.locator("#get-h").text_content() == "You get from Second Squad"
+
+
+def builder_states(pg):
+    """Put the builder in each state in turn: default, selected (a loaded row and a 2-for-1), hover and focus-visible.
+    Yield the name of each state."""
+    yield "default"
+    pg.locator('[data-k="0"] button.ld:visible').first.click()
+    pg.locator('#pk-get input[aria-label="Get Big Out Center"]').check()
+    yield "selected"
+    pg.locator('[data-k="1"]:visible').first.hover()
+    pg.locator("#pk-get tbody tr").nth(3).hover()
+    yield "hover"
+    pg.locator("#clear").focus()
+    pg.keyboard.press("Tab")
+    pg.keyboard.press("Tab")
+    yield "focus-visible"
+
+
+BUILDER_FIT = FIT.replace(
+    '.mnow span")',
+    '.mnow span, #builder th, #builder td, #builder .line, #builder .chip, #builder select")',
+)
+
+
+@pytest.mark.parametrize("width", [320, 390, 768, 1280])
+def test_no_builder_cell_overflows_and_the_page_has_no_horizontal_scroll_in_each_state(width):
+    assert BUILDER_FIT != FIT
+    with browser_page(width) as pg:
+        pg.set_content(render_builder())
+        for state in builder_states(pg):
+            for theme in ("light", "dark"):
+                pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+                assert pg.evaluate(BUILDER_FIT, width) == [], (width, theme, state)
+                assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme, state)
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_each_builder_text_is_4_5_to_1_or_more_in_each_state_and_theme(width):
+    with browser_page(width) as pg:
+        pg.set_content(render_builder())
+        for state in builder_states(pg):
+            for theme in ("light", "dark"):
+                pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+                assert pg.evaluate(CONTRAST) == [], (width, theme, state)
