@@ -271,3 +271,35 @@ def test_a_desktop_shows_the_table_and_the_red_text_passes_aa(scheme):
             return "#" + "".join(f"{int(x):02x}" for x in re.findall(r"\d+", rgb)[:3])
 
         assert tokens.contrast(hex_of(colors[0]), hex_of(colors[1])) >= 4.5
+
+
+# The look of each visible element of the Roster table and of the phone rows: the box and the computed style.
+ROSTER_LOOK = r"""() => {
+  const props = ["color", "backgroundColor", "fontSize", "fontWeight", "fontStretch", "lineHeight", "textAlign",
+    "paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "borderTopWidth", "borderBottomWidth",
+    "borderLeftWidth", "borderBottomColor", "borderLeftColor", "boxShadow", "textTransform", "verticalAlign"];
+  document.querySelectorAll("details.m-p").forEach(d => d.open = true);
+  // A hidden element (the table on a phone, the phone rows on a desktop) has no box and does not count.
+  return [...document.querySelectorAll(".scroll *, section.mob *")].filter(el => el.getClientRects().length).map(el => {
+    const r = el.getBoundingClientRect(), s = getComputedStyle(el);
+    return [el.tagName, el.className, Math.round(r.left), Math.round(r.top), Math.round(r.width),
+      Math.round(r.height), ...props.map(p => s[p])].join("|");
+  });
+}"""
+
+
+@pytest.mark.parametrize("width", [390, 1280])
+def test_the_shared_table_css_does_not_change_the_roster_table(width):
+    """#143: the Roster table and the phone rows look as before the move of their CSS to publish.TABLE_STYLE.
+
+    fixtures/home_before_143.html is page() before #143. Each element has the same box and the same style.
+    """
+    before = (Path(__file__).parent / "fixtures" / "home_before_143.html").read_text(encoding="utf-8")
+    with browser_page(width) as pg:
+        for theme in ("light", "dark"):
+            looks = []
+            for html in (before, page()):
+                pg.set_content(html)
+                pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+                looks.append([line.replace(" lab-t", "") for line in pg.evaluate(ROSTER_LOOK)])
+            assert looks[0] == looks[1], (width, theme)

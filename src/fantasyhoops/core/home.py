@@ -9,7 +9,8 @@ likely be back by the playoffs. A player with rests_b2b gets no game on the seco
 The vs ideal row uses lineup.ideal_games(), and the percent bands use lineup.BANDS. The draft board gets the same
 rules from core/lineup.py.
 
-publish.shell() gives the head, the menu and the menu script of the page (#132).
+publish.shell() gives the head, the menu and the menu script of the page (#132), and the shared table style
+publish.TABLE_STYLE (#143): the head, the rows, the team band and the player cell of the Roster table.
 The module takes its data from the caller and opens no file and no web page. write() writes output/home/index.html
 with publish.write_page(), which also writes the font to fonts/ next to the page.
 """
@@ -21,7 +22,6 @@ from datetime import date, timedelta
 import pandas as pd
 
 from fantasyhoops.core import publish as site
-from fantasyhoops.core import tokens
 from fantasyhoops.core import common
 from fantasyhoops.core.lineup import UTIL, band, best_lineup, ideal_games
 from fantasyhoops.core.schedule import playoff_schedule
@@ -193,13 +193,6 @@ def _short_name(name):
     return parts[1] if len(parts) > 1 else name
 
 
-def _band_style(team):
-    color = tokens.TEAM_COLORS.get(team)
-    if color is None:
-        return "--team:var(--lab-blue);--team-ink:var(--lab-on-blue)"
-    return f"--team:{color};--team-ink:{tokens.team_ink(color)}"
-
-
 def _flag(p):
     if p.on_il:
         return f' <em class="flag" title="{_e(IL_TITLE)}">IL</em>'
@@ -300,7 +293,7 @@ def _desk_row(fit, p_idx, few_limit):
     rank = p.rank if p.rank is not None else "–"
     pos = "/".join(p.positions)
     cells = [
-        f'<td class="band" style="{_band_style(p.team)}">{_e(p.team)}</td>',
+        f'<td class="band" style="{site.band_style(p.team)}">{_e(p.team)}</td>',
         f'<td class="rk">{rank}</td>',
         f'<th class="pl" scope="row"><b>{_e(p.name)}</b>{_flag(p)}<small>{_e(p.team)} · {_e(pos)} · {_e(p.slot)}</small></th>',
     ]
@@ -385,7 +378,7 @@ def _mob_row(fit, p_idx, few_limit):
     marks = marks.replace(' class=""', "")
     return (
         f'<details class="m-p{" il" if p.on_il else ""}">\n'
-        f'<summary><span class="band" style="{_band_style(p.team)}">{_e(p.team)}</span>'
+        f'<summary><span class="band" style="{site.band_style(p.team)}">{_e(p.team)}</span>'
         f'<span class="rk"><span class="vh">Rank </span>{rank}</span>'
         f'<span class="nm"><b>{_e(p.name)}</b>{_flag(p)}<small>{_e("/".join(p.positions))} · {_e(p.slot)}</small></span>'
         f'<span class="gp"><span class="vh">, games played </span>{gp or "–"}</span>'
@@ -454,7 +447,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None,
     )
     n_days = len(fit.days)
     desk = (
-        '<div class="scroll" tabindex="0" role="region" aria-label="Roster table">\n<table class="desk">\n'
+        '<div class="scroll" tabindex="0" role="region" aria-label="Roster table">\n<table class="desk lab-t">\n'
         f'<caption class="vh">{caption}</caption>\n'
         f'<colgroup><col class="c-band"><col class="c-rk"><col class="c-pl"><col class="c-n" span="{len(STATS)}">'
         f'<col class="c-w" span="{len(week_names) + 1}"><col class="c-d" span="{n_days}"></colgroup>\n'
@@ -522,25 +515,13 @@ PAGE_STYLE = """/* Card Back roster page (#120): zebra rows, full-height quality
 /* Desktop table */
 .scroll { position: relative; overflow-x: auto; margin-top: 10px; scrollbar-color: var(--mark) var(--zebra); }
 .scroll:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
-table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 1130px; }
+/* publish.TABLE_STYLE gives the head, the rows, the band, the rank and the player cell (issue 143). */
+table.desk { table-layout: fixed; min-width: 1130px; }
 col.c-band { width: 44px; } col.c-rk { width: 38px; } col.c-pl { width: 196px; } col.c-n { width: 34px; }
 col.c-w { width: 46px; } col.c-d { width: 18px; }
-thead th, thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right; padding: 0 6px 6px;
-  vertical-align: bottom; border-bottom: 2px solid var(--mark); }
-thead .l { text-align: left; }
 tr.top th, tr.top td { border-bottom: 0; padding-bottom: 4px; font-size: 12px; }
 tr.top th.fine { background: var(--lab-blue); color: var(--lab-on-blue); text-align: center; padding: 5px 0; }
 tr.top th.gdh { padding-left: 8px; white-space: nowrap; }
-tbody td, tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px; text-align: right;
-  vertical-align: middle; font-weight: 400; }
-tbody tr:nth-child(even) > * { background: var(--zebra); }
-td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink); font-weight: 900;
-  font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
-td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
-th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
-th.pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
-th.pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
-td.n { font-size: 14px; }
 td.n:nth-child(6) { font-weight: 800; }
 td.n.none { color: var(--lab-mute); }
 td.w { font-size: 14px; font-weight: 700; line-height: 1.1; }
@@ -614,12 +595,6 @@ tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; pad
 .pc-key { display: inline-flex; gap: 8px; margin-right: 5px; }
 .q-key { color: var(--lab-mute); font-weight: 600; margin-right: 5px; }
 .foot { max-width: 72ch; margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--lab-mute); text-wrap: pretty; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) td.band, :root:not([data-theme="light"]) .m-p .band {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
-}
-:root[data-theme="dark"] td.band, :root[data-theme="dark"] .m-p .band {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
 
 /* Phone: one row for each player that opens and closes */
 .mob { display: none; }
@@ -644,12 +619,9 @@ tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; pad
   .m-p summary { list-style: none; cursor: pointer; min-height: 52px; }
   .m-p summary::-webkit-details-marker { display: none; }
   .m-p summary:focus-visible { outline: 2px solid var(--mark); outline-offset: -2px; }
-  .m-p .band { align-self: stretch; display: flex; align-items: center; justify-content: center; background: var(--team);
-    color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
-  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; text-align: right;
-    padding-right: 4px; }
+  .m-p .band { align-self: stretch; display: flex; align-items: center; justify-content: center; }
+  .m-p .rk { text-align: right; padding-right: 4px; }
   .m-p .nm { padding: 6px 4px 6px 10px; line-height: 1; min-width: 0; }
-  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
   .m-p .nm small { display: block; font-size: 12px; color: var(--lab-mute); margin-top: 3px; }
   .m-p .gp, .m-p .tg { text-align: right; font-size: 15px; padding-right: 4px; }
   .m-p .tg { font-weight: 800; color: var(--mark); border-left: 1px solid var(--vrule); align-self: stretch; display: flex;
@@ -729,6 +701,7 @@ PAGE_HTML = """<!doctype html>
 <title>Roster · Fantasy Hoops Lab</title>
 __HEAD__
 <style>
+__TABLE_CSS__
 __STYLE__
 </style>
 </head>

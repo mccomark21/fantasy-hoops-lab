@@ -11,6 +11,8 @@ A section shows only the parts that exist. The main sections:
   starter flag and the closer flag (core/role_flags.py).
   A mark such as "Mon open" names each of the first days of next week on which he plays and fills an open slot (#76).
 A third section lists the waiver players (W) with their clear days.
+The Free agents table and the Waiver players table have the look of the Roster table of the home page (#143): a
+team band, the player cell, and the head and row style of publish.TABLE_STYLE, the one source of the table CSS.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the free-agent table.
 The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
 The Run time table shows the time of each step of the run (adds/timing.py, #85), with the sub-steps of the Yahoo
@@ -50,11 +52,12 @@ def _day(d):
     return f"{d:%a} {d.month}/{d.day}"
 
 
-def _player(p):
+def _status(p):
+    """The status tags after the name of a player: his status (for example O), and W for a waiver player."""
     status = f' <span class="status" title="{_e(p.status_name or p.status)}">{_e(p.status)}</span>' if p.status else ""
     if p.on_waivers:
         status += f' <span class="status" title="Waiver claim, not sure. Clears {_day(p.clear_day)}.">W</span>'
-    return f"{_e(p.name)}{status}"
+    return status
 
 
 CLAIM_NOTE = (
@@ -200,6 +203,7 @@ def free_agent_data(
     one of the open slots of the day takes one of his positions (Util takes all positions). b2b: he plays on the
     second night of a back-to-back (nights, from rest.second_nights()).
     roles: {(name, team): Role} from adds/roles.py. role: the text of role_text(). rise: the minutes mark.
+    band: the style of his team band (publish.band_style()).
     next_days: the Days of the first days of next week, from the core roster (slots.next_week_window()).
     next_games: {day: set of teams} of those days. next_open: the mark of each of these days that he fits.
     """
@@ -232,6 +236,7 @@ def free_agent_data(
                 "role": role_text(role),
                 "rise": bool(role and role.rise),
                 "role_up": list(o.role_up),
+                "band": site.band_style(p.team),
                 "next_open": [_open_label(d.date) for d in next_days if _fits(p, d, next_games)],
             }
         )
@@ -360,7 +365,7 @@ def free_agents_section(run):
         f'{skip}{fa_key(roles, minutes_rise, next_days)}<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>\n'
         '<div class="empty" id="fa-empty" hidden><p id="fa-empty-text"></p>'
         '<button type="button" class="chip act" id="fa-clear-days">Clear days</button></div>\n'
-        '<table class="fa" id="fa-table"></table>\n'
+        '<table class="fa lab-t" id="fa-table"></table>\n'
         '<details class="notes" id="fa-notes"><summary>Columns and marks</summary>\n'
         '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
         f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
@@ -377,6 +382,9 @@ def free_agents_section(run):
 def waivers_section(options, replacement):
     """The waiver players (W), best value first: the clear day, the first day that he can play and the market value.
 
+    The table has the look of the Roster table (#143): the team band, then the player cell with the team and the
+    positions.
+
     Nothing if no option is on waivers.
     """
     waivers = waiver_options(options)
@@ -388,16 +396,19 @@ def waivers_section(options, replacement):
         return "—" if v is None else f"{v:+.2f}"
 
     rows = "".join(
-        f'<tr><td class="name">{_player(o.player)}</td><td class="name">{_e(o.player.team)}</td>'
-        f'<td class="name">{_e(",".join(o.player.positions))}</td><td>{_day(o.player.clear_day)}</td>'
-        f"<td>{_day(o.player.clear_day + timedelta(days=1))}</td><td>{market(o.value)}</td></tr>"
+        f'<tr><td class="band" style="{site.band_style(o.player.team)}">{_e(o.player.team)}</td>'
+        f'<th class="pl" scope="row"><b>{_e(o.player.name)}</b>{_status(o.player)}'
+        f"<small>{_e(o.player.team)} · {_e('/'.join(o.player.positions))}</small></th>"
+        f'<td class="s1">{_day(o.player.clear_day)}</td><td>{_day(o.player.clear_day + timedelta(days=1))}</td>'
+        f'<td class="n s1">{market(o.value)}</td></tr>'
         for o in waivers
     )
     return (
-        "<section><h2>Waiver players</h2>\n"
-        '<table class="ranking"><thead><tr><th class="name">Player</th><th class="name">Team</th>'
-        '<th class="name">Pos</th><th>Clears</th><th>First day</th><th>Val</th></tr></thead>'
-        f"<tbody>{rows}</tbody></table>\n"
+        '<section id="waivers"><h2>Waiver players</h2>\n'
+        '<table class="wv lab-t" id="wv-table"><caption class="vh">Waiver players, best value first</caption>'
+        '<thead><tr><th scope="col" class="l">Team</th><th scope="col" class="l">Player</th>'
+        '<th scope="col" class="s1">Clears</th><th scope="col">First day</th><th scope="col" class="s1">Val</th>'
+        f"</tr></thead><tbody>{rows}</tbody></table>\n"
         '<p class="legend">First day: the first day that he can play for you, the day after he clears waivers. '
         f"Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>"
     )
@@ -553,6 +564,7 @@ HTML = """<!doctype html>
 <title>__TITLE__</title>
 __HEAD__
 <style>
+__TABLE_CSS__
 /* Short names for the shared tokens of core/tokens.py. The page has no colors of its own. */
 :root { --bg: var(--lab-stock); --fg: var(--lab-ink); --muted: var(--lab-mute); --line: var(--lab-rule);
         --bad: var(--lab-red); --good: var(--lab-green); --q: var(--mark); }
@@ -613,15 +625,42 @@ label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; ma
                cursor: pointer; }
 label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q); }
 .count { font-size: 12px; margin: 0 0 4px; }
-.fa { font-size: 13px; }
+/* The free-agent table and the waiver table (issue 143): publish.TABLE_STYLE gives the look of the Roster table.
+   These rules add the sort buttons, the day columns and the role line. */
+.fa, .wv { font-size: 13px; }
+.fa td.band, .wv td.band { width: 44px; }
+/* A long name wraps inside its cell. The name is an inline block, so that its glyph box stays inside the line. */
+.fa th.pl, .wv th.pl { overflow-wrap: anywhere; }
+.fa .pl b, .wv .pl b { display: inline-block; }
+.lab-t .pl .status, .lab-t .pl .flag { vertical-align: 3px; margin-left: 2px; }
+.fa th.pl small + small { font-size: 11px; }
 .fa th.sort { white-space: nowrap; padding: 0; }
 .fa th.sort button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; width: 100%;
-                     min-height: 28px; padding: 5px 4px; text-align: inherit; }
-.fa th.sort[aria-sort] { color: var(--q); box-shadow: inset 0 -3px var(--q); }
-.fa th.day, .fa td.day { text-align: center; width: 26px; padding: 5px 0; }
-.fa th.day.sel { color: var(--q); box-shadow: inset 0 -3px var(--q); }
+                     min-height: 28px; padding: 0 6px 6px; display: flex; align-items: flex-end;
+                     justify-content: flex-end; }
+.fa th.sort[aria-sort] { box-shadow: inset 0 -3px var(--q); }
+.fa th.day, .fa td.day { text-align: center; width: 26px; padding: 0 0 6px; }
+.fa td.day { padding: 0; }
+.fa th.day.sel { box-shadow: inset 0 -3px var(--q); }
 .fa td.sel { background: color-mix(in srgb, var(--q) 12%, var(--bg)); }
-.fa small, .fa .sub { color: var(--muted); font-weight: 400; font-size: 11px; }
+.fa th.day small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+.wv td { white-space: nowrap; }
+/* Below 600px, the free-agent table has 4 number columns and up to 7 day columns next to the name. A smaller
+   band and name keep a long name such as VALANCIUNAS on one line. */
+@media (max-width: 599px) {
+  .fa th.day, .fa td.day { width: 18px; }
+  .fa td.n, .wv td { padding: 0 4px; }
+  .fa th.sort button { padding: 0 4px 6px; }
+  .fa td.band { width: 36px; font-size: 15px; }
+  .fa th.pl { padding-left: 6px; }
+  .fa .pl b { font-size: 15px; }
+}
+/* At 320px, the value cells and the sort buttons get less padding, so that a wide fallback font also fits. */
+@media (max-width: 359px) {
+  .fa td.n { padding: 0 2px; font-size: 13px; }
+  .fa th.sort button { padding: 0 2px 6px; }
+  .fa td.band { font-size: 13px; }
+}
 .dot { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; }
 .dot.fit { background: var(--fg); }
 .dot.game { border: 1.5px solid var(--muted); }
@@ -732,23 +771,27 @@ function render() {
     + `<button type="button" data-sort="${key}">${SORT_NAMES[key]}`
     + `${state.sort === key ? '<span aria-hidden="true"> ▼</span>' : ""}</button></th>`;
   const sel = i => state.days.has(i) ? " sel" : "";
-  const head = DATA.days.map((d, i) => `<th class="day${sel(i)}">${d.label.slice(0, 2)}<br><small>${d.open}</small></th>`).join("");
+  const head = DATA.days.map((d, i) => `<th scope="col" class="day${i ? "" : " s1"}${sel(i)}">${d.label.slice(0, 2)}<br><small>${d.open}</small></th>`).join("");
   const active = document.activeElement;
   const focus = active && active.dataset ? active.dataset.sort : undefined;
   $("fa-table").innerHTML = `<caption class="vh">Free agents, sorted by ${SORT_NAMES[state.sort]}, highest first`
-    + `</caption><thead><tr><th class="name">Player</th>${th("value")}${th("match")}${th("recent", "wide")}`
-    + `${th("games")}${head}</tr></thead><tbody>` + rows.slice(0, DATA.rows).map(p =>
-      `<tr><td class="name">${esc(p.name)}${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
+    + `</caption><thead><tr><th scope="col" class="l">Team</th><th scope="col" class="l">Player</th>`
+    + `${th("value", "s1")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
+    + rows.slice(0, DATA.rows).map(p =>
+      `<tr><td class="band" style="${esc(p.band)}">${esc(p.team)}</td>`
+      + `<th class="pl" scope="row"><b>${esc(p.name)}</b>`
+      + `${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
       + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
       + `${p.rise ? ' <span class="flag">MIN+</span>' : ""}`
       + `${p.role_up.length ? ' <span class="flag up">UP</span>' : ""}`
       + p.next_open.map(m => ` <span class="flag next">${esc(m)}</span>`).join("")
-      + `<div class="sub">${esc(p.team)} · ${esc(p.pos.join(","))}${p.trend ? ` · ${p.trend} adds today` : ""}`
-      + `${p.role_up.length ? ` · role up: ${esc(p.role_up.join(", "))} absent` : ""}</div>`
-      + `${p.role ? `<div class="sub">${esc(p.role)}</div>` : ""}</td>`
-      + `<td class="${p.value < 0 ? "neg" : ""}">${fmt(p.value)}</td>`
-      + `<td class="${p.match < 0 ? "neg" : ""}">${fmt(p.match)}</td><td class="wide">${fmt(p.recent)}</td><td>${games(p)}</td>`
-      + DATA.days.map((d, i) => `<td class="day${sel(i)}">${p.fits[i] ? DOT_FIT
+      + `<small>${esc(p.team)} · ${esc(p.pos.join("/"))}${p.trend ? ` · ${p.trend} adds today` : ""}`
+      + `${p.role_up.length ? ` · role up: ${esc(p.role_up.join(", "))} absent` : ""}</small>`
+      + `${p.role ? `<small>${esc(p.role)}</small>` : ""}</th>`
+      + `<td class="n s1${p.value < 0 ? " neg" : ""}">${fmt(p.value)}</td>`
+      + `<td class="n${p.match < 0 ? " neg" : ""}">${fmt(p.match)}</td><td class="n wide">${fmt(p.recent)}</td>`
+      + `<td class="n">${games(p)}</td>`
+      + DATA.days.map((d, i) => `<td class="day${i ? "" : " s1"}${sel(i)}">${p.fits[i] ? DOT_FIT
         : p.plays[i] ? DOT_GAME : ""}${p.b2b[i] ? B2B : ""}</td>`).join("") + `</tr>`).join("")
       + `</tbody>`;
   $("fa-table").querySelectorAll("th.sort button").forEach(b => {

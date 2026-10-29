@@ -92,6 +92,40 @@ body.lab-locked { overflow: hidden; }
   z-index: 1; }
 </style>
 <style>
+/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. Below 900px,
+   the phone row of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that
+   a class rule of a page wins over them. */
+table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+:where(.lab-t) thead th, :where(.lab-t) thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right;
+  padding: 0 6px 6px; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+:where(.lab-t) thead .l { text-align: left; }
+:where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px;
+  text-align: right; vertical-align: middle; font-weight: 400; }
+:where(.lab-t) tbody tr:nth-child(even) > * { background: var(--zebra); }
+.lab-t .s1 { border-left: 1px solid var(--vrule); }
+.lab-t td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+.lab-t td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
+.lab-t th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
+.lab-t .pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
+.lab-t .pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
+.lab-t td.n { font-size: 14px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lab-t td.band, :root:not([data-theme="light"]) .m-p .band {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+}
+:root[data-theme="dark"] .lab-t td.band, :root[data-theme="dark"] .m-p .band {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+/* Phone: the sizes of the phone row of the Roster. */
+@media (max-width: 899px) {
+  :where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 52px; }
+  .lab-t td.band { font-size: 17px; }
+  .lab-t td.rk { font-size: 19px; }
+  .lab-t .pl b { font-size: 18px; }
+  .m-p .band { background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
+  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; }
+  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
+}
 /* Card Back roster page (#120): zebra rows, full-height quality-day columns, section rules, IL in the starts. */
 .roster {
   color: var(--lab-ink); font: 400 13px/1.25 var(--lab-face); font-variant-numeric: tabular-nums;
@@ -118,25 +152,13 @@ body.lab-locked { overflow: hidden; }
 /* Desktop table */
 .scroll { position: relative; overflow-x: auto; margin-top: 10px; scrollbar-color: var(--mark) var(--zebra); }
 .scroll:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
-table { border-collapse: collapse; table-layout: fixed; width: 100%; min-width: 1130px; }
+/* publish.TABLE_STYLE gives the head, the rows, the band, the rank and the player cell (issue 143). */
+table.desk { table-layout: fixed; min-width: 1130px; }
 col.c-band { width: 44px; } col.c-rk { width: 38px; } col.c-pl { width: 196px; } col.c-n { width: 34px; }
 col.c-w { width: 46px; } col.c-d { width: 18px; }
-thead th, thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right; padding: 0 6px 6px;
-  vertical-align: bottom; border-bottom: 2px solid var(--mark); }
-thead .l { text-align: left; }
 tr.top th, tr.top td { border-bottom: 0; padding-bottom: 4px; font-size: 12px; }
 tr.top th.fine { background: var(--lab-blue); color: var(--lab-on-blue); text-align: center; padding: 5px 0; }
 tr.top th.gdh { padding-left: 8px; white-space: nowrap; }
-tbody td, tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px; text-align: right;
-  vertical-align: middle; font-weight: 400; }
-tbody tr:nth-child(even) > * { background: var(--zebra); }
-td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink); font-weight: 900;
-  font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
-td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
-th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
-th.pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
-th.pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
-td.n { font-size: 14px; }
 td.n:nth-child(6) { font-weight: 800; }
 td.n.none { color: var(--lab-mute); }
 td.w { font-size: 14px; font-weight: 700; line-height: 1.1; }
@@ -210,12 +232,6 @@ tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; pad
 .pc-key { display: inline-flex; gap: 8px; margin-right: 5px; }
 .q-key { color: var(--lab-mute); font-weight: 600; margin-right: 5px; }
 .foot { max-width: 72ch; margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--lab-mute); text-wrap: pretty; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) td.band, :root:not([data-theme="light"]) .m-p .band {
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
-}
-:root[data-theme="dark"] td.band, :root[data-theme="dark"] .m-p .band {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
 
 /* Phone: one row for each player that opens and closes */
 .mob { display: none; }
@@ -240,12 +256,9 @@ tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; pad
   .m-p summary { list-style: none; cursor: pointer; min-height: 52px; }
   .m-p summary::-webkit-details-marker { display: none; }
   .m-p summary:focus-visible { outline: 2px solid var(--mark); outline-offset: -2px; }
-  .m-p .band { align-self: stretch; display: flex; align-items: center; justify-content: center; background: var(--team);
-    color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
-  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; text-align: right;
-    padding-right: 4px; }
+  .m-p .band { align-self: stretch; display: flex; align-items: center; justify-content: center; }
+  .m-p .rk { text-align: right; padding-right: 4px; }
   .m-p .nm { padding: 6px 4px 6px 10px; line-height: 1; min-width: 0; }
-  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
   .m-p .nm small { display: block; font-size: 12px; color: var(--lab-mute); margin-top: 3px; }
   .m-p .gp, .m-p .tg { text-align: right; font-size: 15px; padding-right: 4px; }
   .m-p .tg { font-weight: 800; color: var(--mark); border-left: 1px solid var(--vrule); align-self: stretch; display: flex;
@@ -327,7 +340,7 @@ tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; pad
 </dl>
 </header>
 <div class="scroll" tabindex="0" role="region" aria-label="Roster table">
-<table class="desk">
+<table class="desk lab-t">
 <caption class="vh">Roster in custom-rank order: season stats per game, playoff starts and games, and the playoff day grid. IL players count in the starts.</caption>
 <colgroup><col class="c-band"><col class="c-rk"><col class="c-pl"><col class="c-n" span="8"><col class="c-w" span="3"><col class="c-d" span="4"></colgroup>
 <thead>
