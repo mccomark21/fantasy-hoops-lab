@@ -49,7 +49,7 @@ def test_the_table_has_the_columns_of_the_suggestions_and_the_starts_now_row():
     html = render()
     table = html.split('<table class="sg desk lab-t" id="sg-desk">')[1].split("</table>")[0]
     heads = re.findall(r'<th scope="col"[^>]*>(.*?)</th>', table)
-    assert heads == ["#", "You give", "You get", "Partner", "Wk19", "Wk20", "Wk21", "Total", "You", "Them"]
+    assert heads == ["#", "You give", "You get", "Partner", "Wk19", "Wk20", "Wk21", "Total", "Them est.", "You", "Them"]
     assert '<tr class="now"><th colspan="6" class="l" scope="row">Your starts now</th><td>28</td><td>27</td>' in table
     assert "<td>81</td>" in table
     assert table.count('<tr data-give="') == 4
@@ -57,8 +57,11 @@ def test_the_table_has_the_columns_of_the_suggestions_and_the_starts_now_row():
 
 def test_each_row_shows_both_players_the_partner_the_week_cells_and_both_value_changes():
     html = render()
-    row = html.split('<tr data-give="Hurt Point Guard">')[1].split("</tr>")[0]
-    assert '<td class="rk">1</td>' in row
+    row = html.split('<tr data-give="Hurt Point Guard" data-k="0">')[1].split("</tr>")[0]
+    assert (
+        '<td class="rk"><button type="button" class="ld" aria-label="Load trade 1 in the builder">1</button></td>'
+        in row
+    )
     assert f'<td class="band" style="{site.band_style("CHA")}">CHA</td>' in row
     assert '<b>Hurt Point Guard</b><span class="status">IL</span><small>CHA · PG</small>' in row
     assert "Val <i>−1.89</i> · Pre <i>0.50</i>" in row

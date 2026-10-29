@@ -215,7 +215,8 @@ def main(argv=None):
     with timings.step("Page"):
         total = sum(inputs.rostered.pages.values()) + 1  # the rostered pages of each view and the settings page
         line = rostered_line(pages.hits[ROSTERED], total, pages.rostered_time, made)
-        path = page.write(page.render(result, weeks, cfg, made, today, inputs.deadline, line))
+        builder = page.builder_data(result, mine, others, local.days, cfg["league"]["slots"], weeks, settings)
+        path = page.write(page.render(result, weeks, cfg, made, today, inputs.deadline, line, builder))
     print(f"Wrote the trade page: {path}")
     print(f"Suggestions: {len(result.rows)}. {best_line(result)}")
     publish_page(path, cfg, publish=not args.no_publish)
