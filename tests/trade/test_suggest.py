@@ -3,7 +3,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from fantasyhoops.core import home
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.trade.suggest import (
     PRE,
     Suggestion,
@@ -38,7 +38,9 @@ def days(plays=("ALL",), per_week=2, b2b=()):
     out, start = [], date(2027, 3, 8)
     for w, name in enumerate(WEEKS):
         for d in range(per_week):
-            out.append(home.Day(start + timedelta(days=7 * w + d), name, False, frozenset(plays), frozenset(b2b)))
+            out.append(
+                roster_page.Day(start + timedelta(days=7 * w + d), name, False, frozenset(plays), frozenset(b2b))
+            )
     return out
 
 
@@ -125,7 +127,7 @@ def test_the_starts_of_a_fixed_roster_equal_the_result_of_lineup_fit():
         me("Forward", 0.2, pos=("SF", "PF"), team="AAA"),
     ]
     playoff = days(plays=("AAA", "BBB"), per_week=3, b2b=("AAA",))
-    fit = home.lineup_fit([p.roster_player() for p in roster], playoff, SLOTS)
+    fit = roster_page.lineup_fit([p.roster_player() for p in roster], playoff, SLOTS)
     assert week_starts(roster, playoff, SLOTS, WEEKS) == tuple(fit.team_week(w)[0] for w in WEEKS)
     assert sum(week_starts(roster, playoff, SLOTS, WEEKS)) > 0
 

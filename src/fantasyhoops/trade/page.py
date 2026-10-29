@@ -290,7 +290,7 @@ def builder_data(result, mine, others, days, slots, weeks, settings):
     """The page data of the trade builder: your players, the partner teams, the suggestions and the engine data.
 
     result: the suggest.Suggestions. mine, others: the TradePlayers of your team and of the other teams.
-    days: the playoff days (home.playoff_days()). slots: [league] slots. weeks: the names of the playoff weeks.
+    days: the playoff days (roster_page.playoff_days()). slots: [league] slots. weeks: the names of the playoff weeks.
     settings: the suggest.TradeSettings. Each suggestion is {team, give, get}, with the player ids.
     """
     me = [_player_data(p, f"m{i}", settings) for i, p in enumerate(mine)]

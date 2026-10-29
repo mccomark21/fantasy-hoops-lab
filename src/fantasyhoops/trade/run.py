@@ -26,13 +26,13 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.cache import ROSTERED, PageCache
 from fantasyhoops.adds.drops import season_values
-from fantasyhoops.adds.home import read_ranks
+from fantasyhoops.adds.roster import read_ranks
 from fantasyhoops.adds.lists import recent_weight_limit, skips_recent_view
 from fantasyhoops.adds.readers import read_roster
 from fantasyhoops.adds.session import WAIT_SECONDS, PageNotReady, YahooBlocked, open_league
 from fantasyhoops.adds.timing import Timings
 from fantasyhoops.adds.value import projection_scale
-from fantasyhoops.core import common, home
+from fantasyhoops.core import common, roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import load_config, name_key
 from fantasyhoops.core.console import use_utf8_output
@@ -84,7 +84,7 @@ def schedule():
 
 @dataclass(frozen=True)
 class LocalFiles:
-    """The data of the run from local files. days: the playoff days (home.playoff_days()). ranks: {name_key: rank}.
+    """The data of the run from local files. days: the playoff days (roster_page.playoff_days()). ranks: {name_key: rank}.
 
     pre: drops.season_values(). scale: value.projection_scale(). skip_recent: True if the read skips the recent view.
     """
@@ -100,7 +100,7 @@ def read_local_files(cfg, today):
     """The LocalFiles of the run: data/schedule.csv, the custom ranks and the projections file."""
     sched = schedule()
     return LocalFiles(
-        days=home.playoff_days(sched, cfg),
+        days=roster_page.playoff_days(sched, cfg),
         ranks=read_ranks(cfg, sched),
         pre=season_values(cfg),
         scale=projection_scale(cfg),

@@ -19,7 +19,7 @@ from fantasyhoops.core.console import use_utf8_output
 
 API = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba"
 STATS_API = "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/statistics/byathlete"
-# The stat key of the roster page (core/home.py) -> (category, stat name) in the statistics/byathlete answer.
+# The stat key of the roster page (core/roster.py) -> (category, stat name) in the statistics/byathlete answer.
 SEASON_STATS = {
     "gp": ("general", "gamesPlayed"),
     "min": ("general", "avgMinutes"),

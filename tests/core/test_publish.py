@@ -161,7 +161,7 @@ def test_home_page_shows_the_menu_and_links_to_each_tool_on_the_site():
 
 
 def test_publish_puts_the_home_page_at_the_root(repo, remote_pages):
-    """The roster page of core/home.py (#120) replaces the list of the tools."""
+    """The roster page of core/roster.py (#120) replaces the list of the tools."""
     home = page(repo, "home/index.html", "<p>roster</p>")
     publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG)
     pages = remote_pages(repo)

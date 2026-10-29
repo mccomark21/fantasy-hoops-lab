@@ -19,7 +19,7 @@ from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.team_plan import UTIL
 from fantasyhoops.adds.week_file import SavedAdd, WeekRecord
-from fantasyhoops.core import home as home_page
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
 from fantasyhoops.core.common import load_config
@@ -316,8 +316,8 @@ def test_the_page_lists_the_waiver_players_with_the_clear_day():
 
 # A roster of one player for the home page: one playoff day.
 HOME_ARGS = (
-    [home_page.RosterPlayer("Guard One", "BOS", ("PG",), "PG", rank=1)],
-    [home_page.Day(WEEK[0], "wk19", False, frozenset({"BOS"}), frozenset())],
+    [roster_page.RosterPlayer("Guard One", "BOS", ("PG",), "PG", rank=1)],
+    [roster_page.Day(WEEK[0], "wk19", False, frozenset({"BOS"}), frozenset())],
     {"league": {"slots": ["PG"], "espn_season": 2027, "teams": 14}, "flags": {"avoid_week_games": 1}},
 )
 
@@ -325,14 +325,14 @@ HOME_ARGS = (
 def test_the_home_page_and_the_adds_page_get_the_table_css_from_the_same_source():
     """#143: publish.TABLE_STYLE is the one source of the table CSS. No page holds a copy of its rules."""
     adds_html = fa(options=OPTIONS + [CLAIM])
-    home_html = site.shell(home_page.PAGE_HTML, "home", LEAGUE)
+    home_html = site.shell(roster_page.PAGE_HTML, "home", LEAGUE)
     for html in (adds_html, home_html):
         assert html.count(site.TABLE_STYLE) == 1
-    for own in (page.HTML, home_page.PAGE_HTML):
+    for own in (page.HTML, roster_page.PAGE_HTML):
         assert "__TABLE_CSS__" in own
         for rule in (".lab-t td.band", ".lab-t .pl b", ".lab-t th.pl"):
             assert rule not in own.replace("__TABLE_CSS__", ""), rule
-    assert '<table class="desk lab-t">' in home_page.render(*HOME_ARGS)
+    assert '<table class="desk lab-t">' in roster_page.render(*HOME_ARGS)
     assert (
         '<table class="fa lab-t" id="fa-table">' in adds_html and '<table class="wv lab-t" id="wv-table">' in adds_html
     )

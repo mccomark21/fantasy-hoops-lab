@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from fantasyhoops.core import home
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.trade import page
 from fantasyhoops.trade.suggest import Suggestion, Suggestions, TradePlayer, TradeSettings
@@ -294,7 +294,9 @@ def test_the_open_menu_drawer_has_4_5_to_1_text_and_no_horizontal_scroll(width):
 SETTINGS = TradeSettings(frozenset({"star keeper"}), (0.95, 1.10), 8, 3, 20)
 TEAMS = ("ATL", "BOS", "CHA", "HOU", "NO", "UTAH", "WSH", "DAL")
 PLAYOFF = [
-    home.Day(date(2027, 3, 8) + timedelta(days=7 * w + d), name, d == 0, frozenset(TEAMS[d : d + 5]), frozenset())
+    roster_page.Day(
+        date(2027, 3, 8) + timedelta(days=7 * w + d), name, d == 0, frozenset(TEAMS[d : d + 5]), frozenset()
+    )
     for w, name in enumerate(WEEKS)
     for d in range(3)
 ]

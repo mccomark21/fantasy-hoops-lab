@@ -9,7 +9,7 @@ import pytest
 
 from fantasyhoops.adds.session import PageNotReady, YahooBlocked
 from fantasyhoops.adds.teams import YAHOO_TEAMS, espn_code
-from fantasyhoops.core import common, home
+from fantasyhoops.core import common, roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.trade import run
 from fantasyhoops.trade.deadline import SETTINGS_PATH
@@ -49,7 +49,7 @@ def playoff_days(cfg):
     out = []
     for week in cfg["playoffs"]["weeks"]:
         start = pd.Timestamp(week["start"]).date()
-        out += [home.Day(start + timedelta(days=d), week["name"], False, teams) for d in range(7)]
+        out += [roster_page.Day(start + timedelta(days=d), week["name"], False, teams) for d in range(7)]
     return out
 
 
@@ -267,7 +267,7 @@ def test_a_player_with_no_match_gets_a_warning_line_and_goes_last_in_the_lineup_
         "Warning: these players are not in the [risk] file and get rests_b2b 0: Lost Guy.",
         "Warning: these players are not in the projections file and have no Pre value: Lost Guy.",
     ]
-    order = home.rank_order([lost.roster_player(), known.roster_player()])
+    order = roster_page.rank_order([lost.roster_player(), known.roster_player()])
     assert [p.name for p in order] == ["Known Guy", "Lost Guy"]
 
 

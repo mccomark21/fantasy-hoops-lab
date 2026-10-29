@@ -4,7 +4,7 @@ The slots are the position slots (config.toml [league] slots) + one Util slot. A
 his positions allow. Util takes any player. A player without a slot sits on the bench.
 
 This module is the one source of the lineup-fit rules (#133): the best lineup, the Util count, the ideal games of a
-week and the percent bands. core/home.py and draft/team_score.py call these functions. draft/board.py puts UTIL,
+week and the percent bands. core/roster.py and draft/team_score.py call these functions. draft/board.py puts UTIL,
 BANDS and an ideal_games() table in the page data, and draft/team_builder.js reads them. team_builder.js keeps a
 copy of the matching and of the rest rule, because the board scores the core that the user picks in the browser.
 tests/draft/test_team_builder.py shows that the copy gives the same results as this module.

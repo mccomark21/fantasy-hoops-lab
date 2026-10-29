@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fantasyhoops.core import home, publish, tokens
-from fantasyhoops.core.home import NO_GAME, REST, SITS, START, Day, RosterPlayer, lineup_fit, playoff_days, render
+from fantasyhoops.core import publish, roster as roster_page, tokens
+from fantasyhoops.core.roster import NO_GAME, REST, SITS, START, Day, RosterPlayer, lineup_fit, playoff_days, render
 
 SLOTS = ["PG", "C"]  # 2 position slots + Util = 3 starters a day
 MON = date(2027, 3, 8)
@@ -134,7 +134,7 @@ def test_the_page_uses_the_shared_tokens_the_menu_and_no_colors_of_its_own():
     assert tokens.TOKENS in text
     assert text.count('<li><a href="') == 4 and 'aria-current="page">Roster</a>' in text
     assert 'href="adds/">Adds plan</a>' in text
-    style = re.sub(r"/\*.*?\*/", "", home.PAGE_STYLE, flags=re.S)
+    style = re.sub(r"/\*.*?\*/", "", roster_page.PAGE_STYLE, flags=re.S)
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgb\(", style)
     assert ".flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red);" in style
 

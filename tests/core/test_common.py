@@ -5,7 +5,7 @@ import pandas as pd
 from fantasyhoops import draft
 from fantasyhoops.adds import page, timing, week_file
 from fantasyhoops.adds import cache as page_cache
-from fantasyhoops.core import common, home
+from fantasyhoops.core import common, roster as roster_page
 from fantasyhoops.core.common import ROOT, name_key, weeks
 from fantasyhoops.draft import auction
 from fantasyhoops.draft.benchmark import CATS
@@ -35,7 +35,7 @@ def test_the_output_files_go_under_common_out_with_no_other_patch(tmp_path, caps
     # The autouse fixture of tests/conftest.py points common.OUT at tmp_path. This test patches no other path.
     assert common.OUT == tmp_path
     page.write("<p>plan</p>")
-    home.write("<p>home</p>")
+    roster_page.write("<p>home</p>")
     timings = timing.Timings()
     with timings.step("schedule read"):
         pass
@@ -61,5 +61,5 @@ def test_the_default_output_paths_do_not_change(monkeypatch):
     assert page_cache.cache_dir() == out / "adds" / "cache"
     assert page_cache.PageCache(date(2027, 1, 4)).folder == out / "adds" / "cache"
     assert week_file.week_path(date(2027, 1, 4)) == out / "adds" / "week_plan_2027-01-04.json"
-    assert home.page_path() == out / "home" / "index.html"
+    assert roster_page.page_path() == out / "home" / "index.html"
     assert draft.out_dir() == out / "draft"

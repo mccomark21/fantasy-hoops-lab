@@ -422,7 +422,7 @@ def run_command(
     free_agents: {view: FreeAgents} of the team lists of the fake read_lists(). The run then values them with the real
     value_options() and a scale of pts only, and the market and waiver lists give no free agents.
     market: the MarketRead of the fake read_lists(). None: no market free agents.
-    home: the build_home() of the run (adds/home.py). None: a function that makes no home page.
+    home: the build_roster() of the run (adds/roster.py). None: a function that makes no home page.
     values: the season values of drops.season_values(). None: no player has a season value.
     """
     fake_lists = yahoo is None
@@ -476,7 +476,7 @@ def run_command(
     scale = pd.DataFrame({"pts": [10.0, 5.0]}, index=["mean", "std"]) if free_agents is not None else None
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
-    monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
+    monkeypatch.setattr(command, "build_roster", home or (lambda *args: None))
 
     # A home page goes after the pages in the record of the publish, then the more_tools of the publish (#165).
     def fake_publish(*a, home=None, cfg, more_tools=None):

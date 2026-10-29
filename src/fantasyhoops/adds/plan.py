@@ -36,7 +36,7 @@ One planning run:
 11. page.render() makes the plan page and page.render_free_agents() makes the Free agents page (#165) from the same
     PlanningRun. The run writes both pages in output/adds/ (adds_plan.html and free_agents.html) and publishes them
     at /adds/ and /free-agents/ in one publish. --no-publish: no publish.
-    Before the plan page, build_home() writes the home page in output/home/ (adds/home.py, #120). The publish puts
+    Before the plan page, build_roster() writes the home page in output/home/ (adds/roster.py, #120). The publish puts
     it at the root of the site. --no-publish also skips the home page.
     The page shows how many pages came from the cache (PageCache.line()).
     The terminal prints a short summary (#130): the page path, one line for each add of the team plan, the URL or
@@ -57,7 +57,7 @@ from datetime import date
 from fantasyhoops.adds import page, timing
 from fantasyhoops.adds.cache import PageCache
 from fantasyhoops.adds.blend import blended_options
-from fantasyhoops.adds.home import build_home
+from fantasyhoops.adds.roster import build_roster
 from fantasyhoops.adds.lists import read_lists, recent_skip_line, recent_weight_limit, skips_recent_view
 from fantasyhoops.adds.drops import choose_stream_spots, kept_roster, season_values, value_warnings
 from fantasyhoops.adds.matchup import matchup_weights, read_matchup, weighted_cfg
@@ -223,7 +223,7 @@ def save_week(week, today, plan, spots):
 def publish_page(path, lines, cfg, publish=True, home=None, free_agents=None):
     """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
-    home: the home page (adds/home.py) for the root of the site, or None. cfg: the config of the run.
+    home: the home page (adds/roster.py) for the root of the site, or None. cfg: the config of the run.
     free_agents: the Free agents page (page.render_free_agents(), #165). The same publish puts it at /free-agents/.
     """
     print()
@@ -351,7 +351,7 @@ def main(today=None, publish=True, timed=True, cache=True):
     if publish:
         # Before the plan page, so that the Run time table of the plan page has this step.
         with step("home page"):
-            home = build_home(data, cfg, sched, today)
+            home = build_roster(data, cfg, sched, today)
     with step("page write and publish"):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
