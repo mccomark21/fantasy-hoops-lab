@@ -42,3 +42,8 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - The sample showed a flaw: with "the top 8 after the trade", a trade of the IL player Coby White showed a gain of 5 starts from the 9th player moving up. On 2026-10-28, the owner decided that the player you get takes the spot of the player you give (Decision comment on #150). This supersedes the top-8-after-the-trade rule.
 - The owner said the sample "looks alright but it looks nothing like the rest of the site". The plain look was on purpose. The prototype round (#149) uses the site style.
 - The blended values rested on 4 to 5 games, so few trades were in the band this early.
+
+## Prototype round (2026-10-28)
+
+- On 2026-10-28, an agent made 3 looks of the fixed layout with the real suggestions of the second sample (the swap rule), and one compare page with toggles. The owner picked look 3: the new count, the change and a small bar in each playoff week cell. #149 closed.
+- On 2026-10-28, the owner accepted the recommendation that the partner's playoff starts use the owner's rule (their top 8 with the swap) and show as "est.", because the rostered list does not show IL slots.
