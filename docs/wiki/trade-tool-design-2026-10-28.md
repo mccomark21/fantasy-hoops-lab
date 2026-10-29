@@ -89,3 +89,4 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - On 2026-10-29, PR #176 (closes #161, the fallback counts distinct (name, team) pairs) had a clean review and merged as `mccomark21/fantasy-hoops-lab@52a32ac`.
 - On 2026-10-29, PR #175 (closes #160; 3-week rows pixel-identical to main) had a clean review and merged as `mccomark21/fantasy-hoops-lab@1506faa`.
 - On 2026-10-29, PR #177 (closes #163) had a clean review (813 passed on the merge with main) and merged as `mccomark21/fantasy-hoops-lab@1562e95`.
+- On 2026-10-29, PR #178 (closes #164) had a clean review (813 passed on the merge with main) and merged as `mccomark21/fantasy-hoops-lab@9156bb9`. Left: #162.
