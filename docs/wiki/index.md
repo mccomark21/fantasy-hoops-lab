@@ -20,6 +20,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Ideas
 
+- [README rewrite of 2026-10-29](readme-rewrite-2026-10-29.md): the owner request for a welcoming README with the logo and screenshots, and its order after the joint publish.
 - [Site icon of 2026-10-29](site-icon-2026-10-29.md): the icon prototype rounds of 2026-10-29, the pick of A2 and issue #166.
 - [Free agents page of 2026-10-29](free-agents-page-2026-10-29.md): the owner decisions of 2026-10-29 to move Free agents, Waiver players and Role-up to a `/free-agents/` tab.
 - [Trade tool design of 2026-10-28](trade-tool-design-2026-10-28.md): the grilling session of 2026-10-28 for a trade tool tab, the 13 owner decisions and the next steps.
