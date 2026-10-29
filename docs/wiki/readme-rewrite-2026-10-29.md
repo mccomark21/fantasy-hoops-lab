@@ -4,3 +4,4 @@
 - The logo comes from #166 (icon A2, see [site icon](site-icon-2026-10-29.md)). The screenshots must show the Free agents page of #165 and the icon, so they come after the joint publish.
 - On 2026-10-29, the chief of staff started an agent that drafts the text in the session scratchpad as a sample for the owner. The README PR comes after the joint publish.
 - On 2026-10-29, the owner asked Impeccable to review the README draft so it looks professional and fits the site. An agent writes a polished version in the scratchpad.
+- On 2026-10-29, after a GitHub-style local preview of the Impeccable draft, the owner asked to move the screenshot grid below the About section and the summary.
