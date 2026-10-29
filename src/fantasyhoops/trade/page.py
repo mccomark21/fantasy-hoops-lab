@@ -1,7 +1,8 @@
 """The trade page (#150): the suggested 1-for-1 trades, in the look that the owner picked on #149 (look 3).
 
-The page has a header (the trade deadline, your playoff starts and the time of the run), a filter row of the
-players you give and the suggestions table. Each playoff week cell shows the new count, the change and a small bar.
+The page has a header (the trade deadline, your playoff starts and the time of the run), the line of the offered
+players with a reason line for each offered player with no suggestion (#170), a filter row of the players you give
+and the suggestions table. Each playoff week cell shows the new count, the change and a small bar.
 Below 940px of content, a row list replaces the table. The page gets the site shell from publish.shell() and the
 table look from publish.TABLE_STYLE (the lab-t table) and publish.band_style().
 Under the table, the trade builder (#152) computes a custom trade in the browser. The page inlines
@@ -237,6 +238,27 @@ def filter_row(result):
     return f'<div class="filters" id="give-chips"><span class="label">You give (any)</span>{chips}</div>'
 
 
+def offer_lines(result, offer):
+    """The lines of the offered players (#170): the "Offered: ..." line, then one line for each player on the
+    [trade] offer list with no suggestion and its reason. offer: the names of [trade] offer.
+    """
+    if not offer:
+        head = "Offered: each player who is not untouchable (config [trade] offer is empty)."
+    elif result.offered:
+        head = f"Offered: {', '.join(result.offered)} (config [trade] offer)."
+    else:
+        head = "Offered: none of your players (config [trade] offer)."
+    return [head] + [f"No suggestion for {name}: {reason}" for name, reason in result.missed]
+
+
+def offer_block(result, offer):
+    """The offered players and the players with no suggestion, above the table (#170)."""
+    head, *missed = offer_lines(result, offer)
+    items = "".join(f"<li>{_e(m)}</li>" for m in missed)
+    rest = f'<ul class="miss" id="offer-miss">{items}</ul>' if missed else ""
+    return f'<div class="offer" id="offer"><p>{_e(head)}</p>{rest}</div>'
+
+
 def deadline_text(deadline, today):
     """The header cell of the trade deadline, for example "<strong>Thu Mar 4</strong> · 127 days"."""
     if deadline is None:
@@ -382,16 +404,18 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
         f"Val: blended value per game. Pre: preseason value per game. At most {per} trades for each player you give. "
         f"{result.pairs:,} pairs, {result.in_band:,} in the value band, {result.gains:,} with a gain."
     )
+    offer = offer_block(result, cfg["trade"].get("offer", []))
     if result.rows:
         body = (
-            filter_row(result)
+            offer
+            + filter_row(result)
             + f'<p class="count" id="sg-count" aria-live="polite">{len(result.rows)} of {len(result.rows)} trades</p>'
             + desk_table(result, weeks)
             + mob_list(result, weeks)
             + KEY
         )
     else:
-        body = f'<div class="empty"><p>{EMPTY}</p></div>'
+        body = offer + f'<div class="empty"><p>{EMPTY}</p></div>'
     return (
         site.shell(PAGE, CURRENT, cfg)
         .replace("__DEADLINE__", deadline_text(deadline, today))
@@ -452,6 +476,11 @@ button.chip:hover { border-color: var(--lab-ink); }
 button.chip[aria-pressed="true"] { background: var(--mark); border-color: var(--mark); color: var(--lab-stock); }
 button.chip[aria-pressed="true"] small { color: var(--lab-stock); }
 .count { font-size: 12px; margin: 0 0 4px; color: var(--lab-mute); }
+/* The offered players and the players with no suggestion (#170), above the filter row. */
+.offer { margin: 0 0 10px; font-size: 13px; max-width: 100ch; overflow-wrap: anywhere; }
+.offer p { margin: 0; font-weight: 700; }
+.offer .miss { list-style: none; margin: 4px 0 0; padding: 0; color: var(--lab-mute); }
+.offer .miss li + li { margin-top: 2px; }
 
 /* The suggestions table: the lab-t table of the Roster. Desktop at 940px of content and more, a row list below. */
 .sg { table-layout: fixed; font-size: 13px; }

@@ -11,7 +11,8 @@ Edge states (#153):
 1. The run reads the league settings first. After the trade deadline, it does not read your team page or the
    rostered list. It writes and publishes a short page with the deadline line (page.render_deadline()).
 2. With no trade deadline, the run continues. The terminal and the page show a warning.
-3. A player with no match in the rankings, the [risk] file or the projections file gets a warning line.
+3. A player with no match in the rankings, the [risk] file or the projections file gets a warning line. A name of
+   the [trade] offer list that is not on your roster gets a warning line too (#170).
 4. When the run cannot read Yahoo, it stops with the error (YahooReadFailed) and does not publish.
 """
 
@@ -208,9 +209,10 @@ def best_line(result):
     )
 
 
-def warnings(mine, inputs, missing=()):
-    """The warning lines of the run: the trade deadline, rows with no team link, your players with no value and the
-    lines of missing_data()."""
+def warnings(mine, inputs, missing=(), settings=None):
+    """The warning lines of the run: the trade deadline, rows with no team link, your players with no value, the
+    names of the [trade] offer list that are not on your roster (settings: the TradeSettings) and the lines of
+    missing_data()."""
     out = []
     if inputs.deadline is None:
         out.append(f"Warning: no trade deadline. {inputs.deadline_error}")
@@ -219,6 +221,9 @@ def warnings(mine, inputs, missing=()):
     none = [p.name for p in mine if p.value is None]
     if none:
         out.append(f"Warning: these players of your team have no value and are not in a trade: {', '.join(none)}.")
+    absent = settings.not_on_roster(mine) if settings else []
+    if absent:
+        out.append(f"Warning: these players of the [trade] offer list are not on your roster: {', '.join(absent)}.")
     return out + list(missing)
 
 
@@ -281,7 +286,7 @@ def main(argv=None):
         risk = read_risk(names, cfg)
         mine, others = trade_players(roster, inputs.rostered, own, local.ranks, risk, local.pre, local.scale, cfg)
         result = suggest(mine, others, local.days, cfg["league"]["slots"], weeks, settings)
-    lines = warnings(mine, inputs, missing_data(mine + others, local.ranks, risk, local.pre))
+    lines = warnings(mine, inputs, missing_data(mine + others, local.ranks, risk, local.pre), settings)
     with timings.step("Page"):
         total = sum(inputs.rostered.pages.values()) + 1  # the rostered pages of each view and the settings page
         line = rostered_line(pages.hits[ROSTERED], total, pages.rostered_time, made)
@@ -290,6 +295,8 @@ def main(argv=None):
         path = page.write(html)
     print(f"Wrote the trade page: {path}")
     print(f"Suggestions: {len(result.rows)}. {best_line(result)}")
+    for text in page.offer_lines(result, settings.offer):
+        print(text)
     publish_page(path, cfg, publish=not args.no_publish)
     for w in lines:
         print(w)
