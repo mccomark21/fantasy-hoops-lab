@@ -47,3 +47,11 @@ An agent decides the remaining questions and proposes the issue split. The owner
 
 - On 2026-10-28, an agent made 3 looks of the fixed layout with the real suggestions of the second sample (the swap rule), and one compare page with toggles. The owner picked look 3: the new count, the change and a small bar in each playoff week cell. #149 closed.
 - On 2026-10-28, the owner accepted the recommendation that the partner's playoff starts use the owner's rule (their top 8 with the swap) and show as "est.", because the rostered list does not show IL slots.
+
+## State at the shutdown (2026-10-28, night)
+
+- The owner went to bed. The chief of staff stopped the builder of #150 a few minutes after it started. It left no worktree, branch or PR.
+- `main` was at `mccomark21/fantasy-hoops-lab@34aebe2`. No PR was open. Open issues: #150, #151, #152, #153.
+- The approved look 3, the compare page, the sample script and the scored sample (`trade-sample-v2.json`) were copied from the session scratchpad to `output/trade/prototype/` in the main checkout. Git ignores that folder, and it holds real league names. A builder reads the files there.
+- Next steps: build #150 (suggestions page) with `output/trade/prototype/trade-look-3.html` as the visual reference. Then #151 (Trades tab and publish that keeps the home page) and #152 (builder) can run in parallel. Then #153.
+- Builders must run tests with `PYTHONPATH=src` in a worktree, and commit and push early (two builders stalled on 2026-10-28).
