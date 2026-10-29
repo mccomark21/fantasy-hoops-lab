@@ -84,7 +84,7 @@ The terminal prints the same lines after the best suggestion. With an empty list
 
 ## Value
 
-The value of each player on both sides is the blended value of the adds planner (`adds/blend.py`), from both views of the rostered list. The run matches a player by name and NBA team first. With no match, it matches by `common.name_key()`, but only when one player of the rostered list has that name key. A player with no blended value uses his preseason `pg_value` (`adds/drops.py` `season_values()`), and the page marks it "pre". The page shows the preseason value ("Pre") of each player next to his value ("Val").
+The value of each player on both sides is the blended value of the adds planner (`adds/blend.py`), from both views of the rostered list. The run matches a player by name and NBA team first. With no match, it matches by `common.name_key()`, but only when one player of the rostered list has that name key. A player with no blended value uses his preseason `pg_value` (`adds/drops.py` `season_values()`), and the page marks it "no blend". The page shows the preseason value ("Pre") of each player next to his value ("Val").
 
 ## Data
 
@@ -157,6 +157,7 @@ The result table shows both teams: the playoff starts of each week and the total
 - Your value change is sum(get) − sum(give) − sum(your drops). An open spot adds 0. A player with no value adds 0.
 - The band verdict (in the band, below the band, above the band) shows only for equal counts. It compares the value sums.
 - The partner rows are marked "est.", because the rostered list does not show the IL slots of a partner.
+- The line under the result states the partner rule: "Est.: the partner starts are an estimate, because the rostered list does not show the IL slots of a partner." The line under the suggestions ends with the same text.
 
 The suggestions table shows the partner starts too, marked "Est.", under the partner name: the starts of each week and the total, before (first line) and after (second line). The row list on a phone shows the same numbers on one line.
 
@@ -198,7 +199,8 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 | Untouchable | A player that the tool never offers in a trade. |
 | Partner | The other fantasy team of a trade. |
 | Offered player | A player on your roster that the suggestions can give: on the `[trade] offer` list (or any player if the list is empty), and not untouchable. |
-| Pre | The preseason `pg_value` of a player. As a mark, it says that the value is the preseason value, because he has no blended value. |
+| Pre | The preseason `pg_value` of a player. |
+| No blend | The mark of a player whose value (Val) is his preseason value, because he has no blended value. |
 
 ## Decisions
 

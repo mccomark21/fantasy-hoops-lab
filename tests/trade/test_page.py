@@ -80,7 +80,7 @@ def test_a_loss_a_no_change_a_status_and_the_pre_mark_show_in_the_rows():
     assert '<td class="wk dn s1"><span aria-hidden="true"><b>27</b><small>−1</small>' in html  # Wk19 of row 3
     assert '<td class="wk eq"><span aria-hidden="true"><b>27</b><small>±0</small>' in html
     assert '<span class="status">GTD</span>' in html
-    assert 'Val <i>−1.83</i> <span class="pre">pre</span>' in html
+    assert 'Val <i>−1.83</i> <span class="pre">no blend</span> · Pre <i>' in html
     assert '<td class="v s1 minus">−0.10<small>−6%</small></td>' in html
 
 
@@ -395,6 +395,34 @@ def test_the_partner_starts_show_as_an_estimate_in_the_table_and_the_row_list():
     ) in row
     assert "Partner starts, an estimate: 80, up 1 from 79. Weeks: 27 · 27 · 25 before, 26 · 28 · 26 after." in row
     assert '<span class="pst"><em>Them, est.</em>27 · 27 · 25 = 79 → 26 · 28 · 26 = 80 <b>+1</b></span>' in html
+
+
+def test_the_mark_and_the_preseason_value_label_have_different_words():
+    """#162: the mark of a player with no blended value is "no blend", not "pre" next to the "Pre" label."""
+    assert page.MARK == "no blend" and "pre" not in page.MARK.lower()
+    html = render_builder()
+    assert '<span class="pre">pre</span>' not in html and '" pre"' not in html
+    with browser_page() as pg:
+        pg.set_content(html)
+        pg.locator('#sg-desk tr[data-k="1"] button.ld').click()
+        cell = pg.locator('#pk-get tr:has(input[aria-label="Get Long Name Forward Jr."]) td.s1').text_content()
+        assert cell == "−1.83 no blend"
+
+
+def test_the_partner_rule_has_the_same_text_under_the_suggestions_and_in_the_builder():
+    """#162: one text for the partner rule in each place where the page states it."""
+    note = (
+        "Est.: the partner starts are an estimate, because the rostered list does not show the IL slots of a partner."
+    )
+    assert page.EST_NOTE == note
+    html = render_builder()
+    foot = html.split('<p class="foot" id="sg-foot">')[1].split("</p>")[0]
+    assert foot.endswith(note)
+    with browser_page() as pg:
+        pg.set_content(html)
+        pg.locator('#sg-desk tr[data-k="0"] button.ld').click()
+        assert pg.locator("#est-note").text_content() == note
+        assert pg.locator("#sg-foot").text_content().count(note) == 1
 
 
 def test_the_page_data_escapes_a_closing_script_tag():

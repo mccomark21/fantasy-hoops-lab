@@ -28,6 +28,13 @@ TRADE_ENGINE = Path(__file__).parent / "trade_builder.js"
 MINUS = "−"
 CURRENT = "trade"  # the page in the site menu and its folder on the site: the Trades tab of publish.TOOLS (#151)
 EMPTY = "No trade raises your playoff starts."
+# The mark of a player whose Val is his preseason value, because he has no blended value. The word differs from
+# the "Pre" label of the preseason value (#162).
+MARK = "no blend"
+# The partner rule. The line under the suggestions and the builder result show this same text (#162).
+EST_NOTE = (
+    "Est.: the partner starts are an estimate, because the rostered list does not show the IL slots of a partner."
+)
 S1 = ' class="s1"'
 
 
@@ -134,7 +141,7 @@ def _flag(p):
 
 
 def _values(p):
-    pre = ' <span class="pre">pre</span>' if p.mark else ""
+    pre = f' <span class="pre">{MARK}</span>' if p.mark else ""
     return f"Val <i>{value_text(p.value)}</i>{pre} · Pre <i>{value_text(p.pg)}</i>"
 
 
@@ -350,7 +357,7 @@ def builder_script(data):
     return (
         f'<script type="application/json" id="trade-data">{text}</script>\n'
         f"<script>\n{ENGINE.read_text(encoding='utf-8')}\n{TRADE_ENGINE.read_text(encoding='utf-8')}\n</script>\n"
-        + BUILDER_SCRIPT
+        + BUILDER_SCRIPT.replace("__MARK__", MARK).replace("__EST_NOTE__", EST_NOTE)
     )
 
 
@@ -403,7 +410,7 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
     foot = (
         f"<b>Starts count your {kept} kept players.</b> The player you get takes the spot of the player you give. "
         f"Val: blended value per game. Pre: preseason value per game. At most {per} trades for each player you give. "
-        f"{result.pairs:,} pairs, {result.in_band:,} in the value band, {result.gains:,} with a gain."
+        f"{result.pairs:,} pairs, {result.in_band:,} in the value band, {result.gains:,} with a gain. {EST_NOTE}"
     )
     offer = offer_block(result, cfg["trade"].get("offer", []))
     if result.rows:
@@ -693,7 +700,7 @@ BUILDER_SCRIPT = """<script>
         + `<td class="ck"><input type="checkbox" aria-label="${mine ? "Give" : "Get"} ${esc(p.name)}"${on ? " checked" : ""}`
         + `${off ? " disabled" : ""}></td>${band(p)}<th class="pl" scope="row"><b>${esc(p.name)}</b>${flag(p)}`
         + `<small>${esc(line.join(" · "))}</small></th>`
-        + `<td class="n s1">${val(p.val)}${p.mark ? " pre" : ""}</td><td class="n">${val(p.pg)}</td></tr>`;
+        + `<td class="n s1">${val(p.val)}${p.mark ? " __MARK__" : ""}</td><td class="n">${val(p.pg)}</td></tr>`;
     }).join("");
     $(id).innerHTML = '<colgroup><col class="c-ck"><col class="c-band"><col><col class="c-n" span="2"></colgroup>'
       + `<thead><tr><th scope="col"><span class="vh">${mine ? "Give" : "Get"}</span></th>`
@@ -762,7 +769,7 @@ BUILDER_SCRIPT = """<script>
       + 'the trade, and the value change, for both teams.</caption>' + head + "<tbody>"
       + sideRows("Your team", r.mine, false, r.band) + sideRows(t.name, r.partner, true, "") + "</tbody></table>"
       + lines.join("")
-      + '<p class="mv" id="est-note">Est.: their starts are an estimate, because the rostered list does not show their IL slots.</p>'
+      + '<p class="mv" id="est-note">__EST_NOTE__</p>'
       + `<p class="mv">${moved.join("")}</p>`;
   }
 
