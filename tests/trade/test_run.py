@@ -161,6 +161,36 @@ def test_the_values_come_from_the_rostered_list_or_the_preseason_value_with_the_
     assert [(p.name, p.value, p.mark, p.team_name) for p in others] == [("Their Wing", 0.7, "pre", "Rivals")]
 
 
+def name_key_case(rows, roster_player):
+    """The (value, mark) that trade_players() gives roster_player, with rows as the rostered list (#161)."""
+    from fantasyhoops.adds.drops import SeasonValue
+    from fantasyhoops.adds.readers import Player
+    from fantasyhoops.trade.rostered import RosteredPlayer
+
+    cfg = common.load_config()
+    scale = pd.DataFrame({k: [0.0, 1.0] for k in cfg["weights"]}, index=["mean", "std"])
+    line = {k: 1.0 for k in cfg["weights"]}
+    read = Read([RosteredPlayer(Player(name, team, ("SF",)), 3, line, 4, "Rivals") for name, team in rows])
+    pre = {"jalen smith": SeasonValue(80, -0.3)}
+    mine, _ = run.trade_players([Player(*roster_player, ("SF",), slot="SF")], read, 10, {}, {}, pre, scale, cfg)
+    return mine[0].value, mine[0].mark, sum(cfg["weights"].values())
+
+
+def test_the_name_key_match_gives_the_value_when_one_player_has_the_name_key():
+    value, mark, blended = name_key_case([("Jalen Smith Jr.", "CHI")], ("Jalen Smith", "IND"))
+    assert mark == "" and value == pytest.approx(blended)
+
+
+def test_the_name_key_match_gives_no_value_when_two_players_share_the_name_key():
+    value, mark, _ = name_key_case([("Jalen Smith", "CHI"), ("Jalen Smith Jr.", "PHX")], ("Jalen Smith", "IND"))
+    assert (value, mark) == (-0.3, "pre")
+
+
+def test_a_name_and_team_match_gives_the_value_when_two_players_share_the_name_key():
+    value, mark, blended = name_key_case([("Jalen Smith", "CHI"), ("Jalen Smith Jr.", "PHX")], ("Jalen Smith", "CHI"))
+    assert mark == "" and value == pytest.approx(blended)
+
+
 def test_the_best_line_and_the_warnings():
     give = TradePlayer("Give Guy", "ATL", ("PG",), value=1.0)
     get = TradePlayer("Get Guy", "BOS", ("PG",), value=1.05, team_name="Rivals")
