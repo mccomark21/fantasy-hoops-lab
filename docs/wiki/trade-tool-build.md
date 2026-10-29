@@ -13,7 +13,7 @@ This page records the build of the trade tool, issues #148 and #150 to #153. The
 
 ## Edge states (#153, 2026-10-29)
 
-- On 2026-10-29, the builder of #153 started from `mccomark21/fantasy-hoops-lab@0dd9f12` on the branch `153-trade-deadline-warnings`.
+- On 2026-10-29, the builder of #153 started from `mccomark21/fantasy-hoops-lab@0dd9f12` on the branch `153-trade-deadline-warnings`, and opened PR #158.
 - The run now reads the league settings before the team page and the rostered list. After the trade deadline, it reads no other Yahoo page and writes a short deadline page. The timing sub-steps changed from "team page" and "rostered list and settings" to "settings", "team page" and "rostered list".
 - A missing trade deadline gives one warning in the terminal and on the page. The run continues.
 - A player with no match in the rankings, the `[risk] file` or the projections file gets one warning line for each file, on the page and in the terminal.
