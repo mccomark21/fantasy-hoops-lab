@@ -271,6 +271,24 @@ def test_a_player_with_no_match_gets_a_warning_line_and_goes_last_in_the_lineup_
     assert [p.name for p in order] == ["Known Guy", "Lost Guy"]
 
 
+def test_a_missing_data_line_with_many_players_gives_the_count_and_the_first_three_names():
+    players = [TradePlayer(f"Lost {n}", "BOS", ("PG",)) for n in "ABCDEFGHIJK"]
+    lines = run.missing_data(players, {}, {}, {})
+    assert lines[0] == (
+        "Warning: these players have no rank and go last in the lineup order: "
+        "11 players, such as Lost A, Lost B and Lost C."
+    )
+    assert all("11 players, such as Lost A, Lost B and Lost C." in line for line in lines)
+
+
+def test_a_missing_data_line_with_few_players_names_all_of_them():
+    players = [TradePlayer(f"Lost {n}", "BOS", ("PG",)) for n in "ABC"]
+    line = run.missing_data(players[:2], {}, {}, {})[0]
+    assert line.endswith(": Lost A and Lost B.") and "such as" not in line
+    line = run.missing_data(players, {}, {}, {})[0]
+    assert line.endswith(": Lost A, Lost B and Lost C.") and "such as" not in line
+
+
 def test_the_run_prints_the_missing_data_lines_and_the_page_lists_them(fake_run, tmp_path, capsys):
     run.main(["--no-publish"])  # the fake run has no ranks, no risk file and no projections file
     out = capsys.readouterr().out
