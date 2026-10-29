@@ -47,7 +47,10 @@ def test_publish_adds_writes_its_folder_the_home_page_and_the_font(repo, remote_
     assert pages["adds/index.html"] == "<p>plan</p>"
     font = tokens.FONT_HREF
     ofl = "fonts/OFL.txt"
-    assert set(pages) == {".nojekyll", "index.html", "adds/index.html", font, f"adds/{font}", ofl, f"adds/{ofl}"}
+    icons = set(site.ICON_FILES)
+    assert (
+        set(pages) == {".nojekyll", "index.html", "adds/index.html", font, f"adds/{font}", ofl, f"adds/{ofl}"} | icons
+    )
     assert (
         "Copyright 2020 The Archivo Project Authors" in pages[ofl] and "SIL OPEN FONT LICENSE" in pages[f"adds/{ofl}"]
     )
@@ -144,7 +147,8 @@ def test_each_token_has_a_light_and_a_dark_value():
 
 def test_the_site_css_has_no_colors_outside_the_token_file():
     """#117: core/tokens.py is the one source of the colors. The menu and the home page use only var(--...)."""
-    for text in (home_page({"adds"}, CFG).replace(tokens.HEAD, ""), site_menu("home", 14), MENU_SCRIPT):
+    home = home_page({"adds"}, CFG).replace(tokens.HEAD, "").replace(site.page_meta("home", "Fantasy Hoops Lab"), "")
+    for text in (home, site_menu("home", 14), MENU_SCRIPT):
         assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", text)
 
 
@@ -174,7 +178,7 @@ def test_the_menu_takes_the_team_count_from_the_caller_and_reads_no_config():
 
 def test_the_shell_fills_the_head_the_menu_and_the_menu_script():
     template = "<head>__HEAD__</head><body>__MENU__<main>__X__</main>__SCRIPT__</body>"
-    head, menu = site_head(), site_menu("adds", 14)
+    head, menu = f"{site_head()}\n{site.page_meta('adds', 'Fantasy Hoops Lab')}", site_menu("adds", 14)
     assert shell(template, "adds", CFG) == f"<head>{head}</head><body>{menu}<main>__X__</main>{MENU_SCRIPT}</body>"
 
 
@@ -188,7 +192,10 @@ def test_write_page_writes_the_page_and_the_font_next_to_it(tmp_path):
 
 def test_the_tool_list_is_the_html_before_the_page_shell():
     """#132: fixtures/tools_before_132.html is home_page({"adds"}) before shell(), with 14 teams in config.toml."""
-    assert home_page({"adds"}, CFG) == (FIXTURES / "tools_before_132.html").read_text(encoding="utf-8")
+    meta = "\n" + site.page_meta("home", "Fantasy Hoops Lab")  # #166 added the icon and preview tags
+    assert home_page({"adds"}, CFG).replace(meta, "") == (FIXTURES / "tools_before_132.html").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_a_publish_with_keep_home_keeps_the_root_index(repo, remote_pages):
@@ -254,3 +261,44 @@ def test_more_tools_must_be_tools_of_the_site(repo):
         publish(repo, "adds", plan, cfg=CFG, more_tools={"draft": plan})
     with pytest.raises(FileNotFoundError):
         publish(repo, "adds", plan, cfg=CFG, more_tools={"free-agents": repo / "output" / "missing.html"})
+
+
+def head_tags(text):
+    """The <link> and <meta> tags in the <head> of a page: {rel or name or property: [href or content, ...]}."""
+    head = text.split("</head>")[0]
+    tags = {}
+    for tag in re.findall(r"<(?:link|meta) [^>]*>", head):
+        attrs = dict(re.findall(r'(\w[\w:-]*)="([^"]*)"', tag))
+        key = attrs.get("rel") or attrs.get("name") or attrs.get("property")
+        tags.setdefault(key, []).append(attrs.get("href") or attrs.get("content"))
+    return tags
+
+
+@pytest.mark.parametrize("current", ["home", *site.TOOLS])
+def test_each_page_head_has_the_icon_links_and_the_preview_tags(current):
+    """#166: the icon links are relative to the page, and og:url and og:image are absolute URLs."""
+    tags = head_tags(shell("<head><title>A &amp; B</title>__HEAD__</head>", current, CFG))
+    up = "" if current == "home" else "../"
+    assert tags["icon"] == [f"{up}icon.svg", f"{up}icon-32.png"]
+    assert tags["apple-touch-icon"] == [f"{up}apple-touch-icon.png"]
+    assert tags["theme-color"] == [tokens.LIGHT["lab-blue"], tokens.DARK["lab-blue"]]
+    assert tags["og:title"] == ["A &amp; B"] and tags["og:type"] == ["website"]
+    description = site.HOME_DESCRIPTION if current == "home" else site.TOOLS[current][1]
+    assert tags["og:description"] == [description] and tags["description"] == [description]
+    assert tags["og:url"] == [site.URL if current == "home" else f"{site.URL}{current}/"]
+    assert tags["og:image"] == ["https://mccomark21.github.io/fantasy-hoops-lab/card.png"]
+    assert tags["twitter:card"] == ["summary_large_image"]
+
+
+def test_a_page_with_no_title_gets_the_site_name_as_og_title():
+    assert head_tags(shell("<head>__HEAD__</head>", "home", CFG))["og:title"] == ["Fantasy Hoops Lab"]
+
+
+def test_publish_puts_the_icons_and_the_share_card_at_the_root(repo, remote_pages):
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), cfg=CFG)
+    pages = remote_pages(repo)
+    assert "trade/index.html" in pages and set(site.ICON_FILES) <= set(pages)
+    for name, source in site.ICON_FILES.items():
+        assert git(repo, "rev-parse", f"FETCH_HEAD:{name}") == git(repo, "hash-object", str(source))
+    assert pages["icon.svg"].startswith("<svg") and site.CARD in site.ICON_FILES

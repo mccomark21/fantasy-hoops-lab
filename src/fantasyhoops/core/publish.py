@@ -19,17 +19,28 @@ class lab-t gets the look of the Roster table: the head, the rows, the team band
 table of the home page and the Free agents and Waiver players tables of the Free agents page use it. band_style() gives the
 team colors of a band.
 write_page() writes a page and the font next to it. The plan page and the home page use it.
+The icon and the share card (#166): shell() also puts page_meta() in the <head>. It links the basketball icon (A2)
+and gives the Open Graph and Twitter card tags. The publish puts the files of ICON_FILES at the root of gh-pages.
+The files are in core/icons/. The share card (card.png, 1200x630) has no league or team names.
 site_menu() and publish() get the config from the caller. The module does not read config.toml.
 """
 
 import html
+import re
 import subprocess
+from pathlib import Path
 
 from fantasyhoops.core import tokens
 
 BRANCH = "gh-pages"
 URL = "https://mccomark21.github.io/fantasy-hoops-lab/"
 HOME_LABEL = "Roster"  # the label of the home page in the site menu
+HOME_DESCRIPTION = "Analysis tools for one Yahoo fantasy basketball league, 2026-27 season."  # og:description of /
+SITE_NAME = "Fantasy Hoops Lab"  # og:site_name, and the page title when a template has no <title>
+ICONS = Path(__file__).parent / "icons"
+# The icon files and the share card at the root of the site: {name on the site: source file} (#166).
+ICON_FILES = {n: ICONS / n for n in ("icon.svg", "icon-32.png", "apple-touch-icon.png", "card.png")}
+CARD = "card.png"  # the share card (og:image). It is 1200x630.
 # One line on the home page and one item in the site menu for each tool, in the order of the page.
 TOOLS = {
     "adds": ("Adds plan", "How to use the 5 adds of the current fantasy week."),
@@ -85,6 +96,42 @@ def site_head():
     return f"{tokens.HEAD}\n<style>\n{MENU_STYLE}\n</style>"
 
 
+def page_meta(current, title):
+    """The icon links and the link preview tags of a page (#166). current: "home" or a tool in TOOLS.
+
+    title: the page title (og:title). The icon links are relative to the page, because the site is a project site
+    under /fantasy-hoops-lab/. og:url and og:image are absolute URLs from URL.
+    """
+    up = "" if current == "home" else "../"
+    url = URL if current == "home" else f"{URL}{current}/"
+    description = HOME_DESCRIPTION if current == "home" else TOOLS[current][1]
+    tags = [
+        f'<link rel="icon" href="{up}icon.svg" type="image/svg+xml">',
+        f'<link rel="icon" href="{up}icon-32.png" type="image/png" sizes="32x32">',
+        f'<link rel="apple-touch-icon" href="{up}apple-touch-icon.png">',
+        f'<meta name="theme-color" content="{tokens.LIGHT["lab-blue"]}" media="(prefers-color-scheme: light)">',
+        f'<meta name="theme-color" content="{tokens.DARK["lab-blue"]}" media="(prefers-color-scheme: dark)">',
+        f'<meta name="description" content="{html.escape(description)}">',
+        f'<meta property="og:site_name" content="{SITE_NAME}">',
+        '<meta property="og:type" content="website">',
+        f'<meta property="og:title" content="{html.escape(title)}">',
+        f'<meta property="og:description" content="{html.escape(description)}">',
+        f'<meta property="og:url" content="{url}">',
+        f'<meta property="og:image" content="{URL}{CARD}">',
+        '<meta property="og:image:width" content="1200">',
+        '<meta property="og:image:height" content="630">',
+        f'<meta property="og:image:alt" content="{SITE_NAME}: a white basketball on a royal-blue tile.">',
+        '<meta name="twitter:card" content="summary_large_image">',
+    ]
+    return "\n".join(tags)
+
+
+def page_title(template):
+    """The text of the <title> of a page template. SITE_NAME if the template has no <title>."""
+    found = re.search(r"<title>(.*?)</title>", template, re.S)
+    return html.unescape(found.group(1).strip()) if found else SITE_NAME
+
+
 def site_menu(current, teams):
     """The site menu, first in the <body> of a page. current: "home" or the name of a tool in TOOLS.
 
@@ -117,10 +164,12 @@ def band_style(team):
 def shell(template, current, cfg):
     """Fill the site shell of a page template: __HEAD__, __MENU__, __SCRIPT__ and __TABLE_CSS__ (TABLE_STYLE).
 
+    __HEAD__ gets site_head() and page_meta() with the <title> of the template.
     current: the page in the site menu (site_menu()). cfg: the config. [league] teams gives the team count.
     """
+    head = f"{site_head()}\n{page_meta(current, page_title(template))}"
     return (
-        template.replace("__HEAD__", site_head())
+        template.replace("__HEAD__", head)
         .replace("__TABLE_CSS__", TABLE_STYLE)
         .replace("__MENU__", site_menu(current, cfg["league"]["teams"]))
         .replace("__SCRIPT__", MENU_SCRIPT)
@@ -158,6 +207,7 @@ def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False, mo
     The planning run uses it for /free-agents/ (#165).
     The folders of the other tools in TOOLS stay. The home page links to each tool folder on the site.
     Each page carries its own site menu (site_menu()). The publish does not change the pages.
+    The root gets the icon files and the share card of ICON_FILES (#166).
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
     """
     more_tools = more_tools or {}
@@ -188,6 +238,7 @@ def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False, mo
     if keep_home and old_home and old_home[1] == "blob":
         root["index.html"] = old_home
     root["fonts"] = fonts
+    root.update({n: ("100644", "blob", write_blob(repo, f.read_bytes())) for n, f in ICON_FILES.items()})
     commit = git(repo, "commit-tree", make_tree(repo, {**root, **folders}), "-m", f"Publish the {tool} pages")
     git(repo, "push", "--force", "origin", f"{commit}:refs/heads/{BRANCH}")
 

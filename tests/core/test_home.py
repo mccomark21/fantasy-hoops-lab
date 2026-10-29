@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fantasyhoops.core import home, tokens
+from fantasyhoops.core import home, publish, tokens
 from fantasyhoops.core.home import NO_GAME, REST, SITS, START, Day, RosterPlayer, lineup_fit, playoff_days, render
 
 SLOTS = ["PG", "C"]  # 2 position slots + Util = 3 starters a day
@@ -145,7 +145,9 @@ def test_the_page_is_the_html_before_the_page_shell():
     The render reads no config.toml: the team count of the menu comes from CFG, and core/publish.py has no
     load_config().
     """
-    assert page() == (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
+    meta = "\n" + publish.page_meta("home", "Roster · Fantasy Hoops Lab")  # #166 added the icon and preview tags
+    before = (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
+    assert page().replace(meta, "") == before
 
 
 def test_each_team_band_has_text_at_4_5_to_1():
@@ -303,3 +305,8 @@ def test_the_shared_table_css_does_not_change_the_roster_table(width):
                 pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
                 looks.append([line.replace(" lab-t", "") for line in pg.evaluate(ROSTER_LOOK)])
             assert looks[0] == looks[1], (width, theme)
+
+
+def test_the_page_has_the_icon_links_and_the_preview_tags():
+    """#166: the head of the roster page has publish.page_meta() with the page title."""
+    assert publish.page_meta("home", "Roster · Fantasy Hoops Lab") in page()
