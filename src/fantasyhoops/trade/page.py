@@ -93,17 +93,18 @@ def week_cell(before, after, total=False):
 
 
 def partner_starts(s):
-    """The partner starts of a suggestion under the partner name: the total before and after, an estimate.
-
-    A text for a reader gives the starts of each week too.
+    """The partner starts of a suggestion under the partner name, an estimate: the starts of each week and the
+    total, before (first line) and after (second line), for example "Est. 27·27·25 = 79" and "→ 26·28·26 = 80 +1".
     """
     before, after = sum(s.partner_before), sum(s.partner_after)
     d = after - before
     said = "no change" if d == 0 else f"{'up' if d > 0 else 'down'} {abs(d)}"
     weeks = f"{' · '.join(map(str, s.partner_before))} before, {' · '.join(map(str, s.partner_after))} after"
     kind = "up" if d > 0 else "dn" if d < 0 else "eq"
+    b, a = "·".join(map(str, s.partner_before)), "·".join(map(str, s.partner_after))
     return (
-        f'<small class="pe {kind}" aria-hidden="true">Est. {before} → <b>{after}</b> {signed(d)}</small>'
+        f'<small class="pe {kind}" aria-hidden="true"><span>Est. {b} = {before}</span>'
+        f"<span>→ {a} = <b>{after}</b> {signed(d)}</span></small>"
         f'<span class="vh">Partner starts, an estimate: {after}, {said} from {before}. Weeks: {weeks}.</span>'
     )
 
@@ -416,7 +417,7 @@ button.chip[aria-pressed="true"] small { color: var(--lab-stock); }
 
 /* The suggestions table: the lab-t table of the Roster. Desktop at 940px of content and more, a row list below. */
 .sg { table-layout: fixed; font-size: 13px; }
-.sg col.c-rk { width: 36px; } .sg col.c-band { width: 40px; } .sg col.c-pt { width: 104px; }
+.sg col.c-rk { width: 36px; } .sg col.c-band { width: 40px; } .sg col.c-pt { width: 124px; }
 .sg col.c-w { width: var(--wk-w, 64px); } .sg col.c-t { width: var(--t-w, 74px); } .sg col.c-v { width: 76px; }
 .sg col.c-v2 { width: 64px; }
 .sg thead tr.grp th { border-bottom: 0; padding-bottom: 4px; font-size: 12px; }
@@ -492,8 +493,9 @@ td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .key .cb { display: inline-block; margin: 0 4px 0 0; vertical-align: middle; }
 
 /* The partner starts of a suggestion (an estimate) and the button that loads a suggestion into the builder. */
-.sg td.pt small.pe { display: block; margin-top: 4px; font-size: 12px; color: var(--lab-ink); }
+.sg td.pt small.pe { display: block; margin-top: 4px; font-size: 11px; color: var(--lab-ink); }
 .sg td.pt small.pe b { font-weight: 800; }
+.sg td.pt small.pe span { display: block; white-space: nowrap; }
 .ms .pst { grid-column: 1 / -1; padding: 0 8px 8px; font-size: 12px; color: var(--lab-ink); overflow-wrap: anywhere; }
 .ms .pst em { font-style: normal; font-weight: 800; color: var(--mark); margin-right: 6px; }
 .ms .pst b { font-weight: 800; }

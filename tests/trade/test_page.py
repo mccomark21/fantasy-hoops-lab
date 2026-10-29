@@ -310,7 +310,10 @@ def test_the_builder_data_has_both_rosters_the_suggestions_and_the_engine_data()
 def test_the_partner_starts_show_as_an_estimate_in_the_table_and_the_row_list():
     html = render()
     row = html.split('<tr data-give="Hurt Point Guard" data-k="0">')[1].split("</tr>")[0]
-    assert '<small class="pe up" aria-hidden="true">Est. 79 → <b>80</b> +1</small>' in row
+    assert (
+        '<small class="pe up" aria-hidden="true"><span>Est. 27·27·25 = 79</span>'
+        "<span>→ 26·28·26 = <b>80</b> +1</span></small>"
+    ) in row
     assert "Partner starts, an estimate: 80, up 1 from 79. Weeks: 27 · 27 · 25 before, 26 · 28 · 26 after." in row
     assert '<span class="pst"><em>Them, est.</em>27 · 27 · 25 = 79 → 26 · 28 · 26 = 80 <b>+1</b></span>' in html
 
