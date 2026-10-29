@@ -115,16 +115,18 @@ def trade_players(roster, read, own_team, ranks, risk, pre, scale, cfg):
     roster: your adds Players from your team page. read: the rostered.RosteredRead of all teams, yours too.
     own_team: your team ID. ranks: {name_key: rank}. risk: {name_key: rests_b2b}. pre: drops.season_values().
     scale: adds/value.projection_scale(). The value is the blended value of both views of the rostered list, else
-    the preseason pg_value with the mark "pre".
+    the preseason pg_value with the mark "pre". With no (name, team) match, the name_key match gives the value
+    only when one player of the rostered list has that name_key.
     """
-    blended = {}
+    blended, by_key = {}, {}
     for o in blended_options(read.projected, read.recent, scale, cfg):
         blended[(o.player.name, o.player.team)] = o.blended_value
-        blended.setdefault(name_key(o.player.name), o.blended_value)
+        by_key.setdefault(name_key(o.player.name), set()).add((o.player.name, o.player.team))
+    unique = {k: blended[next(iter(v))] for k, v in by_key.items() if len(v) == 1}
 
     def make(p, slot="", team_id=None, team_name=""):
         key = name_key(p.name)
-        found = blended.get((p.name, p.team), blended.get(key))
+        found = blended.get((p.name, p.team), unique.get(key))
         pg = pre[key].value if key in pre else None
         value, mark = player_value(found, pg)
         return TradePlayer(
