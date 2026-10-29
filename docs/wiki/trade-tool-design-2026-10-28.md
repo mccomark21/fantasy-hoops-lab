@@ -75,3 +75,9 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - On 2026-10-29, the owner accepted the two open #153 choices (Decision comment on #153). The #158 review was clean (755 passed). PR #158 merged as `mccomark21/fantasy-hoops-lab@22d6413` and closed #153. All of #150 to #153 are closed.
 - On 2026-10-29, the chief of staff published the trade page from `main` (gh-pages commit `3741b28`): 4 suggestions and 3 missing-data warnings. After the Pages build, `/trade/` returned 200 and `/` showed the Roster page with the Trades link. An agent started to file the reviewer nits as issues.
 - On 2026-10-29, an agent filed the reviewer nits as #159 to #164 (enhancement, ready-for-agent). It dropped 2 nits: the partner starts without IL players (the owner chose the "est." label, shipped in #157) and the old tool list at `/` (the planning run of 2026-10-29 replaced it).
+
+## Offer list (2026-10-29)
+
+- On 2026-10-29, the owner asked to focus the suggestions on Gobert, Buzelis and Coby White ("the least playoff games and low quality games for playoffs").
+- A sample (session scratchpad, not in the repo) found: Gobert and Buzelis are outside the top-8 kept set, so no trade of them changes the playoff starts, with any band or limit. Playoff games Wk19/20/21: Gobert 4/2/4, Buzelis 4/4/3, White 4/3/4, team average 3.7/3.4/3.8. White's best trade stayed P.J. Washington (83 to 88).
+- The chief of staff proposed a `kept_always` list to put players into the kept set. The owner instead decided on a config list of the players the owner is willing to trade, changed through the season. The kept-set rule does not change. A builder files the issue and builds it; the page says why an offered player gets no suggestion.
