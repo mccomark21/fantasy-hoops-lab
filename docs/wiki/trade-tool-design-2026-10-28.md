@@ -34,3 +34,11 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - On 2026-10-28, the owner decided: the tool reads the trade deadline ("Trade End Date") from the Yahoo league settings. It is not a hand-set config value.
 - On 2026-10-28, the owner decided: the playoff starts of a trade count the top 8 players by blended value (the agent proposed 7). Flagg (untouchable) and IL players are always in. This is the trade tool's kept set. It does not change the adds planner's `stream_spots`.
 - The agent found that a publish with no home page puts a plain tool list at `/` (`core/publish.py` `publish()`, `home=None`). The trade publish must keep the home page.
+
+## Live sample of #148 (2026-10-28)
+
+- On 2026-10-28, PR #154 merged as `mccomark21/fantasy-hoops-lab@8a953c8`. The live read gave 145 rostered players of 13 teams (7 pages per view), each row with a team link, and the trade deadline 2027-03-04. IL players are on the rostered list.
+- A sample scored 1,595 one-for-one trades: 36 in the value band, 13 with a gain. The baseline was 28/27/26 playoff starts (81) in weeks 19 to 21.
+- The sample showed a flaw: with "the top 8 after the trade", a trade of the IL player Coby White showed a gain of 5 starts from the 9th player moving up. On 2026-10-28, the owner decided that the player you get takes the spot of the player you give (Decision comment on #150). This supersedes the top-8-after-the-trade rule.
+- The owner said the sample "looks alright but it looks nothing like the rest of the site". The plain look was on purpose. The prototype round (#149) uses the site style.
+- The blended values rested on 4 to 5 games, so few trades were in the band this early.
