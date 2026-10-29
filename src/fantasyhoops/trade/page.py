@@ -324,7 +324,7 @@ td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .ms .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; overflow-wrap: anywhere; }
 .ms .nm small { display: block; font-size: 12px; line-height: 1.25; color: var(--lab-mute); margin-top: 3px; }
 .ms .nums { grid-column: 1 / -1; display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.1fr) minmax(0, .9fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(min-content, 1.1fr) minmax(min-content, .9fr);
   padding: 6px 6px 8px 8px; border-top: 1px solid var(--lab-rule); }
 .ms .nums > span { padding: 0 4px; text-align: right; min-width: 0; }
 .ms .nums > span + span { border-left: 1px solid var(--vrule); }
