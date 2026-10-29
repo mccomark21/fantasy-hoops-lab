@@ -20,9 +20,9 @@ def page(repo, name, text):
 
 
 def git(repo, *args, data=None):
-    return subprocess.run(
-        ["git", *args], cwd=repo, input=data, check=True, capture_output=True, text=True
-    ).stdout.strip()
+    """Bytes in and out: text mode on Windows writes CRLF to stdin, and mktree then reads "index.html\r"."""
+    data = data.encode() if data is not None else None
+    return subprocess.run(["git", *args], cwd=repo, input=data, check=True, capture_output=True).stdout.decode().strip()
 
 
 def push_old_site(repo, files):
@@ -91,7 +91,7 @@ def test_old_board_at_the_root_goes_away(repo, remote_pages):
 
 @pytest.mark.parametrize("tool", ["draft", "trades"])
 def test_unknown_tool_stops_with_an_error(repo, tool):
-    with pytest.raises(ValueError, match="The tools are: adds."):
+    with pytest.raises(ValueError, match="The tools are: adds, trade."):
         publish(repo, tool, page(repo, f"{tool}/x.html", ""), cfg=CFG)
 
 
@@ -104,9 +104,12 @@ def test_publish_does_not_change_the_pages(repo, remote_pages):
     assert pages["adds/index.html"] == text and pages["adds/notes.html"] == "<body>n</body>"
 
 
-def test_the_menu_has_roster_and_adds_plan_only():
+def test_the_menu_has_roster_adds_plan_and_trades_only():
     home, adds = site_menu("home", 14), site_menu("adds", 14)
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == ["Roster", "Adds plan"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == ["Roster", "Adds plan", "Trades"]
+    assert '<a href="trade/">Trades</a>' in home and '<a href="../trade/">Trades</a>' in adds
+    trade = site_menu("trade", 14)
+    assert '<a href="../trade/" aria-current="page">Trades</a>' in trade and '<a href="../">Roster</a>' in trade
     assert '<a href="./" aria-current="page">Roster</a>' in home and '<a href="adds/">Adds plan</a>' in home
     assert '<a href="../">Roster</a>' in adds and '<a href="../adds/" aria-current="page">Adds plan</a>' in adds
     assert "Draft board" not in home + adds and "Keeper report" not in home + adds
@@ -183,3 +186,33 @@ def test_write_page_writes_the_page_and_the_font_next_to_it(tmp_path):
 def test_the_tool_list_is_the_html_before_the_page_shell():
     """#132: fixtures/tools_before_132.html is home_page({"adds"}) before shell(), with 14 teams in config.toml."""
     assert home_page({"adds"}, CFG) == (FIXTURES / "tools_before_132.html").read_text(encoding="utf-8")
+
+
+def test_a_publish_with_keep_home_keeps_the_root_index(repo, remote_pages):
+    """#151: the trade run does not make the roster page, so its publish keeps the home page of gh-pages."""
+    push_old_site(repo, {"index.html": "<p>roster</p>", "adds/index.html": "<p>plan</p>"})
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    pages = remote_pages(repo)
+    assert pages["index.html"] == "<p>roster</p>"
+    assert pages["trade/index.html"] == "<p>trades</p>" and pages["adds/index.html"] == "<p>plan</p>"
+    assert ".nojekyll" in pages and tokens.FONT_HREF in pages
+
+
+def test_a_publish_with_keep_home_and_no_site_puts_the_tool_list_at_the_root(repo, remote_pages):
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    assert '<a href="trade/">Trades</a>' in remote_pages(repo)["index.html"]
+
+
+def test_keep_home_and_a_home_page_together_stop_with_an_error(repo):
+    home = page(repo, "home/index.html", "<p>roster</p>")
+    with pytest.raises(ValueError, match="not both"):
+        publish(repo, "trade", page(repo, "trade/index.html", ""), home=home, cfg=CFG, keep_home=True)
+
+
+def test_a_planning_run_publish_keeps_the_trade_folder(repo, remote_pages):
+    """#151: trade is in TOOLS, so the adds publish of the planning run keeps /trade/."""
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    home = page(repo, "home/index.html", "<p>roster</p>")
+    publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG)
+    pages = remote_pages(repo)
+    assert pages["trade/index.html"] == "<p>trades</p>" and pages["index.html"] == "<p>roster</p>"

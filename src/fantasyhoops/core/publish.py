@@ -1,8 +1,9 @@
 """Publish the Fantasy Hoops Lab site to GitHub Pages on the gh-pages branch, and make the shell of each site page.
 
-The site has a home page at / and the folder /adds/ for the adds plan.
+The site has a home page at /, the folder /adds/ for the adds plan and the folder /trade/ for the trades (#151).
 The home page is the roster page of core/home.py (#120). Without it, the home page is a list of the tools.
 A publish of one tool replaces its own folder and the home page. It keeps the folders of the other tools in TOOLS.
+A publish with keep_home=True keeps the home page that is on gh-pages. The trade run uses it (#151).
 A folder on gh-pages with a name that is not in TOOLS goes away at the next publish.
 The root and the tool folder get the font file and its license (OFL.txt) in fonts/ (core/tokens.py).
 The site menu (#117): a royal-blue side panel on a desktop, and a top bar with a drawer on a phone.
@@ -28,6 +29,7 @@ HOME_LABEL = "Roster"  # the label of the home page in the site menu
 # One line on the home page and one item in the site menu for each tool, in the order of the page.
 TOOLS = {
     "adds": ("Adds plan", "How to use the 5 adds of the current fantasy week."),
+    "trade": ("Trades", "Trades that raise your playoff starts and keep your season value."),
 }
 
 
@@ -48,8 +50,8 @@ def make_tree(repo, entries):
     )
 
 
-def published_folders(repo):
-    """Tool folders on gh-pages in origin, as {name: (mode, type, sha)}. Empty if the branch does not exist."""
+def published_site(repo):
+    """The entries at the root of gh-pages in origin, as {name: (mode, type, sha)}. Empty if the branch does not exist."""
     try:
         git(repo, "fetch", "origin", BRANCH)
     except subprocess.CalledProcessError:
@@ -58,9 +60,13 @@ def published_folders(repo):
     for line in git(repo, "ls-tree", "FETCH_HEAD").splitlines():
         info, name = line.split("\t")
         mode, kind, sha = info.split()
-        if kind == "tree" and name in TOOLS:
-            entries[name] = (mode, kind, sha)
+        entries[name] = (mode, kind, sha)
     return entries
+
+
+def published_folders(site):
+    """The tool folders of the root entries of gh-pages (published_site()): the trees with a name in TOOLS."""
+    return {name: e for name, e in site.items() if e[1] == "tree" and name in TOOLS}
 
 
 def font_folder(repo):
@@ -134,13 +140,15 @@ def home_page(tools, cfg):
     return shell(HOME, "home", cfg).replace("__TOOLS__", items)
 
 
-def publish(repo, tool, index, others=(), home=None, *, cfg):
+def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False):
     """Push the pages of one tool to gh-pages in origin, in the folder /<tool>/. The working tree and the current branch do not change.
 
     index: the main page of the tool. It goes to /<tool>/index.html.
     others: more pages of the tool. Each one goes to /<tool>/ with its own file name.
     home: the home page for the root of the site (core/home.py). None: a list of the tools (home_page()).
     cfg: the config. home_page() uses [league] teams of it for the list of the tools.
+    keep_home: True keeps the index.html at the root of gh-pages. Then home must be None. If gh-pages has no root
+    index.html, the home page is the list of the tools. The trade run uses it, because it does not make the roster page.
     The folders of the other tools in TOOLS stay. The home page links to each tool folder on the site.
     Each page carries its own site menu (site_menu()). The publish does not change the pages.
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
@@ -149,7 +157,10 @@ def publish(repo, tool, index, others=(), home=None, *, cfg):
         raise ValueError(f"{tool} is not a tool of the site. The tools are: {', '.join(TOOLS)}.")
     if not index.exists():
         raise FileNotFoundError(f"{index} does not exist.")
-    folders = published_folders(repo)
+    if keep_home and home is not None:
+        raise ValueError("Give home or keep_home=True, not both.")
+    site = published_site(repo)
+    folders = published_folders(site)
     fonts = font_folder(repo)
     pages = {"index.html": index.read_bytes(), **{o.name: o.read_bytes() for o in others}}
     entries = {n: ("100644", "blob", write_blob(repo, d)) for n, d in pages.items()}
@@ -161,6 +172,9 @@ def publish(repo, tool, index, others=(), home=None, *, cfg):
             "index.html": home.read_bytes() if home else home_page(folders, cfg).encode(),
         }.items()
     }
+    old_home = site.get("index.html")
+    if keep_home and old_home and old_home[1] == "blob":
+        root["index.html"] = old_home
     root["fonts"] = fonts
     commit = git(repo, "commit-tree", make_tree(repo, {**root, **folders}), "-m", f"Publish the {tool} pages")
     git(repo, "push", "--force", "origin", f"{commit}:refs/heads/{BRANCH}")

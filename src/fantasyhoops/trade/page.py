@@ -13,7 +13,7 @@ from fantasyhoops.core import common
 from fantasyhoops.core import publish as site
 
 MINUS = "−"
-CURRENT = "trade"  # the page in the site menu. #151 adds the Trades tab to publish.TOOLS.
+CURRENT = "trade"  # the page in the site menu and its folder on the site: the Trades tab of publish.TOOLS (#151)
 EMPTY = "No trade raises your playoff starts."
 S1 = ' class="s1"'
 

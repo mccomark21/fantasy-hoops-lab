@@ -164,7 +164,7 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 ## Components
 
 ### Site menu
-- **Desktop:** a `lab-blue` panel with the site name in condensed caps, the league line, the items Roster and Adds plan, and the theme switch at the bottom.
+- **Desktop:** a `lab-blue` panel with the site name in condensed caps, the league line, the items Roster, Adds plan and Trades, and the theme switch at the bottom.
 - **Current page:** a `lab-stock` row with ink text and a 9px `lab-red` square.
 - **Theme switch:** three square buttons, Auto, Light and Dark, with `aria-pressed`. The pressed button is `lab-stock` with ink text. A script in `<head>` applies the saved choice before the first paint.
 

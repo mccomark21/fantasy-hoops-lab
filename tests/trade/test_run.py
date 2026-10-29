@@ -93,6 +93,20 @@ def test_the_run_writes_the_trade_page_and_the_timings_and_does_not_publish(fake
     assert steps[4:] == ["Score", "Page"]
 
 
+def test_the_run_publishes_the_page_to_trade_keeps_the_home_page_and_prints_the_url(
+    fake_run, tmp_path, monkeypatch, capsys
+):
+    """#151: python -m fantasyhoops.trade publishes /trade/ with keep_home=True."""
+    calls = []
+    monkeypatch.setattr(site, "publish", lambda *args, **kwargs: calls.append((args, kwargs)))
+    run.main([])
+    ((args, kwargs),) = calls
+    assert args == (common.ROOT, "trade", tmp_path / "trade" / "index.html")
+    assert kwargs["keep_home"] is True and "home" not in kwargs
+    out = capsys.readouterr().out
+    assert f"Published the trade page to {site.URL}trade/." in out
+
+
 def test_a_second_run_reads_the_rostered_pages_from_the_cache(fake_run, tmp_path):
     run.main(["--no-publish"])
     first = len(fake_run.paths)
