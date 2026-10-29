@@ -5,6 +5,9 @@ It keeps two kinds of entries:
 - "day": an entry that is good until the end of the day of the read. The entries of one day are in
   output/adds/cache/day/<YYYY-MM-DD>/. The run keeps the team-filtered lists and the market pages in the recent view
   (S_AL14) and the Transaction Trends page of yesterday as "day" entries.
+- "rostered": an entry that is good until the end of the day of the read, for the trade tool (#148). The entries of
+  one day are in output/adds/cache/rostered/<YYYY-MM-DD>/. The trade tool keeps the pages of the rostered list (both
+  views) and the league settings page as "rostered" entries.
 - "kept": an entry that is good for good. The entries are in output/adds/cache/kept/. The run keeps the Transaction
   Trends page of a day up to today - 2 days as a "kept" entry. Yahoo can still change the page of yesterday.
 The planning run (plan.py) chooses the pages that go through the cache. It never sends the team page, the matchup
@@ -22,8 +25,9 @@ from datetime import date, datetime, timedelta
 
 from fantasyhoops.core import common
 
-DAY, KEPT = "day", "kept"  # the kinds of entries
-RECENT, TRENDS = "recent", "trends"  # the page groups that the cache line counts
+DAY, KEPT, ROSTERED = "day", "kept", "rostered"  # the kinds of entries
+RECENT, TRENDS = "recent", "trends"  # the page groups that the cache line counts. ROSTERED is a page group too.
+DAY_KINDS = (DAY, ROSTERED)  # the kinds of entries that are good until the end of the day of the read
 KEPT_AGE = 2  # a Transaction Trends page is a "kept" entry from this number of days before today
 
 
@@ -43,28 +47,36 @@ class PageCache:
 
     def __init__(self, today, use=True, folder=None, clock=datetime.now):
         self.today, self.use, self.folder, self.clock = today, use, folder or cache_dir(), clock
-        self.hits = {RECENT: 0, TRENDS: 0}
+        self.hits = {RECENT: 0, TRENDS: 0, ROSTERED: 0}
         self.recent_time = None
 
     def remove_old_days(self):
-        """Delete the "day" entries of the days before today. The run cannot use them again.
+        """Delete the "day" and "rostered" entries of the days before today. The run cannot use them again.
 
         A folder of a later day or a folder whose name is not a date stays.
         """
-        days = self.folder / DAY
-        if not days.is_dir():
-            return
-        for entry in days.iterdir():
-            try:
-                day = date.fromisoformat(entry.name)
-            except ValueError:
+        for kind in DAY_KINDS:
+            days = self.folder / kind
+            if not days.is_dir():
                 continue
-            if entry.is_dir() and day < self.today:
-                shutil.rmtree(entry, ignore_errors=True)
+            for entry in days.iterdir():
+                try:
+                    day = date.fromisoformat(entry.name)
+                except ValueError:
+                    continue
+                if entry.is_dir() and day < self.today:
+                    shutil.rmtree(entry, ignore_errors=True)
 
     def recent(self, yahoo):
         """A reader with get(path) for the pages in the recent view: "day" entries. yahoo: the session.League."""
         return CachedPages(self, yahoo, DAY, RECENT)
+
+    def rostered(self, yahoo):
+        """A reader with get(path) for the pages of the trade tool: "rostered" entries (#148). yahoo: the session.League.
+
+        The pages are the rostered list in both views and the league settings page.
+        """
+        return CachedPages(self, yahoo, ROSTERED, ROSTERED)
 
     def trends(self, yahoo, day):
         """The reader of the Transaction Trends page of day. yahoo: the session.League.
@@ -78,8 +90,8 @@ class PageCache:
 
     def _file(self, kind, path):
         name = hashlib.sha1(path.encode("utf-8")).hexdigest() + ".json"
-        if kind == DAY:
-            return self.folder / DAY / f"{self.today:%Y-%m-%d}" / name
+        if kind in DAY_KINDS:
+            return self.folder / kind / f"{self.today:%Y-%m-%d}" / name
         return self.folder / KEPT / name
 
     def load(self, kind, path, group):
@@ -127,6 +139,8 @@ class PageCache:
             )
         if self.hits[TRENDS]:
             parts.append(f"Transaction Trends: {_pages(self.hits[TRENDS])} of earlier days from the cache.")
+        if self.hits[ROSTERED]:
+            parts.append(f"The rostered list and the league settings: {_pages(self.hits[ROSTERED])} from the cache.")
         return " ".join(parts) or None
 
 
@@ -138,7 +152,7 @@ class CachedPages:
     """A reader with the get() of session.League. get() gives the page from the cache if it has the page.
     Otherwise get() reads the page from Yahoo and writes it in the cache.
 
-    kind: DAY or KEPT. group: RECENT or TRENDS, the count of the cache line that a page from the cache adds to.
+    kind: DAY or KEPT. group: RECENT, TRENDS or ROSTERED, the count of the cache line that a page from the cache adds to.
     """
 
     def __init__(self, cache, yahoo, kind, group):

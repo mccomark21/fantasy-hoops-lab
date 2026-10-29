@@ -73,6 +73,8 @@ class FakePage:
         ("matchup?week=2&mid1=10", (DAYS,), (SCORES,)),
         ("players?status=FA&pos=P&count=25", (PLAYERS,), ()),
         ("players?status=W&pos=P&count=0", (PLAYERS,), ()),
+        ("players?status=T&pos=P&stat1=S_PS7&count=0", (PLAYERS,), ()),
+        ("settings", (), ("table tbody tr",)),
         ("buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1", (TRENDS,), ()),
     ],
 )
