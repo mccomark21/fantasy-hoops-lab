@@ -228,3 +228,23 @@ def test_a_value_change_that_rounds_to_0_has_no_sign_and_a_team_code_of_4_letter
     assert page.change_text(0.004) == page.change_text(-0.004) == "±0.00"
     assert page.change_text(-0.1) == "−0.10"
     assert 'class="band b4"' in render() and ">UTAH</td>" in render()
+
+
+def test_the_menu_shows_trades_after_adds_plan_as_the_current_page():
+    """#151: the Trades tab of publish.TOOLS."""
+    html = render()
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Roster", "Adds plan", "Trades"]
+    assert '<a href="../trade/" aria-current="page">Trades</a>' in html
+
+
+@pytest.mark.parametrize("width", [320, 390, 768])
+def test_the_open_menu_drawer_has_4_5_to_1_text_and_no_horizontal_scroll(width):
+    """#151: the phone drawer with the Trades tab, in light and dark mode. The tests above check the desktop panel."""
+    with browser_page(width) as pg:
+        pg.set_content(render())
+        pg.locator(".lab-open").click()
+        assert pg.locator("#lab-menu").get_attribute("class") == "lab-menu open"
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(CONTRAST) == [], (width, theme)
+            assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)

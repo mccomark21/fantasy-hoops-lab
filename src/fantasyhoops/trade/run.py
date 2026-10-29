@@ -1,10 +1,12 @@
-"""The trade run (#150): read Yahoo, score the 1-for-1 trades and write the trade page. It does not publish yet.
+"""The trade run (#150): read Yahoo, score the 1-for-1 trades, write the trade page and publish it to /trade/ (#151).
 
-Run it with: python -m fantasyhoops.trade --no-publish (add --no-cache to read each rostered page from Yahoo again).
+Run it with: python -m fantasyhoops.trade (add --no-publish to only write the page, and --no-cache to read each
+rostered page from Yahoo again).
 The run reads your team page (readers.read_roster()) for your roster and IL slots, and the rostered list and the
 league settings through the same-day cache (trade/reads.py). It scores the trades with trade/suggest.py and writes
 output/trade/index.html (trade/page.py). It times its steps in output/trade/timings.csv (adds/timing.py).
-The run never changes the home page or gh-pages. Issue #151 adds the Trades tab and the publish.
+The publish (publish_page()) puts the page at /trade/ on gh-pages and keeps the home page there (keep_home=True).
+With --no-publish, the run does not change gh-pages.
 """
 
 import argparse
@@ -23,6 +25,7 @@ from fantasyhoops.adds.session import WAIT_SECONDS, open_league
 from fantasyhoops.adds.timing import Timings
 from fantasyhoops.adds.value import projection_scale
 from fantasyhoops.core import common, home
+from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import load_config, name_key
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
@@ -167,6 +170,18 @@ def warnings(mine, inputs):
     return out
 
 
+def publish_page(path, cfg, publish=True):
+    """Publish the trade page to /trade/ and print the URL. The home page of gh-pages stays (keep_home=True).
+
+    publish False (--no-publish): print that the run did not publish.
+    """
+    if not publish:
+        print("Publish: skipped (--no-publish).")
+        return
+    site.publish(common.ROOT, page.CURRENT, path, cfg=cfg, keep_home=True)
+    print(f"Published the trade page to {site.URL}{page.CURRENT}/. GitHub can take a few minutes to show the new page.")
+
+
 def main(argv=None):
     """The trade run (see the module docstring)."""
     parser = argparse.ArgumentParser(description="Suggest 1-for-1 trades and write the trade page.")
@@ -203,10 +218,7 @@ def main(argv=None):
         path = page.write(page.render(result, weeks, cfg, made, today, inputs.deadline, line))
     print(f"Wrote the trade page: {path}")
     print(f"Suggestions: {len(result.rows)}. {best_line(result)}")
-    if args.no_publish:
-        print("Publish: skipped (--no-publish).")
-    else:
-        print("Publish: not yet. Issue #151 adds the Trades tab and the publish. The run did not publish.")
+    publish_page(path, cfg, publish=not args.no_publish)
     for w in warnings(mine, inputs):
         print(w)
     print(f"Timings: {timings_path()}")

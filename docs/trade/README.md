@@ -7,19 +7,29 @@ The trade tool suggests 1-for-1 trades with the other fantasy teams of the leagu
 ## Usage
 
 ```sh
-python -m fantasyhoops.trade --no-publish   # Read Yahoo, score the trades and write output/trade/index.html.
-python -m fantasyhoops.trade --no-publish --no-cache   # Read each rostered page from Yahoo again.
+python -m fantasyhoops.trade                # Read Yahoo, score the trades, write the page and publish it to /trade/.
+python -m fantasyhoops.trade --no-publish   # Write output/trade/index.html. Do not publish.
+python -m fantasyhoops.trade --no-cache     # Read each rostered page from Yahoo again.
 python -m fantasyhoops.trade.reads          # The live check of the Yahoo reads (#148). It writes only the cache.
 ```
 
-The run opens Edge with the saved Yahoo sign-in of the adds planner. It is its own command, not part of the planning run. It does not publish and does not change the home page. Issue #151 adds the Trades tab and the publish. Without `--no-publish`, the run also does not publish, and it says so.
+The run opens Edge with the saved Yahoo sign-in of the adds planner. It is its own command, not part of the planning run.
 
 The terminal shows:
 
 1. The page path.
 2. The count of suggestions and the best suggestion, or "No trade raises your playoff starts."
-3. The publish line.
+3. The publish line: the URL of the page, or "Publish: skipped (--no-publish)."
 4. The warnings: no trade deadline, rows of the rostered list with no team link, your players with no value.
+
+## Publish
+
+The run publishes the page to `/trade/` of the site, for example `https://mccomark21.github.io/fantasy-hoops-lab/trade/`. GitHub can take a few minutes to show the new page.
+
+1. The site menu has the tab "Trades" after "Adds plan" (`publish.TOOLS`, #151).
+2. The trade run does not make the roster page. Its publish keeps the home page at `/` (`publish.publish()` with `keep_home=True`). If gh-pages has no home page, the root gets the list of the tools.
+3. The planning run of the adds planner keeps the `/trade/` folder, because `trade` is in `publish.TOOLS`.
+4. Each page carries its own site menu. The home page and the adds page show the Trades tab after their next run.
 
 ## Kept set
 

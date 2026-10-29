@@ -10,6 +10,8 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Stream spot | A roster spot that does not hold a core player. Stream spots = 10 − the core players on the active roster, usually 3. A player on IL does not take a roster spot, so his spot is a stream spot. |
 | Starting slot | One of the 6 daily lineup slots: PG, SG, SF, PF, C and Util. |
 | IL | Injured list: 3 spots that are not roster spots. |
+| Kept set | The players of a team that its playoff starts count in the trade tool: the top 8 by value (`[trade] kept`). The untouchable players and the IL players are always in. See the [trade guide](trade/README.md#kept-set). |
+| Playoff starts | The started games of a team in the playoff weeks, with the home page rules (`core/home.py` `lineup_fit()`). A rest night on a back-to-back is not a start. |
 
 ## League
 
@@ -20,6 +22,7 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Add delay | The days between an add and the first day that the player can start. This league: 0 (same day). |
 | Free agent | A player with Yahoo status FA. You can add him right away. A player on waivers (W) is not a free agent. |
 | Status | The Yahoo injury status of a player, from the official NBA designations: blank (healthy), O (out), Q (questionable), D (doubtful), P (probable) and others. Only players who are Out or Out for Season can go on IL. |
+| Trade target | A player on the roster of another fantasy team, from Yahoo's list of rostered players. The trade tool suggests trades for trade targets. |
 
 ## Value
 

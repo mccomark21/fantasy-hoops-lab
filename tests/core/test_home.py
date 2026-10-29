@@ -132,7 +132,7 @@ def test_the_day_grid_marks_the_quality_day_and_the_rest_night():
 def test_the_page_uses_the_shared_tokens_the_menu_and_no_colors_of_its_own():
     text = page()
     assert tokens.TOKENS in text
-    assert text.count('<li><a href="') == 2 and 'aria-current="page">Roster</a>' in text
+    assert text.count('<li><a href="') == 3 and 'aria-current="page">Roster</a>' in text
     assert 'href="adds/">Adds plan</a>' in text
     style = re.sub(r"/\*.*?\*/", "", home.PAGE_STYLE, flags=re.S)
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgb\(", style)
