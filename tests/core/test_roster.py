@@ -250,6 +250,20 @@ def test_the_header_items_are_4_5_to_1_or_more_in_light_and_dark_mode(width):
             assert pg.evaluate(CONTRAST) == [], theme
 
 
+@pytest.mark.parametrize("width", [320, 390, 768, 1280])
+def test_the_roster_page_has_no_sideways_scroll_and_4_5_to_1_text_in_light_and_dark_mode(width):
+    """#140 page tests for the Roster page at /roster/ (#172). The desktop table scrolls inside its own region."""
+    from tests.adds.test_page import CONTRAST
+
+    with browser_page(width) as pg:
+        pg.set_content(record_page())
+        pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
+            assert pg.evaluate(CONTRAST) == [], (width, theme)
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_a_phone_shows_rows_that_open_and_no_horizontal_scroll(scheme):
     with browser_page(390, scheme) as pg:

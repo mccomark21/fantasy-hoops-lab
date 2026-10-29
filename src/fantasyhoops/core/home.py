@@ -161,9 +161,9 @@ PAGE_STYLE = """/* The Home page (#172). Colors only from the tokens. */
 .t-side { display: flex; min-width: 0; }
 .t-band { flex: none; width: 46px; display: flex; align-items: center; justify-content: center; background: var(--team); color: var(--team-ink);
   font-weight: 900; font-stretch: 70%; font-size: 17px; }
-.t-nm { padding: 8px; min-width: 0; line-height: 1; }
+.t-nm { padding: 8px 6px 8px 8px; min-width: 0; line-height: 1; }
 .t-nm small, .t-tot small { display: block; font-size: 11px; font-weight: 800; color: var(--mark); margin-bottom: 4px; }
-.t-nm b { font-weight: 900; font-stretch: 66%; font-size: 19px; text-transform: uppercase; }
+.t-nm b { font-weight: 900; font-stretch: 66%; font-size: 17px; text-transform: uppercase; }
 .t-tot { padding: 8px 0 8px 10px; text-align: right; line-height: 1; white-space: nowrap; }
 .t-tot b { font-weight: 900; font-size: 18px; }
 .t-tot em { font-style: normal; font-weight: 800; font-size: 13px; }
@@ -282,7 +282,7 @@ my team and my opponent.</p>
 <span class="g-n" style="--t:23%">7</span><span class="g-n" style="--t:13%">4</span>
 <span class="g-lab">Add 1</span>
 <span class="g-c past"></span><span class="g-c past"></span><span class="g-c past"></span>
-<span class="g-c start" style="--t:10%"><span class="g-add"><b>+SG/PF</b><u>SAC</u></span></span>
+<span class="g-c start" style="--t:10%"><span class="g-add"><b>+SG/<wbr>PF</b><u>SAC</u></span></span>
 <span class="g-c" style="--t:33%"><span class="g-band"><i></i></span></span>
 <span class="g-c" style="--t:23%"><span class="g-band"></span></span>
 <span class="g-c" style="--t:13%"><span class="g-band"><i></i></span></span>
