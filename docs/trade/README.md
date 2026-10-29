@@ -20,7 +20,7 @@ The terminal shows:
 1. The page path.
 2. The count of suggestions and the best suggestion, or "No trade raises your playoff starts."
 3. The publish line: the URL of the page, or "Publish: skipped (--no-publish)."
-4. The warnings: no trade deadline, rows of the rostered list with no team link, your players with no value.
+4. The warnings: no trade deadline, rows of the rostered list with no team link, your players with no value, and the players with no match in a data file. See [Edge states](#edge-states).
 
 ## Publish
 
@@ -95,7 +95,7 @@ The page shows the read time of the rostered pages under the table, for example 
 
 ## Run time
 
-The run times its steps in `output/trade/timings.csv` with `adds/timing.py`: "Local files", "Yahoo reads" (with the sub-steps "team page" and "rostered list and settings"), "Score" and "Page". The `days`, `open_days` and `adds_left` columns stay empty, because the trade run has no planning window.
+The run times its steps in `output/trade/timings.csv` with `adds/timing.py`: "Local files", "Yahoo reads" (with the sub-steps "settings", "team page" and "rostered list"), "Score" and "Page". After the trade deadline, the steps are "Local files", "Yahoo reads" (only "settings") and "Page". The `days`, `open_days` and `adds_left` columns stay empty, because the trade run has no planning window.
 
 The targets: 15 seconds or less with a full cache, 60 seconds or less with no cache.
 
@@ -134,6 +134,17 @@ The suggestions table shows the partner starts too, marked "Est.", under the par
 
 The page inlines `draft/team_builder.js` and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `team_builder.js` with value = −rank. So the engine starts the players in the lineup order of the home page. `team_builder.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
 
+## Edge states
+
+The run handles these states (#153):
+
+1. **After the trade deadline.** The run reads the league settings first. If today is after the trade deadline, the run does not read your team page or the rostered list. It writes and publishes a short `/trade/` page: "The trade deadline was <date>. Yahoo accepts no more trades this season." The header shows the deadline with "passed" and the time of the run. The Trades tab stays. On the deadline day, the run still suggests trades.
+2. **No trade deadline.** If the league settings page has no "Trade End Date" with a date, the run continues. The terminal prints one warning, and the page shows the same warning under the header. The header shows "Not found".
+3. **A player with no match in a data file.** The run matches the names with `common.name_key()`. A player with no match in the rankings gets no rank and goes last in the lineup order. A player with no match in the `[risk] file` gets `rests_b2b` 0. A player with no match in the projections file gets no Pre value. For each file, the terminal prints one warning line with the names of both sides, and the page shows the same lines under the header.
+4. **Yahoo read failure.** If the run cannot read Yahoo (`YahooBlocked`, `PageNotReady`, or a sign-in that does not finish before the timeout), the run stops with the error. It does not write or publish a page, so the last good page stays on the site.
+
+The page header always shows the date and time of the run ("Made").
+
 ## Configuration
 
 The `[trade]` section of `config.toml`:
@@ -168,3 +179,4 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 - On 2026-10-28, the owner decided: the trade deadline comes from the Yahoo league settings, not from a config value.
 - On 2026-10-29, the owner decided: the page shows the partner starts, marked "est.", for the suggestions and for a custom trade (Decision comment on #152).
 - On 2026-10-29, the builder of #152 made the build choices of the builder (Decision comment on #152).
+- On 2026-10-29, the builder of #153 made the choices of the edge states (Decision comments on #153).
