@@ -27,3 +27,10 @@ On 2026-10-28, the owner asked for a trade tool as a new tab of the site menu. I
 ## Next
 
 An agent decides the remaining questions and proposes the issue split. The owner confirms before any issue or build.
+
+## Agent decisions and the last owner answers (2026-10-28)
+
+- An agent decided 53 further points and proposed 6 issues. Its file was a scratchpad file outside the repo. The issues hold its content.
+- On 2026-10-28, the owner decided: the tool reads the trade deadline ("Trade End Date") from the Yahoo league settings. It is not a hand-set config value.
+- On 2026-10-28, the owner decided: the playoff starts of a trade count the top 8 players by blended value (the agent proposed 7). Flagg (untouchable) and IL players are always in. This is the trade tool's kept set. It does not change the adds planner's `stream_spots`.
+- The agent found that a publish with no home page puts a plain tool list at `/` (`core/publish.py` `publish()`, `home=None`). The trade publish must keep the home page.
