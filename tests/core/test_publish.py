@@ -91,7 +91,7 @@ def test_old_board_at_the_root_goes_away(repo, remote_pages):
 
 @pytest.mark.parametrize("tool", ["draft", "trades"])
 def test_unknown_tool_stops_with_an_error(repo, tool):
-    with pytest.raises(ValueError, match="The tools are: adds, trade."):
+    with pytest.raises(ValueError, match="The tools are: adds, free-agents, trade."):
         publish(repo, tool, page(repo, f"{tool}/x.html", ""), cfg=CFG)
 
 
@@ -104,9 +104,12 @@ def test_publish_does_not_change_the_pages(repo, remote_pages):
     assert pages["adds/index.html"] == text and pages["adds/notes.html"] == "<body>n</body>"
 
 
-def test_the_menu_has_roster_adds_plan_and_trades_only():
+def test_the_menu_has_roster_adds_plan_free_agents_and_trades_only():
     home, adds = site_menu("home", 14), site_menu("adds", 14)
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == ["Roster", "Adds plan", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == ["Roster", "Adds plan", "Free agents", "Trades"]
+    assert '<a href="free-agents/">Free agents</a>' in home and '<a href="../free-agents/">Free agents</a>' in adds
+    free = site_menu("free-agents", 14)
+    assert '<a href="../free-agents/" aria-current="page">Free agents</a>' in free
     assert '<a href="trade/">Trades</a>' in home and '<a href="../trade/">Trades</a>' in adds
     trade = site_menu("trade", 14)
     assert '<a href="../trade/" aria-current="page">Trades</a>' in trade and '<a href="../">Roster</a>' in trade
@@ -216,3 +219,38 @@ def test_a_planning_run_publish_keeps_the_trade_folder(repo, remote_pages):
     publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG)
     pages = remote_pages(repo)
     assert pages["trade/index.html"] == "<p>trades</p>" and pages["index.html"] == "<p>roster</p>"
+
+
+def test_a_planning_run_publish_writes_the_free_agents_folder_and_keeps_the_trade_folder(repo, remote_pages):
+    """#165: the planning run publishes /adds/ and /free-agents/ in one publish, and keeps /trade/."""
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    home = page(repo, "home/index.html", "<p>roster</p>")
+    free = page(repo, "adds/free_agents.html", "<p>free agents</p>")
+    publish(
+        repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG, more_tools={"free-agents": free}
+    )
+    pages = remote_pages(repo)
+    assert pages["index.html"] == "<p>roster</p>" and pages["adds/index.html"] == "<p>plan</p>"
+    assert pages["free-agents/index.html"] == "<p>free agents</p>" and pages["trade/index.html"] == "<p>trades</p>"
+    assert f"free-agents/{tokens.FONT_HREF}" in pages and "free-agents/fonts/OFL.txt" in pages
+
+
+def test_a_trade_publish_keeps_the_home_page_the_adds_and_the_free_agents_folders(repo, remote_pages):
+    """#165: free-agents is in TOOLS, so the trade publish keeps /free-agents/."""
+    home = page(repo, "home/index.html", "<p>roster</p>")
+    free = page(repo, "adds/free_agents.html", "<p>free agents</p>")
+    publish(
+        repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG, more_tools={"free-agents": free}
+    )
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    pages = remote_pages(repo)
+    assert pages["index.html"] == "<p>roster</p>" and pages["adds/index.html"] == "<p>plan</p>"
+    assert pages["free-agents/index.html"] == "<p>free agents</p>" and pages["trade/index.html"] == "<p>trades</p>"
+
+
+def test_more_tools_must_be_tools_of_the_site(repo):
+    plan = page(repo, "adds/plan.html", "<p>plan</p>")
+    with pytest.raises(ValueError, match="not a tool of the site"):
+        publish(repo, "adds", plan, cfg=CFG, more_tools={"draft": plan})
+    with pytest.raises(FileNotFoundError):
+        publish(repo, "adds", plan, cfg=CFG, more_tools={"free-agents": repo / "output" / "missing.html"})

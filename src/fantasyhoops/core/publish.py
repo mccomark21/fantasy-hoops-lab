@@ -1,18 +1,22 @@
 """Publish the Fantasy Hoops Lab site to GitHub Pages on the gh-pages branch, and make the shell of each site page.
 
-The site has a home page at /, the folder /adds/ for the adds plan and the folder /trade/ for the trades (#151).
+The site has a home page at /, the folder /adds/ for the adds plan, the folder /free-agents/ for the free agents of
+the planning run (#165) and the folder /trade/ for the trades (#151).
 The home page is the roster page of core/home.py (#120). Without it, the home page is a list of the tools.
 A publish of one tool replaces its own folder and the home page. It keeps the folders of the other tools in TOOLS.
+A publish can also replace the folders of more tools (more_tools). The planning run publishes /adds/ and
+/free-agents/ in one publish.
 A publish with keep_home=True keeps the home page that is on gh-pages. The trade run uses it (#151).
 A folder on gh-pages with a name that is not in TOOLS goes away at the next publish.
 The root and the tool folder get the font file and its license (OFL.txt) in fonts/ (core/tokens.py).
 The site menu (#117): a royal-blue side panel on a desktop, and a top bar with a drawer on a phone.
 It has a link to each page of the site and the Auto, Light and Dark theme switch.
 The page shell (#132): shell() puts site_head() in the <head> of a page, site_menu() first in its <body> and
-MENU_SCRIPT last in its <body>. The plan page, the home page and the tool list (home_page()) use shell().
+MENU_SCRIPT last in its <body>. The plan page, the Free agents page, the home page and the tool list (home_page())
+use shell().
 The shared tables (#143): shell() puts TABLE_STYLE in place of __TABLE_CSS__ in a page template. A table with the
 class lab-t gets the look of the Roster table: the head, the rows, the team band and the player cell. The Roster
-table of the home page and the Free agents and Waiver players tables of the adds page use it. band_style() gives the
+table of the home page and the Free agents and Waiver players tables of the Free agents page use it. band_style() gives the
 team colors of a band.
 write_page() writes a page and the font next to it. The plan page and the home page use it.
 site_menu() and publish() get the config from the caller. The module does not read config.toml.
@@ -29,6 +33,7 @@ HOME_LABEL = "Roster"  # the label of the home page in the site menu
 # One line on the home page and one item in the site menu for each tool, in the order of the page.
 TOOLS = {
     "adds": ("Adds plan", "How to use the 5 adds of the current fantasy week."),
+    "free-agents": ("Free agents", "The free agents and the waiver players of the last planning run, with filters."),
     "trade": ("Trades", "Trades that raise your playoff starts and keep your season value."),
 }
 
@@ -140,7 +145,7 @@ def home_page(tools, cfg):
     return shell(HOME, "home", cfg).replace("__TOOLS__", items)
 
 
-def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False):
+def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False, more_tools=None):
     """Push the pages of one tool to gh-pages in origin, in the folder /<tool>/. The working tree and the current branch do not change.
 
     index: the main page of the tool. It goes to /<tool>/index.html.
@@ -149,14 +154,18 @@ def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False):
     cfg: the config. home_page() uses [league] teams of it for the list of the tools.
     keep_home: True keeps the index.html at the root of gh-pages. Then home must be None. If gh-pages has no root
     index.html, the home page is the list of the tools. The trade run uses it, because it does not make the roster page.
+    more_tools: {tool: index} for more tools in TOOLS. Each index goes to /<tool>/index.html in the same publish.
+    The planning run uses it for /free-agents/ (#165).
     The folders of the other tools in TOOLS stay. The home page links to each tool folder on the site.
     Each page carries its own site menu (site_menu()). The publish does not change the pages.
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
     """
-    if tool not in TOOLS:
-        raise ValueError(f"{tool} is not a tool of the site. The tools are: {', '.join(TOOLS)}.")
-    if not index.exists():
-        raise FileNotFoundError(f"{index} does not exist.")
+    more_tools = more_tools or {}
+    for name, path in {tool: index, **more_tools}.items():
+        if name not in TOOLS:
+            raise ValueError(f"{name} is not a tool of the site. The tools are: {', '.join(TOOLS)}.")
+        if not path.exists():
+            raise FileNotFoundError(f"{path} does not exist.")
     if keep_home and home is not None:
         raise ValueError("Give home or keep_home=True, not both.")
     site = published_site(repo)
@@ -165,6 +174,9 @@ def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False):
     pages = {"index.html": index.read_bytes(), **{o.name: o.read_bytes() for o in others}}
     entries = {n: ("100644", "blob", write_blob(repo, d)) for n, d in pages.items()}
     folders[tool] = ("040000", "tree", make_tree(repo, {**entries, "fonts": fonts}))
+    for name, path in more_tools.items():
+        blob = ("100644", "blob", write_blob(repo, path.read_bytes()))
+        folders[name] = ("040000", "tree", make_tree(repo, {"index.html": blob, "fonts": fonts}))
     root = {
         name: ("100644", "blob", write_blob(repo, data))
         for name, data in {
