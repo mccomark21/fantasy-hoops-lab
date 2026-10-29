@@ -19,6 +19,8 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Ideas
 
+- [Trade tool design of 2026-10-28](trade-tool-design-2026-10-28.md): the grilling session of 2026-10-28 for a trade tool tab, the 13 owner decisions and the next steps.
+
 - [Bluesky streaming posts](bluesky-streaming-posts.md) (paused on 2026-10-26): the owner idea of 2026-10-26 for weekly streaming images on Bluesky, the owner decisions, and the studies of that day (feasibility, sources without login, an availability estimate, platform defaults, general ranks, terms-safe sources, an own projection check), and the owner decision on the terms question.
 
 ## Decisions
