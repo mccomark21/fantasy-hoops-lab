@@ -109,6 +109,30 @@ The targets: 15 seconds or less with a full cache, 60 seconds or less with no ca
 4. Each week cell shows the new count, the change and a small bar. A blue row above the trades shows your starts now.
 5. Below 940px of content, a row list replaces the table.
 6. The line under the table starts with "Starts count your 8 kept players."
+7. The trade builder sits under the table. See [Builder](#builder).
+
+## Builder
+
+The trade builder sits under the suggestions table (#152). It computes a custom trade in the browser, for example 2-for-1, and shows its effect on both teams.
+
+1. Pick one partner team. A new partner clears the players you get.
+2. Pick the players you give and the players you get. The untouchable players cannot be given.
+3. When you get more players than you give, pick your drops. The builder first picks your lowest value players. It never offers an untouchable player.
+4. When you give more players than you get, your open spot stays empty: "1 open roster spot: a free agent can fill it."
+5. When the partner gets more players than he gives, he drops his lowest value players that are not on IL. A player with no value goes first. He never drops a player that he gets in the trade. The page names each drop.
+6. When you get more players than you give, the partner has an open spot, and the page says so.
+7. A click on a suggestion row (or on its rank button) loads that trade into the builder. The row shows as selected until you change the trade.
+
+The result table shows both teams: the playoff starts of each week and the total, now and after the trade, and the value change.
+
+- The kept set rule is the rule of [Kept set](#kept-set). The players that a team gives and drops leave its kept set. The players that it gets take the freed spots, the highest value first. A freed spot with no player stays empty.
+- Your value change is sum(get) − sum(give) − sum(your drops). An open spot adds 0. A player with no value adds 0.
+- The band verdict (in the band, below the band, above the band) shows only for equal counts. It compares the value sums.
+- The partner rows are marked "est.", because the rostered list does not show the IL slots of a partner.
+
+The suggestions table shows the partner starts too, marked "Est.", under the partner name: the starts of each week and the total, before (first line) and after (second line). The row list on a phone shows the same numbers on one line.
+
+The page inlines `draft/team_builder.js` and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `team_builder.js` with value = −rank. So the engine starts the players in the lineup order of the home page. `team_builder.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
 
 ## Configuration
 
@@ -142,3 +166,5 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 - On 2026-10-28, the owner decided: the player you get takes the spot of the player you give in the kept set. This supersedes "the top 8 after the trade" (Decision comment on #150).
 - On 2026-10-28, the owner picked look 3 of the prototype round (#149).
 - On 2026-10-28, the owner decided: the trade deadline comes from the Yahoo league settings, not from a config value.
+- On 2026-10-29, the owner decided: the page shows the partner starts, marked "est.", for the suggestions and for a custom trade (Decision comment on #152).
+- On 2026-10-29, the builder of #152 made the build choices of the builder (Decision comment on #152).
