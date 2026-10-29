@@ -1,26 +1,33 @@
-"""The plan page: one HTML file in output/adds/ for use on a phone. The design is in docs/adds/README.md.
+"""The plan page and the Free agents page: two HTML files in output/adds/ for use on a phone. The design is in
+docs/adds/README.md.
 
-render() makes the page from one PlanningRun (adds/plan.py). Each section of the page comes from one small function.
-A section shows only the parts that exist. The main sections:
+render() makes the plan page and render_free_agents() makes the Free agents page (#165), from one PlanningRun
+(adds/plan.py). Each section of a page comes from one small function. A section shows only the parts that exist.
+The plan page (output/adds/adds_plan.html, published at /adds/) has these main sections:
 - Team plan: the week grid of adds/grid.py (#140). It shows the adds of the team plan (adds/team_plan.py) and the
-  saved adds of the past days (adds/week_file.py). A click on an add or a day sets the filters of the free-agent table.
+  saved adds of the past days (adds/week_file.py). A click on an add or a day opens the Free agents page with the
+  filters of the add or the day in the URL.
 - Matchup: the category scores of the current matchup and the weight of each category (adds/matchup.py).
+- Run time: see below.
+An old link to the Free agents section of the plan page (adds/#fa or adds/#waivers) forwards to the Free agents page.
+The Free agents page (output/adds/free_agents.html, published at /free-agents/) has these sections:
 - Free agents: a table with filters for days, positions and teams. The page holds its data as JSON, and one inline
-  script fills the table. The values are market values: the value above a replacement free agent (adds/value.py).
+  script fills the table. The script reads the filters of a plan link from the URL.
+  The values are market values: the value above a replacement free agent (adds/value.py).
   Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py), with the
   starter flag and the closer flag (core/role_flags.py).
   A mark such as "Mon open" names each of the first days of next week on which he plays and fills an open slot (#76).
-A third section lists the waiver players (W) with their clear days.
+- Waiver players: the waiver players (W) with their clear days.
+- Role up: the absent starters and the free agents at their positions (adds/role_up.py).
 The Free agents table and the Waiver players table have the look of the Roster table of the home page (#143): a
 team band, the player cell, and the head and row style of publish.TABLE_STYLE, the one source of the table CSS.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the free-agent table.
-The role-up section lists the absent starters and the free agents at their positions (adds/role_up.py).
 The Run time table shows the time of each step of the run (adds/timing.py, #85), with the sub-steps of the Yahoo
 reads and their Yahoo pages below the Yahoo reads row (#89). The Run time section also holds the lines about the run:
 the market read, the pages from the cache and the skip of the recent view (#118).
 The page has inline CSS and no files from other sites. The colors and the font come from core/tokens.py, and the site
 menu comes from core/publish.py (#117). publish.shell() gives the head, the menu and the menu script (#132).
-write() uses publish.write_page(), which also writes the font file to fonts/ next to the page.
+write() and write_free_agents() use publish.write_page(), which also writes the font file to fonts/ next to the page.
 """
 
 import html
@@ -36,6 +43,8 @@ from fantasyhoops.core import publish as site
 from fantasyhoops.core import common
 
 TITLE = "Weekly adds plan"
+FA_TITLE = "Free agents"  # the title of the Free agents page (#165)
+PLAN_LINK = "../adds/#plan"  # the team plan, from the Free agents page
 RANKING_ROWS = 12  # the teams in the ranking table
 FREE_AGENT_ROWS = 10  # the rows of the free-agent table: the best players for the filters
 FLAG = 1.5  # the market value from which a free agent gets the "FA?" mark
@@ -198,6 +207,8 @@ def free_agent_data(
 ):
     """The data of the free-agent table: the days and one row for each option who plays, best value first.
 
+    Each day has its date (for example "2027-01-07"), so that the script can match the days of a plan link (#165).
+
     A value is a market value: the value minus replacement. match: the matchup value minus match_replacement, the
     matchup value of a replacement free agent. plays: his team plays on the day. fits: he plays and
     one of the open slots of the day takes one of his positions (Util takes all positions). b2b: he plays on the
@@ -242,7 +253,13 @@ def free_agent_data(
         )
     return {
         "days": [
-            {"label": f"{d.date:%a}", "md": f"{d.date.month}/{d.date.day}", "nba": d.nba_games, "open": len(d.open)}
+            {
+                "label": f"{d.date:%a}",
+                "md": f"{d.date.month}/{d.date.day}",
+                "date": d.date.isoformat(),
+                "nba": d.nba_games,
+                "open": len(d.open),
+            }
             for d in days
         ],
         "players": players,
@@ -301,7 +318,10 @@ def next_week_legend(next_days):
     return '<p class="legend">' + " ".join(lines) + " The mark changes no value and no plan.</p>\n"
 
 
-SKIP_NOTE = "Val uses the projection only in this run. Run time below gives the reason."
+SKIP_NOTE = (
+    'Val uses the projection only in this run. The Run time section of the <a href="../adds/#run-time">Adds plan</a> '
+    "page gives the reason."
+)
 
 
 def fa_key(roles, minutes_rise, next_days):
@@ -357,7 +377,7 @@ def free_agents_section(run):
     return (
         '<section id="fa"><h2>Free agents</h2>\n'
         '<p class="from" id="fa-from" hidden><span id="fa-from-text"></span> '
-        '<a href="#plan">Back to the team plan</a></p>\n'
+        f'<a href="{PLAN_LINK}">Back to the team plan</a></p>\n'
         '<div class="filters" id="day-chips"></div>\n<div class="filters" id="pos-chips"></div>\n'
         '<div class="filters" id="team-chips"></div>\n'
         '<div class="tools"><label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill '
@@ -428,7 +448,7 @@ def role_up_section(options):
         for name, players in marked.items()
     )
     return (
-        f"<section><h2>Role up</h2>\n<ul>{items}</ul>\n"
+        f'<section id="role-up"><h2>Role up</h2>\n<ul>{items}</ul>\n'
         '<p class="legend">Absent: he started most of his recent games, then missed the last games of his team. '
         "His backups can get more minutes. Their recent line does not show the new role yet. The mark changes "
         "no value.</p></section>"
@@ -525,25 +545,66 @@ def render(run):
     lines recent_skip, market and cache (timings_section()).
     [adds] minutes_rise and [adds.flags] of run.cfg give the legends of the role marks.
     [league] teams of run.cfg gives the team count in the site menu.
+    The Free agents, Waiver players and Role up sections are on the Free agents page (render_free_agents(), #165).
+    The add cells and the day headers of the team plan link to that page when it has a free-agent table.
     """
     today = run.today or date.today()
     run = replace(run, today=today)
-    free_agents = free_agents_section(run)
     min_weight = run.cfg.get("adds", {}).get("matchup", {}).get("min_weight", 0.5)
     sections = [
         header(run.data, run.days, run.spots, today),
         warnings_section(run.warnings),
         matchup_section(run.data.matchup, run.weights, min_weight),
-        grid.plan_section(run, interactive=bool(free_agents)),
-        free_agents,
-        waivers_section(run.options, run.replacement),
-        role_up_section(run.options),
+        grid.plan_section(run, interactive=bool(free_agents_section(run))),
         ranking_section(run.ranking, run.read),
         timings_section(run.timings, run.market, run.cache, run.recent_skip),
         method_note(),
     ]
-    shell = site.shell(HTML.replace("__TITLE__", TITLE).replace("__GRID_CSS__", grid.CSS.strip()), "adds", run.cfg)
+    return _page(TITLE, "adds", run.cfg, sections, FORWARD)
+
+
+def fa_header(run):
+    """The title of the Free agents page, the fantasy week, the planning window and the day of the run."""
+    week, days = run.data.week, run.days
+    window = f" Planning window: {_day(days[0].date)} to {_day(days[-1].date)}." if days else ""
+    return (
+        f"<h1>{FA_TITLE}</h1>\n<p>Week {week.number}: {_day(week.start)} to {_day(week.end)}.{window} "
+        f'Made on {_day(run.today)}. The <a href="{PLAN_LINK}">team plan</a> is on the Adds plan page.</p>'
+    )
+
+
+NO_FREE_AGENTS = "The planning run read no free agents and no waiver players. The team plan gives the reason."
+
+
+def render_free_agents(run):
+    """The Free agents page of a PlanningRun (#165) as HTML text: the free-agent table, the waiver players and the
+    role-up marks. It uses the fields of run that free_agents_section(), waivers_section() and role_up_section() use.
+    With none of the three sections, a line says that the run read no free agents.
+    """
+    today = run.today or date.today()
+    run = replace(run, today=today)
+    sections = [
+        free_agents_section(run),
+        waivers_section(run.options, run.replacement),
+        role_up_section(run.options),
+    ]
+    if not any(sections):
+        sections = [f'<p id="fa-none">{_e(NO_FREE_AGENTS)}</p>']
+    return _page(FA_TITLE, "free-agents", run.cfg, [fa_header(run), *sections])
+
+
+def _page(title, current, cfg, sections, forward=""):
+    """A page of the planner: the template HTML with the title, the site shell and the sections."""
+    template = HTML.replace("__TITLE__", title).replace("__GRID_CSS__", grid.CSS.strip())
+    shell = site.shell(template.replace("__FORWARD__", forward), current, cfg)
     return shell.replace("__BODY__", "\n".join(s for s in sections if s))
+
+
+# An old link to the Free agents section of the plan page (adds/#fa, adds/#waivers) opens the Free agents page.
+FORWARD = (
+    "<script>if (/^#(fa|waivers)$/.test(location.hash)) "
+    'location.replace("../free-agents/" + location.search + location.hash);</script>'
+)
 
 
 def page_path():
@@ -551,9 +612,19 @@ def page_path():
     return common.OUT / "adds" / "adds_plan.html"
 
 
+def free_agents_path():
+    """The Free agents page file: output/adds/free_agents.html, from common.OUT at the time of the call."""
+    return common.OUT / "adds" / "free_agents.html"
+
+
 def write(text, path=None):
     """Write the page text to path (default: page_path()), and the font file to fonts/ next to it. Return the path."""
     return site.write_page(path or page_path(), text)
+
+
+def write_free_agents(text, path=None):
+    """Write the Free agents page text to path (default: free_agents_path()) and the font. Return the path."""
+    return site.write_page(path or free_agents_path(), text)
 
 
 HTML = """<!doctype html>
@@ -562,6 +633,7 @@ HTML = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
+__FORWARD__
 __HEAD__
 <style>
 __TABLE_CSS__
@@ -808,32 +880,35 @@ $("fa-clear-days").onclick = () => {
   const first = $("day-chips").querySelector("button");
   if (first) first.focus();
 };
-// The plan button that set the filters shows as selected (aria-current) until the next filter change from the plan.
-const PLAN = $("plan");
-const current = b => PLAN && PLAN.querySelectorAll("button").forEach(x =>
-  x.setAttribute("aria-current", x === b ? "true" : "false"));
 // Reset filters restores the defaults: no days, no positions, no teams, only games that fill an open slot, sort by Val.
+// It also removes the filters of a plan link from the URL, so that a reload shows the defaults.
 $("fa-reset").onclick = () => {
   state.days.clear(); state.pos.clear(); state.teams.clear(); state.fit = true; state.sort = "value";
-  $("fit-only").checked = true; $("fa-from").hidden = true; current(null);
+  $("fit-only").checked = true; $("fa-from").hidden = true;
+  try { if (location.search) history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
   render();
 };
-// The team plan (issue 140): an add cell or a day header sets the filters of the table from its data attributes.
-// data-days: the indexes of the days of the table. data-pos: the slots, empty for Util (any position). data-teams.
+// The team plan of the Adds plan page (issues 140 and 165) links here with the filters in the URL: days (the dates,
+// for example 2027-01-07), pos (the slots, empty for Util: any position), teams, and from (the text of the line).
+// A date that is not a day of the table does not set a filter.
 const list = s => (s || "").split(",").filter(Boolean);
-if (PLAN) PLAN.querySelectorAll("button[data-days]").forEach(b => b.addEventListener("click", () => {
-  state.days = new Set(list(b.dataset.days).map(Number));
-  state.pos = new Set(list(b.dataset.pos));
-  state.teams = new Set(list(b.dataset.teams));
-  state.fit = true; $("fit-only").checked = true;
-  $("fa-from-text").textContent = `Filters from the team plan: ${b.dataset.from}.`;
+function fromPlan() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has("from")) return false;
+  const dates = list(q.get("days"));
+  state.days = new Set(DATA.days.map((d, i) => dates.includes(d.date) ? i : -1).filter(i => i >= 0));
+  state.pos = new Set(list(q.get("pos")));
+  state.teams = new Set(list(q.get("teams")));
+  $("fa-from-text").textContent = `Filters from the team plan: ${q.get("from")}.`;
   $("fa-from").hidden = false;
-  current(b);
-  render();
+  return true;
+}
+chips();
+const linked = fromPlan();
+render();
+if (linked) {
   const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   $("fa").scrollIntoView({behavior: still ? "auto" : "smooth", block: "start"});
   $("fa-count").focus({preventScroll: true});
-}));
-chips();
-render();
+}
 """

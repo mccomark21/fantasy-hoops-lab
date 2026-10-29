@@ -8,13 +8,14 @@ plan_section() makes the HTML from a PlanningRun (adds/plan.py) and its week_fil
   gives the count. A band continues in the same row through each later day that the new player holds the spot. A
   filled square on the band marks a day that he starts.
 - A past day is muted. Its add cells show the last saved recommendation, in a dashed cell. It has no button.
-- An add cell and a day header of a day that is not past are buttons. The script of the page (page.SCRIPT) sets the
-  filters of the free-agent table from their data attributes: data-days (the indexes of the days of the table),
-  data-pos (the slots, empty for Util) and data-teams.
+- An add cell and a day header of a day that is not past are links to the Free agents page (#165). The query of the
+  link gives the filters of the free-agent table (fa_link()): days (the dates), pos (the slots, empty for Util),
+  teams and from (the text of the line above the table). The script of that page (page.SCRIPT) sets the filters.
 add_text() gives the line of one add for the terminal summary. The module writes no files.
 """
 
 import html
+from urllib.parse import urlencode
 
 from fantasyhoops.adds.team_plan import UTIL
 
@@ -23,6 +24,7 @@ TEAM_COUNT_AT = (
 )
 ADD_ROWS = 2  # the add rows of the grid, at least
 HEAT = 40  # the tint of the day with the most games, in percent of mark
+FA_PAGE = "../free-agents/"  # the Free agents page, from the Adds plan page (#165)
 
 
 def _e(text):
@@ -82,8 +84,16 @@ def _slots_html(slots):
     return "/<wbr>".join(_e(s) for s in slots)
 
 
+def fa_link(days=(), pos="", teams=(), source=""):
+    """The link to the Free agents page with the filters of a plan cell, for example
+    "../free-agents/?days=2027-01-07,2027-01-09&pos=PF&teams=CHI&from=Add+2...". days: dates. pos: the slots,
+    joined with ",", or "" for Util. teams: NBA team codes. source: the text of the line above the table."""
+    query = {"days": ",".join(d.isoformat() for d in days), "pos": pos, "teams": ",".join(teams), "from": source}
+    return f"{FA_PAGE}?{urlencode(query, safe=',')}"
+
+
 def _add_cell(add, heat, index, count_at, interactive):
-    """The cell of a current add: a button that sets the filters of the free-agent table."""
+    """The cell of a current add: a link to the Free agents page with the filters of the add."""
     said = (
         f"Add {add.row}, {add.day:%a}: add {_said_slots(add.slots)} from {_said_teams(add.teams, count_at)}. "
         f"Starts {_days(add.starts)}."
@@ -91,14 +101,14 @@ def _add_cell(add, heat, index, count_at, interactive):
     inner = f'<b>+{_slots_html(add.slots)}</b><span class="who">{_who(add.teams, count_at)}</span>'
     if not interactive:
         return f'<td class="add" style="--h: {heat}%"><span class="addc" role="img" aria-label="{_e(said)}">{inner}</span></td>'
-    days = ",".join(str(index[d]) for d in add.starts if d in index)
+    days = [d for d in add.starts if d in index]
     pos = "" if add.slots == (UTIL,) else ",".join(add.slots)
     source = f"Add {add.row}, {add.day:%a}: +{slot_text(add.slots)} {teams_text(add.teams, count_at)}"
+    href = fa_link(days, pos, add.teams, source)
     return (
-        f'<td class="add" style="--h: {heat}%"><button type="button" class="addc" data-days="{days}" '
-        f'data-pos="{_e(pos)}" data-teams="{_e(",".join(add.teams))}" data-from="{_e(source)}" '
+        f'<td class="add" style="--h: {heat}%"><a class="addc" href="{_e(href)}" '
         f'aria-label="{_e(said + " Show these free agents.")}" title="{_e(f"Starts {_days(add.starts)}.")}">'
-        f"{inner}</button></td>"
+        f"{inner}</a></td>"
     )
 
 
@@ -133,10 +143,10 @@ def _head(day, past, heat, index, interactive):
         return f'<th scope="col" class="past" aria-label="{label}, past">{inner}</th>'
     if not interactive or day not in index:
         return f'<th scope="col" class="plain" style="--h: {heat}%" aria-label="{label}">{inner}</th>'
+    href = fa_link([day], source=label)
     return (
-        f'<th scope="col" style="--h: {heat}%"><button type="button" class="dayc" data-days="{index[day]}" '
-        f'data-pos="" data-teams="" data-from="{_e(label)}" aria-label="Show free agents who play {label}">'
-        f"{inner}</button></th>"
+        f'<th scope="col" style="--h: {heat}%"><a class="dayc" href="{_e(href)}" '
+        f'aria-label="Show free agents who play {label}">{inner}</a></th>'
     )
 
 
@@ -161,8 +171,8 @@ def plan_section(run, interactive=True):
 
     run.data.week gives the days of the grid, run.today the past days, run.week_games the NBA games of each day,
     run.days the days of the free-agent table, run.record the saved adds (the past adds and the adds of this run) and
-    [adds] team_count_at of run.cfg the count rule. interactive: the page has a free-agent table, so the add cells and
-    the day headers are buttons.
+    [adds] team_count_at of run.cfg the count rule. interactive: the Free agents page has a free-agent table, so the
+    add cells and the day headers are links to it (#165).
     """
     week, today = list(run.data.week.days), run.today
     count_at = team_count_at(run.cfg)
@@ -239,8 +249,8 @@ def plan_section(run, interactive=True):
         f"{count_at} teams or more, the cell gives the count. Util: any position. A later add in a row drops the "
         "player of the earlier add. A band after an add shows the days that the new player holds the spot, up to the "
         "next add in the row or Sunday. A square on the band marks a day that he starts: his team plays, and an open "
-        "slot takes him. Each add also starts on its add day. A click on an add or a day sets the filters of the "
-        "free-agent table. A past day is muted. A dashed cell shows the add that the last run on or before that day "
+        "slot takes him. Each add also starts on its add day. A click on an add or a day opens the Free agents "
+        "page with the filters of the add or the day. A past day is muted. A dashed cell shows the add that the last run on or before that day "
         "recommended for it.</p></details>"
     )
     return "\n".join(
@@ -271,14 +281,10 @@ CSS = """
 .week thead small { display: block; margin-top: 3px; font-size: 11px; color: var(--fg); font-weight: 400; }
 .week thead .short { display: none; }
 .week thead th.past, .week thead th.plain { padding: 4px 0 6px; }
-.week thead button { font: inherit; color: var(--fg); background: none; border: 0; cursor: pointer; width: 100%;
-                     min-height: 40px; padding: 4px 0; }
-.week thead button:hover b { text-decoration: underline; text-underline-offset: 3px; }
-.week thead button:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px; }
-.week thead button[aria-current="true"], .week thead button[aria-current="true"]:hover { color: var(--bg);
-  background: var(--q); }
-.week thead button[aria-current="true"] small { color: var(--bg); }
-.week thead button[aria-current="true"]:focus-visible { outline-color: var(--fg); outline-offset: 1px; }
+.week thead a.dayc { display: block; color: var(--fg); text-decoration: none; width: 100%; min-height: 40px;
+                     padding: 4px 0; }
+.week thead a.dayc:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.week thead a.dayc:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px; }
 .week tbody th { text-align: left; padding: 8px 4px 8px 0; font-size: 12px; font-weight: 800; }
 .week td { padding: 8px 2px; }
 .week tbody tr > * { background: transparent; }
@@ -296,21 +302,17 @@ CSS = """
 .addc { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; height: auto;
         min-height: 58px; min-width: 0; max-width: 100%; padding: 6px 2px; font: inherit; color: var(--fg);
         background: var(--bg); border: 1.5px solid var(--fg); border-top-width: 3px; }
-button.addc { cursor: pointer; }
+a.addc { text-decoration: none; }
 .addc b { font-size: 15px; font-weight: 900; font-stretch: 75%; line-height: 1; overflow-wrap: anywhere; }
 .addc .who { display: flex; flex-direction: column; max-width: 100%; font-size: 12px; font-weight: 700;
              line-height: 1.2; }
 .addc .who span { overflow-wrap: anywhere; }
-button.addc .who { color: var(--q); text-decoration: underline; text-underline-offset: 2px; }
+a.addc .who { color: var(--q); text-decoration: underline; text-underline-offset: 2px; }
 /* The states of an add cell. Each state sets the text color and the background together, so each pair has 4.5:1
-   or more in both themes. Hover: the zebra ground. Selected (the cell that set the filters): stock on a solid mark
-   block, also on hover. Focus: a 2px ink outline. */
-button.addc:hover { color: var(--fg); background: var(--zebra); }
-button.addc:hover .who { color: var(--q); text-decoration-thickness: 2px; }
-button.addc[aria-current="true"], button.addc[aria-current="true"]:hover { color: var(--bg); background: var(--q);
-  border-color: var(--q); }
-button.addc[aria-current="true"] .who { color: var(--bg); }
-button.addc:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+   or more in both themes. Hover: the zebra ground. Focus: a 2px ink outline. */
+a.addc:hover { color: var(--fg); background: var(--zebra); }
+a.addc:hover .who { color: var(--q); text-decoration-thickness: 2px; }
+a.addc:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 .addc.was { color: var(--muted); background: var(--bg); border: 1.5px dashed var(--lamp-off); border-top-width: 3px; }
 .addc.was b { font-weight: 800; }
 .addc.was .who { font-weight: 600; }

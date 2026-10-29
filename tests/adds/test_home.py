@@ -58,7 +58,7 @@ def test_the_run_builds_the_home_page_and_publishes_it_with_the_plan_page(monkey
 
     run_command(monkeypatch, tmp_path, published, publish=True, home=build)
     assert calls == [(12, date(2027, 1, 4))]
-    assert published == [(command.ROOT, "adds", page.page_path(), home_page)]
+    assert published == [(command.ROOT, "adds", page.page_path(), home_page, {"free-agents": page.free_agents_path()})]
     rows = timing.timings_path().read_text(encoding="utf-8")
     assert "home page" in rows
 

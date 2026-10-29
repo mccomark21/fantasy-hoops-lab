@@ -77,34 +77,37 @@ def test_an_add_with_5_teams_or_fewer_lists_them_and_with_6_or_more_gives_the_co
     assert '<b>+Util</b><span class="who"><span class="n">8 teams</span></span>' in sun
     # The count rule comes from [adds] team_count_at.
     html = section(cfg={"adds": {"team_count_at": 9}})
-    assert "8 teams" not in re.sub(r'aria-label="[^"]*"|data-[a-z]+="[^"]*"|title="[^"]*"', "", html)
+    assert "8 teams" not in re.sub(r'aria-label="[^"]*"|href="[^"]*"|title="[^"]*"', "", html)
 
 
-def test_an_add_cell_is_a_button_with_the_filter_attributes_and_a_text_label():
+def test_an_add_cell_links_to_the_free_agents_page_with_the_filters_and_a_text_label():
     thu1, sun = rows(section())[1][4], rows(section())[1][7]
-    # The days of the table are Wed to Sun, so Thu is index 1 and Sat is index 3.
-    assert 'data-days="1,3" data-pos="SG,PF" data-teams="ATL,CLE,MEM,NO,POR,SAC"' in thu1
-    assert 'data-from="Add 1, Thu: +SG/PF 6 teams"' in thu1
+    # #165: the link gives the start days as dates, the slots, the teams and the source of the filters.
+    assert (
+        '<a class="addc" href="../free-agents/?days=2026-10-29,2026-10-31&amp;pos=SG,PF'
+        '&amp;teams=ATL,CLE,MEM,NO,POR,SAC&amp;from=Add+1,+Thu%3A+%2BSG%2FPF+6+teams"'
+    ) in thu1
+    assert "<button" not in thu1
     assert (
         'aria-label="Add 1, Thu: add SG or PF from 6 teams: ATL, CLE, MEM, NO, POR, SAC. Starts Thu &amp; Sat.' in thu1
     )
-    assert 'data-days="4" data-pos="" data-teams="BKN,BOS,GS,IND,LAC,LAL,ORL,TOR"' in sun  # Util clears the position
+    assert "?days=2026-11-01&amp;pos=&amp;teams=BKN,BOS,GS,IND,LAC,LAL,ORL,TOR&amp;" in sun  # Util clears the position
     assert "any position" in sun
 
 
-def test_a_day_header_that_is_not_past_is_a_button_that_sets_the_day():
+def test_a_day_header_that_is_not_past_links_to_the_free_agents_page_with_the_day():
     heads = re.findall(r'<th scope="col"[^>]*>.*?</th>', re.search(r"<thead>(.*?)</thead>", section()).group(1))
-    assert "<button" not in heads[1] and 'class="past"' in heads[1] and 'aria-label="Mon 10/26, past"' in heads[1]
-    assert (
-        '<button type="button" class="dayc" data-days="0" data-pos="" data-teams="" data-from="Wed 10/28"' in heads[3]
-    )
+    assert "<a " not in heads[1] and 'class="past"' in heads[1] and 'aria-label="Mon 10/26, past"' in heads[1]
+    assert ('<a class="dayc" href="../free-agents/?days=2026-10-28&amp;pos=&amp;teams=&amp;from=Wed+10%2F28"') in heads[
+        3
+    ]
     assert 'aria-label="Show free agents who play Sun 11/1"' in heads[7]
 
 
 def test_a_past_add_shows_in_a_dashed_cell_with_no_button():
     row1, row2 = rows(section())[1:]
     assert row1[1].startswith('<td class="add past"><span class="addc was" role="img"')
-    assert "<button" not in row1[1] and "<span>OKC</span>" in row1[1]
+    assert "<a " not in row1[1] and "<span>OKC</span>" in row1[1]
     assert 'aria-label="Recommended for Tue: add PG or SG from POR or SAC. Past."' in row2[2]
 
 
@@ -178,11 +181,16 @@ def test_a_mixed_add_has_a_line_under_the_grid():
     assert "The teams of add 1 on Thu play on different days." in section(record=record)
 
 
-def test_with_no_free_agent_table_the_cells_are_not_buttons():
+def test_with_no_free_agent_table_the_cells_are_not_links():
     html = grid.plan_section(run(), interactive=False)
-    assert "<button" not in html and 'role="img" aria-label="Add 1, Thu: add SG or PF' in html
+    assert "<a " not in html and 'role="img" aria-label="Add 1, Thu: add SG or PF' in html
 
 
 def test_add_text_is_the_line_of_one_add_for_the_terminal():
     assert grid.add_text(ADDS[3], 6) == "Add 2, Thu 10/29: +PF ATL CLE MEM SAC. Starts Thu & Sat."
     assert grid.add_text(ADDS[4], 6) == "Add 1, Sun 11/1: +Util 8 teams. Starts Sun."
+
+
+def test_fa_link_puts_the_filters_in_the_query_of_the_free_agents_page():
+    link = grid.fa_link([WEEK[3], WEEK[5]], "PF", ("CHI",), "Add 2, Thu: +PF CHI")
+    assert link == "../free-agents/?days=2026-10-29,2026-10-31&pos=PF&teams=CHI&from=Add+2,+Thu%3A+%2BPF+CHI"

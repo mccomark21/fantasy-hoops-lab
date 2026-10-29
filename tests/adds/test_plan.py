@@ -29,7 +29,7 @@ def test_the_command_shows_the_waiver_players_on_the_page(monkeypatch, tmp_path,
     claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
     runs = report_runs(monkeypatch)
     run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)])
-    assert "PHI Phi Claim W PHI · SF Mon 1/4 Tue 1/5 +0.20" in text(page.page_path().read_text(encoding="utf-8"))
+    assert "PHI Phi Claim W PHI · SF Mon 1/4 Tue 1/5 +0.20" in text(page.free_agents_path().read_text(encoding="utf-8"))
     # #140: the team plan uses no free agent. It recommends PHI, the team of the waiver player.
     assert [a.teams for a in runs[0].plan.adds] == [("PHI",)]
     assert "Waiver players" not in capsys.readouterr().out  # #130: the page shows them, the terminal does not
@@ -39,15 +39,18 @@ def test_the_command_shows_the_waiver_players_on_the_page(monkeypatch, tmp_path,
 def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, capsys):
     published = []
     run_command(monkeypatch, tmp_path, published, publish=True)
-    path = page.page_path()
-    assert published == [(command.ROOT, "adds", path)]
+    path, free_agents = page.page_path(), page.free_agents_path()
+    # #165: one publish puts the plan page at /adds/ and the Free agents page at /free-agents/.
+    assert published == [(command.ROOT, "adds", path, {"free-agents": free_agents})]
     out = capsys.readouterr().out
     assert f"Wrote the plan page: {path}" in out
+    assert "<h1>Free agents</h1>" in free_agents.read_text(encoding="utf-8")
     assert command.URL in out and command.URL.endswith("/adds/")
     assert "+Util PHI" in text(path.read_text(encoding="utf-8"))
     assert out.splitlines() == [
         "",
         f"Wrote the plan page: {path}",
+        f"Wrote the Free agents page: {free_agents}",
         "Team plan: Add 1, Mon 1/4: +Util PHI. Starts Mon & Tue.",
         f"Published the plan page to {command.URL}. GitHub can take a few minutes to show the new page.",
     ]
@@ -66,7 +69,7 @@ def test_the_page_shows_the_team_plan_and_no_player_plan(monkeypatch, tmp_path, 
         assert "Best plans for one roster spot" not in output and "Contingency" not in output
         assert "Aggressive" not in output and "Schedule plan" not in output
     assert '<section id="plan"><h2>Team plan</h2>' in html and "+Util PHI" in shown
-    assert 'data-days="0,1" data-pos="" data-teams="PHI"' in html
+    assert "?days=2027-01-04,2027-01-05&amp;pos=&amp;teams=PHI&amp;" in html
 
 
 def test_the_command_does_not_publish_with_no_publish(monkeypatch, tmp_path, capsys):
@@ -81,7 +84,7 @@ def test_the_command_marks_a_second_night_of_a_player_on_the_rest_list(monkeypat
     # PHI plays Mon and Tue. Phi One is on the rest list, and [adds] rest_chance is 0.5.
     runs = report_runs(monkeypatch)
     run_command(monkeypatch, tmp_path, [], publish=False, rests={"phi one"})
-    assert 'class="b2b"' in page.page_path().read_text(encoding="utf-8")
+    assert 'class="b2b"' in page.free_agents_path().read_text(encoding="utf-8")
     assert runs[0].options[0].rest_games == ((WEEK[1], 0.5),)
     # #140: the team plan names no player, so the rest list does not change it.
     assert runs[0].plan.started_games == 2
@@ -91,7 +94,7 @@ def test_the_command_marks_the_role_up_free_agents_on_the_page(monkeypatch, tmp_
     absent = [Absence("Star Wing", "PHI", WEEK[0] - timedelta(days=2), 1, ("SF", "PF"))]
     options = [option("Phi One", "PHI", 0.3), option("Phi Guard", "PHI", 0.2, ("PG",))]
     run_command(monkeypatch, tmp_path, [], publish=False, options=options, absences=absent)
-    assert "Star Wing is absent. Role up: Phi One (PHI)." in text(page.page_path().read_text(encoding="utf-8"))
+    assert "Star Wing is absent. Role up: Phi One (PHI)." in text(page.free_agents_path().read_text(encoding="utf-8"))
 
 
 def test_the_command_marks_the_free_agents_who_play_on_an_open_day_early_next_week(monkeypatch, tmp_path, capsys):
@@ -474,10 +477,12 @@ def run_command(
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
-    # A home page goes last in the record of the publish.
-    monkeypatch.setattr(
-        command.site, "publish", lambda *a, home=None, cfg: published.append(a if home is None else (*a, home))
-    )
+
+    # A home page goes after the pages in the record of the publish, then the more_tools of the publish (#165).
+    def publish(*a, home=None, cfg, more_tools=None):
+        published.append((*a, *([home] if home is not None else []), *([more_tools] if more_tools else [])))
+
+    monkeypatch.setattr(command.site, "publish", publish)
     command.main(today=today or WEEK[0], publish=publish, timed=timed, cache=cache)
     return yahoo
 

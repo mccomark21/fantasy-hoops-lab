@@ -33,8 +33,9 @@ One planning run:
 9. next_week_window(): find the open slots of your kept roster on the first days of next week
    ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
 10. One PlanningRun holds the results of the steps above (#128).
-11. page.render() makes the plan page from the same PlanningRun. The run writes the page in output/adds/ and
-    publishes the site at /adds/. --no-publish: no publish.
+11. page.render() makes the plan page and page.render_free_agents() makes the Free agents page (#165) from the same
+    PlanningRun. The run writes both pages in output/adds/ (adds_plan.html and free_agents.html) and publishes them
+    at /adds/ and /free-agents/ in one publish. --no-publish: no publish.
     Before the plan page, build_home() writes the home page in output/home/ (adds/home.py, #120). The publish puts
     it at the root of the site. --no-publish also skips the home page.
     The page shows how many pages came from the cache (PageCache.line()).
@@ -219,19 +220,23 @@ def save_week(week, today, plan, spots):
     return record
 
 
-def publish_page(path, lines, cfg, publish=True, home=None):
+def publish_page(path, lines, cfg, publish=True, home=None, free_agents=None):
     """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
     home: the home page (adds/home.py) for the root of the site, or None. cfg: the config of the run.
+    free_agents: the Free agents page (page.render_free_agents(), #165). The same publish puts it at /free-agents/.
     """
     print()
     print(f"Wrote the plan page: {path}")
+    if free_agents:
+        print(f"Wrote the Free agents page: {free_agents}")
     for line in lines:
         print(line)
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
-    site.publish(ROOT, "adds", path, home=home, cfg=cfg)
+    more = {"free-agents": free_agents} if free_agents else None
+    site.publish(ROOT, "adds", path, home=home, cfg=cfg, more_tools=more)
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
 
@@ -350,7 +355,8 @@ def main(today=None, publish=True, timed=True, cache=True):
     with step("page write and publish"):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
-        publish_page(page.write(text), plan_lines(run), cfg, publish, home)
+        free_agents = page.write_free_agents(page.render_free_agents(run))
+        publish_page(page.write(text), plan_lines(run), cfg, publish, home, free_agents)
     print_summary(run)
 
 

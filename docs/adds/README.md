@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, finds the open starting slots of each day and ranks the NBA teams by the open days that they cover. Then it makes the team plan: the adds of the stream spots as NBA teams and open slots, not as players (#140). The planner writes the plan page in `output/adds/` and publishes it at `/adds/`. The page shows the team plan as a week grid, the matchup weights, the warnings and a free-agent table with filters. You pick the player in the free-agent table. Each run saves the adds of its plan in the week file, so that the page can show the past days of the week (see [Week file](#week-file)). The terminal prints a short summary (see [Terminal summary](#terminal-summary)). The planner times each step of the run. The page shows the times in the Run time section, and the run appends them to `output/adds/timings.csv`.
+Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, finds the open starting slots of each day and ranks the NBA teams by the open days that they cover. Then it makes the team plan: the adds of the stream spots as NBA teams and open slots, not as players (#140). The planner writes the plan page and the Free agents page in `output/adds/`. It publishes them at `/adds/` and `/free-agents/`. The plan page shows the team plan as a week grid, the matchup weights and the warnings. The Free agents page shows a free-agent table with filters, the waiver players and the role-up marks (#165). You pick the player in the free-agent table. Each run saves the adds of its plan in the week file, so that the page can show the past days of the week (see [Week file](#week-file)). The terminal prints a short summary (see [Terminal summary](#terminal-summary)). The planner times each step of the run. The page shows the times in the Run time section, and the run appends them to `output/adds/timings.csv`.
 
 The planner shows how to use your adds in the current fantasy week. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -12,6 +12,7 @@ The planner shows how to use your adds in the current fantasy week. For the term
 - [Rest on back-to-backs](#rest-on-back-to-backs)
 - [Value](#value)
 - [The page](#the-page)
+- [Free agents page](#free-agents-page)
 - [Home page](#home-page)
 - [Core and drops](#core-and-drops)
 - [Status rules](#status-rules)
@@ -40,17 +41,17 @@ One planning run does these steps:
 1. It reads your league from Yahoo.
 2. It makes the team plan for the planning window.
 3. It writes the adds of the plan in the week file, `output/adds/week_plan_<first day>.json` (see [Week file](#week-file)).
-4. It writes the page in `output/adds/`, with the font file and its license in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
+4. It writes the plan page (`output/adds/adds_plan.html`) and the Free agents page (`output/adds/free_agents.html`), with the font file and its license in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
 5. It writes the home page in `output/home/` (see [Home page](#home-page)).
-6. It publishes the site to GitHub Pages: the plan page at `/adds/` and the home page at `/`.
+6. It publishes the site to GitHub Pages: the plan page at `/adds/`, the Free agents page at `/free-agents/` and the home page at `/`. The publish keeps the trade page at `/trade/`. A trade publish keeps `/`, `/adds/` and `/free-agents/`.
 
-To write the page with no publish, add `--no-publish`. The run then makes no home page:
+To write the pages with no publish, add `--no-publish`. The run then makes no home page:
 
 ```
 python -m fantasyhoops.adds.plan --no-publish
 ```
 
-The links of the site menu work only on the published site. On the local file, they open folder lists.
+The links of the site menu and the links of the team plan work only on the published site. On the local file, they open folder lists.
 
 A second run on the same day takes some pages from the same-day cache in `output/adds/cache/` (see [Data](#data)). To read each page from Yahoo, add `--no-cache`. The run then writes each page over the cached page:
 
@@ -182,7 +183,7 @@ Early in the season, the weight w of the recent line is small, but the recent vi
 1. Before the recent view, the run gets the largest possible w from `data/schedule.csv`: the most games that one NBA team played from 14 days ago to today, ÷ 14. These 15 days hold the window of `S_AL14` with or without today.
 2. If this w is below `recent_skip_weight` in `[adds]`, the run reads no page of the recent view.
 3. Each option then has no recent value, and the blended line is the projected line. A player with no projection is not a candidate, also when he has recent games.
-4. The page shows a line in the Run time section: the most games of one team, the largest possible w and the setting. Above the free-agent table, one short sentence says that Val uses the projection only (#118). The Recent column shows "—" for each player.
+4. The plan page shows a line in the Run time section: the most games of one team, the largest possible w and the setting. Above the free-agent table of the Free agents page, one short sentence says that Val uses the projection only (#118). It links to the Run time section of the plan page. The Recent column shows "—" for each player.
 
 A player who changed teams in those days can have more games than one team. The run ignores this case. With 0.3, the run skips the recent view while no team played more than 4 games in those days.
 
@@ -247,7 +248,11 @@ The margin keeps its sign (+ or -), so the state does not depend on color only. 
 
 ## The page
 
-The page has two main sections: the team plan, and the free-agent table. Above the team plan, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight (#144). The page is public, so it does not show the name of the opponent. After the free-agent table, a section lists the waiver players. The next section lists the role-up marks (see [Role up](#role-up)). Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
+Decision (2026-10-29, #165): the free-agent table, the waiver players and the role-up marks moved to the [Free agents page](#free-agents-page), with its own tab in the site menu. The order of the menu is Roster, Adds plan, Free agents, Trades.
+
+The plan page has the team plan as its main section. Above the team plan, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight (#144). The page is public, so it does not show the name of the opponent. Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
+
+An old link to the free-agent table of the plan page (`adds/#fa` or `adds/#waivers`) forwards to the Free agents page.
 
 ### Team plan
 
@@ -261,21 +266,31 @@ Decision (2026-10-28, #140): the owner approved the C3 heat sample of the week g
 6. A past day is muted. Its add cells show the saved add of the [week file](#week-file) in a dashed muted cell. A past band and its squares use `lab-mute`. A past day with no saved run gets blank add cells and a line under the grid, for example "No saved plan for Mon and Tue."
 7. The legend under the grid is collapsed ("How to read the plan"). The keys stay visible.
 
-Click to filter: an add cell and a day header of a day that is not past are buttons. A click sets the filters of the free-agent table and scrolls the page to it:
+Click to filter: an add cell and a day header of a day that is not past are links (#165). A click opens the Free agents page with the filters of the cell in the URL, for example `../free-agents/?days=2027-01-07,2027-01-09&pos=PF&teams=CHI&from=...`. The page sets the filters and scrolls to the free-agent table:
 
-- An add cell sets the day filter to the start days of the add, the position filter to its slots ("Util" clears the position filter) and the team filter to its teams.
+- An add cell sets the day filter to the start days of the add, the position filter to its slots ("Util" clears the position filter) and the team filter to its teams. The URL gives the days as dates. A date that is not a day of the table sets no filter.
 - A day header sets the day filter to that day. It clears the position filter and the team filter.
-- A line above the table names the source of the filters and links back to the plan. The clicked cell shows the selected state: stock text on a solid `mark` block. Reset filters hides the line and clears the selected state.
+- A line above the table names the source of the filters. Its link "Back to the team plan" opens the plan on the plan page (`/adds/#plan`). Reset filters hides the line and removes the filters from the URL.
 
-A past add cell is not a button. Each button has a text label. Each state of an add cell and a day header (default, hover, focus, selected, selected and hover, past) has 4.5:1 or more in both themes, and so have the bands and the squares. Page tests check this, and that each add cell and each band fits its cell at 320, 390, 768 and 1280px.
+Decision (2026-10-29, #165): the plan cells have no selected state now, because a click opens another page.
 
-With no free-agent table (no free agents read), the cells are not buttons. When the plan has no add, a line gives the reason: no stream spots, no adds left, the week is over, or no NBA team gives a started game in an open slot.
+A past add cell is not a link. Each link has a text label. Each state of an add cell and a day header (default, hover, focus, past) has 4.5:1 or more in both themes, and so have the bands and the squares. Page tests check this, and that each add cell and each band fits its cell at 320, 390, 768 and 1280px.
+
+With no free-agent table (no free agents read), the cells are not links. When the plan has no add, a line gives the reason: no stream spots, no adds left, the week is over, or no NBA team gives a started game in an open slot.
+
+## Free agents page
+
+Decision (2026-10-29, #165): the Free agents page at `/free-agents/` has the free-agent table, the waiver players and the role-up marks of the planning run. The planning run writes it as `output/adds/free_agents.html` and publishes it with the plan page. `page.render_free_agents()` makes it from the same run as the plan page.
+
+The page starts with the fantasy week, the planning window, the day of the run and a link to the team plan. Then come the free-agent table, the [waiver players](#waiver-players) and the [role-up marks](#role-up). When the run read no free agents, the page has one line in their place: "The planning run read no free agents and no waiver players. The team plan gives the reason."
+
+Page tests check the Free agents page at 320, 390, 768 and 1280px in both themes: each cell fits, the page has no sideways scroll, and each text has 4.5:1 or more.
 
 ### Free-agent table
 
 The table shows the free agents that the run read: the free agents of the best teams of the ranking (`teams_to_read()`), and the first 3 pages (75 players) at most of the full free-agent list (see [Market read](#market-read)). It shows the 10 best players for the filters.
 
-Decision (2026-10-28, #143): the free-agent table and the waiver table have the look of the Roster table of the [home page](#home-page). `publish.TABLE_STYLE` in `core/publish.py` is the one source of the table CSS. The home page and the plan page both get it from `publish.shell()`, so the tables cannot drift apart.
+Decision (2026-10-28, #143): the free-agent table and the waiver table have the look of the Roster table of the [home page](#home-page). `publish.TABLE_STYLE` in `core/publish.py` is the one source of the table CSS. The home page and the Free agents page both get it from `publish.shell()`, so the tables cannot drift apart.
 
 1. Columns: Team, Player, Val, Match, Recent, Gms, then one column for each day. The Team column is a band in the color of the NBA team, as on the Roster table.
 2. Player: the name in heavy condensed caps, then the status tag and the flags (FA?, MIN+, UP, the next-week mark). A small line below gives the team, the positions (for example "PHI · SG/SF"), the adds today and the role-up text. The role line is a second small line.
@@ -458,7 +473,7 @@ The planner finds the absent starters in the rotation log (`core/rotation.py`). 
 5. `core/identity.py` links his ESPN name to his Yahoo positions in `data/yahoo_players.csv`. A row of `data/name_overrides.csv` applies when its `espn_name` matches.
 6. A free agent on his team who shares one of his positions gets the mark "role up", with the name of the absent starter.
 
-The page shows the mark in the free-agent table and lists the marks in the section "Role up".
+The Free agents page shows the mark in the free-agent table and lists the marks in the section "Role up".
 
 Limits:
 
@@ -608,6 +623,7 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Band | The days after an add that the new player holds the spot, in the week grid. A filled square marks a day that he starts. |
 | Week file | `output/adds/week_plan_<first day>.json`: the adds that the runs of one fantasy week recommended. See [Week file](#week-file). |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
+| Free agents page | The page at `/free-agents/` with the free-agent table, the waiver players and the role-up marks of the last planning run. See [Free agents page](#free-agents-page). |
 | Planning window | Today to the last day of the current fantasy week. |
 | Team window | A run of days in which one stream spot holds a player from one NBA team: from the add day to the day before the next add to the spot, or the last day of the week. |
 | Out player | A core player who is Out, Out for Season, NA (Not Active) or suspended. |

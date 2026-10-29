@@ -75,6 +75,11 @@ def render(run=RUN, **fields):
     return page.render(replace(run, **fields))
 
 
+def fa(run=RUN, **fields):
+    """The Free agents page (#165) of run (default: RUN), with the fields of fields changed."""
+    return page.render_free_agents(replace(run, **fields))
+
+
 def text(html):
     """The visible text of a page, with single spaces. The script and its data are not visible."""
     html = re.sub(r"<script.*?</script>", "", html, flags=re.S)
@@ -234,7 +239,7 @@ def test_the_free_agent_data_has_the_minutes_the_starts_and_the_closes():
     # A player who is not in the rotation log has no role text.
     assert players["Chi One"]["role"] is None and not players["Chi One"]["rise"]
     shown = text(
-        render(roles=roles, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0, "flags": load_config()["adds"]["flags"]}})
+        fa(roles=roles, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0, "flags": load_config()["adds"]["flags"]}})
     )
     assert "Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d)" in shown
     assert "MIN+ L5 is 4 minutes or more above 14d" in shown
@@ -268,21 +273,21 @@ def test_the_page_shows_the_starter_flag_and_the_closer_flag_in_the_html():
             closer="Regular",
         ),
     }
-    html = render(roles=roles, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0}})
+    html = fa(roles=roles, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0}})
     assert "Starts 1/5 (Inconsistent) · Closes 0/4" in html
     assert "Closes 0/4 (" not in html  # no closer flag: no word after the closes
     assert "Starts 5/5 (New) · Closes 4/4 (Regular)" in html
 
 
 def test_the_page_has_no_role_legend_with_no_rotation_log():
-    assert "Min: his mean minutes" not in text(render())
+    assert "Min: his mean minutes" not in text(fa())
 
 
 def test_the_page_holds_the_free_agent_data_as_safe_json():
-    html = render()
+    html = fa()
     raw = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
     assert json.loads(raw)["players"][1]["name"] == "Phi & One"
-    evil = render(BASE, options=[option("</script><b>", "PHI", 1.0)])
+    evil = fa(BASE, options=[option("</script><b>", "PHI", 1.0)])
     assert "</script><b>" not in evil and "http" not in evil
 
 
@@ -300,7 +305,7 @@ CLAIM = Option(Player("Claim Guy", "CHI", ("C",), clear_day=WEEK[1]), 1.2)
 
 
 def test_the_page_lists_the_waiver_players_with_the_clear_day():
-    html = render(options=OPTIONS + [CLAIM])
+    html = fa(options=OPTIONS + [CLAIM])
     shown = text(html)
     assert "Waiver players" in shown
     assert "CHI Claim Guy W CHI · C Tue 1/5 Wed 1/6 +0.70" in shown
@@ -319,7 +324,7 @@ HOME_ARGS = (
 
 def test_the_home_page_and_the_adds_page_get_the_table_css_from_the_same_source():
     """#143: publish.TABLE_STYLE is the one source of the table CSS. No page holds a copy of its rules."""
-    adds_html = render(options=OPTIONS + [CLAIM])
+    adds_html = fa(options=OPTIONS + [CLAIM])
     home_html = site.shell(home_page.PAGE_HTML, "home", LEAGUE)
     for html in (adds_html, home_html):
         assert html.count(site.TABLE_STYLE) == 1
@@ -334,7 +339,7 @@ def test_the_home_page_and_the_adds_page_get_the_table_css_from_the_same_source(
 
 
 def test_the_waiver_table_has_the_team_band_and_the_player_cell_of_the_roster_table():
-    html = render(options=OPTIONS + [CLAIM])
+    html = fa(options=OPTIONS + [CLAIM])
     table = html.split('id="wv-table">')[1].split("</table>")[0]
     assert f'<td class="band" style="{site.band_style("CHI")}">CHI</td>' in table
     assert '<th class="pl" scope="row"><b>Claim Guy</b> <span class="status"' in table
@@ -342,7 +347,7 @@ def test_the_waiver_table_has_the_team_band_and_the_player_cell_of_the_roster_ta
 
 
 def test_the_page_has_no_waiver_section_with_no_waiver_players():
-    assert "Waiver players" not in text(render())
+    assert "Waiver players" not in text(fa())
 
 
 def test_the_page_shows_the_site_menu_with_the_adds_plan_current():
@@ -372,7 +377,7 @@ def test_the_page_css_has_no_colors_of_its_own():
 def test_the_page_marks_the_second_game_of_each_back_to_back():
     # PHI plays Mon and Tue, so Tue is a second night. CHI plays Sat and Sun, so Sun is a second night.
     nights = {WEEK[1]: {"PHI"}, WEEK[6]: {"CHI"}}
-    assert "second game of a back-to-back" in text(render(nights=nights))
+    assert "second game of a back-to-back" in text(fa(nights=nights))
     data = page.free_agent_data(OPTIONS, DAYS, GAMES, replacement=0.5, nights=nights)
     assert data["players"][2]["b2b"] == [False, False, False, False, False, False, True]  # Chi One
     assert data["players"][1]["b2b"] == [False, True, False, False, False, False, False]  # Phi & One
@@ -382,14 +387,14 @@ def test_the_free_agent_data_and_the_page_show_the_role_up_mark_and_the_absent_t
     marked = replace(PHI, role_up=("Star Wing",))
     data = page.free_agent_data([marked, CHI], DAYS, GAMES, replacement=0.5)
     assert [p["role_up"] for p in data["players"]] == [["Star Wing"], []]
-    shown = text(render(BASE, options=[marked, CHI]))
+    shown = text(fa(BASE, options=[marked, CHI]))
     assert "Role up" in shown
     assert "Star Wing is absent. Role up: Phi & One (PHI)." in shown
     assert "role up" in page.SCRIPT
 
 
 def test_the_page_has_no_role_up_section_with_no_mark():
-    assert "Role up" not in text(render())
+    assert "Role up" not in text(fa())
 
 
 def test_the_free_agent_data_marks_a_game_on_an_open_day_early_next_week():
@@ -408,7 +413,7 @@ def test_the_free_agent_data_marks_a_game_on_an_open_day_early_next_week():
 def test_the_page_shows_the_next_week_mark_in_the_free_agent_table():
     nmon = WEEK[6] + timedelta(days=1)
     early, early_games = [Day(nmon, 4, (), (), ("SF", "Util"))], {nmon: {"PHI"}}
-    html = render(next_days=early, next_games=early_games)
+    html = fa(next_days=early, next_games=early_games)
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert {p["name"]: p["next_open"] for p in data["players"]}["Phi & One"] == ["Mon open"]
     assert "p.next_open" in page.SCRIPT and 'class="flag next"' in page.SCRIPT
@@ -422,13 +427,14 @@ def test_the_page_script_draws_the_next_week_badge_in_the_free_agent_row():
     if shutil.which("node") is None:
         pytest.skip("node is not on PATH")
     nmon = WEEK[6] + timedelta(days=1)
-    html = render(next_days=[Day(nmon, 4, (), (), ("SF", "Util"))], next_games={nmon: {"PHI"}})
+    html = fa(next_days=[Day(nmon, 4, (), (), ("SF", "Util"))], next_games={nmon: {"PHI"}})
     data = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
     script = html.split('<script type="application/json" id="fa-data">')[1].split("<script>")[1].split("</script>")[0]
     # A small page: the elements that the script uses, with the JSON data of the page.
     code = (
         f"const DATA_TEXT = {json.dumps(data)};\n"
         "const els = {}; const el = () => ({innerHTML: '', textContent: '', querySelectorAll: () => []});\n"
+        "global.location = {search: '', hash: '', pathname: ''};\n"
         "global.document = {getElementById: id => id === 'fa-data' ? {textContent: DATA_TEXT}"
         " : (els[id] = els[id] || el())};\n"
         f"{script}\nprocess.stdout.write(els['fa-table'].innerHTML);"
@@ -444,7 +450,7 @@ def test_the_page_script_draws_the_next_week_badge_in_the_free_agent_row():
 
 
 def test_the_page_has_no_next_week_mark_with_no_days_to_check():
-    html = render()
+    html = fa()
     assert "next Monday" not in text(html)
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert all(p["next_open"] == [] for p in data["players"])
@@ -497,6 +503,7 @@ def run_script(html):
     code = (
         f"const DATA_TEXT = {json.dumps(data)};\n"
         "const els = {}; const el = () => ({innerHTML: '', textContent: '', querySelectorAll: () => []});\n"
+        "global.location = {search: '', hash: '', pathname: ''};\n"
         "global.document = {getElementById: id => id === 'fa-data' ? {textContent: DATA_TEXT}"
         " : (els[id] = els[id] || el())};\n"
         f"{script}\nprocess.stdout.write(JSON.stringify(Object.fromEntries("
@@ -509,7 +516,7 @@ def run_script(html):
 def test_the_page_script_puts_a_button_in_each_sort_header_and_names_the_chips_and_the_dots():
     if shutil.which("node") is None:
         pytest.skip("node is not on PATH")
-    els = run_script(render())
+    els = run_script(fa())
     table = els["fa-table"]
     assert '<caption class="vh">Free agents, sorted by Val, highest first</caption>' in table
     assert (
@@ -524,7 +531,7 @@ def test_the_page_script_puts_a_button_in_each_sort_header_and_names_the_chips_a
 
 
 def test_the_free_agent_count_is_a_polite_live_region():
-    assert '<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>' in render()
+    assert '<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>' in fa()
 
 
 @contextmanager
@@ -545,7 +552,7 @@ def browser_page(width=720):
 
 def test_a_keyboard_user_sorts_each_column_and_the_focus_stays_on_the_sort_button():
     with browser_page() as pg:
-        pg.set_content(render())
+        pg.set_content(fa())
         for name, key in (("Match", "match"), ("Recent", "recent"), ("Gms", "games"), ("Val", "value")):
             pg.get_by_role("button", name=name, exact=True).focus()
             pg.keyboard.press("Enter")
@@ -562,7 +569,7 @@ def test_a_keyboard_user_sorts_each_column_and_the_focus_stays_on_the_sort_butto
 
 def test_a_chip_press_toggles_the_chip_and_keeps_the_focus_on_it():
     with browser_page() as pg:
-        pg.set_content(render())
+        pg.set_content(fa())
         sf = pg.get_by_role("button", name="SF", exact=True)
         sf.focus()
         pg.keyboard.press("Enter")
@@ -579,7 +586,7 @@ def test_a_chip_press_toggles_the_chip_and_keeps_the_focus_on_it():
 
 def test_the_dots_the_count_and_the_caption_read_in_the_accessibility_tree():
     with browser_page() as pg:
-        pg.set_content(render())
+        pg.set_content(fa())
         tree = pg.locator("#fa-table").aria_snapshot()
         assert 'img "game in an open slot"' in tree and 'img "game"' in tree
         assert pg.get_by_role("table", name="Free agents, sorted by Val, highest first").count() == 1
@@ -588,7 +595,7 @@ def test_the_dots_the_count_and_the_caption_read_in_the_accessibility_tree():
 
 def test_each_control_shows_a_focus_outline_in_light_and_dark_mode():
     with browser_page() as pg:
-        pg.set_content(render())
+        pg.set_content(fa())
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             for control in ("#day-chips button", "#pos-chips button", "th.sort button", "#fit-only", "summary"):
@@ -606,7 +613,7 @@ def test_each_control_shows_a_focus_outline_in_light_and_dark_mode():
 
 def test_at_390px_the_chips_the_checkbox_label_and_the_summaries_are_24px_high_or_more():
     with browser_page(width=390) as pg:
-        pg.set_content(render(timings=[timing.StepTime("Yahoo reads", 1.0)]))
+        pg.set_content(fa(timings=[timing.StepTime("Yahoo reads", 1.0)]))
         for control in ("#pos-chips button", "label.toggle", "details.notes summary", "th.sort button"):
             heights = pg.locator(control).evaluate_all(
                 "els => els.filter(e => e.offsetParent).map(e => e.getBoundingClientRect().height)"
@@ -642,22 +649,24 @@ CONTRAST = r"""() => {
 def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_the_chips_pressed():
     # Tue is a back-to-back night of PHI in row 1, a zebra row. Wed has no open slot (a dashed chip).
     # The matchup table (MU, #144) has each margin state and each weight step.
+    # #165: the plan page has the matchup table and Run time. The Free agents page has the chips and the tables.
     nights = {WEEK[1]: {"PHI"}}
-    html = render(
-        MU_RUN,
+    fields = dict(
         options=OPTIONS + [CLAIM],
         nights=nights,
         cfg={**LEAGUE, "adds": {**MU_CFG["adds"], "minutes_rise": 3}},
         timings=[timing.StepTime("Yahoo reads", 1.0)],
     )
+    plan, html = render(MU_RUN, **fields), fa(MU_RUN, **fields)
     assert html.count('class="b2b"') >= 1 and ">W</span>" in html
-    assert all(f'class="{c}"' in html for c in ("lead", "trail big", "lead big", "trail", "w0", "w1", "w2", "w3"))
+    assert all(f'class="{c}"' in plan for c in ("lead", "trail big", "lead big", "trail", "w0", "w1", "w2", "w3"))
     with browser_page() as pg:
-        pg.set_content(html)
-        pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
-        for theme in ("light", "dark"):
-            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
-            assert pg.evaluate(CONTRAST) == [], theme
+        for doc in (plan, html):
+            pg.set_content(doc)
+            pg.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
+            for theme in ("light", "dark"):
+                pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+                assert pg.evaluate(CONTRAST) == [], theme
         wed = pg.locator("#day-chips button.none").first
         wed.click()
         pg.get_by_role("button", name="SF", exact=True).click()
@@ -673,8 +682,12 @@ CACHE = "The recent view: 3 pages from the cache of 2027-01-04 09:14."
 
 
 def test_the_run_lines_are_in_run_time_and_nothing_about_the_run_is_above_the_filters():
-    html = render(market=MARKET, cache=CACHE, recent_skip=SKIP_LINE, timings=[timing.StepTime("Yahoo reads", 1.0)])
-    section = html.split("<h2>Free agents</h2>")[1]
+    fields = dict(market=MARKET, cache=CACHE, recent_skip=SKIP_LINE, timings=[timing.StepTime("Yahoo reads", 1.0)])
+    html = render(**fields)
+    section = fa(**fields).split("<h2>Free agents</h2>")[1]
+    # #165: Run time is on the plan page. The skip note links to it.
+    assert "Run time" not in fa(**fields).split("<h2>Free agents</h2>")[1].split('id="skip-note"')[0]
+    assert 'href="../adds/#run-time"' in page.SKIP_NOTE
     above_filters = section.split('id="day-chips"')[0]
     # Only the hidden line of the plan filters (issue 140) is above the filters.
     assert text(re.sub(r'<p class="from" id="fa-from" hidden>.*?</p>', "", above_filters)).strip() == ""
@@ -692,7 +705,7 @@ def test_the_run_lines_show_in_run_time_also_with_no_step_times():
 
 
 def test_a_run_with_the_recent_view_has_no_skip_note():
-    assert 'id="skip-note"' not in render()
+    assert 'id="skip-note"' not in fa()
 
 
 def test_the_page_has_no_side_stripe_border():
@@ -704,7 +717,7 @@ def test_the_page_has_no_side_stripe_border():
 
 def test_the_key_of_the_dots_and_the_flags_is_above_the_free_agent_table():
     nmon = WEEK[6] + timedelta(days=1)
-    html = render(next_days=[Day(nmon, 4, (), (), ("SF", "Util"))], next_games={nmon: {"PHI"}})
+    html = fa(next_days=[Day(nmon, 4, (), (), ("SF", "Util"))], next_games={nmon: {"PHI"}})
     section = html.split("<h2>Free agents</h2>")[1]
     key = re.search(r'<p class="key" id="fa-key">(.*?)</p>', section).group(1)
     assert section.index('id="fa-key"') < section.index('id="fa-table"')
@@ -720,9 +733,9 @@ def test_the_key_of_the_dots_and_the_flags_is_above_the_free_agent_table():
 
 
 def test_the_key_shows_the_minutes_flag_only_with_role_lines():
-    assert "MIN+" not in re.search(r'id="fa-key">(.*?)</p>', render()).group(1)
+    assert "MIN+" not in re.search(r'id="fa-key">(.*?)</p>', fa()).group(1)
     role = Role(26.0, 20.0, 4, 3, 1, 2, True)
-    html = render(roles={("Phi One", "PHI"): role}, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0}})
+    html = fa(roles={("Phi One", "PHI"): role}, cfg={**LEAGUE, "adds": {"minutes_rise": 4.0}})
     assert "MIN+</span> more minutes" in re.search(r'id="fa-key">(.*?)</p>', html).group(1)
 
 
@@ -732,7 +745,7 @@ def test_the_legends_are_75_characters_wide_at_most():
 
 def test_with_no_match_the_page_shows_a_message_and_a_button_that_clears_the_days():
     with browser_page() as pg:
-        pg.set_content(render())
+        pg.set_content(fa())
         assert pg.locator("#fa-empty").is_hidden()
         # PHI plays on Mon and CHI plays on Sun. No free agent plays on both days.
         pg.get_by_role("button", name="Mon 1/4", exact=False).first.click()
@@ -749,7 +762,7 @@ def test_with_no_match_the_page_shows_a_message_and_a_button_that_clears_the_day
 
 def test_the_reset_button_restores_the_default_filters_and_sort():
     with browser_page() as pg:
-        pg.set_content(render())
+        pg.set_content(fa())
         default = pg.locator("#fa-table").inner_html()
         pg.locator("#day-chips button").nth(5).click()
         pg.get_by_role("button", name="SF", exact=True).click()
@@ -844,19 +857,25 @@ FIT = r"""() => {
 @pytest.mark.parametrize("width", [320, 390, 768, 1280])
 def test_each_add_cell_and_band_fits_its_cell_and_the_page_has_no_horizontal_scroll(width):
     with browser_page(width=width) as pg:
+        # #165: the free-agent table and the waiver table are on the Free agents page.
+        pg.set_content(page.render_free_agents(TABLE_RUN))
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(TABLE_FIT, width) == [], (width, theme)
+            assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme, "free agents")
+            assert pg.evaluate(CONTRAST) == [], (width, theme, "free agents")
         pg.set_content(page.render(TABLE_RUN))
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             assert pg.evaluate(FIT) == [], (width, theme)
             assert pg.evaluate(MATCHUP_FIT, width) == [], (width, theme)
-            assert pg.evaluate(TABLE_FIT, width) == [], (width, theme)
             assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
             # The 7 columns of the week fit, with no sideways scroll of the grid.
             assert pg.locator("#plan thead th[scope=col]").count() == 8
             box = pg.locator("#plan table.week").bounding_box()
             assert box["x"] >= 0 and box["x"] + box["width"] <= width, (width, theme)
         # The long team list wraps inside its cell: the row grows, and each team is on its own line.
-        teams = pg.locator("#plan button.addc").nth(0).locator(".who span")
+        teams = pg.locator("#plan a.addc").nth(0).locator(".who span")
         tops = teams.evaluate_all("els => els.map(e => e.getBoundingClientRect().top)")
         assert len(tops) == 5 and tops == sorted(tops) and len(set(tops)) == 5
 
@@ -908,10 +927,11 @@ def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_t
                 cell = el.evaluate_handle("e => e.closest('td, th')")
                 assert pg.evaluate(CELL_CONTRAST, cell) == [], (theme, width, state, el.text_content())
 
-            buttons = pg.locator("#plan button")
-            assert buttons.count() == 3 + 5  # the adds of Thu (2) and Sun, and the day headers of Wed to Sun
-            for i in range(buttons.count()):
-                el = buttons.nth(i)
+            links = pg.locator("#plan a")
+            assert links.count() == 3 + 5  # the adds of Thu (2) and Sun, and the day headers of Wed to Sun
+            # #165: a plan cell is a link to the Free agents page, so it has no selected state.
+            for i in range(links.count()):
+                el = links.nth(i)
                 el.scroll_into_view_if_needed()
                 pg.mouse.move(0, 0)
                 check("default", el)
@@ -923,15 +943,7 @@ def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_t
                 pg.keyboard.press("Tab")
                 assert pg.evaluate("getComputedStyle(document.activeElement).outlineStyle") == "solid"
                 check("focus", el)
-                el.click()
-                pg.mouse.move(0, 0)
                 el.evaluate("e => e.blur()")
-                assert el.get_attribute("aria-current") == "true"
-                check("selected", el)
-                el.scroll_into_view_if_needed()
-                el.hover()
-                check("selected and hover", el)
-                pg.locator("#fa-reset").click()
             for past in (pg.locator("#plan .addc.was"), pg.locator("#plan thead th.past")):
                 assert past.count() == 2
                 for j in range(past.count()):
@@ -942,40 +954,91 @@ def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_t
             assert matchup.locator("td.lead, td.trail, td.w0, td.w1, td.w2, td.w3").count() == 10
             assert pg.evaluate(CELL_CONTRAST, matchup.element_handle()) == [], (theme, width, "matchup")
             assert pg.locator("#plan td.band.past .mk").count() == 1  # the Mon add starts on Tue (past)
-            # Each text of the free-agent table and the waiver table (#143): the bands, the names, the tags and the values.
+        # Each text of the free-agent table and the waiver table (#143) on the Free agents page (#165): the bands,
+        # the names, the tags and the values.
+        pg.set_content(page.render_free_agents(TABLE_RUN))
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             for table in ("#fa-table", "#wv-table"):
                 assert pg.evaluate(CELL_CONTRAST, pg.locator(table).element_handle()) == [], (theme, width, table)
 
 
-def test_a_click_on_an_add_sets_the_day_the_position_and_the_team_filters():
-    with browser_page(width=390) as pg:
-        pg.set_content(page.render(GRID_RUN))
-        pg.locator("#plan button.addc").nth(2).click()  # Add 2 on Thu: +PF CHI, starts Thu and Sat (row 2)
+SITE = "http://lab.test/"  # a fake origin for the site in the browser tests of #165
+
+
+@contextmanager
+def site_pages(run, width=390):
+    """A browser page with the plan page at /adds/ and the Free agents page at /free-agents/ of run, on SITE."""
+    pages = {"adds/": page.render(run), "free-agents/": page.render_free_agents(run)}
+    with browser_page(width=width) as pg:
+
+        def serve(route):
+            path = route.request.url.removeprefix(SITE).split("?")[0].split("#")[0]
+            if path in pages:
+                route.fulfill(status=200, content_type="text/html", body=pages[path])
+            else:
+                route.fulfill(status=404, body="not found")
+
+        pg.route(f"{SITE}**", serve)
+        yield pg
+
+
+def test_a_click_on_an_add_opens_the_free_agents_page_with_the_day_the_position_and_the_team_filters():
+    with site_pages(GRID_RUN) as pg:
+        pg.goto(f"{SITE}adds/")
+        assert pg.locator("#fa-table").count() == 0  # #165: the plan page has no free-agent table
+        pg.locator("#plan a.addc").nth(2).click()  # Add 2 on Thu: +PF CHI, starts Thu and Sat (row 2)
+        pg.wait_for_url(f"{SITE}free-agents/?**")
+        assert "days=2027-01-07,2027-01-09" in pg.url
         pressed = pg.locator('button.chip[aria-pressed="true"]').all_inner_texts()
         assert [t.split("\n")[0] for t in pressed] == ["Thu 1/7", "Sat 1/9", "PF", "CHI"]
         assert pg.locator("#fa-from").is_visible()
         assert pg.locator("#fa-from-text").inner_text() == "Filters from the team plan: Add 2, Thu: +PF CHI."
-        assert pg.locator("#fa-from a").get_attribute("href") == "#plan"
+        assert pg.locator("#fa-from a").get_attribute("href") == "../adds/#plan"
         assert "(teams: CHI)" in pg.locator("#fa-count").inner_text()
         assert pg.evaluate("document.activeElement.id") == "fa-count"
+        # Back to the team plan opens the plan on the plan page.
+        pg.locator("#fa-from a").click()
+        pg.wait_for_url(f"{SITE}adds/#plan")
         # A day header sets only the day.
-        pg.get_by_role("button", name="Show free agents who play Sat 1/9").click()
+        pg.get_by_role("link", name="Show free agents who play Sat 1/9").click()
+        pg.wait_for_url(f"{SITE}free-agents/?**")
         pressed = pg.locator('button.chip[aria-pressed="true"]').all_inner_texts()
         assert [t.split("\n")[0] for t in pressed] == ["Sat 1/9"]
         # Util clears the position filter.
-        pg.locator("#plan button.addc").nth(1).click()  # Add 1 on Sun: +Util from 8 teams
+        pg.goto(f"{SITE}adds/")
+        pg.locator("#plan a.addc").nth(1).click()  # Add 1 on Sun: +Util from 8 teams
+        pg.wait_for_url(f"{SITE}free-agents/?**")
         assert pg.locator('#pos-chips button[aria-pressed="true"]').count() == 0
         assert "(teams: ATL, BKN, BOS, GS, IND, LAC, LAL, ORL)" in pg.locator("#fa-count").inner_text()
-        # Reset filters clears the team filter, the line and the selected plan cell.
+        # Reset filters clears the team filter and the line, and removes the filters from the URL.
         pg.locator("#fa-reset").click()
         assert pg.locator('button.chip[aria-pressed="true"]').count() == 0
         assert not pg.locator("#fa-from").is_visible()
-        assert pg.locator('#plan [aria-current="true"]').count() == 0
+        assert pg.url == f"{SITE}free-agents/"
+
+
+def test_the_free_agents_page_with_no_plan_link_shows_no_filter_line():
+    with site_pages(GRID_RUN) as pg:
+        pg.goto(f"{SITE}free-agents/")
+        assert pg.locator('button.chip[aria-pressed="true"]').count() == 0
+        assert not pg.locator("#fa-from").is_visible()
+
+
+def test_an_old_link_to_the_free_agents_section_of_the_plan_page_forwards_to_the_free_agents_page():
+    with site_pages(GRID_RUN) as pg:
+        for hash in ("#fa", "#waivers"):
+            pg.goto(f"{SITE}adds/{hash}")
+            pg.wait_for_url(f"{SITE}free-agents/{hash}")
+            assert pg.locator("#fa-table").count() == 1
+        # The plan anchor stays on the plan page.
+        pg.goto(f"{SITE}adds/#plan")
+        assert pg.url == f"{SITE}adds/#plan" and pg.locator("#plan").count() == 1
 
 
 def test_the_team_filter_has_a_chip_for_each_team_of_the_free_agents():
     with browser_page() as pg:
-        pg.set_content(render())
+        pg.set_content(fa())
         assert pg.locator("#team-chips button").all_inner_texts() == ["CHI", "PHI"]
         pg.get_by_role("button", name="CHI", exact=True).click()
         assert pg.locator("#fa-table tbody tr").count() == 1
@@ -988,3 +1051,36 @@ def test_the_page_has_the_team_plan_and_no_plans_for_one_roster_spot_and_no_cont
     assert '<section id="plan"><h2>Team plan</h2>' in html
     assert "Best plans for one roster spot" not in shown and "Contingency" not in shown
     assert 'class="plans"' not in html
+
+
+def test_the_free_agents_sections_are_on_the_free_agents_page_and_not_on_the_plan_page():
+    """#165: the plan page keeps the team plan, the matchup and Run time. The other page has the three sections."""
+    run = replace(MU_RUN, options=OPTIONS + [CLAIM, replace(PHI, role_up=("Star Wing",))])
+    plan, free = page.render(run), page.render_free_agents(run)
+    for section in ('<section id="fa">', '<section id="waivers">', '<section id="role-up">', 'id="fa-data"'):
+        assert section in free and section not in plan, section
+    for section in ('<section id="plan">', '<section id="matchup">'):
+        assert section in plan and section not in free, section
+    assert "<h1>Free agents</h1>" in free and "<title>Free agents</title>" in free
+    assert '<a href="../adds/#plan">team plan</a>' in free and "Week 12: Mon 1/4 to Sun 1/10." in text(free)
+    assert page.FORWARD in plan and page.FORWARD not in free
+
+
+def test_the_free_agents_page_shows_the_site_menu_with_free_agents_current():
+    html = fa()
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Roster", "Adds plan", "Free agents", "Trades"]
+    assert '<a href="../free-agents/" aria-current="page">Free agents</a>' in html
+    assert html.count('aria-current="page"') == 1
+
+
+def test_the_free_agents_page_with_no_free_agents_says_so():
+    html = page.render_free_agents(BASE)
+    assert page.NO_FREE_AGENTS in text(html) and 'id="fa-data"' not in html
+    assert 'id="fa-none"' not in fa()
+
+
+def test_the_page_writes_the_free_agents_page_next_to_the_plan_page(monkeypatch, tmp_path):
+    monkeypatch.setattr(page.common, "OUT", tmp_path)
+    path = page.write_free_agents(fa())
+    assert path == tmp_path / "adds" / "free_agents.html" and path.parent == page.page_path().parent
+    assert (path.parent / "fonts" / tokens.FONT.name).exists()
