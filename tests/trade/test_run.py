@@ -78,7 +78,9 @@ def fake_run(tmp_path, monkeypatch):
     return yahoo
 
 
-def test_the_run_writes_the_trade_page_and_the_timings_and_does_not_publish(fake_run, tmp_path, capsys):
+def test_with_no_publish_the_run_writes_the_trade_page_and_the_timings_and_skips_the_publish(
+    fake_run, tmp_path, capsys
+):
     run.main(["--no-publish"])
     out = capsys.readouterr().out
     page = tmp_path / "trade" / "index.html"
@@ -260,7 +262,7 @@ def test_after_the_deadline_the_run_reads_no_roster_and_writes_and_publishes_the
     line = "The trade deadline was Monday, March 2, 2026. Yahoo accepts no more trades this season."
     assert f'<div class="empty" id="deadline"><p>{line}</p></div>' in text
     assert "Suggested trades" not in text and 'id="builder"' not in text
-    assert '<a href="../roster/">Roster</a>' in text  # the Roster link of the site menu stays
+    assert '<a href="../trade/" aria-current="page">Trades</a>' in text  # the site menu stays, with Trades current
     ((args, kwargs),) = calls
     assert args[1] == "trade" and set(kwargs) == {"cfg"}
     out = capsys.readouterr().out
