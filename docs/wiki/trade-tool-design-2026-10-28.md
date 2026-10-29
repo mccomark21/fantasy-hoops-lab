@@ -55,3 +55,7 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - The approved look 3, the compare page, the sample script and the scored sample (`trade-sample-v2.json`) were copied from the session scratchpad to `output/trade/prototype/` in the main checkout. Git ignores that folder, and it holds real league names. A builder reads the files there.
 - Next steps: build #150 (suggestions page) with `output/trade/prototype/trade-look-3.html` as the visual reference. Then #151 (Trades tab and publish that keeps the home page) and #152 (builder) can run in parallel. Then #153.
 - Builders must run tests with `PYTHONPATH=src` in a worktree, and commit and push early (two builders stalled on 2026-10-28).
+
+## Resume (2026-10-29)
+
+- On 2026-10-29, the owner said to resume the trade tab. The chief of staff started a builder of #150 in a worktree at `mccomark21/fantasy-hoops-lab@ccab25c`. The brief told it that the swap rule of the Decision comment supersedes item 3.3 of the issue body.
