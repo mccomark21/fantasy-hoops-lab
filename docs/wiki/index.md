@@ -20,6 +20,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Ideas
 
+- [Player profile design of 2026-10-29](player-profile-design-2026-10-29.md): the grilling session of 2026-10-29 for a `/players/` page (trends with bands, competitive minutes, category percentiles, signals), the 10 owner decisions and the sample-first plan.
 - [About home page of 2026-10-29](about-home-page-2026-10-29.md): the owner request for a Home page with an about section and a page guide; Roster moves to /roster/.
 - [README rewrite of 2026-10-29](readme-rewrite-2026-10-29.md): the owner request for a welcoming README with the logo and screenshots, and its order after the joint publish.
 - [Site icon of 2026-10-29](site-icon-2026-10-29.md): the icon prototype rounds of 2026-10-29, the pick of A2 and issue #166.
