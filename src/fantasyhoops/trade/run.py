@@ -8,6 +8,7 @@ The run never changes the home page or gh-pages. Issue #151 adds the Trades tab 
 """
 
 import argparse
+from dataclasses import dataclass
 from datetime import datetime
 
 import pandas as pd
@@ -48,6 +49,32 @@ def schedule():
     if not path.exists():
         raise MissingSchedule(f"The trade run needs {path} for the playoff days. Make the file with: {SCHEDULE_FETCH}")
     return read_schedule()
+
+
+@dataclass(frozen=True)
+class LocalFiles:
+    """The data of the run from local files. days: the playoff days (home.playoff_days()). ranks: {name_key: rank}.
+
+    pre: drops.season_values(). scale: value.projection_scale(). skip_recent: True if the read skips the recent view.
+    """
+
+    days: list
+    ranks: dict
+    pre: dict
+    scale: object
+    skip_recent: bool
+
+
+def read_local_files(cfg, today):
+    """The LocalFiles of the run: data/schedule.csv, the custom ranks and the projections file."""
+    sched = schedule()
+    return LocalFiles(
+        days=home.playoff_days(sched, cfg),
+        ranks=read_ranks(cfg, sched),
+        pre=season_values(cfg),
+        scale=projection_scale(cfg),
+        skip_recent=skips_recent_view(recent_weight_limit(sched, today)[1], cfg),
+    )
 
 
 def trade_players(roster, read, own_team, ranks, risk, pre, scale, cfg):
@@ -155,12 +182,7 @@ def main(argv=None):
     timings = Timings(path=timings_path())
     timings.window([], "")  # the trade run has no planning window, so the window columns stay empty
     with timings.step("Local files"):
-        sched = schedule()
-        days = home.playoff_days(sched, cfg)
-        ranks = read_ranks(cfg, sched)
-        pre = season_values(cfg)
-        scale = projection_scale(cfg)
-        skip = skips_recent_view(recent_weight_limit(sched, today)[1], cfg)
+        local = read_local_files(cfg, today)
     pages = PageCache(today, use=not args.no_cache)
     pages.remove_old_days()
     with timings.step("Yahoo reads"):
@@ -169,11 +191,12 @@ def main(argv=None):
                 roster = read_roster(yahoo.get(str(own)))
             with timings.part("rostered list and settings", yahoo):
                 # own_team None: the read keeps the rows of your team too, for the blended values of your players.
-                inputs = read_trade_inputs(pages, yahoo, None, skip, today)
+                inputs = read_trade_inputs(pages, yahoo, None, local.skip_recent, today)
     with timings.step("Score"):
         names = [p.name for p in roster] + [r.player.name for r in inputs.rostered.projected]
-        mine, others = trade_players(roster, inputs.rostered, own, ranks, read_risk(names, cfg), pre, scale, cfg)
-        result = suggest(mine, others, days, cfg["league"]["slots"], weeks, settings)
+        risk = read_risk(names, cfg)
+        mine, others = trade_players(roster, inputs.rostered, own, local.ranks, risk, local.pre, local.scale, cfg)
+        result = suggest(mine, others, local.days, cfg["league"]["slots"], weeks, settings)
     with timings.step("Page"):
         total = sum(inputs.rostered.pages.values()) + 1  # the rostered pages of each view and the settings page
         line = rostered_line(pages.hits[ROSTERED], total, pages.rostered_time, made)
