@@ -1,4 +1,4 @@
-"""The data of the home page at the end of a planning run (#120). It writes output/home/index.html (core/roster.py).
+"""The data of the Roster page at the end of a planning run (#120). It writes output/roster/index.html (core/roster.py).
 
 The roster and the season record come from your Yahoo team page, which the run reads (LeagueData.roster and
 LeagueData.record). The rank and rests_b2b come from draft/rankings.py. The season stats come from one ESPN
@@ -59,9 +59,9 @@ def read_risk(roster, cfg):
 
 
 def build_roster(data, cfg, sched, today):
-    """Write the home page for the LeagueData of a run. Return its path, or None if the page failed.
+    """Write the Roster page for the LeagueData of a run. Return its path, or None if the page failed.
 
-    A failure prints the error and does not stop the run. The publish then keeps the list of the tools as the home page.
+    A failure prints the error and does not stop the run. The publish then keeps the /roster/ folder of gh-pages.
     """
     try:
         players = roster_players(
@@ -79,8 +79,8 @@ def build_roster(data, cfg, sched, today):
         )
         path = roster_page.write(text)
     except Exception:
-        print("The run did not make the home page. The error:")
+        print("The run did not make the Roster page. The error:")
         traceback.print_exc()
         return None
-    print(f"Wrote the home page: {path}")
+    print(f"Wrote the Roster page: {path}")
     return path

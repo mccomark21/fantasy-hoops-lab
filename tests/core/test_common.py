@@ -35,7 +35,7 @@ def test_the_output_files_go_under_common_out_with_no_other_patch(tmp_path, caps
     # The autouse fixture of tests/conftest.py points common.OUT at tmp_path. This test patches no other path.
     assert common.OUT == tmp_path
     page.write("<p>plan</p>")
-    roster_page.write("<p>home</p>")
+    roster_page.write("<p>roster</p>")
     timings = timing.Timings()
     with timings.step("schedule read"):
         pass
@@ -45,7 +45,7 @@ def test_the_output_files_go_under_common_out_with_no_other_patch(tmp_path, caps
     auction.write_benchmark(pd.DataFrame([{f"bench_{c}": 1.0 for c in CATS}]))
     capsys.readouterr()
     assert (tmp_path / "adds" / "adds_plan.html").read_text(encoding="utf-8") == "<p>plan</p>"
-    assert (tmp_path / "home" / "index.html").read_text(encoding="utf-8") == "<p>home</p>"
+    assert (tmp_path / "roster" / "index.html").read_text(encoding="utf-8") == "<p>roster</p>"
     assert "schedule read" in (tmp_path / "adds" / "timings.csv").read_text(encoding="utf-8")
     assert any((tmp_path / "adds" / "cache" / "day").rglob("*.json"))
     assert (tmp_path / "adds" / "week_plan_2027-01-04.json").exists()
@@ -61,5 +61,5 @@ def test_the_default_output_paths_do_not_change(monkeypatch):
     assert page_cache.cache_dir() == out / "adds" / "cache"
     assert page_cache.PageCache(date(2027, 1, 4)).folder == out / "adds" / "cache"
     assert week_file.week_path(date(2027, 1, 4)) == out / "adds" / "week_plan_2027-01-04.json"
-    assert roster_page.page_path() == out / "home" / "index.html"
+    assert roster_page.page_path() == out / "roster" / "index.html"
     assert draft.out_dir() == out / "draft"

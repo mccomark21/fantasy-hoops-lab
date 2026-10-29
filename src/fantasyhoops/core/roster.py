@@ -1,4 +1,4 @@
-"""The home page of the site (#120): your roster with the season stats and the fit of each player in the playoff lineup.
+"""The Roster page of the site at /roster/ (#120, #172): your roster with the season stats and the fit of each player in the playoff lineup.
 
 The page shows the players in custom-rank order. Each row has the season stats per game, the starts and games of each
 playoff week, and a grid of the playoff days. Two rows below the team starts give the Used and vs ideal percents.
@@ -11,7 +11,7 @@ rules from core/lineup.py.
 
 publish.shell() gives the head, the menu and the menu script of the page (#132), and the shared table style
 publish.TABLE_STYLE (#143): the head, the rows, the team band and the player cell of the Roster table.
-The module takes its data from the caller and opens no file and no web page. write() writes output/home/index.html
+The module takes its data from the caller and opens no file and no web page. write() writes output/roster/index.html
 with publish.write_page(), which also writes the font to fonts/ next to the page.
 """
 
@@ -412,7 +412,7 @@ def _title(name):
 
 
 def render(players, days, cfg, week=None, adds=None, today=None, team_name=None, record=None):
-    """The HTML of the home page.
+    """The HTML of the Roster page.
 
     players: RosterPlayer list in any order. days: Day list (playoff_days()). cfg: config.toml.
     week: the number of the current fantasy week, or None. adds: (used, limit) of this week, or None.
@@ -469,7 +469,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None,
     )
     template = PAGE_HTML.replace("__DAYS1__", str(n_days + 1)).replace("__DAYS__", str(n_days))
     return (
-        site.shell(template, "home", cfg)
+        site.shell(template, "roster", cfg)
         .replace("__TITLE__", _title(team_name or "Roster"))
         .replace("__METACLASS__", "meta with-rec" if record else "meta")
         .replace("__META__", "\n".join(meta))
@@ -480,8 +480,8 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None,
 
 
 def page_path():
-    """The page file: output/home/index.html, from common.OUT at the time of the call."""
-    return common.OUT / "home" / "index.html"
+    """The page file: output/roster/index.html, from common.OUT at the time of the call."""
+    return common.OUT / "roster" / "index.html"
 
 
 def write(text, path=None):

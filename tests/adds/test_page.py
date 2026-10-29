@@ -355,7 +355,11 @@ def test_the_page_shows_the_site_menu_with_the_adds_plan_current():
     assert (
         html.index('<body class="lab">') < html.index('<nav class="lab-menu"') < html.index('<main class="lab-main">')
     )
-    assert '<a href="../adds/" aria-current="page">Adds plan</a>' in html and '<a href="../">Roster</a>' in html
+    assert (
+        '<a href="../adds/" aria-current="page">Adds plan</a>' in html
+        and '<a href="../roster/">Roster</a>' in html
+        and '<a href="../">Home</a>' in html
+    )
     assert ">Auto</button>" in html and ">Light</button>" in html and ">Dark</button>" in html
     assert html.index("<h1>") > html.index("</nav>")
     assert html.rstrip().endswith(f"{site.MENU_SCRIPT}\n</body>\n</html>")
@@ -1069,7 +1073,7 @@ def test_the_free_agents_sections_are_on_the_free_agents_page_and_not_on_the_pla
 
 def test_the_free_agents_page_shows_the_site_menu_with_free_agents_current():
     html = fa()
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Roster", "Adds plan", "Free agents", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
     assert '<a href="../free-agents/" aria-current="page">Free agents</a>' in html
     assert html.count('aria-current="page"') == 1
 

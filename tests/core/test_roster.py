@@ -132,8 +132,8 @@ def test_the_day_grid_marks_the_quality_day_and_the_rest_night():
 def test_the_page_uses_the_shared_tokens_the_menu_and_no_colors_of_its_own():
     text = page()
     assert tokens.TOKENS in text
-    assert text.count('<li><a href="') == 4 and 'aria-current="page">Roster</a>' in text
-    assert 'href="adds/">Adds plan</a>' in text
+    assert text.count('<li><a href="') == 5 and '<a href="../roster/" aria-current="page">Roster</a>' in text
+    assert 'href="../adds/">Adds plan</a>' in text and '<a href="../">Home</a>' in text  # #172: /roster/
     style = re.sub(r"/\*.*?\*/", "", roster_page.PAGE_STYLE, flags=re.S)
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgb\(", style)
     assert ".flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red);" in style
@@ -143,11 +143,14 @@ def test_the_page_is_the_html_before_the_page_shell():
     """#132: fixtures/home_before_132.html is page() before publish.shell(), with 14 teams in config.toml.
 
     The render reads no config.toml: the team count of the menu comes from CFG, and core/publish.py has no
-    load_config().
+    load_config(). #172 moved the page to /roster/ and changed the site menu, so the test compares the page with no
+    site menu.
     """
-    meta = "\n" + publish.page_meta("home", "Roster · Fantasy Hoops Lab")  # #166 added the icon and preview tags
+    meta = "\n" + publish.page_meta("roster", "Roster · Fantasy Hoops Lab")  # #166 added the icon and preview tags
     before = (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
-    assert page().replace(meta, "") == before
+    menu = re.compile(r'<header class="lab-bar">.*?<div class="lab-scrim" hidden></div>', re.S)
+    assert menu.sub("", page().replace(meta, "")) == menu.sub("", before)
+    assert publish.site_menu("roster", 14) in page()
 
 
 def test_each_team_band_has_text_at_4_5_to_1():
@@ -308,5 +311,5 @@ def test_the_shared_table_css_does_not_change_the_roster_table(width):
 
 
 def test_the_page_has_the_icon_links_and_the_preview_tags():
-    """#166: the head of the roster page has publish.page_meta() with the page title."""
-    assert publish.page_meta("home", "Roster · Fantasy Hoops Lab") in page()
+    """#166, #172: the head of the Roster page has publish.page_meta() of /roster/ with the page title."""
+    assert publish.page_meta("roster", "Roster · Fantasy Hoops Lab") in page()

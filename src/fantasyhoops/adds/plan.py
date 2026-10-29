@@ -36,8 +36,8 @@ One planning run:
 11. page.render() makes the plan page and page.render_free_agents() makes the Free agents page (#165) from the same
     PlanningRun. The run writes both pages in output/adds/ (adds_plan.html and free_agents.html) and publishes them
     at /adds/ and /free-agents/ in one publish. --no-publish: no publish.
-    Before the plan page, build_roster() writes the home page in output/home/ (adds/roster.py, #120). The publish puts
-    it at the root of the site. --no-publish also skips the home page.
+    Before the plan page, build_roster() writes the Roster page in output/roster/ (adds/roster.py, #120). The publish
+    puts it at /roster/ and writes the Home page at / (core/home.py, #172). --no-publish also skips the Roster page.
     The page shows how many pages came from the cache (PageCache.line()).
     The terminal prints a short summary (#130): the page path, one line for each add of the team plan, the URL or
     the --no-publish line (publish_page()), then the warnings (print_summary()). The page shows all other results.
@@ -220,11 +220,13 @@ def save_week(week, today, plan, spots):
     return record
 
 
-def publish_page(path, lines, cfg, publish=True, home=None, free_agents=None):
+def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None):
     """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
-    home: the home page (adds/roster.py) for the root of the site, or None. cfg: the config of the run.
+    roster: the Roster page (adds/roster.py), or None. The same publish puts it at /roster/ (#172). With None, the
+    publish keeps the /roster/ folder of gh-pages. cfg: the config of the run.
     free_agents: the Free agents page (page.render_free_agents(), #165). The same publish puts it at /free-agents/.
+    The publish also writes the Home page at / (core/home.py).
     """
     print()
     print(f"Wrote the plan page: {path}")
@@ -235,8 +237,8 @@ def publish_page(path, lines, cfg, publish=True, home=None, free_agents=None):
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
-    more = {"free-agents": free_agents} if free_agents else None
-    site.publish(ROOT, "adds", path, home=home, cfg=cfg, more_tools=more)
+    more = {name: p for name, p in (("free-agents", free_agents), ("roster", roster)) if p}
+    site.publish(ROOT, "adds", path, cfg=cfg, more_tools=more)
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
 
@@ -347,16 +349,16 @@ def main(today=None, publish=True, timed=True, cache=True):
         market=market_text,
         cache=cache_text,
     )
-    home = None
+    roster = None
     if publish:
         # Before the plan page, so that the Run time table of the plan page has this step.
-        with step("home page"):
-            home = build_roster(data, cfg, sched, today)
+        with step("roster page"):
+            roster = build_roster(data, cfg, sched, today)
     with step("page write and publish"):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
         free_agents = page.write_free_agents(page.render_free_agents(run))
-        publish_page(page.write(text), plan_lines(run), cfg, publish, home, free_agents)
+        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents)
     print_summary(run)
 
 

@@ -85,7 +85,7 @@ def test_the_run_writes_the_trade_page_and_the_timings_and_does_not_publish(fake
     text = page.read_text(encoding="utf-8")
     assert "<h1>Trades</h1>" in text and "Starts count your 8 kept players." in text
     assert "Rosters: 5 pages read from Yahoo at" in text
-    assert not (tmp_path / "home").exists()  # the run does not touch the home page
+    assert not (tmp_path / "roster").exists()  # the run does not make the Roster page
     assert f"Wrote the trade page: {page}" in out
     assert "Publish: skipped (--no-publish)." in out
     with open(tmp_path / "trade" / "timings.csv", encoding="utf-8") as f:
@@ -100,16 +100,16 @@ def test_the_run_writes_the_trade_page_and_the_timings_and_does_not_publish(fake
     assert steps[5:] == ["Score", "Page"]
 
 
-def test_the_run_publishes_the_page_to_trade_keeps_the_home_page_and_prints_the_url(
+def test_the_run_publishes_the_page_to_trade_keeps_the_other_pages_and_prints_the_url(
     fake_run, tmp_path, monkeypatch, capsys
 ):
-    """#151: python -m fantasyhoops.trade publishes /trade/ with keep_home=True."""
+    """#151, #172: python -m fantasyhoops.trade publishes /trade/. The publish keeps the other folders."""
     calls = []
     monkeypatch.setattr(site, "publish", lambda *args, **kwargs: calls.append((args, kwargs)))
     run.main([])
     ((args, kwargs),) = calls
     assert args == (common.ROOT, "trade", tmp_path / "trade" / "index.html")
-    assert kwargs["keep_home"] is True and "home" not in kwargs
+    assert kwargs == {"cfg": kwargs["cfg"]}  # no more_tools: the run publishes only /trade/
     out = capsys.readouterr().out
     assert f"Published the trade page to {site.URL}trade/." in out
 
@@ -229,9 +229,9 @@ def test_after_the_deadline_the_run_reads_no_roster_and_writes_and_publishes_the
     line = "The trade deadline was Monday, March 2, 2026. Yahoo accepts no more trades this season."
     assert f'<div class="empty" id="deadline"><p>{line}</p></div>' in text
     assert "Suggested trades" not in text and 'id="builder"' not in text
-    assert '<a href="../" ' in text or '<a href="../">' in text  # the Roster link of the site menu stays
+    assert '<a href="../roster/">Roster</a>' in text  # the Roster link of the site menu stays
     ((args, kwargs),) = calls
-    assert args[1] == "trade" and kwargs["keep_home"] is True and "home" not in kwargs
+    assert args[1] == "trade" and set(kwargs) == {"cfg"}
     out = capsys.readouterr().out
     assert line in out and f"Published the trade page to {site.URL}trade/." in out
 

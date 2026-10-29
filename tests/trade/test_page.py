@@ -118,7 +118,7 @@ def test_with_no_suggestion_the_page_says_so_and_has_no_table():
 def test_the_page_uses_the_site_shell_and_the_shared_table_style():
     html = render()
     assert site.TABLE_STYLE in html and site.MENU_SCRIPT in html
-    assert '<nav class="lab-menu" id="lab-menu"' in html and '<a href="../">Roster</a>' in html
+    assert '<nav class="lab-menu" id="lab-menu"' in html and '<a href="../roster/">Roster</a>' in html
     assert "__" not in re.sub(r"<script.*?</script>", "", html, flags=re.S).replace("lab-t", "")
 
 
@@ -272,7 +272,7 @@ def test_a_value_change_that_rounds_to_0_has_no_sign_and_a_team_code_of_4_letter
 def test_the_menu_shows_trades_after_adds_plan_as_the_current_page():
     """#151: the Trades tab of publish.TOOLS."""
     html = render()
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Roster", "Adds plan", "Free agents", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
     assert '<a href="../trade/" aria-current="page">Trades</a>' in html
 
 

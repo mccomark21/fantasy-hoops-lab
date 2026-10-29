@@ -5,7 +5,8 @@ rostered page from Yahoo again).
 The run reads your team page (readers.read_roster()) for your roster and IL slots, and the rostered list and the
 league settings through the same-day cache (trade/reads.py). It scores the trades with trade/suggest.py and writes
 output/trade/index.html (trade/page.py). It times its steps in output/trade/timings.csv (adds/timing.py).
-The publish (publish_page()) puts the page at /trade/ on gh-pages and keeps the home page there (keep_home=True).
+The publish (publish_page()) puts the page at /trade/ on gh-pages, keeps the other tool folders there and writes the
+Home page at / (core/home.py, #172).
 With --no-publish, the run does not change gh-pages.
 Edge states (#153):
 1. The run reads the league settings first. After the trade deadline, it does not read your team page or the
@@ -228,14 +229,14 @@ def warnings(mine, inputs, missing=(), settings=None):
 
 
 def publish_page(path, cfg, publish=True):
-    """Publish the trade page to /trade/ and print the URL. The home page of gh-pages stays (keep_home=True).
+    """Publish the trade page to /trade/ and print the URL. The other folders of gh-pages stay (#172).
 
     publish False (--no-publish): print that the run did not publish.
     """
     if not publish:
         print("Publish: skipped (--no-publish).")
         return
-    site.publish(common.ROOT, page.CURRENT, path, cfg=cfg, keep_home=True)
+    site.publish(common.ROOT, page.CURRENT, path, cfg=cfg)
     print(f"Published the trade page to {site.URL}{page.CURRENT}/. GitHub can take a few minutes to show the new page.")
 
 
