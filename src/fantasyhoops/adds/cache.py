@@ -43,12 +43,14 @@ class PageCache:
     use: False (--no-cache): the run reads each page from Yahoo and writes it over the cached page.
     folder: the cache folder (default: cache_dir() at the time of the call). clock: gives the read time of a new entry.
     hits: the pages from the cache, by page group. recent_time: the earliest read time of a cached recent page.
+    rostered_time: the earliest read time of a cached page of the trade tool (#150).
     """
 
     def __init__(self, today, use=True, folder=None, clock=datetime.now):
         self.today, self.use, self.folder, self.clock = today, use, folder or cache_dir(), clock
         self.hits = {RECENT: 0, TRENDS: 0, ROSTERED: 0}
         self.recent_time = None
+        self.rostered_time = None
 
     def remove_old_days(self):
         """Delete the "day" and "rostered" entries of the days before today. The run cannot use them again.
@@ -111,6 +113,8 @@ class PageCache:
         self.hits[group] += 1
         if group == RECENT:
             self.recent_time = read_at if self.recent_time is None else min(self.recent_time, read_at)
+        if group == ROSTERED:
+            self.rostered_time = read_at if self.rostered_time is None else min(self.rostered_time, read_at)
         return entry["html"]
 
     def save(self, kind, path, html):

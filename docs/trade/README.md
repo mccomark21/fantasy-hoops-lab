@@ -1,42 +1,134 @@
 # Trade tool
 
-The trade tool will suggest trades with the other fantasy teams of the league. The design is in [docs/wiki/trade-tool-design-2026-10-28.md](../wiki/trade-tool-design-2026-10-28.md). This guide covers the Yahoo reads (#148). The suggestions and the page come in later issues.
+## Goal
 
-## Yahoo reads
+The trade tool suggests 1-for-1 trades with the other fantasy teams of the league. A suggestion raises your playoff starts in weeks 19 to 21 and keeps your season value. The design is in [docs/wiki/trade-tool-design-2026-10-28.md](../wiki/trade-tool-design-2026-10-28.md).
 
-`fantasyhoops.trade` reads these pages through the Yahoo session of the adds planner (`adds/session.py`):
+## Usage
 
-| Page | Path | Reader |
+```sh
+python -m fantasyhoops.trade --no-publish   # Read Yahoo, score the trades and write output/trade/index.html.
+python -m fantasyhoops.trade --no-publish --no-cache   # Read each rostered page from Yahoo again.
+python -m fantasyhoops.trade.reads          # The live check of the Yahoo reads (#148). It writes only the cache.
+```
+
+The run opens Edge with the saved Yahoo sign-in of the adds planner. It is its own command, not part of the planning run. It does not publish and does not change the home page. Issue #151 adds the Trades tab and the publish. Without `--no-publish`, the run also does not publish, and it says so.
+
+The terminal shows:
+
+1. The page path.
+2. The count of suggestions and the best suggestion, or "No trade raises your playoff starts."
+3. The publish line.
+4. The warnings: no trade deadline, rows of the rostered list with no team link, your players with no value.
+
+## Kept set
+
+The playoff starts of a team count only its kept set:
+
+1. Before a trade, the kept set is the top 8 players of the team by value (`[trade] kept`).
+2. The untouchable players (`[trade] untouchable`, Cooper Flagg) and the IL players are always in your kept set.
+3. In a trade, the player you get takes the spot of the player you give. The run does not rank the kept set again after the trade (Decision comment of 2026-10-28 on #150).
+4. If the player you give is not in your kept set, the trade does not change your starts.
+5. The partner side uses the same rule. The rostered list does not show the IL slots of a partner, so the starts of a partner are an estimate.
+
+The kept set belongs to the trade tool. It does not change the `stream_spots` of the adds planner.
+
+## Suggestions
+
+`trade/suggest.py` scores each 1-for-1 pair of your players (not the untouchable players) and the players of the other teams.
+
+1. Both players must have a value. A pair with no value on one side is not a suggestion.
+2. The value of the player you get must be in the value band: from give − 5% × |give| to give + 10% × |give| (`[trade] value_band`). The band works for values below 0.
+3. The trade must raise your total playoff starts by 1 or more.
+4. The rank: the gain in total starts, then min(weeks after) − min(weeks before), then the larger value change for you.
+5. At most 3 rows for each player you give (`[trade] per_player`), and 20 rows in all (`[trade] rows`).
+
+The playoff starts use the home page rules exactly: `core/home.py` `lineup_fit()` on the days of `home.playoff_days()`. The slots are `[league] slots` and one Util slot. The lineup order is the custom rank of `draft/rankings.py`, and a player with no rank goes last. A rest night on a back-to-back (`rests_b2b` of the `[risk] file`) is not a game. IL and injured players count, with their Yahoo status on the page.
+
+## Value
+
+The value of each player on both sides is the blended value of the adds planner (`adds/blend.py`), from both views of the rostered list. A player with no blended value uses his preseason `pg_value` (`adds/drops.py` `season_values()`), and the page marks it "pre". The page shows the preseason value ("Pre") of each player next to his value ("Val").
+
+## Data
+
+| Data | Source | Reader |
 |---|---|---|
+| Your roster and IL slots | Your Yahoo team page, from Edge | `adds/readers.py` `read_roster()` |
 | The rostered list, projected view (next 7 days) | `players?status=T&...&stat1=S_PS7` | `trade/rostered.py` |
 | The rostered list, recent view (last 14 days) | `players?status=T&...&stat1=S_AL14` | `trade/rostered.py` |
-| The league settings | `settings` | `trade/deadline.py` |
+| The trade deadline ("Trade End Date") | The league settings page, `settings` | `trade/deadline.py` |
+| The playoff days | `data/schedule.csv` (`python -m fantasyhoops.fetch.espn`) | `core/home.py` `playoff_days()` |
+| The custom rank | The projections file and `data/` files of the draft tools | `adds/home.py` `read_ranks()` |
+| The preseason value | The newest projections file | `adds/drops.py` `season_values()` |
+| The rest list | `[risk] file` | `draft/rankings.py` `load_risk()` |
+
+Without `data/schedule.csv`, the run stops with a message that names the file and the fetch command.
 
 The rostered list reader:
 
 1. Reads all pages of each view, until a page has no "Next 25" link.
-2. Keeps only the players of the other fantasy teams. It drops the rows of your team (`[adds] team`).
-3. Takes the fantasy team of a row from the team link (`/nba/<league>/<team ID>`), not from the team name. A team name can change during the season.
-4. Reads the name, the NBA team, the positions and the status with `read_player()` of `adds/readers.py`.
-5. Reads only the projected view while `[adds] recent_skip_weight` skips the recent view (`lists.skips_recent_view()`).
+2. Takes the fantasy team of a row from the team link (`/nba/<league>/<team ID>`), not from the team name. A team name can change during the season.
+3. Reads the name, the NBA team, the positions and the status with `read_player()` of `adds/readers.py`.
+4. Reads only the projected view while `[adds] recent_skip_weight` skips the recent view (`lists.skips_recent_view()`).
 
-The trade deadline reader finds the label "Trade End Date" on the league settings page and reads the first date after it. If the page has no such date, the read continues with no deadline and names the cached page.
+The trade run keeps the rows of your team too, because your players need their blended values. The live check (`trade.reads`) drops them.
 
-## Cache
+The trade deadline reader finds the label "Trade End Date" on the league settings page and reads the first date after it. If the page has no such date, the run continues with no deadline, and a warning names the cached page.
 
-The reads keep the raw pages in the same-day cache, kind "rostered" (`output/adds/cache/rostered/<YYYY-MM-DD>/`). A second read on the same day opens no Yahoo page. `--no-cache` reads each page from Yahoo again. If a reader fails on a real page, use the cached page to fix the reader.
+The fixtures in `tests/trade/fixtures/` are hand-made in the shape of the Yahoo players table. They hold no names of managers.
 
-## Live check
+## Page cache
 
-```sh
-python -m fantasyhoops.trade.reads
-```
+The run keeps the rostered pages and the league settings page in the same-day cache, kind "rostered" (`output/adds/cache/rostered/<YYYY-MM-DD>/`). A second run on the same day reads these pages from the cache. The team page never goes through the cache, because your roster can change during the day. `--no-cache` reads each rostered page from Yahoo again and writes it over the cached page.
 
-The command opens Edge, reads the pages and prints:
+The page shows the read time of the rostered pages under the table, for example "Rosters: 16 pages from the cache of 2026-10-28 09:14." If a fix of a reader is necessary, use the cached pages.
 
-- The page count of each view and the number of players of other teams.
-- Each fantasy team: its ID, its name and its number of players.
-- The rows with no team link. Expect 0.
-- The trade deadline, or why the read did not find it.
+## Run time
 
-The fixtures in `tests/trade/fixtures/` are hand-made in the shape of the Yahoo players table, because no live read had shown these pages on 2026-10-28. They hold no names of managers.
+The run times its steps in `output/trade/timings.csv` with `adds/timing.py`: "Local files", "Yahoo reads" (with the sub-steps "team page" and "rostered list and settings"), "Score" and "Page". The `days`, `open_days` and `adds_left` columns stay empty, because the trade run has no planning window.
+
+The targets: 15 seconds or less with a full cache, 60 seconds or less with no cache.
+
+## Page
+
+`trade/page.py` writes `output/trade/index.html` in the look that the owner picked on #149 (look 3). The page uses `publish.shell()`, the `lab-t` table and `band_style()`.
+
+1. The header shows the trade deadline and the days to it, your playoff starts now and the time of the run.
+2. A filter row of the players you give sits above the table. A press on a chip shows only the trades of that player.
+3. The table has the players you give and get, the partner team, the playoff starts of each week and the total, and the value change of both teams.
+4. Each week cell shows the new count, the change and a small bar. A blue row above the trades shows your starts now.
+5. Below 940px of content, a row list replaces the table.
+6. The line under the table starts with "Starts count your 8 kept players."
+
+## Configuration
+
+The `[trade]` section of `config.toml`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `untouchable` | `["Cooper Flagg"]` | The players that the tool never offers. They are always in your kept set. |
+| `value_band` | `[0.95, 1.10]` | The value band of the player you get, as parts of the value you give. |
+| `kept` | `8` | The players of a team that the playoff starts count. |
+| `per_player` | `3` | The suggestions for each player you give, at most. |
+| `rows` | `20` | The suggestions in all, at most. |
+
+The section has no deadline value. The run reads the trade deadline from Yahoo.
+
+## Terms
+
+| Term | Meaning |
+|---|---|
+| Kept set | The players of a team that its playoff starts count. See [Kept set](#kept-set). |
+| Playoff starts | The started games of a team in the playoff weeks, with the home page rules. |
+| Value band | The range of values of the player you get, from the value you give. |
+| Untouchable | A player that the tool never offers in a trade. |
+| Partner | The other fantasy team of a trade. |
+| Pre | The preseason `pg_value` of a player. As a mark, it says that the value is the preseason value, because he has no blended value. |
+
+## Decisions
+
+- On 2026-10-28, the owner decided: the trade targets come from the rostered list, the tool is its own command, and the value is the blended value with the preseason value next to it (owner decisions 1, 2 and 13 of the design page).
+- On 2026-10-28, the owner decided: the playoff starts count the top 8 players by value, with Flagg and the IL players always in.
+- On 2026-10-28, the owner decided: the player you get takes the spot of the player you give in the kept set. This supersedes "the top 8 after the trade" (Decision comment on #150).
+- On 2026-10-28, the owner picked look 3 of the prototype round (#149).
+- On 2026-10-28, the owner decided: the trade deadline comes from the Yahoo league settings, not from a config value.

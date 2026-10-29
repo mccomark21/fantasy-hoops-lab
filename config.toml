@@ -231,3 +231,12 @@ poor_playoff_games = 9
 good_quality_games = 3
 poor_quality_games = 1
 avoid_week_games = 2
+
+# The trade tool (src/fantasyhoops/trade/, docs/trade/README.md). The trade deadline comes from the Yahoo league
+# settings, so this section has no deadline value.
+[trade]
+untouchable = ["Cooper Flagg"]  # the tool never offers these players. They are always in your kept set.
+value_band = [0.95, 1.10]       # the value of the player you get: give - 5% to give + 10% of |give|
+kept = 8                        # the playoff starts count this number of players of a team (the kept set)
+per_player = 3                  # suggestions for each player you give, at most
+rows = 20                       # suggestions in all, at most
