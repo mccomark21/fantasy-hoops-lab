@@ -94,7 +94,8 @@ def _values(p):
 
 
 def _band(team, tag="td"):
-    return f'<{tag} class="band" style="{site.band_style(team)}">{_e(team)}</{tag}>'
+    wide = " b4" if len(team) > 3 else ""
+    return f'<{tag} class="band{wide}" style="{site.band_style(team)}">{_e(team)}</{tag}>'
 
 
 def _player_cell(p):
@@ -289,7 +290,9 @@ button.chip[aria-pressed="true"] small { color: var(--lab-stock); }
 .sg col.c-v2 { width: 64px; }
 .sg thead tr.grp th { border-bottom: 0; padding-bottom: 4px; font-size: 12px; }
 .sg thead tr.grp th.fine { background: var(--lab-blue); color: var(--lab-on-blue); text-align: center; padding: 5px 0; }
-.sg th.pl { overflow-wrap: anywhere; }
+.sg th.pl { overflow-wrap: anywhere; padding-block: 6px; }
+.sg td.band { font-size: 15px; }
+.lab-t td.band.b4, .ms .band.b4 { font-size: 12px; }  /* a team code of 4 letters, for example UTAH */
 .sg .pl b { display: inline; }
 .lab-t .pl small + small { font-size: 11px; margin-top: 1px; }
 .lab-t .pl small i, .ms .nm small i { font-style: normal; font-weight: 700; color: var(--lab-ink); }
@@ -345,11 +348,10 @@ td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .cb { position: relative; display: block; width: 50px; height: 8px; margin: 4px 0 0 auto; }
 .cb::before { content: ""; position: absolute; left: 16px; top: -2px; bottom: -2px; width: 2px; background: var(--lab-ink); }
 .cb i { position: absolute; top: 1px; height: 6px; }
-.cb i.up { left: 18px; width: calc(var(--d) * 8px - 1px); background: var(--mark); }
-.cb i.dn { right: 35px; width: calc(var(--d) * 8px - 1px);
+.cb i.up { left: 18px; width: calc(var(--d) * 8px - 1px); max-width: calc(100% - 18px); background: var(--mark); }
+.cb i.dn { right: calc(100% - 15px); width: calc(var(--d) * 8px - 1px); max-width: 15px;
   background: repeating-linear-gradient(90deg, var(--lab-red) 0 6px, transparent 6px 8px); }
 .wk.t .cb { width: 60px; }
-.wk.t .cb i.up { max-width: 42px; }
 .sg thead tr.now > * { background: var(--lab-blue) !important; color: var(--lab-on-blue); border-bottom: 0; }
 .sg thead tr.now th, .sg thead tr.now td { font-size: 15px; font-weight: 900; padding: 6px; vertical-align: middle; }
 .sg thead tr.now th.l { font-size: 12px; font-weight: 800; text-align: left; padding-left: 10px; }
