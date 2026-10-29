@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from fantasyhoops import draft
-from fantasyhoops.core import home
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import DATA, ROOT, load_config
 from fantasyhoops.core.lineup import band
 from fantasyhoops.draft.board import lineup_rules
@@ -341,8 +341,8 @@ def test_random_core_agrees_with_python_game_counts(real, size):
     assert result["finals"] == expected["finals"]
 
 
-# The board and the home page (#133): the same roster on the same days. Value order on the board = rank order on the
-# home page. (name, team, positions, rank, rests_b2b)
+# The board and the Roster page (#133): the same roster on the same days. Value order on the board = rank order on the
+# Roster page. (name, team, positions, rank, rests_b2b)
 SAME_SLOTS = ["PG", "C"]
 SAME_ROSTER = [
     ("Guard One", "AAA", "PG", 10, 0),
@@ -371,13 +371,14 @@ def same_case():
     page["slots"] = SAME_SLOTS
     page.update(lineup_rules(days, page["weeks"], SAME_SLOTS, page["spots"]))
     roster = [
-        home.RosterPlayer(name, team, tuple(pos.split("/")), rank=rank, rests_b2b=bool(rest))
+        roster_page.RosterPlayer(name, team, tuple(pos.split("/")), rank=rank, rests_b2b=bool(rest))
         for name, team, pos, rank, rest in SAME_ROSTER
     ]
     home_days = [
-        home.Day(date(2027, 3, 8 + i), w, q, frozenset(t), frozenset(b)) for i, (w, t, b, q) in enumerate(SAME_DAYS)
+        roster_page.Day(date(2027, 3, 8 + i), w, q, frozenset(t), frozenset(b))
+        for i, (w, t, b, q) in enumerate(SAME_DAYS)
     ]
-    return page, home.lineup_fit(roster, home_days, SAME_SLOTS)
+    return page, roster_page.lineup_fit(roster, home_days, SAME_SLOTS)
 
 
 def test_the_board_footer_gives_the_used_and_vs_ideal_of_the_home_page():

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from fantasyhoops.core import home
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.trade import page
 from fantasyhoops.trade.builder import custom_trade
 from fantasyhoops.trade.suggest import Suggestions, TradePlayer, TradeSettings, suggest
@@ -70,7 +70,7 @@ def playoff_days(rng):
         for d in range(rng.randint(3, 4)):
             plays = frozenset(t for t in TEAMS if rng.random() < 0.6)
             b2b = frozenset(t for t in plays if rng.random() < 0.3)
-            out.append(home.Day(start + timedelta(days=7 * w + d), name, rng.random() < 0.3, plays, b2b))
+            out.append(roster_page.Day(start + timedelta(days=7 * w + d), name, rng.random() < 0.3, plays, b2b))
     return out
 
 
@@ -164,7 +164,7 @@ def test_a_suggestion_row_gives_the_same_starts_and_value_changes_in_the_builder
 
 def test_the_engine_gets_value_minus_rank_so_its_order_is_the_rank_order_of_the_home_page():
     # Three PGs and one Util on each day: the two best ranks start, and the player with no rank sits.
-    day = home.Day(date(2027, 3, 8), "wk19", False, frozenset({"AAA"}), frozenset())
+    day = roster_page.Day(date(2027, 3, 8), "wk19", False, frozenset({"AAA"}), frozenset())
     players = [
         TradePlayer("No Rank", "AAA", ("PG",), value=9.0, rank=None),
         TradePlayer("Rank 30", "AAA", ("PG",), value=1.0, rank=30),
@@ -173,8 +173,8 @@ def test_the_engine_gets_value_minus_rank_so_its_order_is_the_rank_order_of_the_
     data = page.builder_data(Suggestions((), [], [], 0, 0, 0), players, [], [day], SLOTS, ["wk19"], SETTINGS)
     out = node(data, [], [p["id"] for p in data["me"]])
     assert out["order"] == [-1e9, -30, -4]
-    fit = home.lineup_fit([p.roster_player() for p in players], [day], SLOTS)
-    started = sorted(p.name for p, marks in zip(fit.players, fit.marks) if marks[0] == home.START)
+    fit = roster_page.lineup_fit([p.roster_player() for p in players], [day], SLOTS)
+    started = sorted(p.name for p, marks in zip(fit.players, fit.marks) if marks[0] == roster_page.START)
     assert out["starters"] == [started] == [["Rank 30", "Rank 4"]]
 
 

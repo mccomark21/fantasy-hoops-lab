@@ -1,24 +1,22 @@
 """Publish the Fantasy Hoops Lab site to GitHub Pages on the gh-pages branch, and make the shell of each site page.
 
-The site has a home page at /, the folder /adds/ for the adds plan, the folder /free-agents/ for the free agents of
-the planning run (#165) and the folder /trade/ for the trades (#151).
-The home page is the roster page of core/home.py (#120). Without it, the home page is a list of the tools.
-A publish of one tool replaces its own folder and the home page. It keeps the folders of the other tools in TOOLS.
-A publish can also replace the folders of more tools (more_tools). The planning run publishes /adds/ and
-/free-agents/ in one publish.
-A publish with keep_home=True keeps the home page that is on gh-pages. The trade run uses it (#151).
+The site has the Home page at / (core/home.py, #172), the folder /roster/ for the Roster page (core/roster.py,
+#120), the folder /adds/ for the adds plan, the folder /free-agents/ for the free agents of the planning run (#165)
+and the folder /trade/ for the trades (#151).
+A publish of one tool replaces its own folder and writes the Home page. It keeps the folders of the other tools in
+TOOLS. A publish can also replace the folders of more tools (more_tools). The planning run publishes /adds/,
+/free-agents/ and /roster/ in one publish. The trade run publishes /trade/ only.
 A folder on gh-pages with a name that is not in TOOLS goes away at the next publish.
 The root and the tool folder get the font file and its license (OFL.txt) in fonts/ (core/tokens.py).
 The site menu (#117): a royal-blue side panel on a desktop, and a top bar with a drawer on a phone.
 It has a link to each page of the site and the Auto, Light and Dark theme switch.
 The page shell (#132): shell() puts site_head() in the <head> of a page, site_menu() first in its <body> and
-MENU_SCRIPT last in its <body>. The plan page, the Free agents page, the home page and the tool list (home_page())
-use shell().
+MENU_SCRIPT last in its <body>. Each page of the site uses shell().
 The shared tables (#143): shell() puts TABLE_STYLE in place of __TABLE_CSS__ in a page template. A table with the
 class lab-t gets the look of the Roster table: the head, the rows, the team band and the player cell. The Roster
-table of the home page and the Free agents and Waiver players tables of the Free agents page use it. band_style() gives the
-team colors of a band.
-write_page() writes a page and the font next to it. The plan page and the home page use it.
+table, the examples of the Home page and the Free agents and Waiver players tables of the Free agents page use it.
+band_style() gives the team colors of a band.
+write_page() writes a page and the font next to it. The plan page, the Roster page and the Home page use it.
 The icon and the share card (#166): shell() also puts page_meta() in the <head>. It links the basketball icon (A2)
 and gives the Open Graph and Twitter card tags. The publish puts the files of ICON_FILES at the root of gh-pages.
 The files are in core/icons/. The share card (card.png, 1200x630) has no league or team names.
@@ -34,15 +32,16 @@ from fantasyhoops.core import tokens
 
 BRANCH = "gh-pages"
 URL = "https://mccomark21.github.io/fantasy-hoops-lab/"
-HOME_LABEL = "Roster"  # the label of the home page in the site menu
-HOME_DESCRIPTION = "Analysis tools for one Yahoo fantasy basketball league, 2026-27 season."  # og:description of /
+HOME_LABEL = "Home"  # the label of the Home page in the site menu
+HOME_DESCRIPTION = "Custom fantasy basketball tools for one league, 2026-27 season."  # og:description of /
 SITE_NAME = "Fantasy Hoops Lab"  # og:site_name, and the page title when a template has no <title>
 ICONS = Path(__file__).parent / "icons"
 # The icon files and the share card at the root of the site: {name on the site: source file} (#166).
 ICON_FILES = {n: ICONS / n for n in ("icon.svg", "icon-32.png", "apple-touch-icon.png", "card.png")}
 CARD = "card.png"  # the share card (og:image). It is 1200x630.
-# One line on the home page and one item in the site menu for each tool, in the order of the page.
+# One item in the site menu for each tool folder, in the order of the menu: (label, og:description of the page).
 TOOLS = {
+    "roster": ("Roster", "My roster with the season stats and the playoff starts of each player."),
     "adds": ("Adds plan", "How to use the 5 adds of the current fantasy week."),
     "free-agents": ("Free agents", "The free agents and the waiver players of the last planning run, with filters."),
     "trade": ("Trades", "Trades that raise your playoff starts and keep your season value."),
@@ -137,7 +136,7 @@ def site_menu(current, teams):
 
     teams: the number of teams in the league ([league] teams of config.toml).
 
-    The home page is at the root of the site and each tool page is in its own folder, so the links are relative.
+    The Home page is at the root of the site and each tool page is in its own folder, so the links are relative.
     """
     up = "" if current == "home" else "../"
     root = up or "./"
@@ -184,42 +183,29 @@ def write_page(path, text):
     return path
 
 
-def home_page(tools, cfg):
-    """The home page: the site menu, then one line and one link for each tool on the site. cfg: the config."""
-    items = "\n".join(
-        f'<li><a href="{t}/">{html.escape(TOOLS[t][0])}</a><span>{html.escape(TOOLS[t][1])}</span></li>'
-        for t in TOOLS
-        if t in tools
-    )
-    return shell(HOME, "home", cfg).replace("__TOOLS__", items)
-
-
-def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False, more_tools=None):
+def publish(repo, tool, index, others=(), *, cfg, more_tools=None):
     """Push the pages of one tool to gh-pages in origin, in the folder /<tool>/. The working tree and the current branch do not change.
 
     index: the main page of the tool. It goes to /<tool>/index.html.
     others: more pages of the tool. Each one goes to /<tool>/ with its own file name.
-    home: the home page for the root of the site (core/home.py). None: a list of the tools (home_page()).
-    cfg: the config. home_page() uses [league] teams of it for the list of the tools.
-    keep_home: True keeps the index.html at the root of gh-pages. Then home must be None. If gh-pages has no root
-    index.html, the home page is the list of the tools. The trade run uses it, because it does not make the roster page.
+    cfg: the config. The Home page (core/home.py) takes its league facts from it, and the menu its team count.
     more_tools: {tool: index} for more tools in TOOLS. Each index goes to /<tool>/index.html in the same publish.
-    The planning run uses it for /free-agents/ (#165).
-    The folders of the other tools in TOOLS stay. The home page links to each tool folder on the site.
-    Each page carries its own site menu (site_menu()). The publish does not change the pages.
+    The planning run uses it for /free-agents/ (#165) and /roster/ (#172).
+    Each publish writes the Home page at the root of the site (#172). The page holds no live data.
+    The folders of the other tools in TOOLS stay. Each page carries its own site menu (site_menu()).
+    The publish does not change the pages.
     The root gets the icon files and the share card of ICON_FILES (#166).
     The branch holds one commit, so each run replaces the last one and the old pages do not stay in the repo.
     """
+    from fantasyhoops.core import home  # here, not at the top: core/home.py imports this module for shell()
+
     more_tools = more_tools or {}
     for name, path in {tool: index, **more_tools}.items():
         if name not in TOOLS:
             raise ValueError(f"{name} is not a tool of the site. The tools are: {', '.join(TOOLS)}.")
         if not path.exists():
             raise FileNotFoundError(f"{path} does not exist.")
-    if keep_home and home is not None:
-        raise ValueError("Give home or keep_home=True, not both.")
-    site = published_site(repo)
-    folders = published_folders(site)
+    folders = published_folders(published_site(repo))
     fonts = font_folder(repo)
     pages = {"index.html": index.read_bytes(), **{o.name: o.read_bytes() for o in others}}
     entries = {n: ("100644", "blob", write_blob(repo, d)) for n, d in pages.items()}
@@ -229,14 +215,8 @@ def publish(repo, tool, index, others=(), home=None, *, cfg, keep_home=False, mo
         folders[name] = ("040000", "tree", make_tree(repo, {"index.html": blob, "fonts": fonts}))
     root = {
         name: ("100644", "blob", write_blob(repo, data))
-        for name, data in {
-            ".nojekyll": b"",
-            "index.html": home.read_bytes() if home else home_page(folders, cfg).encode(),
-        }.items()
+        for name, data in {".nojekyll": b"", "index.html": home.render(cfg).encode()}.items()
     }
-    old_home = site.get("index.html")
-    if keep_home and old_home and old_home[1] == "blob":
-        root["index.html"] = old_home
     root["fonts"] = fonts
     root.update({n: ("100644", "blob", write_blob(repo, f.read_bytes())) for n, f in ICON_FILES.items()})
     commit = git(repo, "commit-tree", make_tree(repo, {**root, **folders}), "-m", f"Publish the {tool} pages")
@@ -247,7 +227,7 @@ MENU = """<header class="lab-bar"><a class="lab-name" href="__ROOT__">Fantasy Ho
 <button class="lab-open" type="button" aria-controls="lab-menu" aria-expanded="false">Menu</button></header>
 <nav class="lab-menu" id="lab-menu" aria-label="Site">
 <button class="lab-close" type="button">Close</button>
-<a class="lab-site" href="__ROOT__">Fantasy<br>Hoops Lab<small>2026–27 · Yahoo __TEAMS__-team</small></a>
+<a class="lab-site" href="__ROOT__">Fantasy<br>Hoops Lab<small>2026–27 · __TEAMS__-team league</small></a>
 <ul>
 __LINKS__
 </ul>
@@ -401,41 +381,3 @@ MENU_SCRIPT = f"""<script>
   show();
 }})();
 </script>"""
-
-HOME = """<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fantasy Hoops Lab</title>
-__HEAD__
-<style>
-.home { max-width: 640px; padding: 24px max(28px, env(safe-area-inset-right)) 32px max(28px, env(safe-area-inset-left));
-        font: 400 15px/1.45 var(--lab-face); }
-.home h1 { margin: 0; padding-bottom: 12px; border-bottom: 3px solid var(--mark); color: var(--mark);
-           font-weight: 900; font-stretch: 66%; font-size: clamp(32px, 4vw, 44px); line-height: .9;
-           text-transform: uppercase; text-wrap: balance; }
-.home p { margin: 12px 0 20px; color: var(--lab-mute); }
-.home ul { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--mark); }
-.home li { padding: 12px 0; border-bottom: 1px solid var(--lab-rule); overflow-wrap: anywhere; }
-.home a { display: block; color: var(--mark); font-weight: 900; font-stretch: 75%; font-size: 20px;
-          text-transform: uppercase; text-underline-offset: 3px; }
-.home a:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
-.home span { color: var(--lab-mute); }
-@media (max-width: 599px) { .home { padding-left: max(16px, env(safe-area-inset-left));
-                                     padding-right: max(16px, env(safe-area-inset-right)); } }
-</style>
-</head>
-<body class="lab">
-__MENU__
-<main class="lab-main home">
-<h1>Fantasy Hoops Lab</h1>
-<p>Analysis tools for one Yahoo fantasy basketball league, 2026-27 season.</p>
-<ul>
-__TOOLS__
-</ul>
-</main>
-__SCRIPT__
-</body>
-</html>
-"""

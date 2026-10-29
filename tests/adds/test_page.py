@@ -19,7 +19,7 @@ from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
 from fantasyhoops.adds.team_plan import UTIL
 from fantasyhoops.adds.week_file import SavedAdd, WeekRecord
-from fantasyhoops.core import home as home_page
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
 from fantasyhoops.core.common import load_config
@@ -314,10 +314,10 @@ def test_the_page_lists_the_waiver_players_with_the_clear_day():
     assert "Claim Guy" not in [p["name"] for p in json.loads(raw)["players"]]
 
 
-# A roster of one player for the home page: one playoff day.
+# A roster of one player for the Roster page: one playoff day.
 HOME_ARGS = (
-    [home_page.RosterPlayer("Guard One", "BOS", ("PG",), "PG", rank=1)],
-    [home_page.Day(WEEK[0], "wk19", False, frozenset({"BOS"}), frozenset())],
+    [roster_page.RosterPlayer("Guard One", "BOS", ("PG",), "PG", rank=1)],
+    [roster_page.Day(WEEK[0], "wk19", False, frozenset({"BOS"}), frozenset())],
     {"league": {"slots": ["PG"], "espn_season": 2027, "teams": 14}, "flags": {"avoid_week_games": 1}},
 )
 
@@ -325,14 +325,14 @@ HOME_ARGS = (
 def test_the_home_page_and_the_adds_page_get_the_table_css_from_the_same_source():
     """#143: publish.TABLE_STYLE is the one source of the table CSS. No page holds a copy of its rules."""
     adds_html = fa(options=OPTIONS + [CLAIM])
-    home_html = site.shell(home_page.PAGE_HTML, "home", LEAGUE)
+    home_html = site.shell(roster_page.PAGE_HTML, "home", LEAGUE)
     for html in (adds_html, home_html):
         assert html.count(site.TABLE_STYLE) == 1
-    for own in (page.HTML, home_page.PAGE_HTML):
+    for own in (page.HTML, roster_page.PAGE_HTML):
         assert "__TABLE_CSS__" in own
         for rule in (".lab-t td.band", ".lab-t .pl b", ".lab-t th.pl"):
             assert rule not in own.replace("__TABLE_CSS__", ""), rule
-    assert '<table class="desk lab-t">' in home_page.render(*HOME_ARGS)
+    assert '<table class="desk lab-t">' in roster_page.render(*HOME_ARGS)
     assert (
         '<table class="fa lab-t" id="fa-table">' in adds_html and '<table class="wv lab-t" id="wv-table">' in adds_html
     )
@@ -355,7 +355,11 @@ def test_the_page_shows_the_site_menu_with_the_adds_plan_current():
     assert (
         html.index('<body class="lab">') < html.index('<nav class="lab-menu"') < html.index('<main class="lab-main">')
     )
-    assert '<a href="../adds/" aria-current="page">Adds plan</a>' in html and '<a href="../">Roster</a>' in html
+    assert (
+        '<a href="../adds/" aria-current="page">Adds plan</a>' in html
+        and '<a href="../roster/">Roster</a>' in html
+        and '<a href="../">Home</a>' in html
+    )
     assert ">Auto</button>" in html and ">Light</button>" in html and ">Dark</button>" in html
     assert html.index("<h1>") > html.index("</nav>")
     assert html.rstrip().endswith(f"{site.MENU_SCRIPT}\n</body>\n</html>")
@@ -1069,7 +1073,7 @@ def test_the_free_agents_sections_are_on_the_free_agents_page_and_not_on_the_pla
 
 def test_the_free_agents_page_shows_the_site_menu_with_free_agents_current():
     html = fa()
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Roster", "Adds plan", "Free agents", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
     assert '<a href="../free-agents/" aria-current="page">Free agents</a>' in html
     assert html.count('aria-current="page"') == 1
 

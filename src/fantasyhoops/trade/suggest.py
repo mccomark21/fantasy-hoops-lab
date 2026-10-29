@@ -3,7 +3,7 @@
 The playoff starts of a team count its kept set: the top [trade] kept players by value. The untouchable players
 ([trade] untouchable) and the IL players are always in it. In a trade, the player you get takes the spot of the
 player you give in the kept set. The run does not rank the kept set again after the trade (Decision comment on #150).
-The starts use the home page rules: core/home.py lineup_fit() on the playoff days of home.playoff_days().
+The starts use the Roster page rules: core/roster.py lineup_fit() on the playoff days of roster_page.playoff_days().
 A pair is a suggestion if the value of the player you get is in the value band of the player you give, and the trade
 raises your total playoff starts by 1 or more. The suggestions give only the players of the [trade] offer list (#170). An
 empty list offers each player who is not untouchable. The rank: the gain in total starts, then the gain of your weakest
@@ -13,7 +13,7 @@ week, then your value change.
 from collections import Counter
 from dataclasses import dataclass
 
-from fantasyhoops.core import home
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import name_key
 
 EDGE = 1e-9  # a value on an edge of the value band is in the band, also with a rounding error of the float math
@@ -34,7 +34,7 @@ def player_value(blended, pg):
 class TradePlayer:
     """One player on your team or on the team of a partner.
 
-    name, team, positions, slot, status, rank, rests_b2b: as in home.RosterPlayer. slot is "" for a player of a
+    name, team, positions, slot, status, rank, rests_b2b: as in roster_page.RosterPlayer. slot is "" for a player of a
     partner team, because the rostered list does not show the roster slots.
     value: the blended value per game, or the preseason pg_value if he has no blended value (mark "pre").
     None if he has neither. pg: the preseason pg_value, or None. team_id, team_name: his fantasy team.
@@ -58,8 +58,8 @@ class TradePlayer:
         return self.slot.startswith("IL")
 
     def roster_player(self):
-        """The home.RosterPlayer of the player, for lineup_fit()."""
-        return home.RosterPlayer(
+        """The roster_page.RosterPlayer of the player, for lineup_fit()."""
+        return roster_page.RosterPlayer(
             name=self.name,
             team=self.team,
             positions=tuple(self.positions),
@@ -177,8 +177,8 @@ def swap(kept, give, get):
 
 
 def week_starts(players, days, slots, weeks):
-    """The team starts of players in each week of weeks, with the home page rules (home.lineup_fit())."""
-    fit = home.lineup_fit([p.roster_player() for p in players], days, slots)
+    """The team starts of players in each week of weeks, with the Roster page rules (roster_page.lineup_fit())."""
+    fit = roster_page.lineup_fit([p.roster_player() for p in players], days, slots)
     return tuple(fit.team_week(w)[0] for w in weeks)
 
 
@@ -212,7 +212,7 @@ def suggest(mine, others, days, slots, weeks, settings):
     """Score each 1-for-1 pair of your players and the players of the other teams. Give Suggestions.
 
     mine: your TradePlayers. others: the TradePlayers of the other teams (each with team_id). days: the playoff
-    days (home.playoff_days()). slots: [league] slots. weeks: the names of the playoff weeks.
+    days (roster_page.playoff_days()). slots: [league] slots. weeks: the names of the playoff weeks.
     A pair with no value on either side is not a suggestion. The suggestions give only the offered players
     (settings.is_offered()). The untouchable players are never in a trade.
     """

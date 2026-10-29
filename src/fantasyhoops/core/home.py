@@ -1,482 +1,74 @@
-"""The home page of the site (#120): your roster with the season stats and the fit of each player in the playoff lineup.
+"""The Home page of the site at / (#172): what each page of the site does, the story of the project and the league.
 
-The page shows the players in custom-rank order. Each row has the season stats per game, the starts and games of each
-playoff week, and a grid of the playoff days. Two rows below the team starts give the Used and vs ideal percents.
+The owner approved the sample of 2026-10-29 (docs/wiki/about-home-page-2026-10-29.md). The page holds no live data.
+The examples of the pages are fixed rows with the caption "Example". The league facts come from config.toml.
+The page names no league platform and no data source by name (owner change of 2026-10-29). It says "the league
+site" and "public NBA stats".
 
-The lineup fit uses the rules of core/lineup.py, the one source of the rules (#133): each playoff day, the best lineup
-of the position slots and one Util slot, higher rank first. The IL players are in the lineup pool, because they will
-likely be back by the playoffs. A player with rests_b2b gets no game on the second night of a back-to-back.
-The vs ideal row uses lineup.ideal_games(), and the percent bands use lineup.BANDS. The draft board gets the same
-rules from core/lineup.py.
-
-publish.shell() gives the head, the menu and the menu script of the page (#132), and the shared table style
-publish.TABLE_STYLE (#143): the head, the rows, the team band and the player cell of the Roster table.
-The module takes its data from the caller and opens no file and no web page. write() writes output/home/index.html
-with publish.write_page(), which also writes the font to fonts/ next to the page.
+publish.shell() gives the head, the icon and the preview tags, the menu and the menu script (#132, #166).
+publish.publish() puts the page at the root of the site at each publish (core/publish.py).
+render() gives the page HTML. write() writes output/home/index.html with publish.write_page(), which also writes the
+font to fonts/ next to the page. Run python -m fantasyhoops.core.home to write the page with no publish.
 """
 
 import html
-from dataclasses import dataclass, field
-from datetime import date, timedelta
 
-import pandas as pd
-
+from fantasyhoops.core import common, tokens
+from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core import publish as site
-from fantasyhoops.core import common
-from fantasyhoops.core.lineup import UTIL, band, best_lineup, ideal_games
-from fantasyhoops.core.schedule import playoff_schedule
 
-STATS = ["gp", "min", "pts", "reb", "ast", "threes", "stl", "blk"]  # the keys of RosterPlayer.stats, in page order
-STAT_LABELS = ["GP", "MIN", "PTS", "REB", "AST", "3PM", "STL", "BLK"]
-FEW_GAMES = 2  # [flags] avoid_week_games if config.toml has none: a week with this number of games or fewer
-S1, NONE = ' class="s1"', ' class="none"'
-IL_TITLE = "On IL now. Counts in the playoff starts."
-START, SITS, REST, NO_GAME = "s", "b", "r", "n"  # the marks of the day grid
-MARK_TEXT = {START: "starts", SITS: "game, sits", REST: "rests on back-to-back", NO_GAME: "no game"}
-# The class of each band level of lineup.BANDS on this page
-BAND_CLASS = {"good": "p3", "warn": "p2", "bad": "p1"}
-
-
-@dataclass(frozen=True)
-class RosterPlayer:
-    """One player of your roster.
-
-    team: the ESPN code of his NBA team. positions: his Yahoo positions, for example ("PG", "SG").
-    slot: his roster slot today ("PG", ..., "Util", "BN" or "IL"). status: the Yahoo status, for example "Q".
-    rank: his custom draft rank (draft/rankings.py), or None if he is not in the rankings.
-    rests_b2b: True if he rests on the second night of a back-to-back.
-    stats: his season stats to date (STATS keys), or None if ESPN has no stats for him.
-    """
-
-    name: str
-    team: str
-    positions: tuple
-    slot: str = ""
-    status: str = ""
-    status_name: str = ""
-    rank: int | None = None
-    rests_b2b: bool = False
-    stats: dict | None = None
-
-    @property
-    def on_il(self):
-        return self.slot.startswith("IL")
-
-
-@dataclass(frozen=True)
-class Day:
-    """One day of the playoff weeks. teams: the NBA teams that play. b2b: the teams on the second night of a back-to-back."""
-
-    date: date
-    week: str
-    quality: bool = False
-    teams: frozenset = frozenset()
-    b2b: frozenset = frozenset()
-
-
-@dataclass
-class Fit:
-    """The lineup fit of a roster in the playoff days.
-
-    players: the roster in rank order (the lineup order). marks: one list of day marks for each player.
-    started: the starters of each day. holes: the empty slots of each quality day (0 on other days).
-    """
-
-    players: list
-    days: list
-    slots: list
-    marks: list = field(default_factory=list)
-    started: list = field(default_factory=list)
-    holes: list = field(default_factory=list)
-
-    @property
-    def weeks(self):
-        return list(dict.fromkeys(d.week for d in self.days))
-
-    def _days(self, week):
-        return [i for i, d in enumerate(self.days) if week is None or d.week == week]
-
-    def player_week(self, p, week=None):
-        """(starts, games, games on quality days) of the player at index p in a week. week None: all weeks.
-
-        A rest night is not a game.
-        """
-        idx = self._days(week)
-        starts = sum(self.marks[p][i] == START for i in idx)
-        games = sum(self.marks[p][i] in (START, SITS) for i in idx)
-        quality = sum(self.marks[p][i] in (START, SITS) and self.days[i].quality for i in idx)
-        return starts, games, quality
-
-    def team_week(self, week=None):
-        """(started, games, ideal) of the team in a week. week None: all weeks.
-
-        games: the games of the players, with no rest nights. ideal: lineup.ideal_games() of the week.
-        """
-        if week is None:
-            parts = [self.team_week(w) for w in self.weeks]
-            return tuple(sum(x[i] for x in parts) for i in range(3))
-        idx = self._days(week)
-        started = sum(self.started[i] for i in idx)
-        games = sum(self.player_week(p, week)[1] for p in range(len(self.players)))
-        ideal = ideal_games(len(self.players), [self.days[i].teams for i in idx], self.slots)
-        return started, games, ideal
-
-    def lost(self):
-        """{name: games} of the players who play but get no slot, most first."""
-        out = {p.name: sum(m == SITS for m in marks) for p, marks in zip(self.players, self.marks)}
-        return dict(sorted(((n, k) for n, k in out.items() if k), key=lambda x: -x[1]))
-
-
-def rank_order(players):
-    """The players by rank, highest first. A player with no rank goes last. Equal ranks keep their order."""
-    return sorted(players, key=lambda p: (p.rank is None, p.rank or 0))
-
-
-def lineup_fit(players, days, slots):
-    """The Fit of the players in the days: each day, the best lineup, higher rank first. The IL players count."""
-    ordered = rank_order(players)
-    fit = Fit(ordered, list(days), list(slots), marks=[[] for _ in ordered])
-    for day in fit.days:
-        playing = []
-        for i, p in enumerate(ordered):
-            if p.team not in day.teams:
-                fit.marks[i].append(NO_GAME)
-            elif p.rests_b2b and p.team in day.b2b:
-                fit.marks[i].append(REST)
-            else:
-                fit.marks[i].append(SITS)
-                playing.append(i)
-        lineup = best_lineup([[s for s in ordered[i].positions if s in slots] for i in playing], slots)
-        for j in lineup:
-            fit.marks[playing[j]][-1] = START
-        fit.started.append(len(lineup))
-        fit.holes.append(len(slots) + UTIL - len(lineup) if day.quality else 0)
-    return fit
-
-
-def playoff_days(sched, cfg):
-    """A Day for each date of the playoff weeks of config.toml, from data/schedule.csv (core/schedule.py)."""
-    _, games = playoff_schedule(sched, cfg)
-    by_date = {pd.Timestamp(d.date).date(): d for d in games.itertuples()}
-    out = []
-    for week in cfg["playoffs"]["weeks"]:
-        day, end = pd.Timestamp(week["start"]).date(), pd.Timestamp(week["end"]).date()
-        while day <= end:
-            g = by_date.get(day)
-            out.append(
-                Day(day, week["name"], bool(g.quality), frozenset(g.teams), frozenset(g.b2b))
-                if g is not None
-                else Day(day, week["name"])
-            )
-            day += timedelta(days=1)
-    return out
-
-
-# The page --------------------------------------------------------------------------------------------------------
-
-
-def _e(text):
-    return html.escape(str(text))
-
-
-def _plural(n, word):
-    return f"{n} {word}" if n == 1 else f"{n} {word}s"
-
-
-def _week_label(week):
-    return week[:1].upper() + week[1:]
-
-
-def _short_name(name):
-    """The name without the first name, for example "Black" for "Anthony Black"."""
-    parts = name.split(" ", 1)
-    return parts[1] if len(parts) > 1 else name
-
-
-def _flag(p):
-    if p.on_il:
-        return f' <em class="flag" title="{_e(IL_TITLE)}">IL</em>'
-    if p.status:
-        return f' <em class="flag" title="{_e(p.status_name or p.status)}">{_e(p.status)}</em>'
-    return ""
-
-
-def _letter(d):
-    """The first letter of the weekday, for example "M"."""
-    return f"{d:%a}"[0]
-
-
-def _day_text(d):
-    return f"{d:%a} {d:%b} {d.day}"
-
-
-def _mark(day, mark, title=True):
-    label = f"{_day_text(day.date)}{', quality day' if day.quality else ''}: {MARK_TEXT[mark]}"
-    extra = f' title="{label}"' if title else ""
-    return f'<i class="{mark}" role="img" aria-label="{label}"{extra}></i>'
-
-
-def _day_class(fit, i, base):
-    day = fit.days[i]
-    first = i == 0 or fit.days[i - 1].week != day.week
-    return " ".join(c for c in (base, "q" if day.quality else "", "wk1" if first else "") if c)
-
-
-def _pct(got, all_):
-    """The percent cell: the band class, the meter, the percent and the band text for a screen reader."""
-    if not all_:
-        return '<span class="pc"><b>–</b></span>'
-    ratio = got / all_
-    level, text = band(ratio)
-    cls = BAND_CLASS[level]
-    meter = '<i class="mtr" aria-hidden="true"><i></i><i></i><i></i></i>'
-    return f'<span class="pc {cls}">{meter}<b>{int(100 * ratio + 0.5)}%</b><span class="vh"> ({text})</span></span>'
-
-
-def _pct_text(got, all_):
-    return f"{got}/{all_} · {int(100 * got / all_ + 0.5)}%" if all_ else "–"
-
-
-def _week_cell(starts, games, quality, classes, few):
-    """A week cell of a player: starts/games and the games on quality days."""
-    lo = " lo" if starts < games else ""
-    shown = f'<span class="few">{games}</span>' if few else str(games)
-    few_text = ", 2 or fewer games" if few else ""
-    return (
-        f'<td class="{classes}{lo}">{starts}<s aria-hidden="true">/{shown}</s>'
-        f'<span class="vh"> starts of {_plural(games, "game")}{few_text}</span>'
-        f'<small class="qg">{quality} q</small><span class="vh">, {quality} on quality days</span></td>'
-    )
-
-
-def _stat(p, key):
-    if not p.stats or p.stats.get(key) is None:
-        return None
-    v = p.stats[key]
-    return str(int(v)) if key == "gp" else f"{v:.1f}"
-
-
-def _desk_head(fit, week_names):
-    n = len(fit.days)
-    first, last = fit.days[0].date, fit.days[-1].date
-    span = (
-        f"{first:%b} {first.day}–{last.day}"
-        if first.month == last.month
-        else f"{first:%b} {first.day}–{last:%b} {last.day}"
-    )
-    top = (
-        '<tr class="top"><td colspan="3"></td>'
-        f'<th colspan="{len(STATS)}" scope="colgroup" class="l sec">__SEASON__ season · per game</th>'
-        f'<th colspan="{len(week_names) + 1}" scope="colgroup" class="fine sec">Playoff starts / games</th>'
-        f'<th colspan="{n}" scope="colgroup" class="l sec gdh">Playoff days · {span} · '
-        '<i class="qk" aria-hidden="true"></i>quality day</th></tr>'
-    )
-    cells = ['<th scope="col" class="l">Team</th>', '<th scope="col">Rk</th>', '<th scope="col" class="l">Player</th>']
-    cells += [f'<th scope="col"{S1 if i == 0 else ""}>{label}</th>' for i, label in enumerate(STAT_LABELS)]
-    cells += [
-        f'<th scope="col" class="w{" w1" if i == 0 else ""}">{_week_label(w)}</th>' for i, w in enumerate(week_names)
-    ]
-    cells.append('<th scope="col" class="w t">T</th>')
-    for i, day in enumerate(fit.days):
-        d = day.date
-        title = f"{d:%A} {d:%B} {d.day}{', quality day' if day.quality else ''}"
-        cells.append(
-            f'<th scope="col" class="{_day_class(fit, i, "d")}"><abbr title="{title}">{_letter(d)}</abbr>'
-            f"<u>{d.day}</u></th>"
-        )
-    return top, f'<tr class="sub">{"".join(cells)}</tr>', span
-
-
-def _desk_row(fit, p_idx, few_limit):
-    p = fit.players[p_idx]
-    cls = ' class="il"' if p.on_il else ""
-    rank = p.rank if p.rank is not None else "–"
-    pos = "/".join(p.positions)
-    cells = [
-        f'<td class="band" style="{site.band_style(p.team)}">{_e(p.team)}</td>',
-        f'<td class="rk">{rank}</td>',
-        f'<th class="pl" scope="row"><b>{_e(p.name)}</b>{_flag(p)}<small>{_e(p.team)} · {_e(pos)} · {_e(p.slot)}</small></th>',
-    ]
-    for i, key in enumerate(STATS):
-        v = _stat(p, key)
-        cls_n = " ".join(c for c in ("n", "none" if v is None else "", "s1" if i == 0 else "") if c)
-        cells.append(f'<td class="{cls_n}">{v if v is not None else "–"}</td>')
-    for i, w in enumerate(fit.weeks):
-        s, g, q = fit.player_week(p_idx, w)
-        cells.append(_week_cell(s, g, q, "w w1" if i == 0 else "w", g <= few_limit))
-    s, g, q = fit.player_week(p_idx)
-    cells.append(_week_cell(s, g, q, "w t", False))
-    for i, day in enumerate(fit.days):
-        cells.append(f'<td class="{_day_class(fit, i, "d")}">{_mark(day, fit.marks[p_idx][i])}</td>')
-    return f"<tr{cls}>{''.join(cells)}</tr>"
-
-
-def _lost_text(fit):
-    lost = fit.lost()
-    total, holes = sum(lost.values()), sum(fit.holes)
-    names = ", ".join(f"{_short_name(n)} {k}" for n, k in lost.items())
-    first = f"{_plural(total, 'start')} lost to a full lineup ({names})" if total else "No starts lost to a full lineup"
-    return f"{first} · {_plural(holes, 'open slot')} on quality days"
-
-
-def _empty_days(fit):
-    return "".join(f'<td class="{_day_class(fit, i, "d")}"></td>' for i in range(len(fit.days)))
-
-
-def _desk_foot(fit):
-    weeks = fit.weeks
-    rows = []
-    cells = [f'<td class="w{" w1" if i == 0 else ""}">{fit.team_week(w)[0]}</td>' for i, w in enumerate(weeks)]
-    cells.append(f'<td class="w t">{fit.team_week()[0]}</td>')
-    rows.append(
-        '<tr class="tot"><th colspan="3" scope="row" class="lab">Team starts</th>'
-        f'<td colspan="{len(STATS)}" class="note s1">{_e(_lost_text(fit))}</td>{"".join(cells)}{_empty_days(fit)}</tr>'
-    )
-    for label, k, sr in (("Used (started / games)", 1, "games start"), ("vs ideal", 2, "ideal games")):
-        parts = [(w, fit.team_week(w)) for w in weeks] + [(None, fit.team_week())]
-        cells = []
-        for i, (w, t) in enumerate(parts):
-            c = "w t" if w is None else ("w w1" if i == 0 else "w")
-            cells.append(
-                f'<td class="{c}">{_pct(t[0], t[k])}<small class="qg">{t[0]}/{t[k]}</small>'
-                f'<span class="vh"> ({t[0]} of {t[k]} {sr})</span></td>'
-            )
-        total = fit.team_week()
-        rows.append(
-            f'<tr class="use"><th colspan="{3 + len(STATS)}" scope="row" class="lab2">{label} · '
-            f"{_pct_text(total[0], total[k])}</th>{''.join(cells)}{_empty_days(fit)}</tr>"
-        )
-    return "\n".join(rows)
-
-
-def _mob_row(fit, p_idx, few_limit):
-    p = fit.players[p_idx]
-    rank = p.rank if p.rank is not None else "–"
-    gp = _stat(p, "gp")
-    total = fit.player_week(p_idx)
-    stats = []
-    for key, label in zip(STATS[1:], STAT_LABELS[1:]):
-        v = _stat(p, key)
-        stats.append(f"<div><dt>{label}</dt><dd{NONE if v is None else ''}>{v or '–'}</dd></div>")
-    weeks = []
-    for w in fit.weeks + [None]:
-        s, g, q = fit.player_week(p_idx, w)
-        few = w is not None and g <= few_limit
-        shown = f'<span class="few">{g}</span><span class="vh"> games, 2 or fewer</span>' if few else str(g)
-        lo = ' class="lo"' if s < g else ""
-        label = _week_label(w) if w else "Total"
-        weeks.append(f"<div{lo}><dt>{label}</dt><dd><b>{s}</b><s>/{shown}</s><small>{q} q</small></dd></div>")
-    head = "".join(
-        f'<span class="{_day_class(fit, i, "")}" aria-hidden="true">{_letter(day.date)}<u>{day.date.day}</u></span>'
-        for i, day in enumerate(fit.days)
-    )
-    marks = "".join(
-        f'<span class="{_day_class(fit, i, "")}">{_mark(day, fit.marks[p_idx][i], title=False)}</span>'
-        for i, day in enumerate(fit.days)
-    )
-    head = head.replace(' class=""', "")
-    marks = marks.replace(' class=""', "")
-    return (
-        f'<details class="m-p{" il" if p.on_il else ""}">\n'
-        f'<summary><span class="band" style="{site.band_style(p.team)}">{_e(p.team)}</span>'
-        f'<span class="rk"><span class="vh">Rank </span>{rank}</span>'
-        f'<span class="nm"><b>{_e(p.name)}</b>{_flag(p)}<small>{_e("/".join(p.positions))} · {_e(p.slot)}</small></span>'
-        f'<span class="gp"><span class="vh">, games played </span>{gp or "–"}</span>'
-        f'<span class="tg"><span class="vh">, playoff games </span>{total[1]}</span>'
-        '<span class="chev" aria-hidden="true"></span></summary>\n'
-        '<div class="m-body">\n'
-        f'<dl class="m-stats" aria-label="Season per game">{"".join(stats)}</dl>\n'
-        f'<dl class="m-weeks" aria-label="Playoff starts / games">{"".join(weeks)}</dl>\n'
-        f'<div class="m-grid">{head}{marks}</div>\n'
-        "</div>\n</details>"
-    )
-
-
-def _mob_foot(fit):
-    weeks = fit.weeks
-    starts = "".join(f"<div><dt>{_week_label(w)}</dt><dd>{fit.team_week(w)[0]}</dd></div>" for w in weeks)
-    starts += f'<div class="t"><dt>Total</dt><dd>{fit.team_week()[0]}</dd></div>'
-    parts = []
-    for label, k in (("Used (started / games)", 1), ("vs ideal", 2)):
-        cells = "".join(
-            f'<div><dt class="vh">{_week_label(w) if w else "Total"}</dt><dd>{_pct(t[0], t[k])}<small>{t[0]}/{t[k]}</small></dd></div>'
-            for w, t in [(w, fit.team_week(w)) for w in weeks] + [(None, fit.team_week())]
-        )
-        parts.append(f'<p class="ul">{label}</p><dl class="u">{cells}</dl>')
-    return f'<div class="m-tot"><b>Team starts</b><dl>{starts}</dl>{"".join(parts)}<p>{_e(_lost_text(fit))}</p></div>'
-
-
-def _title(name):
-    """The team name for the page header. A trademark sign goes up as in the sample."""
-    return _e(name).replace("™", "<sup>™</sup>")
-
-
-def render(players, days, cfg, week=None, adds=None, today=None, team_name=None, record=None):
-    """The HTML of the home page.
-
-    players: RosterPlayer list in any order. days: Day list (playoff_days()). cfg: config.toml.
-    week: the number of the current fantasy week, or None. adds: (used, limit) of this week, or None.
-    today: the date of the run. team_name: the name in the page header (default "Roster").
-    record: the season record (W-L-T) of the team, for example "4-2-1", or None. The header shows it after the
-    name, then the This week and Playoffs items (#142). With None, the header has no record.
-    [league] teams of cfg gives the team count in the site menu.
-    """
-    slots = cfg["league"]["slots"]
-    few_limit = cfg.get("flags", {}).get("avoid_week_games", FEW_GAMES)
-    fit = lineup_fit(players, days, slots)
-    week_names = fit.weeks
-    top, sub, span = _desk_head(fit, week_names)
-    season = cfg["league"].get("espn_season")
-    season_text = f"{season - 1}–{str(season)[2:]}" if season else ""
-    top = top.replace("__SEASON__", season_text)
-    rows = "\n".join(_desk_row(fit, i, few_limit) for i in range(len(fit.players)))
-    mob = "\n".join(_mob_row(fit, i, few_limit) for i in range(len(fit.players)))
-    first, last = _week_label(week_names[0]), week_names[-1]
-    digits = "".join(c for c in last if c.isdigit())
-    meta = []
-    if record:
-        meta.append(f'<div class="rec"><dt>Record</dt><dd><strong>{_e(record)}</strong></dd></div>')
-    if week is not None:
-        used = f' · <strong class="red">{adds[0]}</strong> of {adds[1]} adds used' if adds else ""
-        meta.append(f"<div><dt>This week</dt><dd><strong>Week {week}</strong>{used}</dd></div>")
-    meta.append(f"<div><dt>Playoffs</dt><dd><strong>{first}–{digits}</strong> · {span}</dd></div>")
-    made = f" Made {today:%a} {today.month}/{today.day}." if today else ""
-    caption = (
-        "Roster in custom-rank order: season stats per game, playoff starts and games, and the playoff day grid. "
-        "IL players count in the starts."
-    )
-    n_days = len(fit.days)
-    desk = (
-        '<div class="scroll" tabindex="0" role="region" aria-label="Roster table">\n<table class="desk lab-t">\n'
-        f'<caption class="vh">{caption}</caption>\n'
-        f'<colgroup><col class="c-band"><col class="c-rk"><col class="c-pl"><col class="c-n" span="{len(STATS)}">'
-        f'<col class="c-w" span="{len(week_names) + 1}"><col class="c-d" span="{n_days}"></colgroup>\n'
-        f"<thead>\n{top}\n{sub}\n</thead>\n<tbody>\n{rows}\n</tbody>\n<tfoot>\n{_desk_foot(fit)}\n</tfoot>\n"
-        "</table>\n</div>"
-    )
-    mobile = (
-        f'<section class="mob" aria-label="Roster" style="--days:{n_days}">\n'
-        '<div class="m-head" aria-hidden="true"><span>Team</span><span>Rk</span><span>Player · Pos</span>'
-        "<span>GP</span><span>Games</span><span></span></div>\n"
-        f"{mob}\n{_mob_foot(fit)}\n</section>"
-    )
-    foot = (
-        f"Stats: ESPN, {season_text} regular season to date. Rank: your custom draft rank. "
-        "Starts: the best lineup each day, higher rank first. IL players are in the lineup pool, because they will "
-        "likely be back by the playoffs. Used: started / the games of your players, with no rest nights. "
-        "vs ideal: started / the games of the same number of players with the most games of the week, at most "
-        f"{len(slots) + UTIL} starters a day. Both rows use the math of the draft board.{made}"
-    )
-    template = PAGE_HTML.replace("__DAYS1__", str(n_days + 1)).replace("__DAYS__", str(n_days))
-    return (
-        site.shell(template, "home", cfg)
-        .replace("__TITLE__", _title(team_name or "Roster"))
-        .replace("__METACLASS__", "meta with-rec" if record else "meta")
-        .replace("__META__", "\n".join(meta))
-        .replace("__DESK__", desk)
-        .replace("__MOB__", mobile)
-        .replace("__FOOT__", foot)
-    )
+REPO_URL = "https://github.com/mccomark21/fantasy-hoops-lab"
+# The scoring categories of the league. The value math uses the 6 categories of [weights] in config.toml.
+CATEGORIES = ("PTS", "REB", "AST", "3PM", "BLK", "STL")
+PUNTED = ("FG%", "FT%", "TO")
+ARROW = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9M8 3.5 12.5 8 8 12.5"/></svg>'
+EXAMPLE_TEAMS = ("DAL", "MIN", "TOR", "CHA")  # the NBA teams of the example rows
+
+
+def _band(team):
+    """The style attribute of an example team band: the team color and its text color (core/tokens.py)."""
+    color = tokens.TEAM_COLORS[team]
+    return f"--team:{color};--team-ink:{tokens.team_ink(color)}"
+
+
+def _week_number(name):
+    """The number of a playoff week name, for example 19 for "wk19"."""
+    return int("".join(c for c in name if c.isdigit()))
+
+
+def facts(cfg):
+    """The league facts of the page from cfg (config.toml), as {placeholder: text}."""
+    league = cfg["league"]
+    weeks = cfg["playoffs"]["weeks"]
+    first, last = _week_number(weeks[0]["name"]), _week_number(weeks[-1]["name"])
+    season = league["espn_season"]
+    return {
+        "__TEAMS__": str(league["teams"]),
+        "__BUDGET__": str(cfg["auction"]["budget"]),
+        "__SLOTS__": ", ".join(league["slots"]),
+        "__BENCH__": str(league["roster_spots"] - len(league["slots"]) - 1),
+        "__ADDS__": str(league["adds"]),
+        "__WEEKS__": f"{first} to {last}",
+        "__DAYS__": str(sum((w["end"] - w["start"]).days + 1 for w in weeks)),
+        "__KEPT__": str(cfg["trade"]["kept"]),
+        "__SEASON__": f"{season - 1}–{str(season)[2:]}",
+        "__PUNTED__": f"{', '.join(PUNTED[:-1])} and {PUNTED[-1]}",
+        "__PUNTS__": " ".join(f"<s>{html.escape(p)}</s>" for p in PUNTED),
+        "__PUNT_COUNT__": str(len(PUNTED)),
+        "__CATEGORIES__": ", ".join(CATEGORIES),
+        "__CAT_COUNT__": str(len(CATEGORIES)),
+        "__ALL_COUNT__": str(len(CATEGORIES) + len(PUNTED)),
+    }
+
+
+def render(cfg):
+    """The HTML of the Home page. cfg: the config. It gives the league facts and the team count of the site menu."""
+    text = site.shell(PAGE_HTML, "home", cfg)
+    for key, value in facts(cfg).items():
+        text = text.replace(key, value)
+    for team in EXAMPLE_TEAMS:
+        text = text.replace(f"__BAND_{team}__", _band(team))
+    return text.replace("__ARROW__", ARROW).replace("__REPO__", REPO_URL)
 
 
 def page_path():
@@ -489,216 +81,141 @@ def write(text, path=None):
     return site.write_page(path or page_path(), text)
 
 
-PAGE_STYLE = """/* Card Back roster page (#120): zebra rows, full-height quality-day columns, section rules, IL in the starts. */
-.roster {
-  color: var(--lab-ink); font: 400 13px/1.25 var(--lab-face); font-variant-numeric: tabular-nums;
-  padding-block: 16px 32px; padding-left: max(28px, env(safe-area-inset-left));
-  padding-right: max(28px, env(safe-area-inset-right));
-}
-.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 28px; padding-bottom: 12px;
-  border-bottom: 3px solid var(--mark); }
-.head h1 { margin: 0; color: var(--mark); font-weight: 900; font-stretch: 66%; font-size: clamp(32px, 4vw, 44px);
-  line-height: .9; text-transform: uppercase; text-wrap: balance; }
-.head h1 sup { font-size: .35em; font-stretch: 100%; vertical-align: top; }
-/* The record and the week items follow the name on the same line (#142). They go below the name on a narrow page. */
-.meta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 0; margin: 0; font-size: 13px; }
-.meta div { padding: 0 16px; border-left: 1px solid var(--lab-rule); }
-.meta dt { color: var(--lab-mute); font-size: 12px; margin-bottom: 3px; }
-.meta dd { margin: 0; }
-.meta strong { font-weight: 800; font-size: 15px; }
-.meta .rec strong { font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }
-.red { color: var(--lab-red); }
-.flag { font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-on-red); background: var(--lab-red);
-  padding: 1px 4px; vertical-align: 3px; margin-left: 4px; }
+def main():
+    """Write the Home page to output/home/index.html with no publish, and print the path."""
+    print(f"Wrote the Home page: {write(render(common.load_config()))}")
 
-/* Desktop table */
-.scroll { position: relative; overflow-x: auto; margin-top: 10px; scrollbar-color: var(--mark) var(--zebra); }
-.scroll:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
-/* publish.TABLE_STYLE gives the head, the rows, the band, the rank and the player cell (issue 143). */
-table.desk { table-layout: fixed; min-width: 1130px; }
-col.c-band { width: 44px; } col.c-rk { width: 38px; } col.c-pl { width: 196px; } col.c-n { width: 34px; }
-col.c-w { width: 46px; } col.c-d { width: 18px; }
-tr.top th, tr.top td { border-bottom: 0; padding-bottom: 4px; font-size: 12px; }
-tr.top th.fine { background: var(--lab-blue); color: var(--lab-on-blue); text-align: center; padding: 5px 0; }
-tr.top th.gdh { padding-left: 8px; white-space: nowrap; }
-td.n:nth-child(6) { font-weight: 800; }
-td.n.none { color: var(--lab-mute); }
-td.w { font-size: 14px; font-weight: 700; line-height: 1.1; }
-td.w s { text-decoration: none; color: var(--lab-mute); font-weight: 400; }
-td.w .qg { display: block; margin-top: 1px; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
-td.w.lo { color: var(--lab-red); }
-td.w.t { color: var(--mark); font-weight: 900; }
-td.w.t.lo { color: var(--lab-red); }
 
-/* Section rules: player | season | playoff weeks | day grid, and between the weeks */
-.s1, .w1, .w, .wk1 { border-left: 1px solid var(--vrule); }
-tr.top .sec { border-left: 1px solid var(--vrule); }
-tr.top th.fine { border-left-color: var(--lab-blue); }
+PAGE_STYLE = """/* The Home page (#172). Colors only from the tokens. */
+.hm { max-width: 1000px; box-sizing: border-box;
+  padding: 24px max(28px, env(safe-area-inset-right)) 40px max(28px, env(safe-area-inset-left));
+  font: 400 15px/1.5 var(--lab-face); font-variant-numeric: tabular-nums; }
+.hm *, .hm *::before, .hm *::after { box-sizing: border-box; }
+.hm a { color: var(--mark); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.hm a:hover { text-decoration-thickness: 2px; }
+.hm a:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+.hm-top h1 { margin: 0; padding-bottom: 12px; border-bottom: 3px solid var(--mark); color: var(--mark);
+  font-weight: 900; font-stretch: 66%; font-size: clamp(36px, 5vw, 56px); line-height: .9;
+  text-transform: uppercase; text-wrap: balance; }
+.hm-lede { max-width: 58ch; margin: 14px 0 0; font-size: 17px; line-height: 1.45; text-wrap: pretty; }
+.hm-sec { margin-top: 44px; }
+.hm-sec h2 { margin: 0 0 4px; padding-bottom: 6px; border-bottom: 2px solid var(--mark);
+  font-weight: 900; font-stretch: 75%; font-size: 19px; line-height: 1.1; text-transform: uppercase; }
 
-/* Day grid: one column for each day. A quality day is a shaded column, full height, with a solid header block. */
-th.d, td.d { padding: 0 !important; text-align: center !important; }
-.d.q { background: var(--qcol) !important; }
-tbody tr:nth-child(even) > .d.q { background: var(--qcol-z) !important; }
-th.d { font-size: 11px; font-weight: 700; color: var(--lab-mute); line-height: 1.15; padding: 2px 0 5px !important; }
-th.d abbr { text-decoration: none; display: block; }
-th.d u { display: block; text-decoration: none; color: var(--lab-ink); }
-thead th.d.q { background: var(--mark) !important; color: var(--lab-stock); }
-thead th.d.q u { color: var(--lab-stock); }
-.qk { display: inline-block; width: 10px; height: 10px; background: var(--mark); vertical-align: -1px; margin: 0 4px 0 2px; }
+/* One ruled row for each page: the text at the left, an example of the page at the right. */
+.pg { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 32px; align-items: start;
+  padding: 22px 0 24px; border-bottom: 1px solid var(--lab-rule); }
+.pg-text { max-width: 46ch; }
+.pg h3 { margin: 0; font-weight: 900; font-stretch: 66%; font-size: 30px; line-height: 1; text-transform: uppercase; }
+.pg h3 a { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.pg h3 a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.pg h3 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4;
+  transition: transform .2s cubic-bezier(.16, 1, .3, 1); }
+.pg h3 a:hover svg { transform: translateX(3px); }
+.pg-job { margin: 8px 0 6px; font-weight: 800; font-size: 16px; line-height: 1.35; }
+.pg-text p:not(.pg-job) { margin: 0; color: var(--lab-mute); }
+.pg-fig { margin: 4px 0 0; min-width: 0; }
+.pg-fig figcaption { margin-top: 8px; font-size: 12px; color: var(--lab-mute); }
+@media (max-width: 1099px) { .pg { grid-template-columns: 1fr; gap: 16px; } .pg-text { max-width: 62ch; } }
+@media (prefers-reduced-motion: reduce) { .pg h3 svg { transition: none; } }
 
-.d i, .m-grid i, .legend i.k { display: inline-block; box-sizing: border-box; width: 13px; height: 13px;
-  position: relative; vertical-align: middle; }
-i.s { background: var(--mark); }
-i.b, i.r { border: 1.5px solid var(--mark); }
-i.r::after { content: ""; position: absolute; left: -2px; top: 5px; width: 14px; height: 1.5px; background: var(--mark);
-  transform: rotate(-45deg); }
-i.n::after { content: ""; position: absolute; left: 3px; top: 5.5px; width: 6px; height: 1.5px;
-  background: var(--lamp-off); }
+/* Roster example. */
+.sp-roster td.band, .sp-fa td.band { width: 46px; }
+.sp-roster td.rk { width: 38px; }
+.sp-roster tbody td { font-size: 14px; }
+.sp-roster b { font-weight: 800; }
+.sp-roster .lost { color: var(--lab-red); }
 
-tfoot tr.tot th, tfoot tr.tot td { height: 34px; border-bottom: 2px solid var(--mark); border-top: 2px solid var(--mark);
-  font-size: 12px; font-weight: 800; color: var(--mark); padding: 0 6px; text-align: right; }
-tfoot tr.use th, tfoot tr.use td { height: 34px; padding: 0 6px; text-align: right; font-size: 12px; color: var(--mark);
-  border-bottom: 1px solid var(--lab-rule); }
-tfoot tr.use:last-child > * { border-bottom: 2px solid var(--mark); }
-tfoot tr.use th.lab2 { text-align: left; padding-left: 10px; font-weight: 800; }
-tfoot tr.use td.w b { font-weight: 900; font-size: 13px; } tfoot tr.use td.w .qg { font-weight: 600; }
-tr.tot .lab { text-align: left; padding-left: 10px; text-transform: uppercase; font-size: 13px; }
-tr.tot td.w { background: var(--lab-blue); color: var(--lab-on-blue); font-size: 15px;
-  border-left-color: color-mix(in srgb, var(--lab-on-blue) 35%, transparent); }
-tr.tot td.note { color: var(--lab-mute); font-weight: 600; text-align: left; padding: 5px 6px 5px 12px; line-height: 1.3;
-  font-size: 11px; }
+/* Adds plan example: a small week grid. */
+.sp-grid { display: grid; grid-template-columns: 52px repeat(7, minmax(0, 1fr)); font-size: 12px; }
+.sp-grid > span { --t: 0%; background: color-mix(in srgb, var(--mark) var(--t), var(--lab-stock)); }
+.sp-grid > .g-lab { background: none; font-weight: 800; font-size: 11px; display: flex; align-items: center; }
+.sp-grid .g-day { text-align: center; padding: 6px 0 2px; font-weight: 900; font-stretch: 75%; font-size: 14px; }
+.sp-grid .g-n { text-align: center; padding: 2px 0 8px; font-weight: 800; font-size: 14px; border-bottom: 2px solid var(--lab-ink); }
+.sp-grid .g-lab.rule { border-bottom: 2px solid var(--lab-ink); }
+.sp-grid .past { background: color-mix(in srgb, var(--lab-mute) 10%, var(--lab-stock)); color: var(--lab-mute); font-weight: 400; }
+.sp-grid .g-c { height: 62px; display: flex; align-items: center; position: relative; }
+.sp-grid .g-c.start::before { content: ""; position: absolute; left: 50%; right: 0; top: calc(50% - 3px); height: 6px; background: var(--lab-ink); }
+.g-add { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; width: calc(100% - 4px);
+  margin: 0 2px; height: 52px; background: var(--lab-stock); border: 1.5px solid var(--lab-ink); border-top-width: 3px;
+  text-align: center; font-size: 11px; color: var(--mark); }
+.g-add u { text-underline-offset: 2px; }
+.g-add b { font-weight: 900; font-stretch: 75%; font-size: 13px; color: var(--lab-ink); display: block; }
+.g-band { width: 100%; height: 6px; background: var(--lab-ink); display: flex; justify-content: center; align-items: center; }
+.g-band i { width: 16px; height: 16px; background: var(--lab-ink); }
 
-.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 12px; color: var(--lab-mute);
-  padding-top: 12px; }
-.legend > b { color: var(--mark); font-weight: 800; }
-.legend i.k { margin-right: 5px; }
-.legend .qsw { display: inline-block; width: 13px; height: 20px; background: var(--qcol); border-top: 5px solid var(--mark);
-  box-sizing: border-box; vertical-align: middle; margin-right: 5px; }
-.legend .flag { margin: 0 5px 0 0; vertical-align: 0; }
-.lo-key { color: var(--lab-red); font-weight: 800; margin-right: 5px; }
-/* A week with 2 or fewer games: a red box on the games numeral, so the sign is a shape and not only a color. */
-.few { display: inline-block; min-width: 1.1em; padding: 0 2px; margin-left: 1px; border: 1.5px solid var(--lab-red);
-  color: var(--lab-red); font-weight: 800; text-align: center; line-height: 1.15; }
-.few-key { color: var(--lab-mute); margin-right: 5px; }
-/* The footer percents: the bands of pctClass in draft/board.py, with a bar meter (3 bars = 90%+, 2 = 70-89%, 1 = less) */
-.pc { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
-.pc b { font-weight: 900; }
-.mtr { display: inline-flex; align-items: flex-end; gap: 1px; height: 10px; }
-.mtr i { display: block; width: 3px; background: var(--vrule); }
-.mtr i:nth-child(1) { height: 4px; } .mtr i:nth-child(2) { height: 7px; } .mtr i:nth-child(3) { height: 10px; }
-.p3 { color: var(--mark); } .p2 { color: var(--lab-ink); }
-.p3 .mtr i, .p2 .mtr i:nth-child(-n+2) { background: currentColor; }
-.p1 { background: var(--lab-red); color: var(--lab-on-red); padding: 1px 3px; }
-.p1 .mtr i:nth-child(1) { background: var(--lab-on-red); }
-.p1 .mtr i:nth-child(n+2) { background: color-mix(in srgb, var(--lab-on-red) 35%, transparent); }
-.pc-key { display: inline-flex; gap: 8px; margin-right: 5px; }
-.q-key { color: var(--lab-mute); font-weight: 600; margin-right: 5px; }
-.foot { max-width: 72ch; margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--lab-mute); text-wrap: pretty; }
+/* Free agents example: day chips and one row. */
+.sp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chip { display: inline-flex; flex-direction: column; align-items: center; padding: 5px 10px; border: 1.5px solid var(--lamp-off);
+  background: var(--lab-stock); font-weight: 800; font-size: 13px; line-height: 1.2; }
+.chip small { font-weight: 400; font-size: 11px; color: var(--lab-mute); }
+.chip.on { background: var(--mark); border-color: var(--mark); color: var(--lab-stock); }
+.chip.on small { color: var(--lab-stock); }
+.sp-fa thead td.sorted { box-shadow: inset 0 -3px 0 var(--mark); }
+.flag { display: inline-block; vertical-align: 3px; padding: 0 3px; border: 1.5px solid var(--lab-ink); font-size: 11px; font-weight: 800; line-height: 1.3; }
 
-/* Phone: one row for each player that opens and closes */
-.mob { display: none; }
-@media (max-width: 899px) {
-  .roster { padding-block: 16px 24px; padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right)); }
-  .meta div:first-child { padding-left: 0; border-left: 0; }
-  /* With a record, the record takes the left column and the two week items stack at its right, so no item wraps
-     alone under the record at 390px. */
-  .meta.with-rec { display: grid; grid-template-columns: auto 1fr; row-gap: 8px; }
-  .meta.with-rec .rec { grid-row: span 2; align-self: center; padding-right: 16px; }
-  .scroll { display: none; }
-  .mob { display: block; margin: 10px -16px 0; }
-  .m-head, .m-p summary { display: grid; grid-template-columns: 44px 34px 1fr 30px 46px 26px; align-items: center;
-    column-gap: 0; }
-  .m-head { font-size: 11px; font-weight: 800; color: var(--mark); padding: 0 0 5px; border-bottom: 2px solid var(--mark); }
-  .m-head span { padding: 0 4px; } .m-head span:nth-child(1) { padding-left: 16px; text-align: left; }
-  .m-head span:nth-child(2), .m-head span:nth-child(4), .m-head span:nth-child(5) { text-align: right; }
-  .m-head span:nth-child(3) { padding-left: 10px; }
-  .m-p { border-bottom: 1px solid var(--lab-rule); }
-  .m-p:nth-of-type(even) { background: var(--zebra); }
-  .m-p summary { list-style: none; cursor: pointer; min-height: 52px; }
-  .m-p summary::-webkit-details-marker { display: none; }
-  .m-p summary:focus-visible { outline: 2px solid var(--mark); outline-offset: -2px; }
-  .m-p .band { align-self: stretch; display: flex; align-items: center; justify-content: center; }
-  .m-p .rk { text-align: right; padding-right: 4px; }
-  .m-p .nm { padding: 6px 4px 6px 10px; line-height: 1; min-width: 0; }
-  .m-p .nm small { display: block; font-size: 12px; color: var(--lab-mute); margin-top: 3px; }
-  .m-p .gp, .m-p .tg { text-align: right; font-size: 15px; padding-right: 4px; }
-  .m-p .tg { font-weight: 800; color: var(--mark); border-left: 1px solid var(--vrule); align-self: stretch; display: flex;
-    align-items: center; justify-content: flex-end; }
-  .chev { justify-self: center; width: 8px; height: 8px; border-right: 2px solid var(--mark);
-    border-bottom: 2px solid var(--mark); transform: translateY(-2px) rotate(45deg);
-    transition: transform .2s cubic-bezier(.16, 1, .3, 1); }
-  .m-p[open] .chev { transform: translateY(2px) rotate(-135deg); }
-  .m-p[open] summary { border-bottom: 1px solid var(--lab-rule); }
-  .m-body { padding: 10px 16px 14px 16px; display: grid; gap: 12px; }
-  .m-body dl { margin: 0; display: grid; }
-  .m-body dt { font-size: 11px; font-weight: 800; color: var(--mark); }
-  .m-body dd { margin: 2px 0 0; font-size: 14px; }
-  .m-body dd.none { color: var(--lab-mute); }
-  .m-body dl > div { padding: 0 6px; text-align: right; }
-  .m-body dl > div + div { border-left: 1px solid var(--vrule); }
-  .m-stats { grid-template-columns: repeat(7, 1fr); }
-  .m-stats > div:first-child, .m-weeks > div:first-child { padding-left: 0; }
-  .m-weeks { grid-template-columns: repeat(4, 1fr); }
-  .m-weeks dd b { font-size: 16px; font-weight: 700; }
-  .m-weeks dd s { text-decoration: none; color: var(--lab-mute); }
-  .m-weeks dd small { display: block; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
-  .m-weeks .lo dd b { color: var(--lab-red); }
-  .m-weeks > div:last-child dd b { font-weight: 900; color: var(--mark); }
-  .m-weeks > div.lo:last-child dd b { color: var(--lab-red); }
-  .m-grid { display: grid; grid-template-columns: repeat(var(--days), 1fr); }
-  .m-grid > span { text-align: center; font-size: 10px; font-weight: 700; color: var(--lab-mute); line-height: 1.1;
-    padding: 2px 0; }
-  .m-grid > span:nth-child(-n+__DAYS__) { padding-bottom: 3px; }
-  .m-grid > span:nth-child(n+__DAYS1__) { padding: 4px 0 5px; }
-  .m-grid u { display: block; text-decoration: none; color: var(--lab-ink); }
-  .m-grid > .q { background: var(--qcol); }
-  .m-p:nth-of-type(even) .m-grid > .q { background: var(--qcol-z); }
-  .m-p .m-grid > .q:nth-child(-n+__DAYS__), .m-p:nth-of-type(even) .m-grid > .q:nth-child(-n+__DAYS__) {
-    background: var(--mark); color: var(--lab-stock); }
-  .m-grid > .q:nth-child(-n+__DAYS__) u { color: var(--lab-stock); }
-  .m-grid > .wk1 { border-left: 1px solid var(--vrule); }
-  .m-grid i { width: 12px; height: 12px; }
-  .m-tot { padding: 10px 16px 4px; border-top: 2px solid var(--mark); border-bottom: 2px solid var(--mark);
-    color: var(--mark); }
-  .m-tot b { text-transform: uppercase; font-weight: 800; font-size: 13px; }
-  .m-tot dl { display: grid; grid-template-columns: repeat(4, 1fr); margin: 6px 0; }
-  .m-tot dl > div { text-align: right; padding: 0 6px; } .m-tot dl > div + div { border-left: 1px solid var(--vrule); }
-  .m-tot dt { font-size: 11px; font-weight: 800; }
-  .m-tot dd { margin: 0; font-size: 18px; font-weight: 900; }
-  .m-tot p { margin: 0 0 6px; font-size: 12px; color: var(--lab-mute); font-weight: 600; }
-  .m-tot p.ul { margin: 0; padding-top: 6px; border-top: 1px solid var(--vrule); font-size: 11px; font-weight: 800;
-    color: var(--mark); }
-  .m-tot dl.u { margin-top: 2px; }
-  .m-tot dl.u dd b { font-size: 15px; }
-  .m-tot dl.u dd small { display: block; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
-  .legend { padding-top: 12px; }
-}
-@media (prefers-reduced-motion: reduce) { .chev { transition: none; } }"""
+/* Trades example: one suggestion. */
+.sp-trade { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr) auto; align-items: stretch;
+  border-top: 2px solid var(--mark); border-bottom: 1px solid var(--lab-rule); }
+.t-rk { align-self: center; color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; }
+.t-side { display: flex; min-width: 0; }
+.t-band { flex: none; width: 46px; display: flex; align-items: center; justify-content: center; background: var(--team); color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 17px; }
+.t-nm { padding: 8px 6px 8px 8px; min-width: 0; line-height: 1; }
+.t-nm small, .t-tot small { display: block; font-size: 11px; font-weight: 800; color: var(--mark); margin-bottom: 4px; }
+.t-nm b { font-weight: 900; font-stretch: 66%; font-size: 17px; text-transform: uppercase; }
+.t-tot { padding: 8px 0 8px 10px; text-align: right; line-height: 1; white-space: nowrap; }
+.t-tot b { font-weight: 900; font-size: 18px; }
+.t-tot em { font-style: normal; font-weight: 800; font-size: 13px; }
+.t-bar { display: block; margin: 6px 0 0 auto; width: 52px; height: 6px; background: var(--mark); }
 
-LEGEND = """<div class="legend" aria-label="Key"><b>Key</b>
-<span><i class="k s"></i>Starts</span>
-<span><i class="k b"></i>Game, sits</span>
-<span><i class="k r"></i>Rests on back-to-back</span>
-<span><i class="k n"></i>No game</span>
-<span><span class="qsw"></span>Quality day</span>
-<span><em class="flag">IL</em>On IL now, counts in the starts</span>
-<span><span class="lo-key">2/4</span>Starts lost</span>
-<span><span class="q-key">2 q</span>Games on quality days</span>
-<span><span class="pc-key"><span class="pc p3"><i class="mtr"><i></i><i></i><i></i></i><b>90%</b></span>\
-<span class="pc p2"><i class="mtr"><i></i><i></i><i></i></i><b>70%</b></span>\
-<span class="pc p1"><i class="mtr"><i></i><i></i><i></i></i><b>69%</b></span></span>\
-Used and vs ideal: 90% or more, 70% to 89%, less than 70%</span>
-<span><span class="few-key">/<span class="few">2</span></span>2 or fewer games in the week</span>
-</div>"""
+/* About: the story and the league table. */
+.ab { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 40px; padding-top: 18px; align-items: start; }
+.ab-story p { margin: 0 0 14px; max-width: 62ch; font-size: 16px; line-height: 1.55; text-wrap: pretty; }
+.lg { width: 100%; border-collapse: collapse; font-size: 14px; }
+.lg caption { text-align: left; padding-bottom: 6px; border-bottom: 2px solid var(--mark); color: var(--mark);
+  font-weight: 900; font-stretch: 75%; font-size: 15px; text-transform: uppercase; }
+.lg th, .lg td { text-align: left; vertical-align: top; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--lab-rule); }
+.lg th { width: 92px; font-size: 12px; font-weight: 800; padding-top: 10px; }
+.lg tr:nth-child(even) > * { background: var(--zebra); }
+.lg tr > :first-child { padding-left: 8px; }
+.punt { display: block; color: var(--lab-mute); font-size: 13px; }
+@media (max-width: 1099px) { .ab { grid-template-columns: 1fr; gap: 24px; } .lg { max-width: 480px; } }
+
+/* How it works. */
+.how { margin: 16px 0 0; padding: 0; list-style: none; counter-reset: s; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.how li { counter-increment: s; color: var(--lab-mute); }
+.how li::before { content: counter(s); display: block; margin-bottom: 6px; color: var(--mark); font-weight: 900; font-stretch: 75%; font-size: 26px; line-height: 1; }
+.how b { color: var(--lab-ink); font-weight: 800; }
+.hm-note { margin: 22px 0 0; padding: 10px 12px; border: 1px solid var(--vrule); max-width: 70ch; font-size: 14px; color: var(--lab-mute); }
+@media (max-width: 799px) { .how { grid-template-columns: 1fr; gap: 14px; } }
+.hm-foot { margin-top: 44px; padding-top: 10px; border-top: 3px solid var(--mark); display: flex; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; font-size: 13px; color: var(--lab-mute); }
+.hm-foot a { font-weight: 800; }
+
+@media (max-width: 599px) {
+  .hm { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .hm-lede { font-size: 16px; }
+  .hm-sec { margin-top: 36px; }
+  .pg h3 { font-size: 26px; }
+  .sp-roster .wk { display: none; }
+  .sp-grid { grid-template-columns: 40px repeat(7, minmax(0, 1fr)); }
+  .g-add { width: calc(100% - 2px); margin: 0 1px; }
+  .g-add b { font-size: 11px; font-stretch: 66%; }
+  .g-band i { width: 13px; height: 13px; }
+  .sp-roster td:last-child { border-left: 1px solid var(--vrule); }
+  .sp-trade { grid-template-columns: 22px minmax(0, 1fr) auto; }
+  .sp-trade .t-side + .t-side { grid-column: 2; grid-row: 2; border-top: 1px solid var(--lab-stock); }
+  .sp-trade .t-rk { grid-row: 1 / 3; }
+  .sp-trade .t-tot { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+}"""
 
 PAGE_HTML = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Roster · Fantasy Hoops Lab</title>
+<title>Fantasy Hoops Lab</title>
 __HEAD__
 <style>
 __TABLE_CSS__
@@ -707,19 +224,171 @@ __STYLE__
 </head>
 <body class="lab">
 __MENU__
-<main class="lab-main roster">
-<header class="head">
-<h1>__TITLE__</h1>
-<dl class="__METACLASS__">
-__META__
-</dl>
+<main class="lab-main hm">
+
+<header class="hm-top">
+<h1>Fantasy Hoops Lab</h1>
+<p class="hm-lede">Custom fantasy basketball tools for one league. Each page of this site helps me make one \
+decision of the season: how my roster fits the playoffs, who to add, and which trade to make.</p>
 </header>
-__DESK__
-__MOB__
-__LEGEND__
-<p class="foot">__FOOT__</p>
+
+<section class="hm-sec" aria-labelledby="pages-h">
+<h2 id="pages-h">The pages</h2>
+
+<article class="pg">
+<div class="pg-text">
+<h3><a href="roster/">Roster__ARROW__</a></h3>
+<p class="pg-job">Who is on my team, and how many playoff games each player can start.</p>
+<p>The players are in my custom-rank order. Each row has the season stats per game. For each playoff week \
+(weeks __WEEKS__), the page counts the games that each player can start in the best lineup. A day grid shows who \
+fits the lineup on each of the __DAYS__ playoff days. The last rows compare the team starts with the games of my \
+players and with the ideal count.</p>
+</div>
+<figure class="pg-fig" aria-hidden="true">
+<table class="lab-t sp-roster">
+<thead><tr><td class="l">Team</td><td>Rk</td><td class="l">Player</td><td>PTS</td><td class="wk s1">Wk19</td>\
+<td class="wk">Wk20</td><td class="wk">Wk21</td><td>T</td></tr></thead>
+<tbody>
+<tr><td class="band" style="__BAND_DAL__">DAL</td><td class="rk">12</td><th class="pl"><b>Cooper Flagg</b>\
+<small>DAL · SG/SF/PF</small></th><td class="n"><b>25.2</b></td><td class="wk s1"><b>4</b>/4</td>\
+<td class="wk"><b>4</b>/4</td><td class="wk"><b>4</b>/4</td><td><b>12</b>/12</td></tr>
+<tr><td class="band" style="__BAND_MIN__">MIN</td><td class="rk">69</td><th class="pl"><b>Rudy Gobert</b>\
+<small>MIN · C</small></th><td class="n"><b>6.6</b></td><td class="wk s1"><b class="lost">3</b>/4</td>\
+<td class="wk"><b>2</b>/2</td><td class="wk"><b class="lost">2</b>/4</td><td><b class="lost">7</b>/10</td></tr>
+</tbody>
+</table>
+<figcaption>Example rows. Starts / games for each playoff week.</figcaption>
+</figure>
+</article>
+
+<article class="pg">
+<div class="pg-text">
+<h3><a href="adds/">Adds plan__ARROW__</a></h3>
+<p class="pg-job">How to use the __ADDS__ adds of this fantasy week.</p>
+<p>The planner finds the open starting slots on each day of the week. It recommends the NBA teams and the \
+positions to add in each stream spot, and the day to add them. It does not pick the player. The week grid shows \
+each add and the days that the new player starts. Above the grid, the matchup table shows the category totals of \
+my team and my opponent.</p>
+</div>
+<figure class="pg-fig" aria-hidden="true">
+<div class="sp-grid">
+<span class="g-lab"></span>
+<span class="g-day past">M</span><span class="g-day past">T</span><span class="g-day past">W</span>\
+<span class="g-day" style="--t:10%">T</span><span class="g-day" style="--t:33%">F</span>\
+<span class="g-day" style="--t:23%">S</span><span class="g-day" style="--t:13%">S</span>
+<span class="g-lab rule">Games</span>
+<span class="g-n past">9</span><span class="g-n past">4</span><span class="g-n past">12</span>\
+<span class="g-n" style="--t:10%">3</span><span class="g-n" style="--t:33%">10</span>\
+<span class="g-n" style="--t:23%">7</span><span class="g-n" style="--t:13%">4</span>
+<span class="g-lab">Add 1</span>
+<span class="g-c past"></span><span class="g-c past"></span><span class="g-c past"></span>
+<span class="g-c start" style="--t:10%"><span class="g-add"><b>+SG/<wbr>PF</b><u>SAC</u></span></span>
+<span class="g-c" style="--t:33%"><span class="g-band"><i></i></span></span>
+<span class="g-c" style="--t:23%"><span class="g-band"></span></span>
+<span class="g-c" style="--t:13%"><span class="g-band"><i></i></span></span>
+</div>
+<figcaption>Example add. The band shows the days he holds the spot. A square is a start.</figcaption>
+</figure>
+</article>
+
+<article class="pg">
+<div class="pg-text">
+<h3><a href="free-agents/">Free agents__ARROW__</a></h3>
+<p class="pg-job">The player for each add.</p>
+<p>The table lists the free agents of the last planning run, with their value, their recent stats and their games \
+on each day. Filter by day, position and team, then sort by value or by games. Flags mark an unusual value (FA?), \
+a rise in minutes (MIN+) and a role up (UP). A click on an add in the Adds plan opens this page with those filters \
+set. The page also lists the waiver players.</p>
+</div>
+<figure class="pg-fig" aria-hidden="true">
+<div class="sp-chips">
+<span class="chip">Thu 10/29<small>4 open · 3 NBA</small></span>
+<span class="chip on">Fri 10/30<small>1 open · 10 NBA</small></span>
+<span class="chip">Sat 10/31<small>2 open · 7 NBA</small></span>
+</div>
+<table class="lab-t sp-fa">
+<thead><tr><td class="l">Team</td><td class="l">Player</td><td class="sorted">Val▼</td><td>Gms</td></tr></thead>
+<tbody>
+<tr><td class="band" style="__BAND_TOR__">TOR</td><th class="pl"><b>Ja’Kobe Walter</b> <span class="flag">FA?</span>\
+<small>TOR · PG/SG</small></th><td class="n">+1.63</td><td class="n">2</td></tr>
+</tbody>
+</table>
+<figcaption>Example filter and row.</figcaption>
+</figure>
+</article>
+
+<article class="pg">
+<div class="pg-text">
+<h3><a href="trade/">Trades__ARROW__</a></h3>
+<p class="pg-job">1-for-1 trades that help in the playoffs.</p>
+<p>The trade tool suggests 1-for-1 trades with the other teams. Each suggestion raises my started games in playoff \
+weeks __WEEKS__ and keeps my season value. The starts count my __KEPT__ kept players. The page also shows the trade \
+deadline. Under the table, a trade builder checks a custom trade, for example 2-for-1, in the browser.</p>
+</div>
+<figure class="pg-fig" aria-hidden="true">
+<div class="sp-trade">
+<span class="t-rk">1</span>
+<span class="t-side"><span class="t-band" style="__BAND_CHA__">CHA</span><span class="t-nm"><small>You give</small>\
+<b>Coby White</b></span></span>
+<span class="t-side"><span class="t-band" style="__BAND_DAL__">DAL</span><span class="t-nm"><small>You get</small>\
+<b>P.J. Washington</b></span></span>
+<span class="t-tot"><small>Playoff starts</small><b>88</b> <em>+5</em><span class="t-bar"></span></span>
+</div>
+<figcaption>Example suggestion. My playoff starts go from 83 to 88.</figcaption>
+</figure>
+</article>
+</section>
+
+<section class="hm-sec hm-about" aria-labelledby="about-h">
+<h2 id="about-h">About this project</h2>
+<div class="ab">
+<div class="ab-story">
+<p>Fantasy basketball is one of my favorite hobbies, and this site is where I play with it. Fantasy Hoops Lab \
+started as a set of custom draft rankings for my league. It grew into a site with one page for each big decision \
+of the season.</p>
+<p>The public apps rank players on all __ALL_COUNT__ categories. My team punts __PUNT_COUNT__ of them: __PUNTED__. \
+I wanted rankings and plans built for the __CAT_COUNT__ categories that I try to win. Each tool reads my real league \
+and does the math in Python. Then it puts the result here, where I can open it at my desk or on my phone.</p>
+<p>These are the tools for one team in one league. The settings, the punted categories and the strategy are mine. \
+You are welcome to <a href="__REPO__">read the code</a> and take ideas from it.</p>
+</div>
+<table class="lg">
+<caption>The league</caption>
+<tbody>
+<tr><th scope="row">Format</th><td>Head-to-head, __TEAMS__ teams</td></tr>
+<tr><th scope="row">Draft</th><td>Auction, $__BUDGET__ budget</td></tr>
+<tr><th scope="row">Roster</th><td>__SLOTS__, Util and __BENCH__ bench</td></tr>
+<tr><th scope="row">Adds</th><td>__ADDS__ each week</td></tr>
+<tr><th scope="row">Categories</th><td>__CATEGORIES__<span class="punt">__PUNTS__ punted</span></td></tr>
+<tr><th scope="row">Playoffs</th><td>Weeks __WEEKS__</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="hm-sec" aria-labelledby="how-h">
+<h2 id="how-h">How it works</h2>
+<ol class="how">
+<li><b>Data.</b> The tools read my league from the league site. The NBA rosters, the schedule and the season stats \
+come from public NBA stats. A season projections file gives the projected stats.</li>
+<li><b>Analysis.</b> The Python package computes the player values, the lineups, the plans and the trades.</li>
+<li><b>Publish.</b> The adds planner and the trade tool write static pages and push them to GitHub Pages.</li>
+</ol>
+<p class="hm-note">The draft tools (the rankings, the draft board, an auction simulator and a keeper report) are \
+local pages. They are not on this site.</p>
+</section>
+
+<footer class="hm-foot">
+<a href="__REPO__">Code and docs on GitHub</a>
+<span>__SEASON__ season</span>
+</footer>
 </main>
 __SCRIPT__
 </body>
 </html>
-""".replace("__STYLE__", PAGE_STYLE).replace("__LEGEND__", LEGEND)
+""".replace("__STYLE__", PAGE_STYLE)
+
+
+if __name__ == "__main__":
+    use_utf8_output()
+    main()

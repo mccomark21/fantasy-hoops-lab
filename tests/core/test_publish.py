@@ -1,15 +1,16 @@
 import re
 import subprocess
-from pathlib import Path
 
 import pytest
 
+from fantasyhoops.core import home
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
-from fantasyhoops.core.publish import BRANCH, MENU_SCRIPT, home_page, publish, shell, site_head, site_menu, write_page
+from fantasyhoops.core.common import load_config
+from fantasyhoops.core.publish import BRANCH, MENU_SCRIPT, MENU_STYLE, publish, shell, site_head, site_menu, write_page
 
-CFG = {"league": {"teams": 14}}
-FIXTURES = Path(__file__).parent / "fixtures"
+CFG = load_config()  # the Home page (core/home.py) takes its league facts from config.toml
+HOME_MAIN = '<main class="lab-main hm">'  # the main element of the Home page (core/home.py)
 
 
 def page(repo, name, text):
@@ -94,7 +95,7 @@ def test_old_board_at_the_root_goes_away(repo, remote_pages):
 
 @pytest.mark.parametrize("tool", ["draft", "trades"])
 def test_unknown_tool_stops_with_an_error(repo, tool):
-    with pytest.raises(ValueError, match="The tools are: adds, free-agents, trade."):
+    with pytest.raises(ValueError, match="The tools are: roster, adds, free-agents, trade."):
         publish(repo, tool, page(repo, f"{tool}/x.html", ""), cfg=CFG)
 
 
@@ -107,17 +108,22 @@ def test_publish_does_not_change_the_pages(repo, remote_pages):
     assert pages["adds/index.html"] == text and pages["adds/notes.html"] == "<body>n</body>"
 
 
-def test_the_menu_has_roster_adds_plan_free_agents_and_trades_only():
+def test_the_menu_has_home_roster_adds_plan_free_agents_and_trades_only():
     home, adds = site_menu("home", 14), site_menu("adds", 14)
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == ["Roster", "Adds plan", "Free agents", "Trades"]
+    labels = ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == labels
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", adds) == labels
     assert '<a href="free-agents/">Free agents</a>' in home and '<a href="../free-agents/">Free agents</a>' in adds
     free = site_menu("free-agents", 14)
     assert '<a href="../free-agents/" aria-current="page">Free agents</a>' in free
     assert '<a href="trade/">Trades</a>' in home and '<a href="../trade/">Trades</a>' in adds
     trade = site_menu("trade", 14)
-    assert '<a href="../trade/" aria-current="page">Trades</a>' in trade and '<a href="../">Roster</a>' in trade
-    assert '<a href="./" aria-current="page">Roster</a>' in home and '<a href="adds/">Adds plan</a>' in home
-    assert '<a href="../">Roster</a>' in adds and '<a href="../adds/" aria-current="page">Adds plan</a>' in adds
+    assert '<a href="../trade/" aria-current="page">Trades</a>' in trade and '<a href="../roster/">Roster</a>' in trade
+    assert '<a href="./" aria-current="page">Home</a>' in home and '<a href="adds/">Adds plan</a>' in home
+    assert '<a href="roster/">Roster</a>' in home and '<a href="../">Home</a>' in adds
+    assert '<a href="../roster/">Roster</a>' in adds and '<a href="../adds/" aria-current="page">Adds plan</a>' in adds
+    roster = site_menu("roster", 14)
+    assert '<a href="../roster/" aria-current="page">Roster</a>' in roster and '<a href="../">Home</a>' in roster
     assert "Draft board" not in home + adds and "Keeper report" not in home + adds
 
 
@@ -146,34 +152,27 @@ def test_each_token_has_a_light_and_a_dark_value():
 
 
 def test_the_site_css_has_no_colors_outside_the_token_file():
-    """#117: core/tokens.py is the one source of the colors. The menu and the home page use only var(--...)."""
-    home = home_page({"adds"}, CFG).replace(tokens.HEAD, "").replace(site.page_meta("home", "Fantasy Hoops Lab"), "")
-    for text in (home, site_menu("home", 14), MENU_SCRIPT):
+    """#117: core/tokens.py is the one source of the colors. The menu uses only var(--...)."""
+    for text in (site_menu("home", 14), MENU_STYLE, MENU_SCRIPT):
         assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", text)
 
 
-def test_home_page_shows_the_menu_and_links_to_each_tool_on_the_site():
-    home = home_page({"adds"}, CFG)
-    assert home.index('<body class="lab">') < home.index('<nav class="lab-menu"') < home.index('<main class="lab-main')
-    assert '<a href="adds/">Adds plan</a>' in home
-    assert home.rstrip().endswith("</script>\n</body>\n</html>")
-    assert "<span>How to use" in home and "<span>How to use" not in home_page(set(), CFG)
-
-
 def test_publish_puts_the_home_page_at_the_root(repo, remote_pages):
-    """The roster page of core/home.py (#120) replaces the list of the tools."""
-    home = page(repo, "home/index.html", "<p>roster</p>")
-    publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG)
+    """#172: each publish writes the Home page of core/home.py at the root."""
+    publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), cfg=CFG)
     pages = remote_pages(repo)
-    assert pages["index.html"] == "<p>roster</p>"
+    assert HOME_MAIN in pages["index.html"]
     assert pages["adds/index.html"] == "<p>plan</p>"
+    rendered = repo / "home.html"
+    rendered.write_bytes(home.render(CFG).encode())  # the same bytes as the page of the publish
+    assert git(repo, "rev-parse", "FETCH_HEAD:index.html") == git(repo, "hash-object", "--no-filters", str(rendered))
 
 
 def test_the_menu_takes_the_team_count_from_the_caller_and_reads_no_config():
     """#132: site_menu() gets the team count from its caller. core/publish.py has no load_config()."""
     assert not hasattr(site, "load_config")
-    assert "2026–27 · Yahoo 9-team" in site_menu("home", 9)
-    assert "2026–27 · Yahoo 12-team" in shell("__MENU__", "adds", {"league": {"teams": 12}})
+    assert "2026–27 · 9-team league" in site_menu("home", 9)
+    assert "2026–27 · 12-team league" in shell("__MENU__", "adds", {"league": {"teams": 12}})
 
 
 def test_the_shell_fills_the_head_the_menu_and_the_menu_script():
@@ -190,69 +189,52 @@ def test_write_page_writes_the_page_and_the_font_next_to_it(tmp_path):
     assert (fonts / tokens.LICENSE.name).read_bytes() == tokens.LICENSE.read_bytes()
 
 
-def test_the_tool_list_is_the_html_before_the_page_shell():
-    """#132: fixtures/tools_before_132.html is home_page({"adds"}) before shell(), with 14 teams in config.toml."""
-    meta = "\n" + site.page_meta("home", "Fantasy Hoops Lab")  # #166 added the icon and preview tags
-    assert home_page({"adds"}, CFG).replace(meta, "") == (FIXTURES / "tools_before_132.html").read_text(
-        encoding="utf-8"
+def test_a_trade_publish_writes_the_home_page_and_keeps_the_other_folders(repo, remote_pages):
+    """#172: the trade run makes no Roster page. Its publish keeps /roster/ and writes the Home page."""
+    push_old_site(
+        repo, {"index.html": "<p>old</p>", "roster/index.html": "<p>roster</p>", "adds/index.html": "<p>plan</p>"}
     )
-
-
-def test_a_publish_with_keep_home_keeps_the_root_index(repo, remote_pages):
-    """#151: the trade run does not make the roster page, so its publish keeps the home page of gh-pages."""
-    push_old_site(repo, {"index.html": "<p>roster</p>", "adds/index.html": "<p>plan</p>"})
-    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG)
     pages = remote_pages(repo)
-    assert pages["index.html"] == "<p>roster</p>"
+    assert HOME_MAIN in pages["index.html"] and pages["roster/index.html"] == "<p>roster</p>"
     assert pages["trade/index.html"] == "<p>trades</p>" and pages["adds/index.html"] == "<p>plan</p>"
     assert ".nojekyll" in pages and tokens.FONT_HREF in pages
 
 
-def test_a_publish_with_keep_home_and_no_site_puts_the_tool_list_at_the_root(repo, remote_pages):
-    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
-    assert '<a href="trade/">Trades</a>' in remote_pages(repo)["index.html"]
+# The pages of the site after each publish of #172: the Home page and the folder of each tool.
+ALL_PAGES = {"index.html", "roster/index.html", "adds/index.html", "free-agents/index.html", "trade/index.html"}
 
 
-def test_keep_home_and_a_home_page_together_stop_with_an_error(repo):
-    home = page(repo, "home/index.html", "<p>roster</p>")
-    with pytest.raises(ValueError, match="not both"):
-        publish(repo, "trade", page(repo, "trade/index.html", ""), home=home, cfg=CFG, keep_home=True)
-
-
-def test_a_planning_run_publish_keeps_the_trade_folder(repo, remote_pages):
-    """#151: trade is in TOOLS, so the adds publish of the planning run keeps /trade/."""
-    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
-    home = page(repo, "home/index.html", "<p>roster</p>")
-    publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG)
-    pages = remote_pages(repo)
-    assert pages["trade/index.html"] == "<p>trades</p>" and pages["index.html"] == "<p>roster</p>"
-
-
-def test_a_planning_run_publish_writes_the_free_agents_folder_and_keeps_the_trade_folder(repo, remote_pages):
-    """#165: the planning run publishes /adds/ and /free-agents/ in one publish, and keeps /trade/."""
-    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
-    home = page(repo, "home/index.html", "<p>roster</p>")
+def planning_publish(repo):
+    """The publish of a planning run: /adds/, /free-agents/ and /roster/ (#165, #172)."""
     free = page(repo, "adds/free_agents.html", "<p>free agents</p>")
-    publish(
-        repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG, more_tools={"free-agents": free}
-    )
-    pages = remote_pages(repo)
-    assert pages["index.html"] == "<p>roster</p>" and pages["adds/index.html"] == "<p>plan</p>"
-    assert pages["free-agents/index.html"] == "<p>free agents</p>" and pages["trade/index.html"] == "<p>trades</p>"
-    assert f"free-agents/{tokens.FONT_HREF}" in pages and "free-agents/fonts/OFL.txt" in pages
+    roster = page(repo, "roster/index.html", "<p>roster</p>")
+    plan = page(repo, "adds/plan.html", "<p>plan</p>")
+    publish(repo, "adds", plan, cfg=CFG, more_tools={"free-agents": free, "roster": roster})
 
 
-def test_a_trade_publish_keeps_the_home_page_the_adds_and_the_free_agents_folders(repo, remote_pages):
-    """#165: free-agents is in TOOLS, so the trade publish keeps /free-agents/."""
-    home = page(repo, "home/index.html", "<p>roster</p>")
-    free = page(repo, "adds/free_agents.html", "<p>free agents</p>")
-    publish(
-        repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), home=home, cfg=CFG, more_tools={"free-agents": free}
-    )
-    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+def test_a_planning_run_publish_writes_its_folders_and_keeps_the_trade_folder(repo, remote_pages):
+    """#151, #165, #172: trade is in TOOLS, so the planning run publish keeps /trade/."""
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG)
+    planning_publish(repo)
     pages = remote_pages(repo)
-    assert pages["index.html"] == "<p>roster</p>" and pages["adds/index.html"] == "<p>plan</p>"
+    assert ALL_PAGES | set(site.ICON_FILES) <= set(pages)
+    assert HOME_MAIN in pages["index.html"] and pages["adds/index.html"] == "<p>plan</p>"
     assert pages["free-agents/index.html"] == "<p>free agents</p>" and pages["trade/index.html"] == "<p>trades</p>"
+    assert pages["roster/index.html"] == "<p>roster</p>"
+    for folder in ("free-agents", "roster"):
+        assert f"{folder}/{tokens.FONT_HREF}" in pages and f"{folder}/fonts/OFL.txt" in pages
+
+
+def test_a_trade_publish_keeps_the_roster_the_adds_and_the_free_agents_folders(repo, remote_pages):
+    """#165, #172: roster and free-agents are in TOOLS, so the trade publish keeps their folders."""
+    planning_publish(repo)
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG)
+    pages = remote_pages(repo)
+    assert ALL_PAGES | set(site.ICON_FILES) <= set(pages)
+    assert HOME_MAIN in pages["index.html"] and pages["adds/index.html"] == "<p>plan</p>"
+    assert pages["free-agents/index.html"] == "<p>free agents</p>" and pages["trade/index.html"] == "<p>trades</p>"
+    assert pages["roster/index.html"] == "<p>roster</p>"
 
 
 def test_more_tools_must_be_tools_of_the_site(repo):
@@ -295,7 +277,7 @@ def test_a_page_with_no_title_gets_the_site_name_as_og_title():
 
 
 def test_publish_puts_the_icons_and_the_share_card_at_the_root(repo, remote_pages):
-    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG, keep_home=True)
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG)
     publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), cfg=CFG)
     pages = remote_pages(repo)
     assert "trade/index.html" in pages and set(site.ICON_FILES) <= set(pages)

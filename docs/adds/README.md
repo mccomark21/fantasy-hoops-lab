@@ -13,7 +13,7 @@ The planner shows how to use your adds in the current fantasy week. For the term
 - [Value](#value)
 - [The page](#the-page)
 - [Free agents page](#free-agents-page)
-- [Home page](#home-page)
+- [Roster page and Home page](#roster-page-and-home-page)
 - [Core and drops](#core-and-drops)
 - [Status rules](#status-rules)
 - [Role up](#role-up)
@@ -42,10 +42,10 @@ One planning run does these steps:
 2. It makes the team plan for the planning window.
 3. It writes the adds of the plan in the week file, `output/adds/week_plan_<first day>.json` (see [Week file](#week-file)).
 4. It writes the plan page (`output/adds/adds_plan.html`) and the Free agents page (`output/adds/free_agents.html`), with the font file and its license in `output/adds/fonts/`. It appends the time of each step to `output/adds/timings.csv`.
-5. It writes the home page in `output/home/` (see [Home page](#home-page)).
-6. It publishes the site to GitHub Pages: the plan page at `/adds/`, the Free agents page at `/free-agents/` and the home page at `/`. The publish keeps the trade page at `/trade/`. A trade publish keeps `/`, `/adds/` and `/free-agents/`.
+5. It writes the Roster page in `output/roster/` (see [Roster page and Home page](#roster-page-and-home-page)).
+6. It publishes the site to GitHub Pages: the plan page at `/adds/`, the Free agents page at `/free-agents/`, the Roster page at `/roster/` and the Home page at `/`. The publish keeps the trade page at `/trade/`. A trade publish keeps `/roster/`, `/adds/` and `/free-agents/`, and also writes the Home page.
 
-To write the pages with no publish, add `--no-publish`. The run then makes no home page:
+To write the pages with no publish, add `--no-publish`. The run then makes no Roster page:
 
 ```
 python -m fantasyhoops.adds.plan --no-publish
@@ -80,8 +80,8 @@ During the run, the terminal can also print these lines:
 - "Warning: the waiver list shows <name> as "<cell>" with no clear day. The planner skips him." (`adds/readers.py`).
 - "Warning: no role-up marks. These files are missing in data/: <files>." (`adds/role_up.py`).
 - "Warning: the run did not write the page in the cache ..." (`adds/cache.py`). The run continues.
-- "Wrote the home page: <path>" before the plan page, only in a run that publishes (`adds/home.py`).
-- "The run did not make the home page. The error:" and the traceback, if the home page fails (`adds/home.py`).
+- "Wrote the Roster page: <path>" before the plan page, only in a run that publishes (`adds/roster.py`).
+- "The run did not make the Roster page. The error:" and the traceback, if the Roster page fails (`adds/roster.py`).
 
 The terminal shows no other result of the plan. Since #140, the run makes no player plan.
 
@@ -248,7 +248,7 @@ The margin keeps its sign (+ or -), so the state does not depend on color only. 
 
 ## The page
 
-Decision (2026-10-29, #165): the free-agent table, the waiver players and the role-up marks moved to the [Free agents page](#free-agents-page), with its own tab in the site menu. The order of the menu is Roster, Adds plan, Free agents, Trades.
+Decision (2026-10-29, #165): the free-agent table, the waiver players and the role-up marks moved to the [Free agents page](#free-agents-page), with its own tab in the site menu. The order of the menu is Roster, Adds plan, Free agents, Trades. Since #172, it is Home, Roster, Adds plan, Free agents, Trades.
 
 The plan page has the team plan as its main section. Above the team plan, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight (#144). The page is public, so it does not show the name of the opponent. Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
 
@@ -290,7 +290,7 @@ Page tests check the Free agents page at 320, 390, 768 and 1280px in both themes
 
 The table shows the free agents that the run read: the free agents of the best teams of the ranking (`teams_to_read()`), and the first 3 pages (75 players) at most of the full free-agent list (see [Market read](#market-read)). It shows the 10 best players for the filters.
 
-Decision (2026-10-28, #143): the free-agent table and the waiver table have the look of the Roster table of the [home page](#home-page). `publish.TABLE_STYLE` in `core/publish.py` is the one source of the table CSS. The home page and the Free agents page both get it from `publish.shell()`, so the tables cannot drift apart.
+Decision (2026-10-28, #143): the free-agent table and the waiver table have the look of the Roster table of the [Roster page](#roster-page-and-home-page). `publish.TABLE_STYLE` in `core/publish.py` is the one source of the table CSS. The Roster page and the Free agents page both get it from `publish.shell()`, so the tables cannot drift apart.
 
 1. Columns: Team, Player, Val, Match, Recent, Gms, then one column for each day. The Team column is a band in the color of the NBA team, as on the Roster table.
 2. Player: the name in heavy condensed caps, then the status tag and the flags (FA?, MIN+, UP, the next-week mark). A small line below gives the team, the positions (for example "PHI · SG/SF"), the adds today and the role-up text. The role line is a second small line.
@@ -369,7 +369,7 @@ Decision (2026-10-26, #85): the planner times each step of a planning run. The o
 | value options | The values of the free agents (`value_options()`) and the role-up marks |
 | team plan | The team plan (`team_plan()`, #140) |
 | role read | `read_roles()` |
-| home page | `build_home()`: the home page (see [Home page](#home-page)). Only a run that publishes has this step. |
+| roster page | `build_roster()`: the Roster page (see [Roster page and Home page](#roster-page-and-home-page)). Only a run that publishes has this step. Before #172, the step was "home page". |
 | page write and publish | The page and the publish of the site |
 
 A step that does not run has no time. For example, with no adds left, the run reads no free agent and runs no search. The rows "schedule search", "spot plans" and "contingency plans" stopped with #140.
@@ -421,9 +421,13 @@ Decision (2026-10-26, #89): a `timings.csv` with an older header gets the new he
 | `states` | The unique states of the search, or empty |
 | `pages` | The Yahoo pages of the Yahoo reads and of each of its sub-steps. Empty for the other steps. |
 
-## Home page
+## Roster page and Home page
 
-Decision (2026-10-28, #120): each run that publishes also writes the home page of the site. The owner sees the roster with the season stats and the fit of each player in the playoff lineup. `adds/home.py` gets the data, and `core/home.py` makes the page.
+Decision (2026-10-28, #120): each run that publishes also writes the Roster page of the site. The owner sees the roster with the season stats and the fit of each player in the playoff lineup. `adds/roster.py` gets the data, and `core/roster.py` makes the page.
+
+Decision (2026-10-29, #172): the Roster page moved from `/` to `/roster/`. The page file is `output/roster/index.html`. `/` is now the Home page of `core/home.py`: what each page of the site does, the story of the project, the league settings and how the tools work. The Home page holds no live data. Its league facts come from `config.toml`. Each publish (the planning run and the trade run) writes it. It names no league platform and no data source by name. To write it with no publish, run `python -m fantasyhoops.core.home`. It goes to `output/home/index.html`.
+
+The Roster page:
 
 - The roster is the roster of your team page. The players are in custom-rank order (`draft/rankings.py`). A player with no rank goes last.
 - The season stats come from one ESPN `statistics/byathlete` request (`fetch/espn.py`): GP, MIN, PTS, REB, AST, 3PM, STL and BLK per game.
@@ -433,7 +437,9 @@ Decision (2026-10-28, #120): each run that publishes also writes the home page o
 - The header shows the team name, then the season record (W-L-T), then the "This week" and "Playoffs" items, on one line (#142). Below 900px, the record and the items go below the name: the record at the left, and the two items stacked at its right.
 - The record comes from the team overview of your team page (`read_record()` in `adds/readers.py`). The run already opens that page, so the record needs no new Yahoo page. If the page shows no record, the header has no record and the run continues.
 
-The run writes the page before the plan page, so that the Run time table has the home page step. If the home page fails, the run prints the error and continues. The publish then puts the list of the tools at `/`.
+The run writes the Roster page before the plan page, so that the Run time table has the roster page step. If the Roster page fails, the run prints the error and continues. The publish then keeps the `/roster/` folder of gh-pages.
+
+Page tests check that the Home page and the Roster page have no sideways scroll and that each text has 4.5:1 or more, at 320, 390, 768 and 1280px in both themes.
 
 ## Core and drops
 
@@ -581,7 +587,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |
 | `team_count_at` | From this number of teams, an add cell of the team plan gives the count of its teams, not the list: 6. See [Team plan](#team-plan). |
 | `next_week_open_days` | The first days of next week that the page checks for open slots: 2. 0 turns off the next-week mark. See [Next-week mark](#next-week-mark). |
-| `team_name` | The team name at the top of the home page: TradeMark™. Without it, the page shows "Roster". |
+| `team_name` | The team name at the top of the Roster page: TradeMark™. Without it, the page shows "Roster". |
 | `recent_skip_weight` | The run skips the recent view while the largest possible weight of the recent line is below this value: 0.3. 0 never skips. See [Skip of the recent view](#skip-of-the-recent-view). |
 | `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
 | `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |

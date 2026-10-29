@@ -19,7 +19,7 @@ The Free agents page (output/adds/free_agents.html, published at /free-agents/) 
   A mark such as "Mon open" names each of the first days of next week on which he plays and fills an open slot (#76).
 - Waiver players: the waiver players (W) with their clear days.
 - Role up: the absent starters and the free agents at their positions (adds/role_up.py).
-The Free agents table and the Waiver players table have the look of the Roster table of the home page (#143): a
+The Free agents table and the Waiver players table have the look of the Roster table of the Roster page (#143): a
 team band, the player cell, and the head and row style of publish.TABLE_STYLE, the one source of the table CSS.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the free-agent table.
 The Run time table shows the time of each step of the run (adds/timing.py, #85), with the sub-steps of the Yahoo

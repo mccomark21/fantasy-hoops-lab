@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from fantasyhoops.core import home
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.trade import page
 from fantasyhoops.trade.suggest import Suggestion, Suggestions, TradePlayer, TradeSettings
@@ -118,7 +118,7 @@ def test_with_no_suggestion_the_page_says_so_and_has_no_table():
 def test_the_page_uses_the_site_shell_and_the_shared_table_style():
     html = render()
     assert site.TABLE_STYLE in html and site.MENU_SCRIPT in html
-    assert '<nav class="lab-menu" id="lab-menu"' in html and '<a href="../">Roster</a>' in html
+    assert '<nav class="lab-menu" id="lab-menu"' in html and '<a href="../roster/">Roster</a>' in html
     assert "__" not in re.sub(r"<script.*?</script>", "", html, flags=re.S).replace("lab-t", "")
 
 
@@ -272,7 +272,7 @@ def test_a_value_change_that_rounds_to_0_has_no_sign_and_a_team_code_of_4_letter
 def test_the_menu_shows_trades_after_adds_plan_as_the_current_page():
     """#151: the Trades tab of publish.TOOLS."""
     html = render()
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Roster", "Adds plan", "Free agents", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
     assert '<a href="../trade/" aria-current="page">Trades</a>' in html
 
 
@@ -294,7 +294,9 @@ def test_the_open_menu_drawer_has_4_5_to_1_text_and_no_horizontal_scroll(width):
 SETTINGS = TradeSettings(frozenset({"star keeper"}), (0.95, 1.10), 8, 3, 20)
 TEAMS = ("ATL", "BOS", "CHA", "HOU", "NO", "UTAH", "WSH", "DAL")
 PLAYOFF = [
-    home.Day(date(2027, 3, 8) + timedelta(days=7 * w + d), name, d == 0, frozenset(TEAMS[d : d + 5]), frozenset())
+    roster_page.Day(
+        date(2027, 3, 8) + timedelta(days=7 * w + d), name, d == 0, frozenset(TEAMS[d : d + 5]), frozenset()
+    )
     for w, name in enumerate(WEEKS)
     for d in range(3)
 ]

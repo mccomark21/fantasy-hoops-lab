@@ -401,7 +401,7 @@ def run_command(
     market=None,
     today=None,
     cache=False,
-    home=None,
+    roster=None,
     values=None,
 ):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
@@ -422,7 +422,7 @@ def run_command(
     free_agents: {view: FreeAgents} of the team lists of the fake read_lists(). The run then values them with the real
     value_options() and a scale of pts only, and the market and waiver lists give no free agents.
     market: the MarketRead of the fake read_lists(). None: no market free agents.
-    home: the build_home() of the run (adds/home.py). None: a function that makes no home page.
+    roster: the build_roster() of the run (adds/roster.py). None: a function that makes no Roster page.
     values: the season values of drops.season_values(). None: no player has a season value.
     """
     fake_lists = yahoo is None
@@ -476,11 +476,11 @@ def run_command(
     scale = pd.DataFrame({"pts": [10.0, 5.0]}, index=["mean", "std"]) if free_agents is not None else None
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
-    monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
+    monkeypatch.setattr(command, "build_roster", roster or (lambda *args: None))
 
-    # A home page goes after the pages in the record of the publish, then the more_tools of the publish (#165).
-    def fake_publish(*a, home=None, cfg, more_tools=None):
-        published.append((*a, *([home] if home is not None else []), *([more_tools] if more_tools else [])))
+    # The record of the publish: the pages, then the more_tools of the publish (#165, #172).
+    def fake_publish(*a, cfg, more_tools=None):
+        published.append((*a, *([more_tools] if more_tools else [])))
 
     monkeypatch.setattr(command.site, "publish", fake_publish)
     command.main(today=today or WEEK[0], publish=publish, timed=timed, cache=cache)

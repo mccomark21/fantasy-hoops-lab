@@ -5,7 +5,8 @@ rostered page from Yahoo again).
 The run reads your team page (readers.read_roster()) for your roster and IL slots, and the rostered list and the
 league settings through the same-day cache (trade/reads.py). It scores the trades with trade/suggest.py and writes
 output/trade/index.html (trade/page.py). It times its steps in output/trade/timings.csv (adds/timing.py).
-The publish (publish_page()) puts the page at /trade/ on gh-pages and keeps the home page there (keep_home=True).
+The publish (publish_page()) puts the page at /trade/ on gh-pages, keeps the other tool folders there and writes the
+Home page at / (core/home.py, #172).
 With --no-publish, the run does not change gh-pages.
 Edge states (#153):
 1. The run reads the league settings first. After the trade deadline, it does not read your team page or the
@@ -26,13 +27,13 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.cache import ROSTERED, PageCache
 from fantasyhoops.adds.drops import season_values
-from fantasyhoops.adds.home import read_ranks
+from fantasyhoops.adds.roster import read_ranks
 from fantasyhoops.adds.lists import recent_weight_limit, skips_recent_view
 from fantasyhoops.adds.readers import read_roster
 from fantasyhoops.adds.session import WAIT_SECONDS, PageNotReady, YahooBlocked, open_league
 from fantasyhoops.adds.timing import Timings
 from fantasyhoops.adds.value import projection_scale
-from fantasyhoops.core import common, home
+from fantasyhoops.core import common, roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import load_config, name_key
 from fantasyhoops.core.console import use_utf8_output
@@ -84,7 +85,7 @@ def schedule():
 
 @dataclass(frozen=True)
 class LocalFiles:
-    """The data of the run from local files. days: the playoff days (home.playoff_days()). ranks: {name_key: rank}.
+    """The data of the run from local files. days: the playoff days (roster_page.playoff_days()). ranks: {name_key: rank}.
 
     pre: drops.season_values(). scale: value.projection_scale(). skip_recent: True if the read skips the recent view.
     """
@@ -100,7 +101,7 @@ def read_local_files(cfg, today):
     """The LocalFiles of the run: data/schedule.csv, the custom ranks and the projections file."""
     sched = schedule()
     return LocalFiles(
-        days=home.playoff_days(sched, cfg),
+        days=roster_page.playoff_days(sched, cfg),
         ranks=read_ranks(cfg, sched),
         pre=season_values(cfg),
         scale=projection_scale(cfg),
@@ -228,14 +229,14 @@ def warnings(mine, inputs, missing=(), settings=None):
 
 
 def publish_page(path, cfg, publish=True):
-    """Publish the trade page to /trade/ and print the URL. The home page of gh-pages stays (keep_home=True).
+    """Publish the trade page to /trade/ and print the URL. The other folders of gh-pages stay (#172).
 
     publish False (--no-publish): print that the run did not publish.
     """
     if not publish:
         print("Publish: skipped (--no-publish).")
         return
-    site.publish(common.ROOT, page.CURRENT, path, cfg=cfg, keep_home=True)
+    site.publish(common.ROOT, page.CURRENT, path, cfg=cfg)
     print(f"Published the trade page to {site.URL}{page.CURRENT}/. GitHub can take a few minutes to show the new page.")
 
 
