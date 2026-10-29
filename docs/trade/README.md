@@ -135,7 +135,7 @@ The targets: 15 seconds or less with a full cache, 60 seconds or less with no ca
 3. A filter row of the players you give sits above the table. It shows only offered players with a suggestion. A press on a chip shows only the trades of that player.
 4. The table has the players you give and get, the partner team, the playoff starts of each week and the total, and the value change of both teams.
 5. Each week cell shows the new count, the change and a small bar. A blue row above the trades shows your starts now.
-6. Below 940px of content, a row list replaces the table.
+6. Below 940px of content, a row list replaces the table. The row list has one column for each playoff week in `[playoffs] weeks` and one for the total, as the table does.
 7. The line under the table starts with "Starts count your 8 kept players."
 8. The trade builder sits under the table. See [Builder](#builder).
 

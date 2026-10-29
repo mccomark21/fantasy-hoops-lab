@@ -263,6 +263,42 @@ def test_each_text_is_4_5_to_1_or_more_in_light_and_dark_mode_with_a_chip_presse
                 assert pg.evaluate(CONTRAST) == [], (width, theme, state)
 
 
+# The phone row list takes its columns from the playoff weeks (#160): each week, the total, and You and Them.
+def weeks_result(n):
+    base = tuple(28 - i for i in range(n))
+    after = tuple(b + 1 for b in base)
+    rows = [replace(r, before=base, after=after, partner_before=base, partner_after=base) for r in ROWS]
+    return Suggestions(base, [], rows, 1595, 36, 12), [f"wk{19 + i}" for i in range(n)]
+
+
+@pytest.mark.parametrize("n", [2, 4])
+def test_the_phone_row_list_has_a_column_for_each_playoff_week_and_the_total(n):
+    result, weeks = weeks_result(n)
+    html = page.render(result, weeks, CFG, MADE, TODAY, DEADLINE, READ)
+    assert f'<div class="mob" id="sg-mob" style="--cols:{n + 1}">' in html
+    assert "repeat(4," not in html
+    with browser_page(390) as pg:
+        pg.set_content(html)
+        cols = pg.evaluate(
+            """() => [".mnow", "#sg-mob .nums"].map(s =>
+                getComputedStyle(document.querySelector(s)).gridTemplateColumns.split(" ").length)"""
+        )
+        assert cols == [n + 2, n + 3]  # .mnow: the label after the total. .nums: You and Them after the total.
+        assert pg.locator("#sg-mob .nums").first.locator(":scope > span").count() == n + 3
+
+
+@pytest.mark.parametrize("n", [2, 4])
+@pytest.mark.parametrize("width", [320, 390, 768])
+def test_the_phone_row_list_fits_with_2_and_4_playoff_weeks(n, width):
+    result, weeks = weeks_result(n)
+    with browser_page(width) as pg:
+        pg.set_content(page.render(result, weeks, CFG, MADE, TODAY, DEADLINE, READ))
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            assert pg.evaluate(FIT, width) == [], (n, width, theme)
+            assert pg.evaluate("document.documentElement.scrollWidth") <= width, (n, width, theme)
+
+
 def test_a_value_change_that_rounds_to_0_has_no_sign_and_a_team_code_of_4_letters_gets_the_small_band():
     assert page.change_text(0.004) == page.change_text(-0.004) == "±0.00"
     assert page.change_text(-0.1) == "−0.10"
