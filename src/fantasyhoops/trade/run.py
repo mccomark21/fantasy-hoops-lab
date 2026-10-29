@@ -163,6 +163,7 @@ def missing_data(players, ranks, risk, pre):
 
     players: the TradePlayers of both sides. ranks: {name_key: rank}. risk: {name_key: rests_b2b} of the names in
     the [risk] file. pre: {name_key: SeasonValue} of the projections file. A name shows once in each line.
+    name_list() shortens a line with many names.
     """
     files = [
         (ranks, "these players have no rank and go last in the lineup order"),
@@ -173,8 +174,23 @@ def missing_data(players, ranks, risk, pre):
     for found, text in files:
         names = list(dict.fromkeys(p.name for p in players if name_key(p.name) not in found))
         if names:
-            out.append(f"Warning: {text}: {', '.join(names)}.")
+            out.append(f"Warning: {text}: {name_list(names)}.")
     return out
+
+
+SHOWN_NAMES = 3
+
+
+def name_list(names):
+    """The names of a missing-data line. Up to SHOWN_NAMES names show in full, for example "A, B and C". More names
+    give the count and the first SHOWN_NAMES names, for example "11 players, such as A, B and C"."""
+    if len(names) <= SHOWN_NAMES:
+        return _and(names)
+    return f"{len(names)} players, such as {_and(names[:SHOWN_NAMES])}"
+
+
+def _and(names):
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def rostered_line(hits, total, read_time, now):
