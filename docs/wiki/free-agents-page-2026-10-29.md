@@ -11,3 +11,4 @@ On 2026-10-29, the owner asked to move the Free agents section of the Adds plan 
 ## Build
 
 - On 2026-10-29, the chief of staff started one builder that files the issue and builds it, at `mccomark21/fantasy-hoops-lab@665c77f`.
+- On 2026-10-29, the owner approved: merge the Free agents page PR when its review is clean, then start #166 (see [site icon](site-icon-2026-10-29.md)).
