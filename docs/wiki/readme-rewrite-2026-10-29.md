@@ -6,3 +6,4 @@
 - On 2026-10-29, the owner asked Impeccable to review the README draft so it looks professional and fits the site. An agent writes a polished version in the scratchpad.
 - On 2026-10-29, after a GitHub-style local preview of the Impeccable draft, the owner asked to move the screenshot grid below the About section and the summary.
 - On 2026-10-29, the owner approved the polished draft with the grid after About ("looks good to go for now") and decided the screenshots show the team names as they are. The draft was copied to `output/readme/README-polished.md` in the main checkout (git ignores it). Next: after the joint publish, take the 4 screenshots and open the README PR.
+- On 2026-10-29, after the joint publish, the chief of staff started a builder for the README PR (screenshots from the live site, and the card text fix).
