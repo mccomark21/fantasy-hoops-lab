@@ -219,8 +219,9 @@ def mob_list(result, weeks):
             f'{_e("/".join(r.positions))} · {_values(r)}</small></span><span class="nums">{"".join(nums)}</span>'
             f"{partner_line(s)}</li>"
         )
+    # --cols: one column for each playoff week and one for the total (#160). The CSS of .nums and .mnow reads it.
     return (
-        f'<div class="mob" id="sg-mob"><div class="mnow">{now}<span>{total}</span><span>Your starts now</span></div>'
+        f'<div class="mob" id="sg-mob" style="--cols:{len(weeks) + 1}"><div class="mnow">{now}<span>{total}</span><span>Your starts now</span></div>'
         f'<ol class="ml">{"".join(items)}</ol></div>'
     )
 
@@ -522,14 +523,14 @@ td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .ms .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; overflow-wrap: anywhere; }
 .ms .nm small { display: block; font-size: 12px; line-height: 1.25; color: var(--lab-mute); margin-top: 3px; }
 .ms .nums { grid-column: 1 / -1; display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(min-content, 1.1fr) minmax(min-content, .9fr);
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)) minmax(min-content, 1.1fr) minmax(min-content, .9fr);
   padding: 6px 6px 8px 8px; border-top: 1px solid var(--lab-rule); }
 .ms .nums > span { padding: 0 4px; text-align: right; min-width: 0; }
 .ms .nums > span + span { border-left: 1px solid var(--vrule); }
 .ms .nums em { display: block; font-style: normal; font-size: 11px; font-weight: 800; color: var(--mark); margin-bottom: 2px; }
 .ms .nums .v { font-size: 14px; }
 .ms .nums .v small { display: block; font-size: 11px; color: var(--lab-mute); }
-.mnow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 2fr); align-items: center;
+.mnow { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)) minmax(0, 2fr); align-items: center;
   background: var(--lab-blue); color: var(--lab-on-blue); padding: 6px 6px 6px 8px; font-weight: 900; font-size: 15px; }
 .mnow span { text-align: right; padding: 0 4px; }
 .mnow span:last-child { text-align: left; font-size: 12px; font-weight: 700; padding-left: 12px; }
