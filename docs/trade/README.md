@@ -84,7 +84,7 @@ The terminal prints the same lines after the best suggestion. With an empty list
 
 ## Value
 
-The value of each player on both sides is the blended value of the adds planner (`adds/blend.py`), from both views of the rostered list. The run matches a player by name and NBA team first. With no match, it matches by `common.name_key()`, but only when one player of the rostered list has that name key. A player with no blended value uses his preseason `pg_value` (`adds/drops.py` `season_values()`), and the page marks it "no blend". The page shows the preseason value ("Pre") of each player next to his value ("Val").
+The value of each player on both sides is the blended value of the adds planner (`adds/blend.py`), from both views of the rostered list. The run matches a player by name and NBA team first. With no match, it matches by `common.name_key()`, but only when one player of the rostered list has that name key. A player with no blended value uses his preseason `pg_value` (`adds/drops.py` `season_values()`), and the page marks it "no blend". The line under the suggestions and a line under the builder tables explain the mark: "No blend: the player has no blended value, so his Val is his preseason value (Pre)." The page shows the preseason value ("Pre") of each player next to his value ("Val").
 
 ## Data
 

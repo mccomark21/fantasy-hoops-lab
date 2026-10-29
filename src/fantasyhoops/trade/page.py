@@ -31,6 +31,8 @@ EMPTY = "No trade raises your playoff starts."
 # The mark of a player whose Val is his preseason value, because he has no blended value. The word differs from
 # the "Pre" label of the preseason value (#162).
 MARK = "no blend"
+# The explanation of the mark, under the suggestions and under the builder tables (#162).
+MARK_NOTE = "No blend: the player has no blended value, so his Val is his preseason value (Pre)."
 # The partner rule. The line under the suggestions and the builder result show this same text (#162).
 EST_NOTE = (
     "Est.: the partner starts are an estimate, because the rostered list does not show the IL slots of a partner."
@@ -346,6 +348,7 @@ def builder_section(data):
 <p class="line" id="open-me" hidden></p></div>
 <div><h3 id="get-h">You get</h3><table class="pk lab-t" id="pk-get"></table></div>
 </div>
+<p class="foot" id="pk-note">{MARK_NOTE}</p>
 <div class="drop" id="drop" hidden><div class="filters" id="drop-chips"></div></div>
 <div class="res" id="res"></div>
 </section>"""
@@ -409,7 +412,7 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
     kept, per = cfg["trade"]["kept"], cfg["trade"]["per_player"]
     foot = (
         f"<b>Starts count your {kept} kept players.</b> The player you get takes the spot of the player you give. "
-        f"Val: blended value per game. Pre: preseason value per game. At most {per} trades for each player you give. "
+        f"Val: blended value per game. Pre: preseason value per game. {MARK_NOTE} At most {per} trades for each player you give. "
         f"{result.pairs:,} pairs, {result.in_band:,} in the value band, {result.gains:,} with a gain. {EST_NOTE}"
     )
     offer = offer_block(result, cfg["trade"].get("offer", []))

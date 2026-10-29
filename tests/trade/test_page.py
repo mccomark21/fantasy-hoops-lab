@@ -401,6 +401,10 @@ def test_the_mark_and_the_preseason_value_label_have_different_words():
     """#162: the mark of a player with no blended value is "no blend", not "pre" next to the "Pre" label."""
     assert page.MARK == "no blend" and "pre" not in page.MARK.lower()
     html = render_builder()
+    note = "No blend: the player has no blended value, so his Val is his preseason value (Pre)."
+    assert page.MARK_NOTE == note
+    assert note in html.split('<p class="foot" id="sg-foot">')[1].split("</p>")[0]
+    assert f'<p class="foot" id="pk-note">{note}</p>' in html
     assert '<span class="pre">pre</span>' not in html and '" pre"' not in html
     with browser_page() as pg:
         pg.set_content(html)
