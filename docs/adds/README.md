@@ -530,6 +530,7 @@ Some Yahoo pages do not change during a day. The run keeps them in `output/adds/
 | The team-filtered lists and the market pages in the recent view (`S_AL14`) | Until the end of the day of the read |
 | Transaction Trends of yesterday | Until the end of the day of the read |
 | Transaction Trends of 2 or more days before today | For good |
+| The trade tool: the rostered list in both views and the league settings page (`output/adds/cache/rostered/`, #148) | Until the end of the day of the read |
 
 The run never takes these pages from the cache:
 

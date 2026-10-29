@@ -33,6 +33,9 @@ READY = [
     # The next-week page on the last day of a week and the page before the first games have no score table.
     ("matchup", ("a.Navtarget[href]",), ("table.Datatable tbody tr",)),
     ("buzzindex", ("table.Tst-table tbody tr",), ()),  # trends.read_trends()
+    # trade/deadline.read_trade_deadline() reads the text of the league settings page (#148). No live run has shown
+    # the elements of this page, so it has no required element. The settings table is optional.
+    ("settings", (), ("table tbody tr",)),
 ]
 # readers.read_roster() reads data-pos. A script on the page adds data-pos about 0.1 s after the table appears.
 # readers.read_record() reads the team overview (#142). A live run has not yet shown when it appears, so it is optional:

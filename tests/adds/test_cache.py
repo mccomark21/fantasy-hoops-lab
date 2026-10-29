@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from fantasyhoops.adds import cache as page_cache
-from fantasyhoops.adds.cache import DAY, KEPT, RECENT, TRENDS, PageCache
+from fantasyhoops.adds.cache import DAY, KEPT, RECENT, ROSTERED, TRENDS, PageCache
 from fantasyhoops.adds.trends import read_week_trends, trends_path
 
 MON = date(2027, 1, 4)
@@ -48,7 +48,7 @@ def test_a_day_entry_is_good_until_the_end_of_the_day(tmp_path):
     second = PageCache(MON, folder=tmp_path, clock=clock(11, 0))
     assert second.recent(yahoo).get("players?a") == "<p>players?a</p>"
     assert yahoo.paths == ["players?a"]  # the second run asks Yahoo for no page
-    assert second.hits == {RECENT: 1, TRENDS: 0}
+    assert second.hits == {RECENT: 1, TRENDS: 0, ROSTERED: 0}
     assert second.line() == "The recent view: 1 page from the cache of 2027-01-04 09:14."
     next_day = PageCache(MON + timedelta(days=1), folder=tmp_path)
     next_day.recent(yahoo).get("players?a")
@@ -138,7 +138,7 @@ def test_a_bad_entry_is_a_miss(tmp_path, bad):
     later = PageCache(MON, folder=tmp_path)
     assert later.recent(yahoo).get("players?a") == "<p>players?a</p>"
     assert yahoo.paths == ["players?a"] * 2
-    assert later.hits == {RECENT: 0, TRENDS: 0} and later.line() is None
+    assert later.hits == {RECENT: 0, TRENDS: 0, ROSTERED: 0} and later.line() is None
     assert json.loads(_entry_file(tmp_path).read_text(encoding="utf-8"))["path"] == "players?a"  # written again
 
 
@@ -213,3 +213,16 @@ def test_the_week_trends_read_the_pages_that_are_not_in_the_cache_together(tmp_p
     trends = read_week_trends(yahoo, days, lambda day: cache.trends(yahoo, day))
     assert yahoo.batches == [[trends_path(MON), trends_path(days[2])]]  # yesterday comes from the cache
     assert trends["Phi One"].adds_week == 1 + 2 + 1
+
+
+def test_a_rostered_entry_is_good_until_the_end_of_the_day_and_has_its_own_folder(tmp_path):
+    yahoo = Pages()
+    PageCache(MON, folder=tmp_path).rostered(yahoo).get("players?status=T")
+    second = PageCache(MON, folder=tmp_path)
+    assert second.rostered(yahoo).get("players?status=T") == "<p>players?status=T</p>"
+    assert yahoo.paths == ["players?status=T"]
+    assert second.hits[ROSTERED] == 1
+    assert second.line() == "The rostered list and the league settings: 1 page from the cache."
+    assert [d.name for d in (tmp_path / ROSTERED).iterdir()] == ["2027-01-04"]
+    PageCache(MON + timedelta(days=1), folder=tmp_path).remove_old_days()
+    assert list((tmp_path / ROSTERED).iterdir()) == []  # the entries of an earlier day go
