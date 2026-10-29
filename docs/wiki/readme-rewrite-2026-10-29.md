@@ -7,3 +7,4 @@
 - On 2026-10-29, after a GitHub-style local preview of the Impeccable draft, the owner asked to move the screenshot grid below the About section and the summary.
 - On 2026-10-29, the owner approved the polished draft with the grid after About ("looks good to go for now") and decided the screenshots show the team names as they are. The draft was copied to `output/readme/README-polished.md` in the main checkout (git ignores it). Next: after the joint publish, take the 4 screenshots and open the README PR.
 - On 2026-10-29, after the joint publish, the chief of staff started a builder for the README PR (screenshots from the live site, and the card text fix).
+- On 2026-10-29, the builder opened PR #169 at `63e1187`: the approved draft unchanged, 4 screenshots at 1280x800 (40 to 68 KB), and card.png with the 4 page names. A reviewer started.

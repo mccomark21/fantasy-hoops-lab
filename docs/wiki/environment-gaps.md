@@ -39,3 +39,7 @@ Dated observations of what the repo did not have. Each item names the date of th
 ## Worktrees have no data or auth (2026-10-29)
 
 - On 2026-10-29, the #150 builder found that a worktree has no `data/` and no `.auth/`, because git does not track them. For a live run, it linked the folders of the main checkout into the worktree and removed the links after. No script does this step.
+
+## The share card source is outside git (2026-10-29)
+
+- On 2026-10-29, the README PR #169 changed `card.png`, but its source (`card-a2.html` and `build.py`) lives only in `output/icons/prototype/`, which git ignores. A later change to the card depends on that folder in the main checkout.
