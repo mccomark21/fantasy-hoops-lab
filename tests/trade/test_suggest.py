@@ -218,3 +218,64 @@ def test_at_most_3_rows_for_each_player_you_give_and_20_in_all():
 def test_the_settings_come_from_the_trade_section():
     assert SETTINGS.kept == 8 and SETTINGS.band == (0.95, 1.10) and SETTINGS.per_player == 3 and SETTINGS.rows == 20
     assert SETTINGS.is_untouchable(replace(me("x", 0), name="Star  Keeper"))
+
+
+# The offer list (#170) ---------------------------------------------------------------------------------------------
+
+
+def offer(*names, settings=FIVE):
+    return replace(settings, offer=names)
+
+
+def test_the_offer_list_comes_from_the_trade_section_and_an_empty_list_offers_each_player_but_the_untouchable():
+    assert SETTINGS.offer == ()
+    assert TradeSettings.from_config({"trade": {**CFG["trade"], "offer": ["Point"]}}).offer == ("Point",)
+    assert [p.name for p in MINE if SETTINGS.is_offered(p)] == [p.name for p in MINE[1:]]
+
+
+def test_the_suggestions_give_only_the_players_of_the_offer_list():
+    others = [them("Busy Center", 1.0, pos="C"), them("Busy Point", 2.0, pos="PG")]
+    result = suggest(MINE, others, days(), SLOTS, WEEKS, offer("point", "Shooter"))
+    assert result.rows == [] and result.pairs == 2 * 2  # Idle Center is not on the list: no row for him
+    assert result.offered == ("Point", "Shooter")
+    assert suggest(MINE, others, days(), SLOTS, WEEKS, offer("Idle Center")).rows[0].give.name == "Idle Center"
+
+
+def test_untouchable_wins_over_offer():
+    result = suggest(MINE, [them("Wing Twin", 0.1, pos="SF")], days(), SLOTS, WEEKS, offer("Star Keeper"))
+    assert result.offered == () and result.pairs == 0
+    assert result.missed == (
+        ("Star Keeper", "he is on the [trade] untouchable list, and untouchable wins over offer."),
+    )
+
+
+def test_each_offered_player_with_no_row_gets_the_reason():
+    mine = [*MINE, me("No Value", None, pos="C")]
+    others = [them("Busy Center", 1.0, pos="C"), them("Busy Point", 2.0, pos="PG")]
+    settings = offer("Point", "Shooter", "Idle Center", "Bench Big", "No Value")
+    result = suggest(mine, others, days(), SLOTS, WEEKS, settings)
+    assert [s.give.name for s in result.rows] == ["Idle Center"]
+    assert dict(result.missed) == {
+        "Point": "no trade in his value band raises your playoff starts.",
+        "Shooter": "no player of another team has a value in his value band.",
+        "Bench Big": "he is not in your 5 kept players, so a trade does not change your playoff starts.",
+        "No Value": "he has no value.",
+    }
+
+
+def test_an_offered_player_below_the_row_limit_gets_the_reason():
+    # Two idle centers in a kept set of 6: each gains with Busy Center. With 1 row in all, one of them has no row.
+    mine = [*MINE[:5], me("Idle Two", 1.0, pos="C", team="NONE")]
+    settings = replace(offer("Idle Center", "Idle Two"), kept=6, rows=1)
+    result = suggest(mine, [them("Busy Center", 1.0, pos="C")], days(), SLOTS, WEEKS, settings)
+    assert len(result.rows) == 1 and result.gains == 2
+    assert [r for _, r in result.missed] == ["his trades rank below the 1 trade that the page shows."]
+
+
+def test_with_an_empty_offer_list_no_player_gets_a_reason_line():
+    result = suggest(MINE, [them("Busy Point", 2.0, pos="PG")], days(), SLOTS, WEEKS, FIVE)
+    assert result.missed == ()
+
+
+def test_the_names_of_the_offer_list_that_are_not_on_your_roster():
+    assert offer("Point", "Gone Guy", "Other Gone").not_on_roster(MINE) == ["Gone Guy", "Other Gone"]

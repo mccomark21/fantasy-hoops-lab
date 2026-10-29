@@ -130,6 +130,40 @@ def test_the_page_escapes_the_names():
     assert "A &lt;b&gt;" in html and "B &quot;q&quot;" in html and "&lt;T&gt;" in html
 
 
+# The offer list (#170).
+
+OFFER_CFG = {**CFG, "trade": {**CFG["trade"], "offer": ["Hurt Point Guard", "Nickeil Alexander-Walkerson", "Big Man"]}}
+KEPT_LINE = "he is not in your 8 kept players, so a trade does not change your playoff starts."
+
+
+def test_the_page_names_the_offered_players_and_the_reason_of_each_player_with_no_suggestion_above_the_table():
+    result = replace(
+        RESULT,
+        offered=("Hurt Point Guard", "Nickeil Alexander-Walkerson", "Big Man"),
+        missed=(("Big Man", KEPT_LINE),),
+    )
+    html = page.render(result, WEEKS, OFFER_CFG, MADE, TODAY, DEADLINE, READ)
+    block = html.split('<div class="offer" id="offer">')[1].split("</div>")[0]
+    assert "<p>Offered: Hurt Point Guard, Nickeil Alexander-Walkerson, Big Man (config [trade] offer).</p>" in block
+    assert f"<li>No suggestion for Big Man: {KEPT_LINE}</li>" in block
+    assert html.index('id="offer"') < html.index('id="give-chips"') < html.index('id="sg-desk"')
+    chips = re.findall(r'class="chip" aria-pressed="false" data-n="([^"]+)"', html.split('id="give-chips"')[1])
+    assert set(chips) <= set(result.offered)
+
+
+def test_with_no_suggestion_the_page_still_shows_the_offered_players_and_the_reasons():
+    result = Suggestions(BASE, [], [], 10, 0, 0, ("Big Man",), (("Big Man", KEPT_LINE),))
+    html = page.render(result, WEEKS, OFFER_CFG, MADE, TODAY, DEADLINE, READ)
+    assert f"<li>No suggestion for Big Man: {KEPT_LINE}</li>" in html
+    assert '<div class="empty"><p>No trade raises your playoff starts.</p></div>' in html
+
+
+def test_with_an_empty_offer_list_the_page_says_that_each_player_but_the_untouchable_is_offered():
+    html = render()
+    assert "<p>Offered: each player who is not untouchable (config [trade] offer is empty).</p>" in html
+    assert 'id="offer-miss"' not in html
+
+
 # The browser checks (#140): the filter, the fit and the contrast. They skip if Chromium is not installed.
 
 
@@ -307,6 +341,13 @@ def test_the_builder_data_has_both_rosters_the_suggestions_and_the_engine_data()
     assert "const TeamBuilder = " in html and "const TradeBuilder = " in html
 
 
+def test_the_builder_allows_a_player_who_is_not_on_the_offer_list():
+    """#170: the offer list limits only the suggestions. The builder blocks only the untouchable players."""
+    settings = replace(SETTINGS, offer=(GUARD.name,))
+    data = page.builder_data(RESULT, MINE, OTHERS, PLAYOFF, ["PG", "SG", "SF", "PF", "C"], WEEKS, settings)
+    assert [p["name"] for p in data["me"] if not p["untouchable"]] == [p.name for p in MINE[1:]]
+
+
 def test_the_partner_starts_show_as_an_estimate_in_the_table_and_the_row_list():
     html = render()
     row = html.split('<tr data-give="Hurt Point Guard" data-k="0">')[1].split("</tr>")[0]
@@ -456,12 +497,21 @@ def edge_pages():
     return {
         "deadline": page.render_deadline(CFG, MADE, PAST),
         "warnings": page.render(RESULT, WEEKS, CFG, MADE, TODAY, None, READ, None, WARNINGS),
+        "offer": page.render(
+            replace(RESULT, offered=("Hurt Point Guard",), missed=(("Nickeil Alexander-Walkerson", KEPT_LINE),)),
+            WEEKS,
+            OFFER_CFG,
+            MADE,
+            TODAY,
+            DEADLINE,
+            READ,
+        ),
     }
 
 
 EDGE_FIT = r"""width => {
   const bad = [];
-  document.querySelectorAll(".head, .meta div, #warnings li, #deadline p").forEach(c => {
+  document.querySelectorAll(".head, .meta div, #warnings li, #deadline p, #offer p, #offer li").forEach(c => {
     const box = c.getBoundingClientRect();
     if (box.left < 0 || box.right > width) bad.push(`"${c.textContent}" is ${box.left} to ${box.right}`);
     if (c.scrollWidth > c.clientWidth + 1) bad.push(`"${c.textContent}" scrolls sideways`);

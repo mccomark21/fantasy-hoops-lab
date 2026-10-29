@@ -19,8 +19,9 @@ The terminal shows:
 
 1. The page path.
 2. The count of suggestions and the best suggestion, or "No trade raises your playoff starts."
-3. The publish line: the URL of the page, or "Publish: skipped (--no-publish)."
-4. The warnings: no trade deadline, rows of the rostered list with no team link, your players with no value, and the players with no match in a data file. See [Edge states](#edge-states).
+3. The offered players and one line for each offered player with no suggestion. See [Offer list](#offer-list).
+4. The publish line: the URL of the page, or "Publish: skipped (--no-publish)."
+5. The warnings: no trade deadline, rows of the rostered list with no team link, your players with no value, names of the offer list that are not on your roster, and the players with no match in a data file. See [Edge states](#edge-states).
 
 ## Publish
 
@@ -45,7 +46,7 @@ The kept set belongs to the trade tool. It does not change the `stream_spots` of
 
 ## Suggestions
 
-`trade/suggest.py` scores each 1-for-1 pair of your players (not the untouchable players) and the players of the other teams.
+`trade/suggest.py` scores each 1-for-1 pair of your offered players and the players of the other teams. See [Offer list](#offer-list).
 
 1. Both players must have a value. A pair with no value on one side is not a suggestion.
 2. The value of the player you get must be in the value band: from give − 5% × |give| to give + 10% × |give| (`[trade] value_band`). The band works for values below 0.
@@ -54,6 +55,32 @@ The kept set belongs to the trade tool. It does not change the `stream_spots` of
 5. At most 3 rows for each player you give (`[trade] per_player`), and 20 rows in all (`[trade] rows`).
 
 The playoff starts use the home page rules exactly: `core/home.py` `lineup_fit()` on the days of `home.playoff_days()`. The slots are `[league] slots` and one Util slot. The lineup order is the custom rank of `draft/rankings.py`, and a player with no rank goes last. A rest night on a back-to-back (`rests_b2b` of the `[risk] file`) is not a game. IL and injured players count, with their Yahoo status on the page.
+
+## Offer list
+
+The `[trade] offer` list in `config.toml` names the players that you are willing to trade (#170). Edit the list through the season.
+
+1. The suggestions give only the players on the list. The match uses `common.name_key()`.
+2. An empty list offers each player who is not untouchable.
+3. `untouchable` wins over `offer`. A player on both lists is never given.
+4. A name on the list that is not on your roster gives a warning in the terminal and on the page.
+5. The trade builder still allows any player who is not untouchable. The list limits only the suggestions.
+6. The kept set rule does not change. An offered player outside your kept set gets no suggestion, because a trade of him does not change your playoff starts.
+
+The page shows a line above the table, for example "Offered: Rudy Gobert, Matas Buzelis, Coby White (config [trade] offer)." The names come from your roster, in the roster order. With an empty list, the line says "Offered: each player who is not untouchable (config [trade] offer is empty)."
+
+Under that line, each player on the list with no suggestion gets one line with the reason. The run uses the first reason that applies:
+
+| Reason | Line after "No suggestion for <name>: " |
+|---|---|
+| He is untouchable. | "he is on the [trade] untouchable list, and untouchable wins over offer." |
+| He has no value. | "he has no value." |
+| He is not in your kept set. | "he is not in your 8 kept players, so a trade does not change your playoff starts." |
+| No player of another team is in his value band. | "no player of another team has a value in his value band." |
+| No trade in his value band raises your starts. | "no trade in his value band raises your playoff starts." |
+| His trades fall outside the row limit. | "his trades rank below the 20 trades that the page shows." |
+
+The terminal prints the same lines after the best suggestion. With an empty list, no player gets a reason line.
 
 ## Value
 
@@ -104,19 +131,20 @@ The targets: 15 seconds or less with a full cache, 60 seconds or less with no ca
 `trade/page.py` writes `output/trade/index.html` in the look that the owner picked on #149 (look 3). The page uses `publish.shell()`, the `lab-t` table and `band_style()`.
 
 1. The header shows the trade deadline and the days to it, your playoff starts now and the time of the run.
-2. A filter row of the players you give sits above the table. A press on a chip shows only the trades of that player.
-3. The table has the players you give and get, the partner team, the playoff starts of each week and the total, and the value change of both teams.
-4. Each week cell shows the new count, the change and a small bar. A blue row above the trades shows your starts now.
-5. Below 940px of content, a row list replaces the table.
-6. The line under the table starts with "Starts count your 8 kept players."
-7. The trade builder sits under the table. See [Builder](#builder).
+2. The line of the offered players sits above the table, with a reason line for each offered player with no suggestion.
+3. A filter row of the players you give sits above the table. It shows only offered players with a suggestion. A press on a chip shows only the trades of that player.
+4. The table has the players you give and get, the partner team, the playoff starts of each week and the total, and the value change of both teams.
+5. Each week cell shows the new count, the change and a small bar. A blue row above the trades shows your starts now.
+6. Below 940px of content, a row list replaces the table.
+7. The line under the table starts with "Starts count your 8 kept players."
+8. The trade builder sits under the table. See [Builder](#builder).
 
 ## Builder
 
 The trade builder sits under the suggestions table (#152). It computes a custom trade in the browser, for example 2-for-1, and shows its effect on both teams.
 
 1. Pick one partner team. A new partner clears the players you get.
-2. Pick the players you give and the players you get. The untouchable players cannot be given.
+2. Pick the players you give and the players you get. The untouchable players cannot be given. The players that are not on the offer list can be given.
 3. When you get more players than you give, pick your drops. The builder first picks your lowest value players. It never offers an untouchable player.
 4. When you give more players than you get, your open spot stays empty: "1 open roster spot: a free agent can fill it."
 5. When the partner gets more players than he gives, he drops his lowest value players that are not on IL. A player with no value goes first. He never drops a player that he gets in the trade. The page names each drop.
@@ -152,6 +180,7 @@ The `[trade]` section of `config.toml`:
 | Key | Default | Meaning |
 |---|---|---|
 | `untouchable` | `["Cooper Flagg"]` | The players that the tool never offers. They are always in your kept set. |
+| `offer` | `["Rudy Gobert", "Matas Buzelis", "Coby White"]` | The players that the suggestions can give. An empty list offers each player who is not untouchable. See [Offer list](#offer-list). |
 | `value_band` | `[0.95, 1.10]` | The value band of the player you get, as parts of the value you give. |
 | `kept` | `8` | The players of a team that the playoff starts count. |
 | `per_player` | `3` | The suggestions for each player you give, at most. |
@@ -168,6 +197,7 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 | Value band | The range of values of the player you get, from the value you give. |
 | Untouchable | A player that the tool never offers in a trade. |
 | Partner | The other fantasy team of a trade. |
+| Offered player | A player on your roster that the suggestions can give: on the `[trade] offer` list (or any player if the list is empty), and not untouchable. |
 | Pre | The preseason `pg_value` of a player. As a mark, it says that the value is the preseason value, because he has no blended value. |
 
 ## Decisions
@@ -180,3 +210,4 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 - On 2026-10-29, the owner decided: the page shows the partner starts, marked "est.", for the suggestions and for a custom trade (Decision comment on #152).
 - On 2026-10-29, the builder of #152 made the build choices of the builder (Decision comment on #152).
 - On 2026-10-29, the builder of #153 made the choices of the edge states (Decision comments on #153).
+- On 2026-10-29, the owner decided: a config list `[trade] offer` limits the players that the suggestions give. The kept set rule does not change (#170). The builder of #170 made the choices of the reason lines (Decision comments on #170).

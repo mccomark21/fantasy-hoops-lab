@@ -1,7 +1,7 @@
 import csv
 import html
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -15,7 +15,7 @@ from fantasyhoops.trade import run
 from fantasyhoops.trade.deadline import SETTINGS_PATH
 from fantasyhoops.trade.reads import TradeInputs
 from fantasyhoops.trade.rostered import RosteredRead
-from fantasyhoops.trade.suggest import Suggestion, Suggestions, TradePlayer
+from fantasyhoops.trade.suggest import Suggestion, Suggestions, TradePlayer, TradeSettings
 
 FIXTURES = Path(__file__).parent / "fixtures"
 TEAM_PAGE = Path(__file__).parents[1] / "adds" / "fixtures" / "team.html"
@@ -178,15 +178,37 @@ def test_the_best_line_and_the_warnings():
     ]
 
 
+def test_a_name_of_the_offer_list_that_is_not_on_your_roster_gets_a_warning():
+    settings = TradeSettings(frozenset(), (0.95, 1.10), 8, 3, 20, ("Here Guy", "Gone Guy"))
+    read = RosteredRead([], [], {}, [], False)
+    inputs = TradeInputs(read, date(2027, 3, 4), "")
+    lines = run.warnings([TradePlayer("Here Guy", "ATL", ("C",), value=1.0)], inputs, (), settings)
+    assert lines == ["Warning: these players of the [trade] offer list are not on your roster: Gone Guy."]
+
+
 def test_the_trade_section_of_the_config_has_no_deadline():
     trade = common.load_config()["trade"]
     assert trade == {
         "untouchable": ["Cooper Flagg"],
+        "offer": ["Rudy Gobert", "Matas Buzelis", "Coby White"],
         "value_band": [0.95, 1.10],
         "kept": 8,
         "per_player": 3,
         "rows": 20,
     }
+
+
+def test_the_run_prints_the_offered_players_and_the_page_shows_them(fake_run, tmp_path, capsys, monkeypatch):
+    cfg = common.load_config()
+    cfg["trade"]["offer"] = ["Rudy Gobert", "Coby White", "Gone Guy"]
+    monkeypatch.setattr(run, "load_config", lambda: cfg)
+    run.main(["--no-publish"])
+    out = capsys.readouterr().out
+    text = (tmp_path / "trade" / "index.html").read_text(encoding="utf-8")
+    assert "Offered: Coby White, Rudy Gobert (config [trade] offer)." in out
+    assert '<div class="offer" id="offer"><p>Offered: Coby White, Rudy Gobert (config [trade] offer).</p>' in text
+    line = "Warning: these players of the [trade] offer list are not on your roster: Gone Guy."
+    assert line in out and f"<li>{html.escape(line)}</li>" in text
 
 
 # The edge states of #153.

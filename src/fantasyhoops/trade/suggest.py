@@ -5,7 +5,8 @@ The playoff starts of a team count its kept set: the top [trade] kept players by
 player you give in the kept set. The run does not rank the kept set again after the trade (Decision comment on #150).
 The starts use the home page rules: core/home.py lineup_fit() on the playoff days of home.playoff_days().
 A pair is a suggestion if the value of the player you get is in the value band of the player you give, and the trade
-raises your total playoff starts by 1 or more. The rank: the gain in total starts, then the gain of your weakest
+raises your total playoff starts by 1 or more. The suggestions give only the players of the [trade] offer list (#170). An
+empty list offers each player who is not untouchable. The rank: the gain in total starts, then the gain of your weakest
 week, then your value change.
 """
 
@@ -71,13 +72,18 @@ class TradePlayer:
 
 @dataclass(frozen=True)
 class TradeSettings:
-    """The [trade] section of config.toml. untouchable: a frozenset of name keys (common.name_key())."""
+    """The [trade] section of config.toml. untouchable: a frozenset of name keys (common.name_key()).
+
+    offer: the names of the [trade] offer list, in the config order (#170). An empty tuple offers each player who
+    is not untouchable.
+    """
 
     untouchable: frozenset
     band: tuple
     kept: int
     per_player: int
     rows: int
+    offer: tuple = ()
 
     @classmethod
     def from_config(cls, cfg):
@@ -88,10 +94,26 @@ class TradeSettings:
             kept=int(t["kept"]),
             per_player=int(t["per_player"]),
             rows=int(t["rows"]),
+            offer=tuple(t.get("offer", ())),
         )
 
     def is_untouchable(self, player):
         return name_key(player.name) in self.untouchable
+
+    def is_offered(self, player):
+        """True if the suggestions can give the player: he is not untouchable, and the offer list is empty or has him."""
+        if self.is_untouchable(player):
+            return False
+        return not self.offer or self.listed(player)
+
+    def listed(self, player):
+        """True if the player is on the offer list, by common.name_key()."""
+        return name_key(player.name) in {name_key(n) for n in self.offer}
+
+    def not_on_roster(self, mine):
+        """The names of the offer list that are not on your roster (mine: your TradePlayers), in the config order."""
+        have = {name_key(p.name) for p in mine}
+        return [n for n in self.offer if name_key(n) not in have]
 
 
 @dataclass(frozen=True)
@@ -121,6 +143,8 @@ class Suggestions:
 
     rows: the Suggestions to show, best first. pairs: the 1-for-1 pairs. in_band: the pairs in the value band.
     gains: the pairs in the band with a gain of 1 start or more.
+    offered: the names of your players that the suggestions can give, in the roster order (#170).
+    missed: (name, reason) of each player on the [trade] offer list with no row. Empty if the offer list is empty.
     """
 
     base: tuple
@@ -129,6 +153,8 @@ class Suggestions:
     pairs: int
     in_band: int
     gains: int
+    offered: tuple = ()
+    missed: tuple = ()
 
 
 def kept_set(players, settings):
@@ -187,26 +213,30 @@ def suggest(mine, others, days, slots, weeks, settings):
 
     mine: your TradePlayers. others: the TradePlayers of the other teams (each with team_id). days: the playoff
     days (home.playoff_days()). slots: [league] slots. weeks: the names of the playoff weeks.
-    A pair with no value on either side is not a suggestion. The untouchable players are never in a trade.
+    A pair with no value on either side is not a suggestion. The suggestions give only the offered players
+    (settings.is_offered()). The untouchable players are never in a trade.
     """
     kept = kept_set(mine, settings)
     base = week_starts(kept, days, slots, weeks)
     pairs = scored = 0
     found = []
+    band_hits, gain_hits = Counter(), Counter()
     for give in mine:
-        if settings.is_untouchable(give):
+        if not settings.is_offered(give):
             continue
         for get in others:
             pairs += 1
             if give.value is None or get.value is None or not in_band(give.value, get.value, settings.band):
                 continue
             scored += 1
+            band_hits[give.name] += 1
             if give not in kept:
                 continue  # get takes the spot of give, which is not in the kept set: no change of the starts
             after = week_starts(swap(kept, give, get), days, slots, weeks)
             gain = sum(after) - sum(base)
             if gain < 1:
                 continue
+            gain_hits[give.name] += 1
             found.append(
                 Suggestion(
                     give, get, base, after, gain, min(after) - min(base), get.value - give.value, give.value - get.value
@@ -216,7 +246,32 @@ def suggest(mine, others, days, slots, weeks, settings):
     rows = [
         partner_side(s, others, days, slots, weeks, settings) for s in limit(found, settings.per_player, settings.rows)
     ]
-    return Suggestions(base, kept, rows, pairs, scored, len(found))
+    offered = tuple(p.name for p in mine if settings.is_offered(p))
+    shown = {s.give.name for s in rows}
+    missed = tuple(
+        (p.name, no_row_reason(p, kept, band_hits[p.name], gain_hits[p.name], settings))
+        for p in mine
+        if settings.listed(p) and p.name not in shown
+    )
+    return Suggestions(base, kept, rows, pairs, scored, len(found), offered, missed)
+
+
+def no_row_reason(player, kept, band, gains, settings):
+    """The reason that a player on the offer list has no row (#170). The first check that applies gives the reason.
+
+    kept: your kept set. band: his pairs in the value band. gains: his pairs in the band with a gain.
+    """
+    if settings.is_untouchable(player):
+        return "he is on the [trade] untouchable list, and untouchable wins over offer."
+    if player.value is None:
+        return "he has no value."
+    if player not in kept:
+        return f"he is not in your {settings.kept} kept players, so a trade does not change your playoff starts."
+    if not band:
+        return "no player of another team has a value in his value band."
+    if not gains:
+        return "no trade in his value band raises your playoff starts."
+    return f"his trades rank below the {settings.rows} trade{'' if settings.rows == 1 else 's'} that the page shows."
 
 
 def partner_side(s, others, days, slots, weeks, settings):
