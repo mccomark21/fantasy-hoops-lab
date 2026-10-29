@@ -100,7 +100,7 @@ def test_the_command_marks_the_role_up_free_agents_on_the_page(monkeypatch, tmp_
 def test_the_command_marks_the_free_agents_who_play_on_an_open_day_early_next_week(monkeypatch, tmp_path, capsys):
     # The week is Mon and Tue. Next week starts on Wed, and PHI plays then. The roster is empty, so all slots are open.
     run_command(monkeypatch, tmp_path, [], publish=False, extra_games=[(WEEK[2], "PHI")])
-    html = page.page_path().read_text(encoding="utf-8")
+    html = page.free_agents_path().read_text(encoding="utf-8")
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert data["players"][0]["next_open"] == ["Wed open"]
     assert "he has a game next Wednesday 1/6" in text(html)
@@ -112,7 +112,7 @@ def test_on_the_last_day_of_the_week_the_mark_checks_the_days_after_the_planned_
     run_command(
         monkeypatch, tmp_path, [], publish=False, league=league, extra_games=[(WEEK[2], "PHI"), (WEEK[4], "PHI")]
     )
-    html = page.page_path().read_text(encoding="utf-8")
+    html = page.free_agents_path().read_text(encoding="utf-8")
     data = json.loads(re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1))
     assert data["players"][0]["next_open"] == ["Fri open"]
     assert "next Friday 1/8" in text(html) and "next Saturday 1/9" in text(html)
@@ -479,10 +479,10 @@ def run_command(
     monkeypatch.setattr(command, "build_home", home or (lambda *args: None))
 
     # A home page goes after the pages in the record of the publish, then the more_tools of the publish (#165).
-    def publish(*a, home=None, cfg, more_tools=None):
+    def fake_publish(*a, home=None, cfg, more_tools=None):
         published.append((*a, *([home] if home is not None else []), *([more_tools] if more_tools else [])))
 
-    monkeypatch.setattr(command.site, "publish", publish)
+    monkeypatch.setattr(command.site, "publish", fake_publish)
     command.main(today=today or WEEK[0], publish=publish, timed=timed, cache=cache)
     return yahoo
 
@@ -615,7 +615,8 @@ def test_the_page_shows_the_market_read_and_the_terminal_does_not(monkeypatch, t
     line = "Market: 2 of 3 pages. Page 2 was the last page of the list."
     html = page.page_path().read_text(encoding="utf-8")
     assert line in text(run_time(html))  # in the Run time section, not above the free-agent table (#118)
-    assert line not in text(html.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
+    free = page.free_agents_path().read_text(encoding="utf-8")
+    assert line not in text(free.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
     assert line not in capsys.readouterr().out  # #130
 
 
@@ -646,9 +647,10 @@ def test_the_page_says_that_the_run_skipped_the_recent_view(monkeypatch, tmp_pat
         free_agents={lists.PROJECTED: projected, lists.RECENT: recent},
     )
     html = page.page_path().read_text(encoding="utf-8")
-    above = text(html.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
+    free = page.free_agents_path().read_text(encoding="utf-8")
+    above = text(free.split("<h2>Free agents</h2>")[1].split('id="fa-table"')[0])
     # Above the free-agent table: one short sentence. The full line is in the Run time section (#118).
-    assert page.SKIP_NOTE in above and SKIP_LINE not in above
+    assert text(page.SKIP_NOTE) in above and SKIP_LINE not in above
     assert SKIP_LINE in text(run_time(html))
     assert SKIP_LINE not in capsys.readouterr().out  # #130
 
@@ -658,7 +660,7 @@ def test_a_run_with_the_recent_view_has_no_skip_line(monkeypatch, tmp_path, caps
     run_command(
         monkeypatch, tmp_path, [], publish=False, free_agents={lists.PROJECTED: projected, lists.RECENT: recent}
     )
-    html = page.page_path().read_text(encoding="utf-8")
+    html = page.page_path().read_text(encoding="utf-8") + page.free_agents_path().read_text(encoding="utf-8")
     assert "<h2>Free agents</h2>" in html
     assert "skipped the recent view" not in text(html)
     assert 'class="skip"' not in html
@@ -796,15 +798,17 @@ def test_the_terminal_shows_only_the_page_path_the_team_plan_and_the_warnings(mo
     (run,) = runs
     assert run.warnings and run.market
     out = capsys.readouterr().out.replace(str(page.page_path()), "<page>")
+    out = out.replace(str(page.free_agents_path()), "<free agents>")
     assert out.splitlines() == [
         "",
         "Wrote the plan page: <page>",
+        "Wrote the Free agents page: <free agents>",
         "Team plan: Add 1, Mon 1/4: +Util PHI. Starts Mon & Tue.",
         "The run did not publish the page (--no-publish).",
         *run.warnings,
     ]
     # The page still shows the sections that the terminal report showed before #130.
-    html = text(page.page_path().read_text(encoding="utf-8"))
+    html = text(page.page_path().read_text(encoding="utf-8") + page.free_agents_path().read_text(encoding="utf-8"))
     for line in (*run.warnings, run.market, "Star Wing is absent."):
         assert line in html
 

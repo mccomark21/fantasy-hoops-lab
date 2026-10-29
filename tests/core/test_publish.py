@@ -91,7 +91,7 @@ def test_old_board_at_the_root_goes_away(repo, remote_pages):
 
 @pytest.mark.parametrize("tool", ["draft", "trades"])
 def test_unknown_tool_stops_with_an_error(repo, tool):
-    with pytest.raises(ValueError, match="The tools are: adds, trade."):
+    with pytest.raises(ValueError, match="The tools are: adds, free-agents, trade."):
         publish(repo, tool, page(repo, f"{tool}/x.html", ""), cfg=CFG)
 
 
