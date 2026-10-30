@@ -426,7 +426,7 @@ def run_command(
     roster: the build_roster() of the run (adds/roster.py). None: a function that makes no Roster page.
     values: the season values of drops.season_values(). None: no player has a season value.
     owners: the RosteredPlayers of the rostered list for the Players page (#186). None: the read fails, so the run
-    makes no Players page.
+    makes no Players page. "read": the real players_page.read_owners() runs.
     """
     fake_lists = yahoo is None
     yahoo = yahoo or FakeLeague()
@@ -480,7 +480,8 @@ def run_command(
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(command, "build_roster", roster or (lambda *args: None))
-    monkeypatch.setattr(command.players_page, "read_owners", lambda reader: owners)
+    if owners != "read":  # "read": the real read_owners() runs
+        monkeypatch.setattr(command.players_page, "read_owners", lambda reader: owners)
 
     # The record of the publish: the pages, then the more_tools of the publish (#165, #172).
     def fake_publish(*a, cfg, more_tools=None):
@@ -874,3 +875,26 @@ def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_
     assert published[0][3] == {"free-agents": page.free_agents_path(), "players": players}
     file = json.loads(players[1][0].read_text(encoding="utf-8"))
     assert file["players"][0]["owner"] == "Lamb Chops" and file["players"][0]["mine"] is True
+
+
+@pytest.mark.parametrize("error", ["timeout", "network"])
+def test_a_failed_owner_read_keeps_the_players_page_and_the_plan_publishes(monkeypatch, tmp_path, capsys, error):
+    """#186: a Yahoo timeout or a network error in the rostered list read does not stop the planning run. The
+    publish has no /players/ folder, so the site keeps the old one."""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    from fantasyhoops.trade import rostered
+
+    def fail(*args, **kwargs):
+        if error == "timeout":
+            raise PlaywrightTimeout("Timeout 30000ms exceeded.")
+        raise ConnectionError("The network is down.")
+
+    monkeypatch.setattr(rostered, "read_rostered", fail)
+    published = []
+    run_command(monkeypatch, tmp_path, published, publish=True, owners="read")
+    out = capsys.readouterr().out
+    assert published == [(command.ROOT, "adds", page.page_path(), {"free-agents": page.free_agents_path()})]
+    assert "Warning: the run could not read the rostered list for the Players page (" in out
+    assert "The publish keeps the old Players page." in out
+    assert not (common.OUT / "players").exists()

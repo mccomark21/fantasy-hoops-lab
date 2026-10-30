@@ -204,6 +204,9 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
       + (log ? `<li><b>Games.</b>${log}</li>` : "")
       + `<li><b>Signals.</b> Each signal comes from a rule of a quadrant and links to it. The header shows ${MAX} at most.</li></ul>`;
   };
+  // The tooltip card of a card root. In the modal: #lab-tt, in the dialog (the top layer). On the Players page:
+  // #lab-tt-page, outside the closed dialog, so that it can show.
+  out.tip = root => document.getElementById(root.closest("dialog") ? "lab-tt" : "lab-tt-page");
   // root: the .lab-card element. p: one player of the file. d: the file. id: a prefix for the ids of the card.
   out.render = (root, p, d, id) => {
     const owner = p.owner ? `${esc(p.owner)}${p.mine ? " (you)" : ""}` : "FA";

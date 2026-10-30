@@ -27,16 +27,19 @@ def folder():
 def read_owners(reader):
     """The RosteredPlayers of all teams from the projected view of the Yahoo rostered list, or None if the read fails.
 
-    reader: a reader with get(path), for example cache.PageCache.rostered(). A failed read prints a warning. The run
-    then keeps the /players/ folder of the site.
+    reader: a reader with get(path), for example cache.PageCache.rostered(). Any failed read (a changed page, a page
+    that does not load, a Yahoo timeout or a network error) prints a warning. The planning run then continues, and its
+    publish keeps the /players/ folder of the site. The Players page is not worth a stopped plan.
     """
-    from fantasyhoops.adds.session import PageNotReady
     from fantasyhoops.trade.rostered import read_rostered
 
     try:
         return read_rostered(reader, None, skip_recent=True).projected
-    except (ValueError, PageNotReady) as error:
-        print(f"Warning: the run could not read the rostered list for the Players page: {error}")
+    except Exception as error:  # noqa: BLE001 - each failure of this optional read keeps the old page
+        print(
+            "Warning: the run could not read the rostered list for the Players page "
+            f"({type(error).__name__}: {error}). The publish keeps the old Players page."
+        )
         return None
 
 
@@ -176,6 +179,7 @@ __MENU__
 <p class="pp-count">__COUNT__</p>
 </div>
 <div class="lab-card" id="pp-card"><p class="lc-msg">Loading the player file…</p></div>
+<div class="lab-tt" id="lab-tt-page" role="tooltip" hidden></div>
 </main>
 __PLAYER_MODAL__
 __SCRIPT__

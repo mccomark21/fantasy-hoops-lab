@@ -153,3 +153,20 @@ def test_below_800px_the_modal_is_a_full_screen_sheet_with_stacked_quadrants(mod
     assert (box["x"], box["y"], box["width"], box["height"]) == (0, 0, 390, 844)
     quads = [q.bounding_box() for q in pg.locator("#lab-pmodal .lc-q").all()]
     assert len({round(q["x"]) for q in quads}) == 1 and [q["y"] for q in quads] == sorted(q["y"] for q in quads)
+
+
+def test_on_close_the_focus_goes_to_the_name_that_a_page_script_drew_again(modal_site):
+    """Build note 1: a page script can replace the names while the modal is open. The focus finds the new name."""
+    pg = modal_site.open("roster", page())
+    pg.locator('a.lab-pname[data-player="karl-anthony-towns"]').click()
+    pg.locator("#lab-pm-name").wait_for()
+    pg.evaluate(
+        "document.querySelectorAll('main a.lab-pname').forEach(a => { const b = a.cloneNode(true);"
+        " b.dataset.redrawn = '1'; a.replaceWith(b); })"
+    )
+    pg.keyboard.press("Escape")
+    pg.wait_for_function("!document.getElementById('lab-pmodal').open")
+    assert pg.evaluate("[document.activeElement.dataset.player, document.activeElement.dataset.redrawn]") == [
+        "karl-anthony-towns",
+        "1",
+    ]

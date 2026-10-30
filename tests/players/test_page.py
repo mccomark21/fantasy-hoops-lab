@@ -112,3 +112,36 @@ def test_the_search_finds_a_player_and_the_hash_keeps_the_pick_on_load_back_and_
     pg.press("#pp-q", "Enter")
     assert pg.locator("#pp-msg").text_content() == "No player on this page has that name."
     assert pg.evaluate("location.hash") == "#karl-anthony-towns"
+
+
+class FailingReader:
+    def __init__(self, error):
+        self.error = error
+
+    def get(self, path):
+        raise self.error
+
+
+def test_each_failed_owner_read_gives_none_and_a_warning(capsys):
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    from fantasyhoops.adds.session import PageNotReady
+
+    for error in (PlaywrightTimeout("Timeout"), ConnectionError("down"), PageNotReady("no table"), OSError("reset")):
+        assert page.read_owners(FailingReader(error)) is None
+        assert f"({type(error).__name__}: " in capsys.readouterr().out
+
+
+def test_the_players_page_has_its_own_tooltip_card_outside_the_closed_dialog(modal_site):
+    """The modal tooltip sits in the dialog (build note 3). A closed dialog hides it, so the page has its own."""
+    pg = modal_site.open("players", page.render(CFG, {"rostered": 1, "free_agents": 2}), records=records())
+    pg.locator("#pc-name").wait_for()
+    assert pg.evaluate("LabCard.tip(document.getElementById('pp-card')).id") == "lab-tt-page"
+    pg.evaluate(
+        "(() => { const t = LabCard.tip(document.getElementById('pp-card'));"
+        " t.textContent = 'Oct 28 vs SA'; t.style.left = '300px'; t.style.top = '300px'; t.hidden = false; })()"
+    )
+    assert pg.locator("#lab-tt-page").is_visible()
+    pg.goto(modal_site.url + "players/#player=ace-bailey")
+    pg.locator("#lab-pm-name").wait_for()
+    assert pg.evaluate("LabCard.tip(document.getElementById('lab-pm-card')).id") == "lab-tt"

@@ -343,3 +343,18 @@ def test_a_player_name_opens_the_player_modal(modal_site):
     """#186: each name of the Roster table is a link that opens the player modal."""
     modal_site.open("roster", page())
     assert modal_site.check_modal() == "guard-one"
+
+
+def test_on_a_phone_the_name_opens_the_modal_and_the_rest_of_the_row_opens_the_row(modal_site):
+    """#186: before #186, a tap on a phone row opened its details. The tap keeps that action. Only the name opens
+    the modal."""
+    modal_site.page.set_viewport_size({"width": 390, "height": 844})
+    pg = modal_site.open("roster", page())
+    row = pg.locator("details.m-p").first
+    row.locator(".gp").click()
+    assert row.evaluate("d => d.open") and not pg.evaluate("document.getElementById('lab-pmodal').open")
+    row.locator(".gp").click()
+    assert not row.evaluate("d => d.open")
+    row.locator("a.lab-pname").click()
+    pg.locator("#lab-pm-name").wait_for()
+    assert not row.evaluate("d => d.open")
