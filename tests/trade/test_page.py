@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from fantasyhoops.core import profile
+from fantasyhoops.core import chart, profile
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.trade import page
@@ -127,6 +127,20 @@ def test_the_page_uses_the_site_shell_and_the_shared_table_style():
     assert site.TABLE_STYLE in html and site.MENU_SCRIPT in html
     assert '<nav class="lab-menu" id="lab-menu"' in html and '<a href="../roster/">Roster</a>' in html
     assert "__" not in re.sub(r"<script.*?</script>", "", html, flags=re.S).replace("lab-t", "")
+
+
+def test_the_page_passes_the_chart_style_check_and_the_label_overlap_check():
+    """#194: the two checks of #185. The page head has the shared chart style once, so the modal has no copy of it.
+
+    The change bars of the week cells are HTML marks of the table, not chart marks, so they keep their look.
+    The deadline page has no player modal and no chart, so it does not get the chart style.
+    """
+    text = render_builder()
+    assert chart.style_problems(text) == [] and chart.label_overlaps(text) == []
+    assert text.count(chart.CHART_STYLE) == 1 and "__CHART_CSS__" not in text
+    assert text.index(chart.CHART_STYLE) < text.index("</head>")
+    assert profile.modal(chart_css=False) in text
+    assert chart.CHART_STYLE not in page.render_deadline(CFG, MADE, DEADLINE)
 
 
 def test_the_page_escapes_the_names():
