@@ -30,3 +30,9 @@ On 2026-10-30, the owner decided that the player profile opens as a pop-up over 
 - The agent checked it in Chromium (Playwright). At 1440x900 the card fits with no scroll (793 px of 876). At 390x844 it is a full-screen sheet with stacked quadrants that scrolls. The hash, Back, deep link, Esc, Close, backdrop click, focus trap and focus return passed.
 - Open point: on a phone, the chart text is very small. The approved sample had the same problem.
 - Notes for the #186 build, from the agent: the pages draw names in JS with no player id, and a redraw replaces them, so focus return must find the name by slug. Page-wide `h1`, `h2`, `p` and `*` rules leak into the card, so the card styles need a scope. Tooltips must sit inside the dialog.
+
+## Owner review of the modal sample (2026-10-30)
+
+- On 2026-10-30, the owner approved the modal. The owner said: "Everything else looked good."
+- The "Open full profile" link of the sample pointed to `docs/design/players-sample.html`. The owner said that on that page "a lot of the text/font looks blocky" and that it needs a polish pass. The cause was not known at the time of the review.
+- Next: an agent finds the cause and makes a Before / After page that changes only the text. An agent edits #186 to the modal scope.
