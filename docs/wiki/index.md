@@ -6,6 +6,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Projects
 
+- [Run of 2026-10-30](run-2026-10-30.md): the session of 2026-10-30 (player pop-up, font fix PR #195, the ticket pipeline wave plan for #181 to #194).
 - [Trade tool build](trade-tool-build.md): the builds of #148 and #150 to #153 (PRs #154 to #158), the edge states of #153 and its live run of 2026-10-29.
 - [Run of 2026-10-28](run-2026-10-28.md): the session of 2026-10-28 that merged PR #121 (closes #116) as `e740820`, with its follow-ups.
 - [Home page sample of 2026-10-27](home-page-sample-2026-10-27.md): the Impeccable home-page work of the evening of 2026-10-27 (surface brief, 5 candidate mocks, Card Back picked over Center-Hung, static samples), not approved and not committed as of 2026-10-28.
