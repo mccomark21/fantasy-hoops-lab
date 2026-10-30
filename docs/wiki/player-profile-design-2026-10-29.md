@@ -54,7 +54,9 @@ On 2026-10-29, the owner rejected the long scrolling page of the first sample. T
    - one shared chart style in `core/` (CSS classes from `tokens.py` in the page shell of `core/publish.py`, and small SVG helpers),
    - a test that fails on inline stroke widths, raw hex colors or a chart outside the shared classes,
    - one issue per page to adopt it (home, roster, free agents, adds, trade, players), each with a Before / After page for the owner.
-5. Order: owner approval of the polish, then the DESIGN.md rules with the shared module and the test, then each page.
+5. On 2026-10-29, the owner approved the After charts of the polish pass. The owner said: "oh yeah this looks loads better". After has no gridlines, frames or legends. It uses direct labels, one hero mark per chart, muted secondary marks, dot-on-track category bars and small triangles for duds and spikes.
+6. The adds page audit of 2026-10-29 ranked 7 heavy or busy spots (heat columns through empty add rows, the 2px games rule, the boxy add cell, the busy matchup table, heading rules, the band size, bold games numbers). Items 1, 3 and 6 change values in the DESIGN.md "Week grid" section and need owner approval on a Before / After page.
+7. Order: owner approval of the polish, then the DESIGN.md rules with the shared module and the test, then each page.
 
 ## Follow-ups (not filed)
 
