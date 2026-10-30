@@ -197,12 +197,12 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 - **Past day:** a 10% `lab-mute` ground and `lab-mute` text. A past add is a dashed `lamp-off` box with `lab-mute` text. A past band and its square are `lab-mute`.
 
 ### Charts
-- **Source:** the After look of `.impeccable/review/players-sample.html`, approved by the owner on 2026-10-29. The Before look of that file is not a rule. The reasons are in `docs/wiki/player-profile-design-2026-10-29.md`.
+- **Source:** the "After + tooltips" look of `.impeccable/review/players-sample.html`. The owner approved the After marks on 2026-10-29, then its tooltips and label placement. The Before look of that file is not a rule. The reasons are in `docs/wiki/player-profile-design-2026-10-29.md`.
 - **Canvas:** an SVG with a 580px viewBox that scales to the width of its panel. All chart text has tabular figures.
 - **Panel head:** the h2 of a chart panel has a 1px `mark` rule below it, not 2px.
 - **No gridlines:** a value axis shows tick labels only, with about 4 ticks. The category chart shows the labels 0, "50th pct" and 100.
 - **No frames:** no axis lines, no plot border and no box around the plot.
-- **No legends:** a direct label names each mark. The labels at the right end of a trend chart start 8px right of the plot. The chart moves them down to keep 13px between labels. A trend chart shows the date under each game, with no opponent line.
+- **No legends:** a direct label names each mark. A trend chart shows the date under each game, with no opponent line.
 
 #### Marks
 | Mark | Look | Tokens |
@@ -219,12 +219,33 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 | Category connector (projection to now) | 1.25px stroke, 70% opacity | `lamp-off` |
 | Projection dot | 4px radius, 1.25px stroke, hollow | `lamp-off` on `lab-stock` |
 
-- **Normal-range band:** the label "normal range <low>–<high>" sits inside the band, 4px from the left edge and 5px above the bottom edge.
+- **Normal-range band:** the band has the label "normal range <low>–<high>" inside it.
 - **Reference lines:** each line has its name as an end label at the right.
-- **Duds and spikes:** the first dud and the first spike of a chart get the label "dud" or "spike", 7px to the right. Other duds and spikes get no label.
-- **Range exit:** when the hero point leaves the band, a label "▲ out" or "▼ out" shows above or below it.
-- **Dot-on-track category bars:** one row per category, 38px high. The row shows the category name and its punt weight (×0.70) at the left, then the track. The connector joins the projection dot and the hero dot. The per-game value and "proj <value>" show at the right. Only the first row labels its dots "now" and "proj". The "proj" label moves below the track when the two dots are 34px apart or less.
-- **Tooltips:** pending owner review (2026-10-29).
+- **Duds and spikes:** only the first dud and the first spike of a chart get a label, "dud" or "spike". Other duds and spikes get no label.
+- **Range exit:** when the hero point leaves the band, the label "▲ out" or "▼ out" marks it.
+- **Dot-on-track category bars:** one row per category, 38px high. The row shows the category name and its punt weight (×0.70) at the left, then the track. The connector joins the projection dot and the hero dot. The per-game value and "proj <value>" show at the right. Only the first row labels its dots "now" and "proj".
+
+#### Label placement
+The chart keeps a box around each mark, line and placed label. A new label goes only where its box touches none of them. The plot edges stop a label 2px inside the plot, so no label touches the tick labels, the dates or the end labels.
+
+1. **End labels:** the end labels of the hero line, the secondary line and the reference lines sit 8px right of the plot, at the height of the end of each line. When two labels are less than 13px apart, the chart moves both of them apart by the same amount until the gap is 13px. The labels stay between 4px below the top and 4px above the bottom of the plot.
+2. **Dud, spike and range exit labels:** the chart tries 4 sides in this order: 7px right of the mark, 7px left, 8px above, 8px below. It uses the first clear side. The dud and spike labels go on the first dud or spike that has a clear side. If no side is clear, the chart draws no label.
+3. **Band label:** the chart tries the 4 corners inside the band, 4px from the edges, in this order: bottom-left, top-left, bottom-right, top-right. It uses the first clear corner. If no corner is clear, the band has no label.
+4. **"now" and "proj":** when the two dots are more than 34px apart, both labels sit 10px above the track, centered on their dots. When they are 34px apart or less, "now" sits above the track and "proj" sits below it. Each label aligns to the side away from the other dot.
+
+#### Tooltips
+- **Card:** one shared card per page, fixed to the viewport. It is 168–260px wide, with a `lab-stock` ground, a 1px `lamp-off` border, 7px 10px 8px padding and 12px text with tabular figures.
+- **Line order:**
+  1. The context line: 11px `lab-mute`, one line, cut with an ellipsis. For a game: "Oct 28 vs SA · start · close game" ("bench" when he did not start).
+  2. The key number: 20px, weight 800, width 85%. Next to it, an 11px `lab-mute` label ("minutes", "value · dud", "percentile now").
+  3. Up to 3 rows below a 1px `lab-rule`: a `lab-mute` name at the left and the value at the right, with a 14px gap.
+- **Rows:** minutes: Competitive, 3-game avg, Usage. Value: PTS · REB · AST, 3PM · STL · BLK, 3-game avg. Category: Projection, Per game now, Season weight. Comps row: Biggest diff, Distance, his own Val.
+- **Number formats:** minutes "31.4 min" (1 decimal). Value with a sign and 2 decimals ("+1.23", "−0.94", with a true minus sign). Usage "22.0%". Percentile as an ordinal ("62nd"). A z difference as "REB −1.19 z". A missing value is "–". An average that needs more games is "needs 3 games".
+- **Edge flip:** the card goes 12px right of the mark, centered on it in height. If it does not fit, it goes 12px left. If neither side fits, it goes 12px above, centered, else 12px below. The card stays 8px inside the viewport. It never covers the mark.
+- **Crosshair:** on a trend chart, a 1px `lamp-off` vertical line runs through the game column for the full plot height while the card shows. The category chart has no crosshair.
+- **Focus:** each game column, category row and comps row is a tab stop. Focus shows the card. A focused chart target gets a 1px `lamp-off` outline. A focused comps row gets a 2px `lab-ink` outline and a `qcol` ground. Each target has an aria-label with the full card text and `aria-describedby` on the card.
+- **Mouse, tap and close:** a mouse shows the card on enter and hides it on leave. A tap shows the card and keeps it open. A tap outside a target, a scroll or Escape hides it.
+- **Corners:** the sample card has 3px rounded corners. The Shapes rule says all corners are square. The owner has not decided between the two yet.
 
 #### Chart text
 | Text | Size | Weight | Token |
@@ -251,6 +272,7 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 #### Token gaps
 These values have no token in `core/tokens.py` yet. Each chart writes them as literal values today.
 - Stroke widths: 2px, 1.25px, 1px (and 1.5px for the empty box).
+- Tooltip sizes: the 20px key number at width 85%, and the 168–260px card width.
 - Marker sizes: dot radius 3.5px, 4px and 5px. Triangle 9px by 7.5px. The 2px `lab-stock` ring.
 - Opacities of the muted marks: 80%, 75% and 70%.
 - The 10.5px text size. It is outside the type ramp (Label is 11–12px).
