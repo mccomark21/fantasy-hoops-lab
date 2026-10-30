@@ -49,6 +49,27 @@ The rotation log (`data/rotation_log.csv`) gives these terms. `core/rotation.py`
 | Regular (flag) | He started (closed) 70% or more of the window. |
 | Inconsistent (flag) | He started (closed) 20% or more of the window, but less than 70%. |
 
+## Box scores
+
+`python -m fantasyhoops.fetch.rotation` reads the ESPN game summary of each new game. It writes the rotation log and `data/box_scores.csv` from the same summary. The file has one row for each player on the box score of each game. A player who did not play has a row with `played` = False and no stats.
+
+To add the box scores of the games that are in the rotation log but not in `data/box_scores.csv`, run `python -m fantasyhoops.fetch.rotation --box-scores`. A second run adds no rows. `--rebuild` writes the file again with the rotation log.
+
+| Column | Meaning |
+|---|---|
+| `game_id`, `date`, `team`, `opponent` | The ESPN event ID, the US date of the game, the team of the player and the other team. |
+| `player_id`, `player` | The ESPN ID and the name of the player. |
+| `starter`, `played` | True if he started. True if the box score gives him stats. |
+| `min`, `pts` | Minutes (a whole number, as ESPN gives them) and points. |
+| `fgm`, `fga`, `fg3m`, `fg3a`, `ftm`, `fta` | Field goals, three-pointers and free throws: made and attempted. |
+| `oreb`, `dreb`, `reb`, `ast`, `stl`, `blk`, `tov`, `pf` | Rebounds (offensive, defensive, total), assists, steals, blocks, turnovers and personal fouls. |
+| `plus_minus` | The points of his team minus the points of the other team while he is on the floor. |
+| `usg` | Usage rate, in percent. Blank for a player with 0 minutes. |
+
+| Term | Meaning |
+|---|---|
+| Usage rate (USG%) | The percent of the team plays that a player uses while he is on the floor. A play is a field-goal attempt, 0.44 of a free-throw attempt, or a turnover. USG% = 100 × (FGA + 0.44 × FTA + TOV) × (team MIN ÷ 5) ÷ (MIN × (team FGA + 0.44 × team FTA + team TOV)). The team values are the sums of the players of the team in that game. `fetch/rotation.py` `usage_rate()` computes it. |
+
 ## Schedule
 
 | Term | Meaning |
