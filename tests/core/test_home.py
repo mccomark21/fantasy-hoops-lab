@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from fantasyhoops.core import common, home, publish, tokens
+from fantasyhoops.core import chart, common, home, publish, tokens
 from tests.adds.test_page import CONTRAST
 from tests.core.test_roster import browser_page
 
@@ -72,6 +72,14 @@ def test_the_page_css_has_no_colors_of_its_own():
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", style)
     for team in home.EXAMPLE_TEAMS:
         assert f"--team:{tokens.TEAM_COLORS[team]};" in home.render(CFG)
+
+
+def test_the_home_page_passes_the_chart_style_check_and_the_label_overlap_check():
+    """#191: the two checks of #185. The page has no chart. Each <svg> is the aria-hidden arrow icon of a page link."""
+    html = home.render(CFG)
+    assert chart.style_problems(html) == [] and chart.label_overlaps(html) == []
+    svgs = re.findall(r"<svg\b[^>]*>", html)
+    assert len(svgs) == 4 and all('aria-hidden="true"' in s for s in svgs)
 
 
 def test_write_puts_the_page_in_output_home(tmp_path):
