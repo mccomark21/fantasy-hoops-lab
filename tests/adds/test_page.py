@@ -1030,14 +1030,18 @@ def test_the_plan_page_shows_the_7_changes_of_the_chart_audit(width):
 
 
 def test_the_plan_page_has_the_shared_chart_style_and_passes_its_check():
-    """#190 adopts the shared chart style of #185 on the plan page. The Free agents page does not get it."""
-    from fantasyhoops.core import chart
+    """#190 adopts the shared chart style of #185 on the plan page. The Free agents page does not get it.
+
+    #186: the player modal of the Free agents page brings the chart style for its card. The page CSS has none.
+    """
+    from fantasyhoops.core import chart, profile
 
     html = page.render(AUDIT_RUN)
     assert chart.CHART_STYLE in html and "__CHART_CSS__" not in html and "__PAGE_CSS__" not in html
     assert chart.style_problems(html) == [] and chart.label_overlaps(html) == []
     fa_page = page.render_free_agents(AUDIT_RUN)
-    assert chart.CHART_STYLE not in fa_page and "__PAGE_CSS__" not in fa_page
+    assert profile.modal() in fa_page and "lab-pmodal" not in html
+    assert chart.CHART_STYLE not in fa_page.replace(profile.modal(), "") and "__PAGE_CSS__" not in fa_page
 
 
 SITE = "http://lab.test/"  # a fake origin for the site in the browser tests of #165
