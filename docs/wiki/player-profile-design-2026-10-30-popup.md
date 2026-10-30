@@ -37,3 +37,10 @@ On 2026-10-30, the owner decided that the player profile opens as a pop-up over 
 - The "Open full profile" link of the sample pointed to `docs/design/players-sample.html`. The owner said that on that page "a lot of the text/font looks blocky" and that it needs a polish pass. The cause was not known at the time of the review.
 - Next: an agent finds the cause and makes a Before / After page that changes only the text. An agent edits #186 to the modal scope.
 - On 2026-10-30, an agent edited #186 to the modal scope. Item 6 and its criterion became the shared modal (hash, Back, Esc, focus, "Open full profile"). New items 7 and 8 add the shared modal in `core/` and the shared player file. Item 2 reads that file, not embedded JSON. The issue gained the modal fit and phone-sheet criteria, "Build notes" and a note on the approved sample. The title gained "and player modal". #187 to #189 had no page-link line and did not change.
+
+## Cause of the blocky text (2026-10-30)
+
+- As of `mccomark21/fantasy-hoops-lab@24db84c`, `docs/design/players-sample.html` loads `fonts/archivo-latin.woff2`, but `docs/design/` has no `fonts/` folder. The font load fails. The stack falls back to Arial Narrow, which has no width axis, so each `font-stretch` has no effect and weights 800 and 900 render heavy. The modal sample embedded Archivo as base64 and did not have the problem. An agent found this, and the chief of staff checked that the folder is missing.
+- The build is not affected: `publish.write_page` calls `tokens.copy_font` (`src/fantasyhoops/core/tokens.py`), which puts the font beside each page.
+- An agent wrote `.impeccable/review/players-text-polish.html` (untracked), a Before / After page where After only loads Archivo.
+- Follow-up (not filed): a test that each committed HTML file with a `@font-face` or `preload` URL has that file in the repo. Such a test would have caught this.
