@@ -56,7 +56,9 @@ On 2026-10-29, the owner rejected the long scrolling page of the first sample. T
    - one issue per page to adopt it (home, roster, free agents, adds, trade, players), each with a Before / After page for the owner.
 5. On 2026-10-29, the owner approved the After charts of the polish pass. The owner said: "oh yeah this looks loads better". After has no gridlines, frames or legends. It uses direct labels, one hero mark per chart, muted secondary marks, dot-on-track category bars and small triangles for duds and spikes.
 6. The adds page audit of 2026-10-29 ranked 7 heavy or busy spots (heat columns through empty add rows, the 2px games rule, the boxy add cell, the busy matchup table, heading rules, the band size, bold games numbers). Items 1, 3 and 6 change values in the DESIGN.md "Week grid" section and need owner approval on a Before / After page.
-7. Order: owner approval of the polish, then the DESIGN.md rules with the shared module and the test, then each page.
+7. On 2026-10-29, the owner said the tooltips were "not easy to read" and "kind of messy". A pass gave all 4 quadrants one tooltip card. Then the owner said the "now" and "proj" labels were hard to read (Ace Bailey PTS). The next pass also changed the charts (a key, a new column, a gutter). The owner said: "no you changed the chart i mean only to change the label locations". A third pass restored the charts and moved only the labels. The owner said: "yeah thats better". The chief of staff kept the overlap-check script of that pass as a candidate for the chart test.
+8. Chart rules: an agent committed `1bdecec` on the local branch `docs/chart-rules` (DESIGN.md "Charts" section and `.impeccable/design.json`). It found token gaps (stroke widths, marker sizes, opacities, a 10.5px size), game dots at about 2.8:1 contrast, and a stale stone and violet palette in `.impeccable/design.json`.
+9. Order: owner approval of the polish, then the DESIGN.md rules with the shared module and the test, then each page.
 
 ## Follow-ups (not filed)
 
