@@ -8,7 +8,7 @@ The card has a header and 4 quadrants. It is not a scrolling page: at 1440 x 900
 
 - **Header:** the NBA team band, the name, the positions, the owner (or FA), Val and up to 3 signal chips.
   - Val is the Val of the Free agents page (owner decision of 2026-10-30): the blended value per game above a replacement free agent (0 = the free agent at rank 15 by value). The value and the replacement come from the same planning run as the Free agents page. A free agent gets his Val from the free-agent lists of the run. A rostered player gets it from the rostered list, with the same blend. A player with no Yahoo line in the run has no Val ("–").
-  - A signal comes from a rule of a quadrant, for example a band exit, a projection gap or consistency. Each chip links to its quadrant. With no signal, the header says "No signals: playing to projection". The rules are in `SIGNAL_RULES` in `players/data.py`. The Categories quadrant gives the projection-gap rule (#188).
+  - A signal comes from a rule of a quadrant, for example a band exit, a projection gap or consistency. Each chip links to its quadrant. With no signal, the header says "No signals: playing to projection". The rules are in `SIGNAL_RULES` in `players/data.py`. The Categories quadrant gives the projection-gap rule (#188). The Role quadrant gives the band-exit rule, the Minutes signal (#187).
 - **Quadrants:** Role (top left), Categories (top right), Value (bottom left) and Comps (bottom right). A quadrant with no chart shows a dashed box that says what is missing.
 - **Methods:** the "i" icon in the header opens the methods and data notes.
 
@@ -53,6 +53,18 @@ The planning run (`python -m fantasyhoops.adds.plan`) writes the page and the fi
 - A search box finds a player by name. The URL hash keeps the pick, for example `/players/#ace-bailey`. The hash opens that player on load and on Back or Forward.
 - With no hash, the page shows the first player of the file: the highest Val.
 
+## Role quadrant
+
+The Role quadrant (top left) shows the minutes of the player game by game (#187).
+
+- A gray dot is the total minutes of a game. The blue line is the average of the last 3 games (the hero line). The thin gray line is the competitive minutes (`core/rotation.py`, #184).
+- The band is the normal range: the season mean ± 2 × spread / √3. The spread mixes his own spread with the league spread, which counts as 4 games. The league spread pools the minutes of each logged player with 2 or more games.
+- When the 3-game average leaves the band, the label "▲ out" or "▼ out" marks it. When no side of the point is clear, the chart draws no label and the header chip carries the signal (owner decision of 2026-10-30). When the last 3-game average is outside the band, the header shows a Minutes signal: up above the band, an alert below it.
+- With fewer than 3 games, the chart has no band. With 3 or 4 games, it has the band but no flag and no signal. The state line under the chart says so.
+- The head of the quadrant shows the season usage rate (`data/box_scores.csv`, #183) with the change of the last 3 games, and the mean minutes in close games and in the other games.
+- `config.toml` `[players.role]` holds the window (3), the games for a band (3), the games for a flag (5), the weight of the league spread (4 games) and the band width (2). The owner approved these defaults on 2026-10-30.
+- A tooltip card (`LabCard.bindTip()`) shows each game, with a crosshair: the date, the opponent, a start or the bench, a close game, the minutes, the competitive minutes, the 3-game average and the usage rate.
+
 ## The player modal
 
 A player name on the Roster, Free agents and Trades pages is a link. The Adds plan page has no name links.
@@ -68,6 +80,7 @@ A player name on the Roster, Free agents and Trades pages is a link. The Adds pl
 
 - `core/profile.py`: the one shared card and modal (CSS and JS), `slug()` and `name_link()`. `publish.shell()` puts the modal in place of `__PLAYER_MODAL__` in a page template. The card styles have the scope `.lab-card`, so the rules of a page do not change the card.
 - `players/data.py`: the player rule, Val, the games and the signal rules.
+- `players/role.py`: the data of the Role quadrant and its signal rule. `core/profile_role.py`: the Role chart in the browser.
 - `players/page.py`: the Players page and the player file.
 - `players/categories.py`: the percentiles of the Categories quadrant and its signal rule. `core/card_cats.py`: the chart of the quadrant (`LabCard.fill.cats`).
 - `profile.FILLS` lists the quadrant fills. Each fill module has `STYLE`, `script()` (it sets `LabCard.fill.<quadrant>`) and `METHODS` (its line of the methods note). A quadrant adds one entry.

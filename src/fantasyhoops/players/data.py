@@ -25,7 +25,7 @@ from fantasyhoops.core.identity import YAHOO_COLS, link_players, yahoo_keys
 from fantasyhoops.core.rotation import read_log
 from fantasyhoops.core.valuation import value_players
 from fantasyhoops.draft.rankings import STATS
-from fantasyhoops.players import categories
+from fantasyhoops.players import categories, role
 
 MIN_GAMES = 5  # a free agent with this many games in the rotation log or more is on the page
 OVERRIDE_COLUMNS = ["player_id", "name", "espn_name", "yahoo_name", "team"]
@@ -76,7 +76,7 @@ class Signal:
 
 
 # The signal rules. Each rule takes a player record and gives a Signal or None. #187 to #189 add their rules.
-SIGNAL_RULES = (categories.projection_gap,)
+SIGNAL_RULES = (role.band_exit, categories.projection_gap)
 
 
 def signals(record, rules=SIGNAL_RULES):

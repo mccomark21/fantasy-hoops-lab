@@ -16,7 +16,7 @@ publish.shell() puts modal() in place of __PLAYER_MODAL__ in a page template. Th
 
 import html
 
-from fantasyhoops.core import card_cats, chart
+from fantasyhoops.core import card_cats, chart, profile_role
 from fantasyhoops.core.common import name_key
 
 DATA_FILE = "players.json"  # the shared player file, in the /players/ folder of the site
@@ -34,7 +34,7 @@ QUADRANT_KEYS = tuple(key for key, _, _ in QUADRANTS)
 # LabCard.fill.<quadrant> and runs after the card script. METHODS is a JS function (player, file) that gives the
 # <li> of the quadrant in the methods note, or "". modal() and card_script() add each fill. A quadrant issue adds one
 # entry.
-FILLS = (card_cats,)
+FILLS = (card_cats, profile_role)
 MAX_SIGNALS = 3  # the header shows this many signal chips at most
 NO_SIGNALS = "No signals: playing to projection"  # the header text when a player has no signal
 
