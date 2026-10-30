@@ -1,112 +1,428 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-27T00:00:00Z",
+  "generatedAt": "2026-10-29T00:00:00Z",
   "title": "Design System: Fantasy Hoops Lab",
   "extensions": {
     "colorMeta": {
-      "stone-page":    { "role": "neutral", "displayName": "Stone Page",    "dark": "#1c1917", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#d6d3d1", "#f5f5f4", "#fafaf9"] },
-      "stone-header":  { "role": "neutral", "displayName": "Stone Header",  "dark": "#292524", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#d6d3d1", "#f5f5f4", "#fafaf9"] },
-      "stone-rule":    { "role": "neutral", "displayName": "Stone Rule",    "dark": "#44403c", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#d6d3d1", "#e7e5e4", "#fafaf9"] },
-      "stone-average": { "role": "neutral", "displayName": "Stone Average", "dark": "#57534e", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#57534e", "#a8a29e", "#d6d3d1", "#fafaf9"] },
-      "stone-muted":   { "role": "neutral", "displayName": "Stone Muted",   "dark": "#a8a29e", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#a8a29e", "#d6d3d1", "#fafaf9"] },
-      "stone-ink":     { "role": "neutral", "displayName": "Stone Ink",     "dark": "#f5f5f4", "tonalRamp": ["#0c0a09", "#1c1917", "#292524", "#44403c", "#78716c", "#a8a29e", "#d6d3d1", "#fafaf9"] },
-      "accent-violet": { "role": "primary", "displayName": "Accent Violet (provisional)", "dark": "#a78bfa", "tonalRamp": ["#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ede9fe"] },
-      "signal-good":   { "role": "signal",  "displayName": "Signal Good",   "dark": "#22c55e", "tonalRamp": ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#86efac", "#dcfce7"] },
-      "signal-bad":    { "role": "signal",  "displayName": "Signal Bad",    "dark": "#ef4444", "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fee2e2"] },
-      "signal-warn":   { "role": "signal",  "displayName": "Signal Warn",   "dark": "#facc15", "tonalRamp": ["#713f12", "#854d0e", "#a16207", "#ca8a04", "#eab308", "#facc15", "#fde047", "#fef9c3"] }
+      "lab-stock": {
+        "role": "neutral",
+        "displayName": "Card Stock",
+        "dark": "#0e1a2e",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "lab-ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "dark": "#eef2f8",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#242528",
+          "#404246",
+          "#5e6167",
+          "#7f8288",
+          "#a2a5aa",
+          "#c7c9cd",
+          "#edeef0"
+        ]
+      },
+      "lab-mute": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "dark": "#a7b2c4",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#22252b",
+          "#3e424b",
+          "#5b616e",
+          "#7c8290",
+          "#a0a5b0",
+          "#c5c9d1",
+          "#eceef3"
+        ]
+      },
+      "lab-rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "dark": "#23334d",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#242527",
+          "#414245",
+          "#606165",
+          "#818286",
+          "#a4a5a8",
+          "#c8c9cb",
+          "#eeeef0"
+        ]
+      },
+      "lab-blue": {
+        "role": "primary",
+        "displayName": "Royal Blue",
+        "dark": "#16305a",
+        "tonalRamp": [
+          "#030b19",
+          "#112541",
+          "#23426e",
+          "#36629e",
+          "#5684c3",
+          "#83a7d9",
+          "#b1cbef",
+          "#e1f0ff"
+        ]
+      },
+      "lab-blue-deep": {
+        "role": "primary",
+        "displayName": "Deep Royal",
+        "dark": "#1f3f73",
+        "tonalRamp": [
+          "#040b17",
+          "#15253d",
+          "#284367",
+          "#3d6295",
+          "#5e84b9",
+          "#89a7d2",
+          "#b5cbea",
+          "#e3f0ff"
+        ]
+      },
+      "lab-on-blue": {
+        "role": "neutral",
+        "displayName": "On Blue",
+        "dark": "#ffffff",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "lab-red": {
+        "role": "signal",
+        "displayName": "Card Red",
+        "dark": "#ff7d8d",
+        "tonalRamp": [
+          "#1e0102",
+          "#4a050c",
+          "#7d0d1b",
+          "#b3182b",
+          "#db464c",
+          "#f17d7b",
+          "#ffafac",
+          "#ffe0dd"
+        ]
+      },
+      "lab-on-red": {
+        "role": "neutral",
+        "displayName": "On Red",
+        "dark": "#0e1a2e",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "lab-green": {
+        "role": "signal",
+        "displayName": "Lead Green",
+        "dark": "#6fd08c",
+        "tonalRamp": [
+          "#020f05",
+          "#0a2d15",
+          "#184e29",
+          "#26723f",
+          "#4b955f",
+          "#7db58a",
+          "#aed5b6",
+          "#dff5e3"
+        ]
+      },
+      "mark": {
+        "role": "primary",
+        "displayName": "Mark Blue",
+        "dark": "#8fb3ff",
+        "tonalRamp": [
+          "#030b19",
+          "#112541",
+          "#23426e",
+          "#36629e",
+          "#5684c3",
+          "#83a7d9",
+          "#b1cbef",
+          "#e1f0ff"
+        ]
+      },
+      "zebra": {
+        "role": "neutral",
+        "displayName": "Zebra",
+        "dark": "#142540",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#242527",
+          "#404245",
+          "#5e6165",
+          "#7f8387",
+          "#a3a5a8",
+          "#c7c9cc",
+          "#edeef0"
+        ]
+      },
+      "qcol": {
+        "role": "neutral",
+        "displayName": "Shaded Cell",
+        "dark": "#1c3254",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#222529",
+          "#3e4249",
+          "#5c626b",
+          "#7c838c",
+          "#a0a5ad",
+          "#c6c9cf",
+          "#eceff2"
+        ]
+      },
+      "qcol-z": {
+        "role": "neutral",
+        "displayName": "Shaded Cell on Zebra",
+        "dark": "#223a60",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#22252a",
+          "#3d424a",
+          "#5b626c",
+          "#7c838e",
+          "#a0a5af",
+          "#c5c9d0",
+          "#eceff2"
+        ]
+      },
+      "vrule": {
+        "role": "neutral",
+        "displayName": "Vertical Rule",
+        "dark": "#2e4264",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232529",
+          "#3e4248",
+          "#5c626a",
+          "#7d838c",
+          "#a1a5ad",
+          "#c6c9cf",
+          "#edeef2"
+        ]
+      },
+      "lamp-off": {
+        "role": "neutral",
+        "displayName": "Lamp Off",
+        "dark": "#7d8eab",
+        "tonalRamp": [
+          "#090b0e",
+          "#22252c",
+          "#3d424d",
+          "#5a6170",
+          "#7a8392",
+          "#9fa5b2",
+          "#c4c9d2",
+          "#eceff4"
+        ]
+      },
+      "lab-scrim": {
+        "role": "neutral",
+        "displayName": "Scrim",
+        "dark": "rgb(8 16 32 / .5)",
+        "canonical": "rgb(8 16 32 / .5)"
+      }
     },
     "typographyMeta": {
-      "headline": { "displayName": "Headline", "purpose": "The page title (h1)." },
-      "title":    { "displayName": "Title",    "purpose": "Section headings (h2)." },
-      "body":     { "displayName": "Body",     "purpose": "Paragraphs and most text." },
-      "data":     { "displayName": "Data",     "purpose": "Table cells, with tabular figures." },
-      "label":    { "displayName": "Label",    "purpose": "Uppercase stat labels and filter group labels." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "The page title, with a 3px mark rule below it."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "h2 headings, with a 2px mark rule below them (1px on a chart panel)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Paragraphs and most text."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Table cells, with tabular figures. Totals use 800."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Table heads and filter labels. Not uppercase and not letter-spaced."
+      }
     },
-    "shadows": [
-      { "name": "menu", "value": "0 4px 12px rgba(0,0,0,.2)", "purpose": "The dropdown menu on the draft board. It is the only shadow on the site." }
-    ],
+    "shadows": [],
     "motion": [],
     "breakpoints": [
-      { "name": "narrow", "value": "599px", "purpose": "Below this width the plan grid hides long labels and the free-agent table hides its wide columns." }
+      {
+        "name": "narrow",
+        "value": "599px",
+        "purpose": "Below 600px: short day labels in the week grid, 16px side padding, and the free-agent table hides its wide columns."
+      },
+      {
+        "name": "drawer",
+        "value": "899px",
+        "purpose": "Below 900px: the side menu becomes a drawer under a 48px top bar."
+      },
+      {
+        "name": "one-column",
+        "value": "1099px",
+        "purpose": "Below 1100px: each Home page row and the About section go to one column."
+      }
     ]
   },
   "components": [
     {
-      "name": "Filter Chip",
+      "name": "Chip",
       "kind": "chip",
       "refersTo": "chip",
-      "description": "A round toggle button for a filter. A second line can show a count.",
+      "description": "A square filter button with a 1.5px lamp-off border. A second line can show a count.",
       "html": "<button class=\"ds-chip\" aria-pressed=\"false\">PG<small>12</small></button>",
-      "css": ".ds-chip { font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 4px 9px; border: 1px solid #e7e5e4; border-radius: 999px; background: #fafaf9; color: #1c1917; cursor: pointer; } .ds-chip small { display: block; color: #78716c; font-size: 11px; } .ds-chip:hover { border-color: #78716c; } .ds-chip:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }"
+      "css": ".ds-chip { font: 800 11px/1.2 var(--lab-face, Archivo, \"Arial Narrow\", system-ui, sans-serif); padding: 3px 7px; border: 1.5px solid var(--lamp-off, #6f7889); border-radius: 0; background: var(--lab-stock, #ffffff); color: var(--lab-ink, #14171c); cursor: pointer; } .ds-chip small { display: block; color: var(--lab-mute, #5b6270); font-weight: 400; } .ds-chip:hover { background: var(--zebra, #eff3f8); } .ds-chip:focus-visible { outline: 2px solid var(--lab-ink, #14171c); outline-offset: 2px; }"
     },
     {
-      "name": "Filter Chip (selected)",
+      "name": "Chip (selected)",
       "kind": "chip",
       "refersTo": "chip-selected",
-      "description": "The selected state of a filter chip.",
+      "description": "The pressed chip: a solid mark block with stock text.",
       "html": "<button class=\"ds-chip-on\" aria-pressed=\"true\">SG<small>8</small></button>",
-      "css": ".ds-chip-on { font: 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 4px 9px; border: 1px solid #7c3aed; border-radius: 999px; background: #7c3aed; color: #fff; cursor: pointer; } .ds-chip-on small { display: block; color: #ede9fe; font-size: 11px; } .ds-chip-on:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }"
+      "css": ".ds-chip-on { font: 800 11px/1.2 var(--lab-face, Archivo, \"Arial Narrow\", system-ui, sans-serif); padding: 3px 7px; border: 1.5px solid var(--mark, #1d4f91); border-radius: 0; background: var(--mark, #1d4f91); color: var(--lab-stock, #ffffff); cursor: pointer; } .ds-chip-on small { display: block; font-weight: 400; } .ds-chip-on:focus-visible { outline: 2px solid var(--lab-ink, #14171c); outline-offset: 2px; }"
     },
     {
       "name": "Stat",
       "kind": "custom",
       "refersTo": "stat",
-      "description": "A small inline value with an uppercase label.",
-      "html": "<div class=\"ds-stat\"><b>4</b><span>Games left</span></div>",
-      "css": ".ds-stat { display: inline-flex; align-items: baseline; gap: 6px; padding: 2px 10px; border: 1px solid #e7e5e4; border-radius: 6px; background: #f5f5f4; color: #1c1917; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; } .ds-stat b { font-size: 17px; font-variant-numeric: tabular-nums; } .ds-stat span { font-size: 11px; color: #78716c; text-transform: uppercase; letter-spacing: .04em; }"
+      "description": "No box. A muted 12px label above a 24px condensed value. A 1px rule separates the stats.",
+      "html": "<dl class=\"ds-stat\"><div><dt>Val</dt><dd>+2.26</dd></div><div><dt>Games</dt><dd>5</dd></div></dl>",
+      "css": ".ds-stat { display: flex; margin: 0; font-family: var(--lab-face, Archivo, \"Arial Narrow\", system-ui, sans-serif); color: var(--lab-ink, #14171c); font-variant-numeric: tabular-nums; } .ds-stat div { padding: 0 12px; border-left: 1px solid var(--lab-rule, #e7e9ee); } .ds-stat div:first-child { border-left: 0; padding-left: 0; } .ds-stat dt { font-size: 12px; color: var(--lab-mute, #5b6270); } .ds-stat dd { margin: 0; font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }"
     },
     {
       "name": "Flags",
-      "kind": "custom",
-      "refersTo": "flag-good",
-      "description": "Inline labels for new, up, next week and player status.",
-      "html": "<span class=\"ds-flag ds-new\">NEW</span> <span class=\"ds-flag ds-up\">UP</span> <span class=\"ds-flag ds-next\">NEXT</span> <span class=\"ds-flag ds-status\">GTD</span>",
-      "css": ".ds-flag { display: inline-block; padding: 0 4px; border-radius: 4px; font: 700 11px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #fff; } .ds-new { background: #16a34a; } .ds-up { background: #7c3aed; } .ds-next { background: #1c1917; color: #fafaf9; } .ds-status { background: #eab308; color: #1c1917; }"
+      "kind": "chip",
+      "refersTo": "flag",
+      "description": "Square tags with a 1.5px ink border. The next-week flag is solid ink. The status flag is solid lab-red.",
+      "html": "<span class=\"ds-flag\">FA?</span> <span class=\"ds-flag\">UP</span> <span class=\"ds-flag ds-next\">NEXT</span> <span class=\"ds-flag ds-status\">Q</span>",
+      "css": ".ds-flag { display: inline-block; padding: 0 4px; border: 1.5px solid var(--lab-ink, #14171c); border-radius: 0; font: 800 11px/1.4 var(--lab-face, Archivo, \"Arial Narrow\", system-ui, sans-serif); color: var(--lab-ink, #14171c); background: var(--lab-stock, #ffffff); } .ds-next { background: var(--lab-ink, #14171c); color: var(--lab-stock, #ffffff); } .ds-status { background: var(--lab-red, #c8102e); border-color: var(--lab-red, #c8102e); color: var(--lab-on-red, #ffffff); }"
     },
     {
       "name": "Data Table",
       "kind": "custom",
-      "refersTo": "table-header",
-      "description": "A flat table with tabular figures, thin rules and a tinted header. The sorted column is violet.",
-      "html": "<table class=\"ds-table\"><thead><tr><th class=\"ds-name\">Player</th><th aria-sort=\"descending\">Value</th><th>GP</th></tr></thead><tbody><tr><td class=\"ds-name\">Player A</td><td>+1.42</td><td>4</td></tr><tr><td class=\"ds-name\">Player B</td><td>+0.87</td><td>3</td></tr></tbody></table>",
-      "css": ".ds-table { border-collapse: collapse; width: 100%; font: 13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; color: #1c1917; } .ds-table th, .ds-table td { padding: 5px 4px; text-align: right; border-bottom: 1px solid #e7e5e4; } .ds-table thead th { background: #f5f5f4; font-weight: 600; cursor: pointer; } .ds-table th[aria-sort] { color: #7c3aed; } .ds-table .ds-name { text-align: left; } .ds-table tbody tr:hover td { background: #fafaf9; }"
+      "refersTo": "table",
+      "description": "The Roster look: collapsed borders, 1px row rules, zebra rows and a 2px mark rule under the head. The sorted column has a 3px mark bar.",
+      "html": "<table class=\"ds-table\"><thead><tr><th class=\"ds-name\">Player</th><th aria-sort=\"descending\">Val ▼</th><th>GP</th></tr></thead><tbody><tr><td class=\"ds-name\">Player A</td><td>+1.42</td><td>4</td></tr><tr><td class=\"ds-name\">Player B</td><td>+0.87</td><td>3</td></tr></tbody></table>",
+      "css": ".ds-table { border-collapse: collapse; width: 100%; font: 13px/1.4 var(--lab-face, Archivo, \"Arial Narrow\", system-ui, sans-serif); font-variant-numeric: tabular-nums; color: var(--lab-ink, #14171c); background: var(--lab-stock, #ffffff); } .ds-table th, .ds-table td { padding: 5px 6px; text-align: right; border-bottom: 1px solid var(--lab-rule, #e7e9ee); } .ds-table thead th { font-size: 11px; font-weight: 800; color: var(--mark, #1d4f91); border-bottom: 2px solid var(--mark, #1d4f91); } .ds-table th[aria-sort] { box-shadow: inset 0 -3px 0 var(--mark, #1d4f91); } .ds-table .ds-name { text-align: left; } .ds-table tbody tr:nth-child(even) td { background: var(--zebra, #eff3f8); }"
     },
     {
-      "name": "Site Nav",
+      "name": "Site Menu",
       "kind": "nav",
-      "refersTo": "site-nav",
-      "description": "The bar at the top of each published page.",
-      "html": "<nav class=\"ds-nav\"><a href=\"#\">Home</a> · <a href=\"#\" aria-current=\"page\">Adds</a> · <a href=\"#\">Draft</a></nav>",
-      "css": ".ds-nav { padding: 8px 16px; font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; background: #fafaf9; color: #78716c; border-bottom: 1px solid #e7e5e4; } .ds-nav a { color: #7c3aed; font-weight: 600; text-decoration: none; } .ds-nav a[aria-current] { color: #1c1917; } .ds-nav a:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }"
+      "refersTo": "menu",
+      "description": "The royal-blue side menu. The current page is a stock row with ink text and a 9px lab-red square.",
+      "html": "<nav class=\"ds-menu\"><b>Fantasy Hoops Lab</b><a href=\"#\">Home</a><a href=\"#\" aria-current=\"page\">Adds plan</a><a href=\"#\">Trades</a></nav>",
+      "css": ".ds-menu { display: flex; flex-direction: column; width: 216px; padding: 12px 0; background: var(--lab-blue, #1d4f91); color: var(--lab-on-blue, #ffffff); font-family: var(--lab-face, Archivo, \"Arial Narrow\", system-ui, sans-serif); } .ds-menu b { padding: 0 14px 10px; font-weight: 900; font-stretch: 66%; font-size: 22px; text-transform: uppercase; } .ds-menu a { display: flex; align-items: center; gap: 8px; padding: 6px 14px; color: inherit; text-decoration: none; font-weight: 800; font-size: 14px; } .ds-menu a::before { content: \"\"; width: 9px; height: 9px; } .ds-menu a:hover { background: var(--lab-blue-deep, #163f75); } .ds-menu a[aria-current] { background: var(--lab-stock, #ffffff); color: var(--lab-ink, #14171c); } .ds-menu a[aria-current]::before { background: var(--lab-red, #c8102e); } .ds-menu a:focus-visible { outline: 2px solid var(--lab-on-blue, #ffffff); outline-offset: -2px; }"
+    },
+    {
+      "name": "Trend Chart",
+      "kind": "custom",
+      "refersTo": "chart",
+      "description": "A game trend in the approved chart look: one hero line in mark, muted game dots, the normal-range band, a reference line and direct end labels. No gridlines, frames or legends.",
+      "html": "<svg class=\"ds-chart\" viewBox=\"0 0 300 120\" role=\"img\" aria-label=\"Minutes per game, 3-game average\"><rect class=\"ds-band\" x=\"20\" y=\"30\" width=\"200\" height=\"40\"/><text class=\"ds-axis\" x=\"24\" y=\"65\">normal range 24.9–37.1</text><line class=\"ds-ref\" x1=\"20\" x2=\"220\" y1=\"90\" y2=\"90\"/><circle class=\"ds-dot\" cx=\"40\" cy=\"60\" r=\"3.5\"/><circle class=\"ds-dot\" cx=\"80\" cy=\"38\" r=\"3.5\"/><circle class=\"ds-dot\" cx=\"120\" cy=\"50\" r=\"3.5\"/><path class=\"ds-dud\" d=\"M155.5,97L164.5,97L160,104.5Z\"/><text class=\"ds-axis\" x=\"167\" y=\"104\">dud</text><circle class=\"ds-dot\" cx=\"200\" cy=\"44\" r=\"3.5\"/><path class=\"ds-hero\" d=\"M120,48L160,62L200,52\"/><circle class=\"ds-hero-dot\" cx=\"200\" cy=\"52\" r=\"4\"/><text class=\"ds-label\" x=\"228\" y=\"56\">3-game 31.4</text><text class=\"ds-axis\" x=\"228\" y=\"94\">replacement</text></svg>",
+      "css": ".ds-chart { width: 100%; max-width: 420px; font-family: var(--lab-face); font-variant-numeric: tabular-nums; background: var(--lab-stock, #ffffff); } .ds-band { fill: var(--zebra, #eff3f8); } .ds-ref { stroke: var(--lab-rule, #e7e9ee); stroke-width: 1; } .ds-dot { fill: var(--lamp-off, #6f7889); opacity: .75; } .ds-dud { fill: var(--lab-red, #c8102e); } .ds-hero { stroke: var(--mark, #1d4f91); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; } .ds-hero-dot { fill: var(--mark, #1d4f91); stroke: var(--lab-stock, #ffffff); stroke-width: 2; } .ds-axis { fill: var(--lab-mute, #5b6270); font-size: 10.5px; } .ds-label { fill: var(--lab-ink, #14171c); font-size: 11px; font-weight: 700; }"
+    },
+    {
+      "name": "Tooltip Card",
+      "kind": "custom",
+      "refersTo": "chart-tooltip",
+      "description": "The shared chart card: the context line, the key number with its label, then up to 3 rows under a rule.",
+      "html": "<div class=\"ds-tt\" role=\"tooltip\"><div class=\"ds-tt-ctx\">Oct 28 vs SA · start · close game</div><div class=\"ds-tt-key\"><span class=\"ds-tt-num\">39.5 min</span><span class=\"ds-tt-lab\">minutes</span></div><dl class=\"ds-tt-rows\"><dt>Competitive</dt><dd>38.2 min</dd><dt>3-game avg</dt><dd>34.3 min</dd><dt>Usage</dt><dd>23.6%</dd></dl></div>",
+      "css": ".ds-tt { min-width: 168px; max-width: 260px; box-sizing: border-box; background: var(--lab-stock, #ffffff); color: var(--lab-ink, #14171c); border: 1px solid var(--lamp-off, #6f7889); border-radius: 0; padding: 7px 10px 8px; font: 12px/1.3 var(--lab-face, Archivo, \"Arial Narrow\", system-ui, sans-serif); font-variant-numeric: tabular-nums; } .ds-tt-ctx { color: var(--lab-mute, #5b6270); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-tt-key { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 1px; } .ds-tt-num { font-size: 20px; font-weight: 800; font-stretch: 85%; line-height: 1.1; } .ds-tt-lab { color: var(--lab-mute, #5b6270); font-size: 11px; } .ds-tt-rows { display: grid; grid-template-columns: auto auto; gap: 1px 14px; margin: 4px 0 0; padding-top: 4px; border-top: 1px solid var(--lab-rule, #e7e9ee); } .ds-tt-rows dt { color: var(--lab-mute, #5b6270); } .ds-tt-rows dd { margin: 0; text-align: right; }"
     }
   ],
   "narrative": {
     "northStar": "The Tailored Box Score",
-    "overview": "The site presents data in a clean, minimal way. Each table and chart is cut to fit its numbers, like a tailored suit: sleek and stylish, but never loud. The data carries the page. Type, rules and one accent give the data shape. Decoration does not. The current pages are dense and flat. They use one neutral stone ramp, one violet accent and three signal colors. All type is the system font. The current system meets the minimal part of the North Star. It does not yet meet the stylish part.",
+    "overview": "**Creative North Star: \"The Tailored Box Score\"**, in the form **Card Back**.\n\nEach page reads like the back of a basketball card: white coated stock, royal-blue ink for the rules and the headings, and card red for alerts. The print is flat two-ink offset color, with no gradients and no shadows. In the dark theme, the stock turns to a deep navy card back with white ink. The owner approved this identity on 2026-10-28 (#117). The approved sample is `.impeccable/review/sample-index.html`.",
     "keyCharacteristics": [
-      "The numbers come first: tabular figures, right-aligned columns and thin rules.",
-      "One neutral ramp (warm stone) and one accent (violet).",
-      "The design is flat. Tone and rules show depth, not shadows.",
-      "One page body is 720px wide at most (the adds plan). The home page is 640px.",
-      "Python generators write all CSS inline. The pages load no external files."
+      "One token source: `src/fantasyhoops/core/tokens.py`. Pages hold no literal colors.",
+      "One family, Archivo, self-hosted next to each page in `fonts/`. Heavy condensed caps for names and headings. A sturdy grotesk with tabular figures for data.",
+      "A royal-blue side menu on a desktop. A top bar with a drawer on a phone.",
+      "Square corners. Rules, not boxes or shadows, give the page its structure.",
+      "Light and dark themes follow `prefers-color-scheme`. The Auto, Light and Dark switch in the menu sets `data-theme` on `<html>` and keeps the choice in `localStorage`."
     ],
     "rules": [
-      { "name": "The One Accent Rule", "body": "Violet is the only interaction color. If an element is selected, sorted or chosen, it is violet. No other element is violet.", "section": "colors" },
-      { "name": "The Copied Token Problem", "body": "Each page generator holds its own copy of the tokens. The site nav uses literal hex values. The keeper report uses a different palette. The redesign must move all pages to one shared token source.", "section": "colors" },
-      { "name": "The Tabular Rule", "body": "All numbers use font-variant-numeric: tabular-nums, so that the digits align in each column.", "section": "typography" },
-      { "name": "The Flat Page Rule", "body": "Surfaces have no shadow. Only a floating menu has a shadow.", "section": "elevation" }
+      {
+        "name": "The One Source Rule",
+        "body": "A new color goes into `core/tokens.py` with a light value and a dark value. A page never writes a hex value.",
+        "section": "colors"
+      },
+      {
+        "name": "The Text Accent Rule",
+        "body": "As text color, `mark` shows only the page title, links, the heads of the Roster-look tables, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. The teams of an add cell in the week grid are buttons, so they show as `mark` text with an underline, as a link. Other marks (the fit square, the band and the start square of the week grid, the FA?, MIN+ and UP flags) use ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red Is Alert Rule",
+        "body": "`lab-red` marks only something that needs attention. It is never a decoration. A category that you trail in the matchup needs attention, so its margin is `lab-red`.",
+        "section": "colors"
+      },
+      {
+        "name": "The Green Is Lead Rule",
+        "body": "`lab-green` marks only a category that you lead in the matchup table. It is text only. On `zebra`, it is 5.2:1 in light and 8.1:1 in dark.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "All numbers use `font-variant-numeric: tabular-nums`.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Hero Rule",
+        "body": "Each chart has one hero mark in `mark`: the line or dot that answers the question of the chart. All other data marks use `lamp-off` at a lower weight, or `lab-red` and `lab-ink` for the dud and spike triangles.",
+        "section": "components"
+      },
+      {
+        "name": "The Ink Only Rule",
+        "body": "A chart has no gridlines, no frames and no legends. Each mark in it is data, a reference line, or a direct label.",
+        "section": "components"
+      },
+      {
+        "name": "The Thin Data Rule",
+        "body": "A chart that has too few games for a mark does not draw that mark. The state line says how many games the chart has and how many the mark needs.",
+        "section": "components"
+      }
     ],
     "dos": [
+      "Do take each color from `core/tokens.py`, with a light value and a dark value.",
       "Do use tabular figures for all numbers.",
-      "Do keep violet for the selected state, the sorted state and links only.",
-      "Do keep surfaces flat, with 1px Stone Rule borders and the Stone Header tint.",
-      "Do supply a light theme and a dark theme for each token, and support the data-theme override."
+      "Do show a state with a shape, a label or a sign as well as a color.",
+      "Do keep corners square and surfaces flat."
     ],
     "donts": [
-      "Don't add a new page with its own palette. The keeper report shows the problem.",
-      "Don't put white text on Signal Good. White on #16a34a is approximately 3.3:1, which fails WCAG AA for 11px text. The \"new\" flag does this now.",
-      "Don't add new side-stripe borders. The skip notice on the adds plan uses a 3px left border in Signal Warn. The redesign must replace it.",
-      "Don't show good and bad with color only. PRODUCT.md requires a sign, a label or a shape too."
+      "Don't write a hex value in a page generator. The draft board (`draft/board.py`) and the keeper report (`draft/report.py`) keep their own palettes. They are not on the site (owner decision of 2026-10-28).",
+      "Don't use `mark` as a text color for a mark that is not selected, sorted or a link.",
+      "Don't use side-stripe borders. A notice gets a full border.",
+      "Don't add gradients, shadows or rounded pills.",
+      "Don't draw gridlines, frames or legends in a chart."
     ]
   }
 }

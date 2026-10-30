@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Players · sample · Fantasy Hoops Lab</title>
+<script>try { const t = localStorage.getItem("lab-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="preload" href="fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face {
+  font-family: Archivo; font-style: normal; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url(fonts/archivo-latin.woff2) format("woff2");
+}
+:root {
+  --lab-stock: #ffffff; --lab-ink: #14171c; --lab-mute: #5b6270; --lab-rule: #e7e9ee; --lab-blue: #1d4f91; --lab-blue-deep: #163f75; --lab-on-blue: #ffffff; --lab-red: #c8102e; --lab-on-red: #ffffff; --lab-green: #17743a; --mark: #1d4f91; --zebra: #eff3f8; --qcol: #e0e8f4; --qcol-z: #dae3f1; --vrule: #d2d9e4; --lamp-off: #6f7889; --lab-scrim: rgb(8 16 32 / .5); color-scheme: light;
+  --lab-face: Archivo, "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+::selection { background: var(--lab-blue); color: var(--lab-on-blue); }
+</style>
+<style>
+/* Card Back: the site menu. A royal-blue side panel on a desktop, a top bar with a drawer on a phone. */
+:root { --lab-menu-w: 216px; --z-menu: 30; --z-scrim: 20; --z-bar: 10; }
+body.lab { margin: 0; background: var(--lab-stock); color: var(--lab-ink); }
+body.lab-locked { overflow: hidden; }
+.lab-menu {
+  position: fixed; inset: 0 auto 0 0; width: var(--lab-menu-w); z-index: var(--z-menu);
+  display: flex; flex-direction: column; background: var(--lab-blue); color: var(--lab-on-blue);
+  font: 600 14px/1.3 var(--lab-face); padding: 22px 0 18px; overflow-y: auto;
+}
+.lab-site {
+  display: block; color: inherit; text-decoration: none; padding: 0 20px 16px; margin: 0 0 10px;
+  font-weight: 900; font-stretch: 68%; text-transform: uppercase; font-size: 24px; line-height: .95;
+  border-bottom: 3px solid var(--lab-on-blue);
+}
+.lab-site small { display: block; margin-top: 7px; font-size: 12px; font-weight: 600; font-stretch: 100%;
+  text-transform: none; line-height: 1.2; }
+.lab-menu ul { list-style: none; margin: 0; padding: 0; }
+.lab-menu li a {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 20px;
+  color: inherit; text-decoration: none; font-size: 15px;
+}
+.lab-menu li a::before { content: ""; width: 9px; height: 9px; flex: none; }
+.lab-menu li a:hover { background: var(--lab-blue-deep); }
+.lab-menu li a[aria-current] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 800; }
+.lab-menu li a[aria-current]::before { background: var(--lab-red); }
+.lab-menu a:focus-visible, .lab-open:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: -4px; }
+.lab-menu li a[aria-current]:focus-visible { outline-color: var(--lab-ink); }
+.lab-bar, .lab-close { display: none; }
+.lab-main { display: block; margin-left: var(--lab-menu-w); min-width: 0; }
+@media (max-width: 899px) {
+  .lab-bar {
+    position: sticky; top: 0; z-index: var(--z-bar); display: flex; align-items: center;
+    justify-content: space-between; min-height: 48px;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    background: var(--lab-blue); color: var(--lab-on-blue); font: 900 18px/1 var(--lab-face);
+  }
+  .lab-name { color: inherit; text-decoration: none; font-stretch: 68%; text-transform: uppercase; font-size: 20px; }
+  .lab-name:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-open {
+    min-height: 40px; padding: 0 14px; border: 2px solid var(--lab-on-blue); border-radius: 0; background: transparent;
+    color: inherit; font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-menu { transform: translateX(-100%); visibility: hidden;
+    transition: transform .28s cubic-bezier(.16, 1, .3, 1), visibility 0s .28s; }
+  .lab-menu.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.16, 1, .3, 1); }
+  .lab-main { margin-left: 0; }
+  .lab-close {
+    display: block; align-self: flex-end; margin: -10px 12px 10px 0; min-height: 40px; padding: 0 14px;
+    border: 2px solid var(--lab-on-blue); background: transparent; color: var(--lab-on-blue);
+    font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-close:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-scrim { position: fixed; inset: 0; z-index: var(--z-scrim); background: var(--lab-scrim); }
+}
+.lab-scrim[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .lab-menu, .lab-menu.open { transition: none; } }
+.lab-theme { margin: auto 0 0; padding: 16px 20px 0; font-size: 12px; font-weight: 600; }
+.lab-theme > span { display: block; margin-bottom: 6px; }
+.lab-seg { display: flex; border: 2px solid var(--lab-on-blue); }
+.lab-seg button {
+  flex: 1; min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--lab-on-blue);
+  font: 700 13px/1 var(--lab-face); cursor: pointer;
+}
+.lab-seg button + button { border-left: 2px solid var(--lab-on-blue); }
+.lab-seg button:hover { background: var(--lab-blue-deep); }
+.lab-seg button[aria-pressed="true"] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 900; }
+.lab-seg button:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; position: relative;
+  z-index: 1; }
+</style>
+<style>
+/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. Below 900px,
+   the phone row of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that
+   a class rule of a page wins over them. */
+table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+:where(.lab-t) thead th, :where(.lab-t) thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right;
+  padding: 0 6px 6px; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+:where(.lab-t) thead .l { text-align: left; }
+:where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px;
+  text-align: right; vertical-align: middle; font-weight: 400; }
+:where(.lab-t) tbody tr:nth-child(even) > * { background: var(--zebra); }
+.lab-t .s1 { border-left: 1px solid var(--vrule); }
+.lab-t td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+.lab-t td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
+.lab-t th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
+.lab-t .pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
+.lab-t .pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
+.lab-t td.n { font-size: 14px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lab-t td.band, :root:not([data-theme="light"]) .m-p .band {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+}
+:root[data-theme="dark"] .lab-t td.band, :root[data-theme="dark"] .m-p .band {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+/* Phone: the sizes of the phone row of the Roster. */
+@media (max-width: 899px) {
+  :where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 52px; }
+  .lab-t td.band { font-size: 17px; }
+  .lab-t td.rk { font-size: 19px; }
+  .lab-t .pl b { font-size: 18px; }
+  .m-p .band { background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
+  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; }
+  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
+}
+</style>
+<style>
+body { margin: 0; background: var(--lab-stock); color: var(--lab-ink); font-family: var(--lab-face); font-size: 13px; line-height: 1.35; }
+.pp { padding: 14px 24px 16px; max-width: 1240px; box-sizing: border-box; }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+a { color: var(--mark); }
+svg text, table { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+
+/* top line: sample note, picker, info */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--lab-mute); margin-bottom: 8px; }
+.top .note b { color: var(--lab-ink); font-weight: 800; }
+.top input { font: inherit; font-size: 12px; padding: 3px 6px; width: 150px; border: 1.5px solid var(--lamp-off); border-radius: 0;
+  background: var(--lab-stock); color: var(--lab-ink); }
+.chip { font: inherit; font-size: 11px; font-weight: 800; padding: 3px 7px; border: 1.5px solid var(--lamp-off); background: var(--lab-stock);
+  color: var(--lab-ink); border-radius: 0; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--mark); border-color: var(--mark); color: var(--lab-stock); }
+.msg { color: var(--lab-red); font-weight: 800; }
+.info { position: relative; margin-left: auto; }
+.info summary { list-style: none; cursor: pointer; width: 22px; height: 22px; border: 1.5px solid var(--lab-ink); display: flex;
+  align-items: center; justify-content: center; font-weight: 900; font-size: 13px; color: var(--lab-ink); font-style: italic; }
+.info summary::-webkit-details-marker { display: none; }
+.info[open] summary { background: var(--lab-ink); color: var(--lab-stock); }
+.info .pop { position: absolute; right: 0; top: 28px; width: min(560px, 86vw); max-height: 70vh; overflow: auto; z-index: 20;
+  background: var(--lab-stock); color: var(--lab-ink); border: 1.5px solid var(--lab-ink); padding: 10px 14px; font-size: 12px; }
+.pop h3 { margin: 0 0 4px; font-weight: 900; font-stretch: 75%; font-size: 15px; text-transform: uppercase; }
+.pop ul { padding-left: 16px; margin: 4px 0; } .pop li { margin: 4px 0; } .pop code { font-size: 11px; }
+
+/* header row */
+.head { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px 16px; padding-bottom: 8px; border-bottom: 3px solid var(--mark); }
+.head .band { background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 19px; width: 54px;
+  display: flex; align-items: center; justify-content: center; }
+.head h1 { margin: 0; color: var(--mark); font-weight: 900; font-stretch: 66%; font-size: 38px; line-height: .9; text-transform: uppercase; }
+.head .sub { font-size: 12px; color: var(--lab-mute); margin-top: 3px; }
+.head .sub a { font-weight: 800; }
+.kv { display: flex; align-items: flex-end; gap: 0; }
+.kv div { padding: 0 12px; border-left: 1px solid var(--lab-rule); }
+.kv dt { font-size: 11px; color: var(--lab-mute); }
+.kv dd { margin: 0; font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }
+.kv dd small { font-size: 11px; font-weight: 600; font-stretch: 100%; color: var(--lab-mute); margin-left: 3px; }
+.sigs { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; margin: 0; padding: 0; list-style: none; max-width: 330px; }
+.sigs a { color: var(--lab-ink); text-decoration: none; display: flex; gap: 6px; align-items: baseline; font-size: 12px; }
+.sigs a:hover .t { text-decoration: underline; }
+.sig-k { flex: none; font-size: 10.5px; font-weight: 800; border: 1.5px solid var(--lab-ink); padding: 0 4px; white-space: nowrap; }
+.sig-k.alert { background: var(--lab-red); border-color: var(--lab-red); color: var(--lab-on-red); }
+.sigs .none { font-size: 12px; color: var(--lab-mute); } .sigs .none b { color: var(--lab-ink); }
+
+/* quadrants */
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; margin-top: 10px; }
+.q { min-width: 0; display: flex; flex-direction: column; }
+.q h2 { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; font-weight: 900; font-stretch: 75%; font-size: 17px; line-height: 1.1;
+  text-transform: uppercase; margin: 0; padding-bottom: 3px; border-bottom: 2px solid var(--mark); scroll-margin-top: 60px; }
+.q h2 .lab { font-size: 12px; font-weight: 700; font-stretch: 100%; text-transform: none; color: var(--lab-mute); }
+.q h2 .lab b { color: var(--lab-ink); font-weight: 800; }
+.legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 11px; color: var(--lab-mute); margin: 4px 0 0; align-items: center; }
+.legend svg { vertical-align: middle; margin-right: 3px; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.state { font-size: 11px; color: var(--lab-mute); margin: 2px 0 0; }
+.state b { color: var(--lab-ink); font-weight: 800; }
+.empty { border: 1.5px dashed var(--lamp-off); color: var(--lab-mute); padding: 18px; text-align: center; }
+
+.g-grid { stroke: var(--lab-rule); stroke-width: 1; }
+.g-axis { fill: var(--lab-mute); font-size: 11px; }
+.g-axis-b { fill: var(--lab-ink); font-size: 11px; font-weight: 700; }
+.g-band { fill: var(--qcol); }
+.g-ref { stroke: var(--lab-mute); stroke-width: 1; }
+.l-ink { stroke: var(--lab-ink); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.l-off { stroke: var(--lamp-off); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.d-ink { fill: var(--lab-ink); stroke: var(--lab-stock); stroke-width: 2; }
+.d-ring { fill: var(--lab-stock); stroke: var(--lamp-off); stroke-width: 2.25; }
+.d-dud { fill: var(--lab-red); stroke: var(--lab-stock); stroke-width: 1.5; }
+.d-spike { fill: var(--mark); stroke: var(--lab-stock); stroke-width: 1.5; }
+.gap-l { stroke: var(--lamp-off); stroke-width: 1.5; }
+.bar-now { fill: var(--lab-ink); }
+.bar-proj { fill: none; stroke: var(--lamp-off); stroke-width: 1.5; }
+.exit { fill: none; stroke: var(--lab-red); stroke-width: 2; }
+.exit-t { fill: var(--lab-red); font-size: 11px; font-weight: 800; }
+.hit { fill: transparent; }
+.hit:hover, .hit:focus { fill: color-mix(in srgb, var(--mark) 8%, transparent); }
+.tip { position: absolute; pointer-events: none; background: var(--lab-stock); color: var(--lab-ink); border: 1.5px solid var(--lab-ink);
+  padding: 5px 7px; font-size: 12px; line-height: 1.35; white-space: nowrap; z-index: 5; font-variant-numeric: tabular-nums; }
+.tip b { font-weight: 800; }
+
+/* comps: the Roster-look table, tightened */
+table.sim { table-layout: fixed; margin-top: 4px; }
+table.sim col.c-band { width: 40px; } table.sim col.c-v { width: 54px; } table.sim col.c-d { width: 92px; }
+.lab-t.sim tbody td, .lab-t.sim tbody th { height: 44px; }
+.lab-t.sim .pl b { font-size: 17px; }
+.lab-t.sim .pl small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lab-t.sim td.band { font-size: 15px; }
+.lab-t.sim td.n b { font-weight: 800; }
+
+
+/* Before / After toggle */
+.look { display: inline-flex; margin-right: 6px; }
+.look .chip + .chip { border-left: 0; }
+/* After look: no legends (direct labels), muted support marks, one hero mark */
+.v-after .q .legend { display: none; }
+.v-after .q h2 { border-bottom-width: 1px; }
+.a-axis { fill: var(--lab-mute); font-size: 10.5px; }
+.a-label { fill: var(--lab-ink); font-size: 11px; font-weight: 700; }
+.a-band { fill: var(--zebra); }
+.a-ref { stroke: var(--lab-rule); stroke-width: 1; }
+.a-second { stroke: var(--lamp-off); stroke-width: 1.25; fill: none; stroke-linejoin: round; opacity: .8; }
+.a-dot { fill: var(--lamp-off); opacity: .75; }
+.a-dud { fill: var(--lab-red); }
+.a-spike { fill: var(--lab-ink); }
+.a-hero { stroke: var(--mark); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.a-hero-dot { fill: var(--mark); stroke: var(--lab-stock); stroke-width: 2; }
+.a-track { stroke: var(--lab-rule); stroke-width: 1; }
+.a-conn { stroke: var(--lamp-off); stroke-width: 1.25; opacity: .7; }
+.a-proj { fill: var(--lab-stock); stroke: var(--lamp-off); stroke-width: 1.25; }
+.a-now { fill: var(--mark); stroke: var(--lab-stock); stroke-width: 2; }
+
+
+/* Shared tooltip card (After + tooltips) */
+.tt { position: fixed; z-index: 50; pointer-events: none; min-width: 168px; max-width: 260px; box-sizing: border-box;
+  background: var(--lab-stock); color: var(--lab-ink); border: 1px solid var(--lamp-off); border-radius: 3px;
+  padding: 7px 10px 8px; font-size: 12px; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.tt-ctx { color: var(--lab-mute); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-key { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 1px; }
+.tt-num { font-size: 20px; font-weight: 800; font-stretch: 85%; line-height: 1.1; }
+.tt-lab { color: var(--lab-mute); font-size: 11px; }
+.tt-rows { display: grid; grid-template-columns: auto auto; gap: 1px 14px; margin: 4px 0 0; padding-top: 4px; border-top: 1px solid var(--lab-rule); }
+.tt-rows dt { color: var(--lab-mute); white-space: nowrap; }
+.tt-rows dd { margin: 0; text-align: right; white-space: nowrap; }
+.a-cross { stroke: var(--lamp-off); stroke-width: 1; }
+.v-after .hit:focus-visible { outline: none; stroke: var(--lamp-off); stroke-width: 1; }
+tr.tt-row { cursor: default; }
+tr.tt-row:hover > *, tr.tt-row:focus > * { background: var(--qcol) !important; }
+tr.tt-row:hover td.band, tr.tt-row:focus td.band { background: var(--team) !important; }
+tr.tt-row:focus { outline: 2px solid var(--lab-ink); outline-offset: -2px; }
+@media (prefers-reduced-motion: no-preference) { .tt { transition: none; } }
+
+@media (max-width: 800px) {
+  .pp { padding: 12px 14px 32px; }
+  .grid { grid-template-columns: 1fr; gap: 12px; }
+  .q { border: 1.5px solid var(--lab-rule); padding: 10px 12px; }
+  .info { margin-left: 0; }
+  .kv div:first-child { padding-left: 0; border-left: 0; }
+}
+</style>
+</head>
+<body>
+<header class="lab-bar"><a class="lab-name" href="../">Fantasy Hoops Lab</a>
+<button class="lab-open" type="button" aria-controls="lab-menu" aria-expanded="false">Menu</button></header>
+<nav class="lab-menu" id="lab-menu" aria-label="Site">
+<button class="lab-close" type="button">Close</button>
+<a class="lab-site" href="../">Fantasy<br>Hoops Lab<small>2026–27 · 14-team league</small></a>
+<ul>
+<li><a href="../">Home</a></li>
+<li><a href="../roster/">Roster</a></li>
+<li><a href="../adds/">Adds plan</a></li>
+<li><a href="../free-agents/">Free agents</a></li>
+<li><a href="../trade/">Trades</a></li>
+<li><a href="#" aria-current="page">Players</a></li>
+</ul>
+<div class="lab-theme" role="group" aria-labelledby="lab-theme-l">
+<span id="lab-theme-l">Theme</span>
+<div class="lab-seg"><button type="button" data-set="system" aria-pressed="true">Auto</button><button type="button" data-set="light" aria-pressed="false">Light</button><button type="button" data-set="dark" aria-pressed="false">Dark</button></div>
+</div>
+</nav>
+<div class="lab-scrim" hidden></div>
+<main class="lab-main">
+<div class="pp">
+<div class="top" role="search">
+  <span class="note"><b>Sample, 2026-10-29.</b> 3 players, real data.</span>
+  <span class="look" role="group" aria-label="Chart look"><button type="button" class="chip" data-look="before">Before</button><button type="button" class="chip" data-look="after">After</button><button type="button" class="chip" data-look="tips">After + tooltips</button></span>
+  <label for="q" class="vh">Player</label>
+  <input id="q" type="search" list="names" autocomplete="off" placeholder="Find a player">
+  <datalist id="names"></datalist>
+  <span id="chips" style="display:flex;gap:4px;flex-wrap:wrap"></span>
+  <span class="msg" id="msg" role="status"></span>
+  <details class="info" id="info"><summary aria-label="Methods and data" title="Methods and data">i</summary><div class="pop" id="methods-body"></div></details>
+</div>
+<div id="profile"></div>
+</div>
+</main>
+<script>
+(() => {
+  const btn = document.querySelector(".lab-open"), nav = document.getElementById("lab-menu");
+  const scrim = document.querySelector(".lab-scrim");
+  if (!btn || !nav) return;
+  const behind = [...document.querySelectorAll(".lab-main, .lab-bar")];
+  const set = open => {
+    nav.classList.toggle("open", open); btn.setAttribute("aria-expanded", open);
+    document.body.classList.toggle("lab-locked", open);
+    scrim.hidden = !open; behind.forEach(el => el.inert = open);
+    if (open) nav.querySelector(".lab-close").focus();
+  };
+  nav.querySelector(".lab-close").addEventListener("click", () => { set(false); btn.focus(); });
+  btn.addEventListener("click", () => set(!nav.classList.contains("open")));
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && nav.classList.contains("open")) { set(false); btn.focus(); }
+  });
+  scrim.addEventListener("click", () => set(false));
+})();
+(() => {
+  const root = document.documentElement, btns = [...document.querySelectorAll(".lab-seg button")];
+  const show = () => {
+    const t = root.dataset.theme || "system";
+    btns.forEach(b => b.setAttribute("aria-pressed", b.dataset.set === t));
+  };
+  btns.forEach(b => b.addEventListener("click", () => {
+    const t = b.dataset.set;
+    if (t === "system") delete root.dataset.theme; else root.dataset.theme = t;
+    try {
+      if (t === "system") localStorage.removeItem("lab-theme"); else localStorage.setItem("lab-theme", t);
+    } catch (e) {}
+    show();
+  }));
+  show();
+})();
+</script>
+<script>
+const D = {"meta": {"fit": {"sigma": 0.3132622090485549, "sigma_data": 0.3132622090485549, "sigma_anchor": 0.251278965103851, "z": 2.326, "games": 68, "decided_share": 0.14209502754556902, "lead_q3": 27.65024364905924, "lead_12": 19.55167478571006, "lead_6": 13.82512182452962, "missing_box": 0}, "repl": -2.911295209383799, "spike_level": 4.089615649132176, "pool_n": 140, "pool_with_games": 132, "pooled_sd": {"minutes": 5.366242966348352, "comp_min": 6.3493990028659, "usg": 5.331063103431714, "val": 3.3895259567910063}, "window": 3, "band_min": 3, "flag_min": 5, "shrink_k": {"pts": 4, "reb": 4, "ast": 4, "threes": 10, "blk": 10, "stl": 15}, "gap_pct": 25, "rate_flag": 0.4, "owner_note": "Owners come from the Yahoo rostered list in the page cache of 2026-10-29 (157 players).", "weights": {"pts": 1.0, "reb": 1.0, "ast": 1.0, "threes": 0.7, "blk": 0.65, "stl": 0.5}, "games_logged": 68, "first": "2026-10-20", "last": "2026-10-28", "rostered_no_games": ["brandon ingram", "coby white", "jimmy butler", "kon knueppel", "kristaps porzingis", "nic claxton"], "proj_file": "data/Projections_2026-10-12.csv", "unmatched_espn": ["Luguentz Dort (23 mpg)", "Ronald Holland II (14 mpg)", "Oscar Tshiebwe (14 mpg)", "Kris Murray (12 mpg)", "Jaden Hardy (8 mpg)", "Cam Christie (8 mpg)", "Tony Bradley (6 mpg)", "Jamaree Bouyea (5 mpg)", "Micah Peavy (5 mpg)", "Leaky Black (4 mpg)", "James Wiseman (4 mpg)", "Elijah Harkless (3 mpg)", "Reece Beekman (1 mpg)"], "unmatched_n": 13}, "players": [{"id": "4873138", "name": "Ace Bailey", "team": "UTAH", "n": 5, "owner": "No beef just lamb chops", "pos": "SF/PF", "games": [{"date": "Oct 21", "opp": "MEM", "min": 24.3, "comp": 17.9, "usg": 22.0, "val": 1.95, "started": false, "close": false, "closed": false, "pts": 12, "reb": 5, "ast": 3, "threes": 2, "blk": 3, "stl": 0}, {"date": "Oct 23", "opp": "NO", "min": 21.7, "comp": 21.7, "usg": 18.8, "val": -3.37, "started": true, "close": true, "closed": false, "pts": 6, "reb": 7, "ast": 2, "threes": 1, "blk": 0, "stl": 0}, {"date": "Oct 25", "opp": "LAL", "min": 29.2, "comp": 28.4, "usg": 17.3, "val": 2.95, "started": true, "close": true, "closed": true, "pts": 17, "reb": 12, "ast": 4, "threes": 1, "blk": 1, "stl": 0}, {"date": "Oct 26", "opp": "MEM", "min": 34.1, "comp": 33.9, "usg": 14.3, "val": 5.56, "started": true, "close": true, "closed": true, "pts": 17, "reb": 10, "ast": 3, "threes": 3, "blk": 3, "stl": 0}, {"date": "Oct 28", "opp": "SA", "min": 39.5, "comp": 38.2, "usg": 23.6, "val": -0.94, "started": true, "close": true, "closed": true, "pts": 19, "reb": 6, "ast": 0, "threes": 1, "blk": 1, "stl": 0}], "trend_min": {"n": 5, "roll": [null, null, 25.07, 28.33, 34.27], "mean": 29.76, "lo": 22.411777377084842, "hi": 37.10822262291516, "sd": 6.363747464108046, "exits": [], "state": ""}, "trend_comp": {"n": 5, "roll": [null, null, 22.67, 28.0, 33.5], "mean": 28.020000000000003, "lo": 19.43738704520997, "hi": 36.60261295479003, "sd": 7.432760849697591, "exits": [], "state": ""}, "trend_usg": {"n": 5, "roll": [null, null, 19.35, 16.77, 18.38], "mean": 19.19038655807254, "lo": 13.878782916664349, "hi": 24.50199019948073, "sd": 4.599983688293423, "exits": [], "state": ""}, "trend_val": {"n": 5, "roll": [null, null, 0.51, 1.71, 2.52], "mean": 1.2275645918651465, "lo": -2.7317175352054424, "hi": 5.186846718935735, "sd": 3.4288389027928177, "exits": [], "state": ""}, "season_val": 1.2275645918651465, "comp_share": 0.9415322580645162, "duds": 2, "spikes": 1, "proj_val": 0.5155251587757959, "proj_games": 73, "proj_mpg": 29.0, "blend_val": 0.7698249563077071, "in_pool": true, "cats": [{"cat": "PTS", "w": 1.0, "proj": 33.2, "season": 34.6, "raw": 14.2, "proj_line": 15.56, "shrunk": 14.81, "k": 4, "nw": 0.56}, {"cat": "REB", "w": 1.0, "proj": 25.4, "season": 62.5, "raw": 8.0, "proj_line": 4.01, "shrunk": 6.23, "k": 4, "nw": 0.56}, {"cat": "AST", "w": 1.0, "proj": 11.1, "season": 19.6, "raw": 2.4, "proj_line": 2.1, "shrunk": 2.26, "k": 4, "nw": 0.56}, {"cat": "3PM", "w": 0.7, "proj": 57.5, "season": 59.6, "raw": 1.6, "proj_line": 2.03, "shrunk": 1.88, "k": 10, "nw": 0.33}, {"cat": "BLK", "w": 0.65, "proj": 67.5, "season": 81.8, "raw": 1.6, "proj_line": 0.81, "shrunk": 1.07, "k": 10, "nw": 0.33}, {"cat": "STL", "w": 0.5, "proj": 22.5, "season": 3.9, "raw": 0.0, "proj_line": 0.84, "shrunk": 0.63, "k": 15, "nw": 0.25}], "similar": [{"name": "Kristaps Porzingis", "team": "GS", "pos": "C", "val": 1.31, "owner": "FatherOfTWO", "dist": 0.3, "diff_cat": "PTS", "diff": 0.23}, {"name": "PJ Washington", "team": "DAL", "pos": "PF/C", "val": 0.8, "owner": "Doncic Go Breaking My Heart", "dist": 0.59, "diff_cat": "REB", "diff": 0.38}, {"name": "Jabari Smith Jr.", "team": "HOU", "pos": "PF/C", "val": 1.8, "owner": "Load Management", "dist": 0.73, "diff_cat": "STL", "diff": 0.48}, {"name": "Matas Buzelis", "team": "CHI", "pos": "SF/PF", "val": 2.27, "owner": "TradeMark™ (you)", "dist": 0.74, "diff_cat": "PTS", "diff": 0.59}, {"name": "John Collins", "team": "DET", "pos": "PF/C", "val": -0.35, "owner": "Shady McGrady", "dist": 0.88, "diff_cat": "AST", "diff": -0.53}], "signals": [{"kind": "Projection gap", "anchor": "cats", "dir": "up", "text": "REB above projection: percentile 62 vs 25"}, {"kind": "Consistency", "anchor": "consistency", "dir": "down", "text": "Duds: 2 of 5 games"}], "slug": "ace-bailey", "team_games": 5, "why": "Minutes riser: 24.3 and 21.7 minutes in his first 2 games, 34.1 and 39.5 in his last 2."}, {"id": "4395724", "name": "Immanuel Quickley", "team": "TOR", "n": 4, "owner": "TradeMark™ (you)", "pos": "PG/SG", "games": [{"date": "Oct 21", "opp": "CHI", "min": 28.2, "comp": 19.0, "usg": 21.8, "val": 6.68, "started": true, "close": false, "closed": false, "pts": 23, "reb": 4, "ast": 7, "threes": 4, "blk": 0, "stl": 2}, {"date": "Oct 23", "opp": "WSH", "min": 29.1, "comp": 26.2, "usg": 22.5, "val": -3.26, "started": true, "close": false, "closed": false, "pts": 12, "reb": 1, "ast": 6, "threes": 0, "blk": 0, "stl": 0}, {"date": "Oct 25", "opp": "MIN", "min": 28.2, "comp": 20.9, "usg": 26.6, "val": 0.69, "started": true, "close": false, "closed": false, "pts": 19, "reb": 3, "ast": 2, "threes": 3, "blk": 0, "stl": 1}, {"date": "Oct 28", "opp": "ORL", "min": 28.6, "comp": 19.3, "usg": 24.3, "val": 4.92, "started": true, "close": false, "closed": false, "pts": 16, "reb": 3, "ast": 7, "threes": 4, "blk": 0, "stl": 2}], "trend_min": {"n": 4, "roll": [null, null, 28.5, 28.63], "mean": 28.525, "lo": 23.82984029795359, "hi": 33.22015970204641, "sd": 4.0661275767971645, "exits": [], "state": "Too few games for a flag: 4 of 5."}, "trend_comp": {"n": 4, "roll": [null, null, 22.03, 22.13], "mean": 21.349999999999998, "lo": 15.260047763259031, "hi": 27.439952236740965, "sd": 5.27405334485154, "exits": [], "state": "Too few games for a flag: 4 of 5."}, "trend_usg": {"n": 4, "roll": [null, null, 23.6, 24.45], "mean": 23.774060272763357, "lo": 18.84155514417472, "hi": 28.706565401351995, "sd": 4.2716747456547886, "exits": [], "state": "Too few games for a flag: 4 of 5."}, "trend_val": {"n": 4, "roll": [null, null, 1.37, 0.78], "mean": 2.2575377437845248, "lo": -2.225406806019481, "hi": 6.7404822935885305, "sd": 3.8823438638872627, "exits": [], "state": "Too few games for a flag: 4 of 5."}, "season_val": 2.2575377437845248, "comp_share": 0.7484662576687117, "duds": 1, "spikes": 2, "proj_val": 2.244626959784851, "proj_games": 68, "proj_mpg": 32.0, "blend_val": 2.24831575521333, "in_pool": true, "cats": [{"cat": "PTS", "w": 1.0, "proj": 36.4, "season": 48.2, "raw": 17.5, "proj_line": 15.76, "shrunk": 16.63, "k": 4, "nw": 0.5}, {"cat": "REB", "w": 1.0, "proj": 18.6, "season": 12.5, "raw": 2.75, "proj_line": 3.59, "shrunk": 3.17, "k": 4, "nw": 0.5}, {"cat": "AST", "w": 1.0, "proj": 82.5, "season": 78.9, "raw": 5.5, "proj_line": 5.93, "shrunk": 5.71, "k": 4, "nw": 0.5}, {"cat": "3PM", "w": 0.7, "proj": 82.5, "season": 82.5, "raw": 2.75, "proj_line": 2.75, "shrunk": 2.75, "k": 10, "nw": 0.29}, {"cat": "BLK", "w": 0.65, "proj": 0.4, "season": 0.4, "raw": 0.0, "proj_line": 0.07, "shrunk": 0.05, "k": 10, "nw": 0.29}, {"cat": "STL", "w": 0.5, "proj": 57.1, "season": 63.2, "raw": 1.25, "proj_line": 1.07, "shrunk": 1.11, "k": 15, "nw": 0.21}], "similar": [{"name": "Ryan Rollins", "team": "MIL", "pos": "PG/SG", "val": 2.32, "owner": "Wagner my Ball in yo face", "dist": 0.76, "diff_cat": "BLK", "diff": 0.43}, {"name": "Fred VanVleet", "team": "HOU", "pos": "PG", "val": 2.13, "owner": "Doncic Go Breaking My Heart", "dist": 0.8, "diff_cat": "PTS", "diff": -0.6}, {"name": "Andrew Nembhard", "team": "IND", "pos": "PG/SG", "val": 0.62, "owner": "Shady McGrady", "dist": 1.02, "diff_cat": "3PM", "diff": -0.86}, {"name": "Darius Acuff Jr.", "team": "SAC", "pos": "PG", "val": 0.87, "owner": "A Team Has No Name", "dist": 1.05, "diff_cat": "3PM", "diff": -0.64}, {"name": "De'Aaron Fox", "team": "SA", "pos": "PG", "val": 2.84, "owner": "The Jokić’s on You", "dist": 1.07, "diff_cat": "3PM", "diff": -0.8}], "signals": [], "slug": "immanuel-quickley", "team_games": 4, "why": "Blowout minutes: 25% of his minutes came after the game was decided, 3rd of the 24+ minute players."}, {"id": "3136195", "name": "Karl-Anthony Towns", "team": "NY", "n": 5, "owner": "Doncic Go Breaking My Heart", "pos": "PF/C", "games": [{"date": "Oct 20", "opp": "PHI", "min": 23.6, "comp": 22.6, "usg": 27.1, "val": 6.19, "started": true, "close": true, "closed": true, "pts": 19, "reb": 12, "ast": 1, "threes": 3, "blk": 2, "stl": 1}, {"date": "Oct 23", "opp": "BOS", "min": 37.3, "comp": 36.8, "usg": 22.0, "val": 2.11, "started": true, "close": true, "closed": false, "pts": 22, "reb": 10, "ast": 3, "threes": 2, "blk": 0, "stl": 0}, {"date": "Oct 25", "opp": "ORL", "min": 33.3, "comp": 31.3, "usg": 26.6, "val": 5.7, "started": true, "close": true, "closed": true, "pts": 22, "reb": 14, "ast": 4, "threes": 0, "blk": 1, "stl": 1}, {"date": "Oct 27", "opp": "DET", "min": 32.5, "comp": 24.4, "usg": 36.0, "val": 6.28, "started": true, "close": false, "closed": false, "pts": 27, "reb": 20, "ast": 3, "threes": 1, "blk": 0, "stl": 0}, {"date": "Oct 28", "opp": "CHI", "min": 28.4, "comp": 27.6, "usg": 25.2, "val": 6.04, "started": true, "close": true, "closed": false, "pts": 19, "reb": 13, "ast": 5, "threes": 3, "blk": 0, "stl": 1}], "trend_min": {"n": 5, "roll": [null, null, 31.4, 34.37, 31.4], "mean": 31.02, "lo": 24.910795819755073, "hi": 37.129204180244926, "sd": 5.290726016998194, "exits": [], "state": ""}, "trend_comp": {"n": 5, "roll": [null, null, 30.23, 30.83, 27.77], "mean": 28.54, "lo": 21.58285174813729, "hi": 35.497148251862704, "sd": 6.025067124007602, "exits": [], "state": ""}, "trend_usg": {"n": 5, "roll": [null, null, 25.22, 28.22, 29.28], "mean": 27.374896297861774, "lo": 21.271017083961503, "hi": 33.478775511762045, "sd": 5.286114460869424, "exits": [], "state": ""}, "trend_val": {"n": 5, "roll": [null, null, 4.66, 4.7, 6.0], "mean": 5.261892094700718, "lo": 2.137809889525264, "hi": 8.385974299876171, "sd": 2.705534553192852, "exits": [], "state": ""}, "season_val": 5.261892094700718, "comp_share": 0.9200515796260477, "duds": 0, "spikes": 4, "proj_val": 4.645265478844543, "proj_games": 73, "proj_mpg": 31.0, "blend_val": 4.865489270221747, "in_pool": true, "cats": [{"cat": "PTS", "w": 1.0, "proj": 71.1, "season": 73.2, "raw": 21.8, "proj_line": 20.27, "shrunk": 21.12, "k": 4, "nw": 0.56}, {"cat": "REB", "w": 1.0, "proj": 96.8, "season": 98.9, "raw": 13.8, "proj_line": 12.47, "shrunk": 13.21, "k": 4, "nw": 0.56}, {"cat": "AST", "w": 1.0, "proj": 46.1, "season": 46.1, "raw": 3.2, "proj_line": 3.7, "shrunk": 3.42, "k": 4, "nw": 0.56}, {"cat": "3PM", "w": 0.7, "proj": 26.8, "season": 39.6, "raw": 1.8, "proj_line": 1.36, "shrunk": 1.5, "k": 10, "nw": 0.33}, {"cat": "BLK", "w": 0.65, "proj": 40.0, "season": 49.6, "raw": 0.6, "proj_line": 0.44, "shrunk": 0.49, "k": 10, "nw": 0.33}, {"cat": "STL", "w": 0.5, "proj": 26.8, "season": 23.2, "raw": 0.6, "proj_line": 0.88, "shrunk": 0.81, "k": 15, "nw": 0.25}], "similar": [{"name": "Jalen Duren", "team": "DET", "pos": "C", "val": 1.94, "owner": "Wagner my Ball in yo face", "dist": 1.79, "diff_cat": "REB", "diff": -1.19}, {"name": "Domantas Sabonis", "team": "SAC", "pos": "PF/C", "val": 5.43, "owner": "Shady McGrady", "dist": 1.82, "diff_cat": "AST", "diff": 1.55}, {"name": "Evan Mobley", "team": "CLE", "pos": "PF/C", "val": 4.02, "owner": "A Team Has No Name", "dist": 1.82, "diff_cat": "BLK", "diff": 1.27}, {"name": "Anthony Davis", "team": "WSH", "pos": "PF/C", "val": 4.43, "owner": "Protect Ya Net", "dist": 1.87, "diff_cat": "REB", "diff": -1.2}, {"name": "Joel Embiid", "team": "PHI", "pos": "C", "val": 4.54, "owner": "AntMan and the WASP", "dist": 2.11, "diff_cat": "REB", "diff": -1.78}], "signals": [{"kind": "Consistency", "anchor": "consistency", "dir": "up", "text": "Spikes: 4 of 5 games"}], "slug": "karl-anthony-towns", "team_games": 5, "why": "Steady star: 4 spikes in 5 games and the smallest game-to-game value spread of the projected stars with 5 games."}], "bands": {"WSH": "--team:#002b5c;--team-ink:#ffffff", "UTAH": "--team:#002b5c;--team-ink:#ffffff", "TOR": "--team:#ce1141;--team-ink:#ffffff", "DET": "--team:#1d42ba;--team-ink:#ffffff", "CHI": "--team:#ce1141;--team-ink:#ffffff", "NY": "--team:#006bb6;--team-ink:#ffffff", "CLE": "--team:#860038;--team-ink:#ffffff", "PHI": "--team:#006bb6;--team-ink:#ffffff", "HOU": "--team:#ce1141;--team-ink:#ffffff", "MIL": "--team:#00471b;--team-ink:#ffffff", "DAL": "--team:#00538c;--team-ink:#ffffff", "IND": "--team:#002d62;--team-ink:#ffffff", "SA": "--team:#000000;--team-ink:#ffffff", "GS": "--team:#1d428a;--team-ink:#ffffff", "SAC": "--team:#5a2d81;--team-ink:#ffffff"}};
+const M = D.meta;
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const f1 = v => v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1);
+const f2 = v => v == null ? "–" : v.toFixed(2);
+const sgn = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2);
+const sgn1 = v => (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(1);
+const NS = "http://www.w3.org/2000/svg";
+
+/* ---------- After look: thin marks, one hero mark per chart, direct labels ---------- */
+let LOOK = (() => { try { return localStorage.getItem("pp-look") || "after"; } catch (e) { return "after"; } })();
+function endLabels(svg, items, x) {
+  items.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < items.length; i++) if (items[i].y - items[i - 1].y < 13) items[i].y = items[i - 1].y + 13;
+  items.forEach(it => el("text", { x, y: it.y + 4, class: it.cls }, svg, it.text));
+}
+/* ---------- Shared tooltip card (After + tooltips) ---------- */
+const ord = v => { const n = Math.round(v), t = n % 100, s = (t >= 11 && t <= 13) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"); return n + s; };
+const fMin = v => v == null ? "–" : `${f1(v)} min`;
+const fVal = v => v == null ? "–" : sgn(v);
+const TT = (() => {
+  const card = document.createElement("div");
+  card.className = "tt"; card.setAttribute("role", "tooltip"); card.id = "tt"; card.hidden = true;
+  document.body.appendChild(card);
+  let cross = null;
+  const add = (parent, tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; parent.appendChild(n); return n; };
+  function fill(spec) {
+    card.replaceChildren();
+    add(card, "div", "tt-ctx", spec.ctx);
+    const k = add(card, "div", "tt-key");
+    add(k, "span", "tt-num", spec.value);
+    add(k, "span", "tt-lab", spec.label);
+    if (spec.rows && spec.rows.length) {
+      const dl = add(card, "dl", "tt-rows");
+      spec.rows.slice(0, 3).forEach(([a, b]) => { add(dl, "dt", null, a); add(dl, "dd", null, b); });
+    }
+  }
+  /* mark: the viewport box of the hovered mark. The card goes beside it, never over it. */
+  function show(spec, mark, crossLine) {
+    fill(spec); card.hidden = false;
+    const w = card.offsetWidth, h = card.offsetHeight, gap = 12, pad = 8;
+    let x = mark.right + gap, y = (mark.top + mark.bottom) / 2 - h / 2;
+    if (x + w > innerWidth - pad) x = mark.left - gap - w;
+    if (x < pad) {  // no room on either side: above the mark, else below it
+      x = Math.max(pad, Math.min(innerWidth - pad - w, (mark.left + mark.right) / 2 - w / 2));
+      y = mark.top - gap - h >= pad ? mark.top - gap - h : mark.bottom + gap;
+    }
+    y = Math.max(pad, Math.min(innerHeight - pad - h, y));
+    card.style.left = Math.round(x) + "px"; card.style.top = Math.round(y) + "px";
+    if (cross) cross.style.display = "none";
+    cross = crossLine || null;
+    if (cross) cross.style.display = "";
+  }
+  function hide() { card.hidden = true; if (cross) cross.style.display = "none"; cross = null; }
+  document.addEventListener("pointerdown", e => { if (!e.target.closest(".hit, .tt-row")) hide(); });
+  window.addEventListener("scroll", hide, { passive: true });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") hide(); });
+  return { show, hide };
+})();
+/* A hit area that shows the shared card. markAt(): the viewport box of the mark. */
+function bindCard(target, spec, markAt, crossLine) {
+  target.setAttribute("aria-describedby", "tt");
+  const on = () => TT.show(spec, markAt(), crossLine);
+  target.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") on(); });
+  target.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") { on(); e.stopPropagation(); } });
+  target.addEventListener("focus", on);
+  target.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") TT.hide(); });
+  target.addEventListener("blur", TT.hide);
+}
+function svgBox(svg, x, y, rx, ry) {
+  const b = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, sx = b.width / vb.width, sy = b.height / vb.height;
+  return { left: b.left + (x - rx) * sx, right: b.left + (x + rx) * sx, top: b.top + (y - ry) * sy, bottom: b.top + (y + ry) * sy };
+}
+/* py: [top, bottom] of the marks in svg units. rx: half the width of the marks (default 8). */
+function hoverCard(svg, rect, spec, px, py, rx, crossX, crossT, crossB) {
+  let line = null;
+  if (crossX != null) { line = el("line", { x1: crossX, x2: crossX, y1: crossT, y2: crossB, class: "a-cross" }, svg); line.style.display = "none"; }
+  const h = el("rect", { ...rect, class: "hit", tabindex: 0, "aria-label": `${spec.ctx}. ${spec.label} ${spec.value}. ` + (spec.rows || []).map(([a, b]) => `${a} ${b}`).join(". ") }, svg);
+  bindCard(h, spec, () => svgBox(svg, px, (py[0] + py[1]) / 2, rx || 8, Math.max(8, (py[1] - py[0]) / 2 + 6)), line);
+}
+
+/* Label placement for "After + tooltips": only where a label sits changes. */
+const CHAR_W = 5.6, TXT_H = 11;
+const hitsAny = (r, boxes) => boxes.some(b => r.x < b.x + b.w && r.x + r.w > b.x && r.y < b.y + b.h && r.y + r.h > b.y);
+function segBoxes(pts, pad) {
+  const out = [];
+  for (let i = 1; i < pts.length; i++) {
+    const [x1, y1] = pts[i - 1], [x2, y2] = pts[i], k = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 4));
+    for (let j = 0; j <= k; j++) out.push({ x: x1 + (x2 - x1) * j / k - pad, y: y1 + (y2 - y1) * j / k - pad, w: 2 * pad, h: 2 * pad });
+  }
+  return out;
+}
+/* End labels: same x, nudged apart symmetrically to a 13px gap and kept inside [top, bottom]. */
+function endLabelsTips(svg, items, x, top, bottom) {
+  items.sort((a, b) => a.y - b.y);
+  items.forEach(it => it.ly = it.y);
+  for (let pass = 0; pass < 20; pass++) {
+    let moved = false;
+    for (let i = 1; i < items.length; i++) {
+      const d = items[i].ly - items[i - 1].ly;
+      if (d < 13) { const h = (13 - d) / 2; items[i - 1].ly -= h; items[i].ly += h; moved = true; }
+    }
+    items.forEach(it => it.ly = Math.max(top, Math.min(bottom, it.ly)));
+    if (!moved) break;
+  }
+  items.forEach(it => el("text", { x, y: it.ly + 4, class: it.cls }, svg, it.text));
+}
+/* A point label on the clear side: right, left, above, below. Returns false (and draws nothing) if none is clear. */
+function pointLabel(svg, text, cx, cy, boxes, bounds, cls) {
+  const w = text.length * CHAR_W;
+  for (const s of [{ x: cx + 7, y: cy - TXT_H / 2 }, { x: cx - 7 - w, y: cy - TXT_H / 2 }, { x: cx - w / 2, y: cy - 8 - TXT_H }, { x: cx - w / 2, y: cy + 8 }]) {
+    const r = { x: s.x, y: s.y, w, h: TXT_H };
+    if (r.x < bounds.l || r.x + w > bounds.r || r.y < bounds.t || r.y + TXT_H > bounds.b || hitsAny(r, boxes)) continue;
+    el("text", { x: s.x, y: s.y + TXT_H - 2, class: cls }, svg, text);
+    boxes.push(r);
+    return true;
+  }
+  return false;
+}
+function trendChartAfter(box, p, opt) {
+  const W = 580, H = 268, L = 30, R = 104, T = 12, B = 22;
+  const n = p.games.length, tr = opt.trend, key = opt.key;
+  const vals = p.games.map(g => g[key]).concat(tr.roll, opt.second ? p.games.map(g => g[opt.second]) : []).filter(v => v != null);
+  let lo = Math.min(...vals, ...(opt.refs || []).map(r => r.y)), hi = Math.max(...vals, ...(opt.refs || []).map(r => r.y));
+  if (tr.lo != null) { lo = Math.min(lo, tr.lo); hi = Math.max(hi, tr.hi); }
+  const nt = niceTicks(lo - (hi - lo) * 0.05, hi + (hi - lo) * 0.05, 4);
+  const y = v => T + (H - T - B) * (1 - (v - nt.lo) / (nt.hi - nt.lo));
+  const step = (W - L - R) / Math.max(n, 1), x = i => L + step * (i + 0.5);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opt.aria });
+  nt.ticks.forEach(t => el("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end", class: "a-axis" }, svg, t));
+  const TIPS = LOOK === "tips", boxes = [], bounds = { l: L + 2, r: W - R - 2, t: T, b: H - B };
+  if (TIPS) {
+    p.games.forEach((g, i) => boxes.push({ x: x(i) - 6, y: y(g[key]) - 6, w: 12, h: 12 }));
+    if (opt.second) boxes.push(...segBoxes(p.games.map((g, i) => [x(i), y(g[opt.second])]), 2));
+    boxes.push(...segBoxes(tr.roll.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean), 3));
+    (opt.refs || []).forEach(r => boxes.push({ x: L, y: y(r.y) - 1, w: W - L - R, h: 2 }));
+  }
+  if (tr.lo != null) {
+    el("rect", { x: L, width: W - L - R, y: y(tr.hi), height: y(tr.lo) - y(tr.hi), class: "a-band" }, svg);
+    const bandText = `normal range ${f1(tr.lo)}–${f1(tr.hi)}`;
+    if (!TIPS) el("text", { x: L + 4, y: y(tr.lo) - 5, class: "a-axis" }, svg, bandText);
+    else {  // a corner of the band that no mark touches: bottom-left, top-left, bottom-right, top-right
+      const w = bandText.length * CHAR_W;
+      const spots = [[L + 4, y(tr.lo) - 4 - TXT_H], [L + 4, y(tr.hi) + 4], [W - R - 4 - w, y(tr.lo) - 4 - TXT_H], [W - R - 4 - w, y(tr.hi) + 4]];
+      const ok = spots.find(([sx, sy]) => !hitsAny({ x: sx, y: sy, w, h: TXT_H }, boxes));
+      if (ok) { el("text", { x: ok[0], y: ok[1] + TXT_H - 2, class: "a-axis" }, svg, bandText); boxes.push({ x: ok[0], y: ok[1], w, h: TXT_H }); }
+    }
+  }
+  const ends = [];
+  (opt.refs || []).forEach(r => { el("line", { x1: L, x2: W - R, y1: y(r.y), y2: y(r.y), class: "a-ref" }, svg); ends.push({ y: y(r.y), text: r.label, cls: "a-axis" }); });
+  if (opt.second) {
+    const pts = p.games.map((g, i) => [x(i), y(g[opt.second])]);
+    if (pts.length > 1) el("path", { d: "M" + pts.map(q => q.join(",")).join("L"), class: "a-second" }, svg);
+    ends.push({ y: pts[n - 1][1], text: `competitive ${f1(p.games[n - 1][opt.second])}`, cls: "a-axis" });
+  }
+  const labelled = {};
+  p.games.forEach((g, i) => {
+    const c = opt.dot ? opt.dot(g) : "d-ink", cx = x(i), cy = y(g[key]);
+    if (c === "d-dud") el("path", { d: `M${cx - 4.5},${cy - 3}L${cx + 4.5},${cy - 3}L${cx},${cy + 4.5}Z`, class: "a-dud" }, svg);
+    else if (c === "d-spike") el("path", { d: `M${cx - 4.5},${cy + 3}L${cx + 4.5},${cy + 3}L${cx},${cy - 4.5}Z`, class: "a-spike" }, svg);
+    else el("circle", { cx, cy, r: 3.5, class: "a-dot" }, svg);
+    if (!TIPS && (c === "d-dud" || c === "d-spike") && !labelled[c]) {
+      labelled[c] = 1;
+      el("text", { x: cx + 7, y: cy + 4, class: "a-axis" }, svg, c === "d-dud" ? "dud" : "spike");
+    }
+  });
+  const rp = tr.roll.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+  if (rp.length > 1) el("path", { d: "M" + rp.map(q => q.join(",")).join("L"), class: "a-hero" }, svg);
+  if (rp.length) {
+    const last = rp[rp.length - 1];
+    el("circle", { cx: last[0], cy: last[1], r: 4, class: "a-hero-dot" }, svg);
+    if (tr.roll[n - 1] != null) ends.push({ y: last[1], text: `${M.window}-game ${f1(tr.roll[n - 1])}`, cls: "a-label" });
+  }
+  if (!opt.dot) ends.push({ y: y(p.games[n - 1][key]), text: `game ${f1(p.games[n - 1][key])}`, cls: "a-axis" });
+  if (TIPS) endLabelsTips(svg, ends, W - R + 8, T + 4, H - B - 4); else endLabels(svg, ends, W - R + 8);
+  if (TIPS) ["d-dud", "d-spike"].forEach(kind => {  // the first game of each kind with a clear side; else no label
+    for (let i = 0; i < n; i++) if ((opt.dot ? opt.dot(p.games[i]) : "") === kind && pointLabel(svg, kind === "d-dud" ? "dud" : "spike", x(i), y(p.games[i][key]), boxes, bounds, "a-axis")) break;
+  });
+  if (tr.lo != null) tr.roll.forEach((v, i) => {
+    if (v == null || (v <= tr.hi && v >= tr.lo)) return;
+    if (TIPS) pointLabel(svg, v > tr.hi ? "▲ out" : "▼ out", x(i), y(v), boxes, bounds, "exit-t");
+    else el("text", { x: x(i), y: y(v) + (v > tr.hi ? -9 : 17), "text-anchor": "middle", class: "exit-t" }, svg, v > tr.hi ? "▲ out" : "▼ out");
+  });
+  p.games.forEach((g, i) => el("text", { x: x(i), y: H - 6, "text-anchor": "middle", class: "a-axis" }, svg, g.date));
+  box.appendChild(svg);
+  p.games.forEach((g, i) => {
+    const rect = { x: x(i) - step / 2, y: T, width: step, height: H - T - B };
+    if (LOOK === "tips") {
+      const ys = [g[key], opt.second ? g[opt.second] : g[key], tr.roll[i] ?? g[key]].map(y);
+      hoverCard(svg, rect, opt.card(g, i), x(i), [Math.min(...ys), Math.max(...ys)], null, x(i), T, H - B);
+    } else hover(svg, box, rect, opt.tip(g, i), x(i), y(Math.max(g[key], opt.second ? g[opt.second] : -1e9)));
+  });
+}
+function catChartAfter(box, p) {
+  const W = 580, rowH = 38, T = 18, L = 84, R = 104, H = T + rowH * 6;
+  const x = v => L + (W - L - R) * v / 100;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Percentile of each category in the pool: now and projection" });
+  [0, 50, 100].forEach(t => el("text", { x: x(t), y: T - 6, "text-anchor": "middle", class: "a-axis" }, svg, t === 50 ? "50th pct" : t));
+  el("line", { x1: x(50), x2: x(50), y1: T, y2: H - 6, class: "a-ref" }, svg);
+  el("text", { x: W - R + 30, y: T - 6, class: "a-axis" }, svg, "per game");
+  p.cats.forEach((c, i) => {
+    const cy = T + rowH * i + rowH / 2;
+    el("text", { x: 0, y: cy + 4, class: "a-label" }, svg, c.cat);
+    el("text", { x: 34, y: cy + 4, class: "a-axis" }, svg, `×${c.w.toFixed(2)}`);
+    el("line", { x1: x(0), x2: x(100), y1: cy, y2: cy, class: "a-track" }, svg);
+    el("line", { x1: x(c.proj), x2: x(c.season), y1: cy, y2: cy, class: "a-conn" }, svg);
+    el("circle", { cx: x(c.proj), cy, r: 4, class: "a-proj" }, svg);
+    el("circle", { cx: x(c.season), cy, r: 5, class: "a-now" }, svg);
+    if (i === 0 && LOOK !== "tips") {
+      const apart = Math.abs(x(c.season) - x(c.proj)) > 34;
+      el("text", { x: x(c.season), y: cy - 9, "text-anchor": "middle", class: "a-label" }, svg, "now");
+      el("text", { x: x(c.proj), y: apart ? cy - 9 : cy + 17, "text-anchor": "middle", class: "a-axis" }, svg, "proj");
+    } else if (i === 0) {
+      // apart: both above, centered. Close: "now" above and "proj" below the track, each pushed away from the other.
+      const xs = x(c.season), xp = x(c.proj), apart = Math.abs(xs - xp) > 34, nowLeft = xs <= xp;
+      if (apart) {
+        el("text", { x: xs, y: cy - 10, "text-anchor": "middle", class: "a-label" }, svg, "now");
+        el("text", { x: xp, y: cy - 10, "text-anchor": "middle", class: "a-axis" }, svg, "proj");
+      } else {
+        el("text", { x: nowLeft ? xs + 2 : xs - 2, y: cy - 10, "text-anchor": nowLeft ? "end" : "start", class: "a-label" }, svg, "now");
+        el("text", { x: nowLeft ? xp - 2 : xp + 2, y: cy + 18, "text-anchor": nowLeft ? "start" : "end", class: "a-axis" }, svg, "proj");
+      }
+    }
+    el("text", { x: W - R + 14, y: cy + 4, class: "a-label" }, svg, f1(c.raw));
+    el("text", { x: W - R + 46, y: cy + 4, class: "a-axis" }, svg, "proj " + f1(c.proj_line));
+    const html = `<b>${c.cat}</b> · punt weight ${c.w.toFixed(2)}<br>Now: percentile ${Math.round(c.season)} (shrunk ${f2(c.shrunk)}/g)<br>Projection: percentile ${Math.round(c.proj)} (${f2(c.proj_line)}/g)<br>Season to date ${f2(c.raw)}/g in ${p.n} games, weight ${Math.round(c.nw * 100)}%`;
+    const rect = { x: 0, y: cy - rowH / 2, width: W, height: rowH };
+    if (LOOK === "tips") {
+      const a = Math.min(x(c.season), x(c.proj)), b = Math.max(x(c.season), x(c.proj));
+      hoverCard(svg, rect, {
+        ctx: `${c.cat} · punt weight ${c.w.toFixed(2)}`, value: ord(c.season), label: "percentile now",
+        rows: [["Projection", ord(c.proj)], ["Per game now", `${f1(c.raw)} (shrunk ${f1(c.shrunk)})`], ["Season weight", `${Math.round(c.nw * 100)}% after ${p.n} games`]]
+      }, (a + b) / 2, [cy - 6, cy + 6], (b - a) / 2 + 8);
+    } else hover(svg, box, rect, html, x(Math.max(c.season, c.proj)), cy - 6);
+  });
+  box.appendChild(svg);
+}
+
+function setupPicker() {
+  $("#names").innerHTML = D.players.map(p => `<option value="${esc(p.name)}">`).join("");
+  $("#chips").innerHTML = D.players.map(p => `<button type="button" class="chip" data-slug="${p.slug}" aria-pressed="false">${esc(p.name)}</button>`).join("");
+  $("#chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (b) location.hash = b.dataset.slug; });
+  const go = () => {
+    const v = $("#q").value.trim().toLowerCase(); if (!v) return;
+    const p = D.players.find(p => p.name.toLowerCase() === v) || D.players.find(p => p.name.toLowerCase().includes(v));
+    if (p) { $("#msg").textContent = ""; $("#q").value = ""; location.hash = p.slug; }
+    else $("#msg").textContent = "No player in the sample has that name.";
+  };
+  $("#q").addEventListener("change", go);
+  $("#q").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  window.addEventListener("hashchange", route);
+  const showLook = () => {
+    document.body.classList.toggle("v-after", LOOK !== "before");
+    document.querySelectorAll("[data-look]").forEach(b => b.setAttribute("aria-pressed", b.dataset.look === LOOK));
+  };
+  document.querySelectorAll("[data-look]").forEach(b => b.addEventListener("click", () => {
+    LOOK = b.dataset.look; try { localStorage.setItem("pp-look", LOOK); } catch (e) {}
+    showLook(); route();
+  }));
+  showLook();
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#info").open) { $("#info").open = false; $("#info summary").focus(); } });
+}
+function route() {
+  const p = D.players.find(p => p.slug === location.hash.slice(1));
+  if (!p) { location.replace("#" + D.players[0].slug); return; }
+  document.querySelectorAll("#chips .chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.slug === p.slug));
+  render(p);
+  document.title = `${p.name} · Players · Fantasy Hoops Lab`;
+}
+
+function el(tag, attrs, parent, text) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text != null) n.textContent = text;
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function niceTicks(lo, hi, count) {
+  const span = hi - lo, raw = span / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => span / s <= count) || 10 * mag;
+  const a = Math.floor(lo / step) * step, b = Math.ceil(hi / step) * step;
+  const out = []; for (let v = a; v <= b + 1e-9; v += step) out.push(+v.toFixed(6));
+  return { ticks: out, lo: a, hi: b };
+}
+function tipFor(box) {
+  let tip = box.querySelector(".tip");
+  if (!tip) { tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; box.appendChild(tip); }
+  return {
+    show(html, x, y) {
+      tip.innerHTML = html; tip.hidden = false;
+      tip.style.left = Math.max(0, Math.min(box.clientWidth - tip.offsetWidth, x - tip.offsetWidth / 2)) + "px";
+      tip.style.top = Math.max(-40, y - tip.offsetHeight - 10) + "px";
+    },
+    hide() { tip.hidden = true; }
+  };
+}
+function svgPoint(svg, box, x, y) {
+  const r = svg.getBoundingClientRect(), b = box.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+  return [r.left - b.left + x * r.width / vb.width, r.top - b.top + y * r.height / vb.height];
+}
+function hover(svg, box, rect, html, px, py) {
+  const tip = tipFor(box);
+  const h = el("rect", { ...rect, class: "hit", tabindex: 0, "aria-label": html.replace(/<[^>]+>/g, " ") }, svg);
+  const on = () => { const [x, y] = svgPoint(svg, box, px, py); tip.show(html, x, y); };
+  h.addEventListener("mouseenter", on); h.addEventListener("focus", on);
+  h.addEventListener("mouseleave", tip.hide); h.addEventListener("blur", tip.hide);
+}
+
+/* A game trend: dots, a rolling line, the band. opt.second: a second per-game line. opt.dot(g): the dot class. */
+function trendChart(box, p, opt) {
+  if (LOOK !== "before") return trendChartAfter(box, p, opt);
+  const W = 580, H = 268, L = 34, R = 64, T = 8, B = 32;
+  const n = p.games.length, tr = opt.trend, key = opt.key;
+  const vals = p.games.map(g => g[key]).concat(tr.roll, opt.second ? p.games.map(g => g[opt.second]) : []).filter(v => v != null);
+  let lo = Math.min(...vals, ...(opt.refs || []).map(r => r.y)), hi = Math.max(...vals, ...(opt.refs || []).map(r => r.y));
+  if (tr.lo != null) { lo = Math.min(lo, tr.lo); hi = Math.max(hi, tr.hi); }
+  const nt = niceTicks(lo - (hi - lo) * 0.05, hi + (hi - lo) * 0.05, 5);
+  const y = v => T + (H - T - B) * (1 - (v - nt.lo) / (nt.hi - nt.lo));
+  const step = (W - L - R) / Math.max(n, 1), x = i => L + step * (i + 0.5);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opt.aria });
+  nt.ticks.forEach(t => { el("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), class: "g-grid" }, svg); el("text", { x: L - 5, y: y(t) + 4, "text-anchor": "end", class: "g-axis" }, svg, t); });
+  if (tr.lo != null) {
+    el("rect", { x: L, width: W - L - R, y: y(tr.hi), height: y(tr.lo) - y(tr.hi), class: "g-band" }, svg);
+    el("text", { x: W - R + 5, y: y(tr.hi) + 11, class: "g-axis" }, svg, "range");
+    el("text", { x: W - R + 5, y: y(tr.hi) + 24, class: "g-axis" }, svg, `${f1(tr.lo)}–${f1(tr.hi)}`);
+  }
+  (opt.refs || []).forEach(r => { el("line", { x1: L, x2: W - R, y1: y(r.y), y2: y(r.y), class: "g-ref" }, svg); el("text", { x: L + 4, y: y(r.y) - 4, class: "g-axis" }, svg, r.label); });
+  if (opt.second) {
+    const pts = p.games.map((g, i) => [x(i), y(g[opt.second])]);
+    if (pts.length > 1) el("path", { d: "M" + pts.map(q => q.join(",")).join("L"), class: "l-off" }, svg);
+    pts.forEach(q => el("circle", { cx: q[0], cy: q[1], r: 3.8, class: "d-ring" }, svg));
+  }
+  const rp = tr.roll.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+  if (rp.length > 1) el("path", { d: "M" + rp.map(q => q.join(",")).join("L"), class: "l-ink" }, svg);
+  else if (rp.length === 1) el("rect", { x: rp[0][0] - 5, y: rp[0][1] - 1, width: 10, height: 2, class: "l-ink" }, svg);
+  p.games.forEach((g, i) => {
+    const c = opt.dot ? opt.dot(g) : "d-ink", cx = x(i), cy = y(g[key]);
+    if (c === "d-dud") el("path", { d: `M${cx - 6},${cy - 4}L${cx + 6},${cy - 4}L${cx},${cy + 6}Z`, class: c }, svg);
+    else if (c === "d-spike") el("path", { d: `M${cx - 6},${cy + 4}L${cx + 6},${cy + 4}L${cx},${cy - 6}Z`, class: c }, svg);
+    else el("circle", { cx, cy, r: 4.8, class: c }, svg);
+  });
+  if (tr.lo != null) tr.roll.forEach((v, i) => {
+    if (v == null || (v <= tr.hi && v >= tr.lo)) return;
+    el("rect", { x: x(i) - 6, y: y(v) - 6, width: 12, height: 12, class: "exit" }, svg);
+    el("text", { x: x(i), y: y(v) + (v > tr.hi ? -10 : 20), "text-anchor": "middle", class: "exit-t" }, svg, v > tr.hi ? "▲ out" : "▼ out");
+  });
+  if (tr.roll[n - 1] != null) el("text", { x: x(n - 1) + 9, y: y(tr.roll[n - 1]) + 4, class: "g-axis-b" }, svg, f1(tr.roll[n - 1]));
+  p.games.forEach((g, i) => {
+    el("text", { x: x(i), y: H - B + 14, "text-anchor": "middle", class: "g-axis-b" }, svg, g.date);
+    el("text", { x: x(i), y: H - B + 27, "text-anchor": "middle", class: "g-axis" }, svg, "v " + g.opp);
+  });
+  box.appendChild(svg);
+  p.games.forEach((g, i) => hover(svg, box, { x: x(i) - step / 2, y: T, width: step, height: H - T - B }, opt.tip(g, i), x(i), y(Math.max(g[key], opt.second ? g[opt.second] : -1e9))));
+}
+
+/* Category bars: now (filled) and projection (hollow outline), percentile in the pool. */
+function catChart(box, p) {
+  if (LOOK !== "before") return catChartAfter(box, p);
+  const W = 580, rowH = 38, T = 18, L = 76, R = 112, H = T + rowH * 6 + 4;
+  const x = v => L + (W - L - R) * v / 100;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Percentile of each category in the pool: now and projection" });
+  [0, 25, 50, 75, 100].forEach(t => { el("line", { x1: x(t), x2: x(t), y1: T - 4, y2: H - 4, class: "g-grid" }, svg); el("text", { x: x(t), y: T - 7, "text-anchor": "middle", class: "g-axis" }, svg, t); });
+  el("text", { x: W - R + 24, y: T - 7, class: "g-axis" }, svg, "now · proj /g");
+  p.cats.forEach((c, i) => {
+    const top = T + rowH * i + 5;
+    el("text", { x: 0, y: top + 11, class: "g-axis-b" }, svg, c.cat);
+    el("text", { x: 0, y: top + 24, class: "g-axis" }, svg, `×${c.w.toFixed(2)}`);
+    el("rect", { x: x(0), y: top + 1, width: Math.max(1, x(c.season) - x(0)), height: 11, class: "bar-now" }, svg);
+    el("rect", { x: x(0) + 0.75, y: top + 15.75, width: Math.max(1, x(c.proj) - x(0) - 1.5), height: 8.5, class: "bar-proj" }, svg);
+    el("text", { x: W - R + 24, y: top + 15, class: "g-axis-b" }, svg, f1(c.raw));
+    el("text", { x: W - R + 58, y: top + 15, class: "g-axis" }, svg, "· " + f1(c.proj_line));
+    const html = `<b>${c.cat}</b> · punt weight ${c.w.toFixed(2)}<br>Now: percentile ${Math.round(c.season)} (shrunk ${f2(c.shrunk)}/g)<br>Projection: percentile ${Math.round(c.proj)} (${f2(c.proj_line)}/g)<br>Season to date ${f2(c.raw)}/g in ${p.n} games, weight ${Math.round(c.nw * 100)}%`;
+    hover(svg, box, { x: 0, y: top - 4, width: W, height: rowH }, html, x(Math.max(c.season, c.proj)), top);
+  });
+  box.appendChild(svg);
+}
+
+const kDot = c => `<svg width="11" height="11" aria-hidden="true"><circle cx="5.5" cy="5.5" r="4" class="${c}"/></svg>`;
+const kTri = (c, up) => `<svg width="12" height="11" aria-hidden="true"><path d="${up ? "M1,10L11,10L6,1Z" : "M1,1L11,1L6,10Z"}" class="${c}"/></svg>`;
+const kLine = c => `<svg width="16" height="10" aria-hidden="true"><line x1="1" x2="15" y1="5" y2="5" class="${c}"/></svg>`;
+const kBand = `<svg width="13" height="10" aria-hidden="true"><rect width="13" height="10" class="g-band"/></svg>`;
+const kBar = c => `<svg width="16" height="10" aria-hidden="true"><rect x=".75" y="1" width="14.5" height="8" class="${c}"/></svg>`;
+function bandState(t) {
+  if (t.n < M.band_min) return `<b>Too few games for a range:</b> ${t.n} of ${M.band_min}.`;
+  if (t.n < M.flag_min) return `<b>Too few games for a flag:</b> ${t.n} of ${M.flag_min}. Range = mean ± ${f1((t.hi - t.lo) / 2)}, mostly the league prior.`;
+  return `Range = mean ± ${f1((t.hi - t.lo) / 2)}, mostly the league prior at ${t.n} games.`;
+}
+
+function render(p) {
+  const mine = p.owner.endsWith("(you)");
+  const tot = p.games.reduce((a, g) => a + g.min, 0), comp = p.games.reduce((a, g) => a + g.comp, 0);
+  const close = p.games.filter(g => g.close), other = p.games.filter(g => !g.close);
+  const avg = a => a.reduce((s, g) => s + g.min, 0) / a.length;
+  const u = p.trend_usg, uLast = u.roll[u.roll.length - 1];
+  const usgDelta = uLast != null ? uLast - u.mean : null;
+  const usgLab = `USG <b>${Math.round(u.mean)}%</b>` + (usgDelta == null ? " (too few games for a trend)" : ` ${usgDelta >= 0 ? "▲" : "▼"} ${sgn1(usgDelta)} last ${M.window}`);
+  const closeLab = close.length ? `Close <b>${close.length} of ${p.n}</b>: ${f1(avg(close))} min${other.length ? ` (${f1(avg(other))} other)` : ""}` : `Close <b>0 of ${p.n}</b>`;
+  const hasProj = !!p.cats;
+
+  const top = p.signals.slice(0, 3);
+  let sig = top.map(s => `<li><a href="#" data-a="${s.anchor}"><span class="sig-k${s.dir === "down" ? " alert" : ""}">${s.kind} ${s.dir === "up" ? "▲" : "▼"}</span><span class="t">${esc(s.text)}</span></a></li>`).join("");
+  if (!top.length) sig = p.n < M.flag_min ? `<li class="none"><b>No signals yet:</b> ${p.n} of ${M.flag_min} games</li>` : `<li class="none"><b>No signals: playing to projection</b></li>`;
+
+  $("#profile").innerHTML = `
+<header class="head">
+  <div class="band" style="${D.bands[p.team]}">${p.team}</div>
+  <div>
+    <h1>${esc(p.name)}</h1>
+    <div class="sub">${esc(p.pos || "–")} · ${mine ? `<a href="../roster/">${esc(p.owner)}</a>` : esc(p.owner)} · <a href="../roster/">Roster</a></div>
+  </div>
+  <dl class="kv">
+    <div><dt>Val</dt><dd>${sgn(p.season_val)}<small>${hasProj ? `proj ${sgn(p.proj_val)}` : ""}</small></dd></div>
+    <div><dt>Games</dt><dd>${p.n}<small>of ${p.team_games} · ${f1(tot / p.n)} min</small></dd></div>
+  </dl>
+  <ul class="sigs" aria-label="Signals">${sig}</ul>
+</header>
+<div class="grid">
+<section class="q" id="q-role" aria-labelledby="h-role">
+  <h2 id="h-role">Role <span class="lab">${usgLab}</span><span class="lab">${closeLab}</span></h2>
+  <div class="legend"><span>${kDot("d-ink")}Minutes</span><span>${kLine("l-ink")}${M.window}-game</span><span>${kDot("d-ring")}Competitive: ${Math.round(100 * comp / tot)}%</span><span>${kBand}Range</span></div>
+  <div class="chart" id="c-min"></div>
+  <p class="state">${bandState(p.trend_min)}</p>
+</section>
+<section class="q" id="q-cats" aria-labelledby="h-cats">
+  <h2 id="h-cats">Categories <span class="lab">percentile of the ${M.pool_n}-player pool</span></h2>
+  ${hasProj ? `<div class="legend"><span>${kBar("bar-now")}Now, shrunk toward projection</span><span>${kBar("bar-proj")}Projection</span><span>×weight = punt weight</span></div>
+  <div class="chart" id="c-cat"></div>
+  <p class="state">${p.n} games: the season line has ${Math.round(p.cats[0].nw * 100)}% of the weight for PTS, ${Math.round(p.cats[5].nw * 100)}% for STL.</p>` : `<div class="empty">No projection: no category ranks.</div>`}
+</section>
+<section class="q" id="q-value" aria-labelledby="h-value">
+  <h2 id="h-value">Value <span class="lab"><b>${p.duds}</b> ${p.duds === 1 ? "dud" : "duds"} · <b>${p.spikes}</b> ${p.spikes === 1 ? "spike" : "spikes"} in ${p.n}</span></h2>
+  <div class="legend"><span>${kTri("d-dud", false)}Dud</span><span>${kDot("d-ink")}Normal</span><span>${kTri("d-spike", true)}Spike</span><span>${kLine("l-ink")}${M.window}-game</span><span>${kBand}Range</span></div>
+  <div class="chart" id="c-val"></div>
+  <p class="state">${bandState(p.trend_val)}${p.n < M.flag_min ? ` One game moves a rate ${Math.round(100 / p.n)} points.` : ""}</p>
+</section>
+<section class="q" id="q-comps" aria-labelledby="h-comps">
+  <h2 id="h-comps">Comps <span class="lab">nearest 5 on the blended line</span></h2>
+  ${hasProj ? `<table class="lab-t sim"><colgroup><col class="c-band"><col><col class="c-v"><col class="c-d"></colgroup>
+  <thead><tr><th class="l">Team</th><th class="l">Player</th><th>Val</th><th>Biggest diff</th></tr></thead>
+  <tbody>${p.similar.map(s => `<tr><td class="band" style="${D.bands[s.team] || ""}">${esc(s.team)}</td><th class="pl" scope="row"><b>${esc(s.name)}</b><small>${esc(s.pos)} · ${esc(s.owner)}</small></th><td class="n"><b>${sgn(s.val)}</b></td><td class="n">${s.diff_cat} ${sgn(s.diff)}</td></tr>`).join("")}</tbody></table>
+  <p class="state">Val: blended, per game above replacement (his: ${sgn(p.blend_val)}). Diff: their weighted z minus his.</p>` : `<div class="empty">No projection: no blended line to compare.</div>`}
+</section>
+</div>`;
+  const tipG = g => `<b>${g.date} v ${g.opp}</b>${g.started ? " · start" : ""}${g.close ? " · close game" : ""}<br>`;
+  const ctxG = g => `${g.date} vs ${g.opp}` + (g.started ? " · start" : " · bench") + (g.close ? " · close game" : "");
+  trendChart($("#c-min"), p, {
+    card: (g, i) => ({ ctx: ctxG(g), value: fMin(g.min), label: "minutes",
+      rows: [["Competitive", fMin(g.comp)], [`${M.window}-game avg`, p.trend_min.roll[i] == null ? `needs ${M.window} games` : fMin(p.trend_min.roll[i])], ["Usage", g.usg == null ? "–" : `${f1(g.usg)}%`]] }),
+    aria: "Total and competitive minutes in each game", key: "min", second: "comp", trend: p.trend_min,
+    tip: (g, i) => tipG(g) + `${f1(g.min)} min · competitive ${f1(g.comp)}<br>Usage ${f1(g.usg)}% · ${M.window}-game ${f1(p.trend_min.roll[i])} min`
+  });
+  if (hasProj) catChart($("#c-cat"), p);
+  trendChart($("#c-val"), p, {
+    card: (g, i) => ({ ctx: ctxG(g), value: fVal(g.val), label: g.val < 0 ? "value · dud" : g.val >= M.spike_level ? "value · spike" : "value",
+      rows: [["PTS · REB · AST", `${g.pts} · ${g.reb} · ${g.ast}`], ["3PM · STL · BLK", `${g.threes} · ${g.stl} · ${g.blk}`], [`${M.window}-game avg`, p.trend_val.roll[i] == null ? `needs ${M.window} games` : fVal(p.trend_val.roll[i])]] }),
+    aria: "Per-game value above replacement, dots marked dud, normal or spike", key: "val", trend: p.trend_val,
+    refs: [{ y: 0, label: "replacement" }, { y: M.spike_level, label: "top-30 level" }],
+    dot: g => g.val < 0 ? "d-dud" : g.val >= M.spike_level ? "d-spike" : "d-ink",
+    tip: g => tipG(g) + `Value ${sgn(g.val)}${g.val < 0 ? " · dud" : g.val >= M.spike_level ? " · spike" : ""}<br>${g.pts} PTS ${g.reb} REB ${g.ast} AST ${g.threes} 3PM ${g.stl} STL ${g.blk} BLK`
+  });
+  if (LOOK === "tips") document.querySelectorAll("table.sim tbody tr").forEach((tr, i) => {
+    const s = p.similar[i];
+    tr.tabIndex = 0; tr.classList.add("tt-row");
+    bindCard(tr, { ctx: `${s.name} · ${s.owner}`, value: fVal(s.val), label: "Val, blended",
+      rows: [["Biggest diff", `${s.diff_cat} ${sgn(s.diff)} z`], ["Distance", f2(s.dist)], [`${p.name.split(" ").pop()}'s Val`, fVal(p.blend_val)]] },
+      () => tr.getBoundingClientRect());
+  });
+  const target = { minutes: "q-role", usage: "q-role", cats: "q-cats", value: "q-value", consistency: "q-value" };
+  document.querySelectorAll(".sigs a").forEach(a => a.addEventListener("click", e => { e.preventDefault(); document.getElementById(target[a.dataset.a]).scrollIntoView(); }));
+}
+
+function methods() {
+  const f = M.fit, lead = (s, sg) => Math.round(f.z * sg * Math.sqrt(s));
+  $("#methods-body").innerHTML = `<h3>Methods and data</h3><ul>
+<li><b>Competitive minutes.</b> A moment is decided when the lead is ${f.z} × σ × √(seconds left) or more, about a 99% win chance for a random-walk margin. <b>σ = ${f.sigma.toFixed(3)} points per √second</b>, fit to the ${f.games} logged games: leads of ${lead(1440, f.sigma)} at the start of the 3rd quarter, ${lead(720, f.sigma)} with 12 minutes left, ${lead(360, f.sigma)} with 6. The anchors of decision 3 fit σ = ${f.sigma_anchor.toFixed(3)} (${lead(1440, f.sigma_anchor)}, ${lead(720, f.sigma_anchor)}, ${lead(360, f.sigma_anchor)}). A moment counts again if the lead falls below the line. ${Math.round(f.decided_share * 100)}% of logged game time was decided.</li>
+<li><b>Data.</b> ${M.games_logged} games, ${M.first} to ${M.last}: the rotation log and the ESPN game summaries (box scores). Season to date is ESPN, not Yahoo. Projections: <code>${M.proj_file}</code>. ${esc(M.owner_note)}</li>
+<li><b>Val.</b> <code>core/valuation.py</code> and <code>adds/value.py</code>: per game, above the replacement level of the valuation. Dud: under 0. Spike: ${sgn(M.spike_level)} or more (the 30th player by projected value).</li>
+<li><b>Range.</b> Season mean ± 2 SD / √${M.window}. The SD mixes his own SD with a league SD worth 4 games (minutes ${f1(M.pooled_sd.minutes)}, value ${f1(M.pooled_sd.val)}). A range needs ${M.band_min} games, a flag ${M.flag_min}.</li>
+<li><b>Usage.</b> 100 × (FGA + 0.44 FTA + TOV) × (team min / 5) / (min × (team FGA + 0.44 team FTA + team TOV)). The label: season usage, and the last ${M.window}-game average minus it.</li>
+<li><b>Categories.</b> Pool: top ${M.pool_n} by projected value (${M.pool_with_games} have games). Now = (n × season + k × projection) / (n + k), k in games: ${Object.entries(M.shrink_k).map(([c, v]) => `${c} ${v}`).join(", ")} (a first guess).</li>
+<li><b>Signals.</b> Range exit of the last ${M.window}-game point, a category ${M.gap_pct}+ percentile points from projection, or duds or spikes in ${Math.round(M.rate_flag * 100)}%+ of games. Each needs ${M.flag_min} games. The header shows 3 at most.</li>
+<li><b>Comps.</b> Weighted z-scores of the blended line of <code>adds/blend.py</code>: projection moved toward his ESPN line of the last 14 days (weight games / 14). The adds page blends Yahoo lines, so Val can differ.</li>
+<li><b>Name gaps.</b> ${M.unmatched_n} ESPN players have no projection match, for example ${esc(M.unmatched_espn.slice(0, 4).join(", "))}. Rostered with no game yet: ${esc(M.rostered_no_games.join(", "))}.</li>
+</ul>`;
+}
+setupPicker();
+methods();
+route();
+</script>
+</body>
+</html>
