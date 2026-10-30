@@ -73,3 +73,13 @@ On 2026-10-29, the owner rejected the long scrolling page of the first sample. T
 - On 2026-10-29, the owner chose square tooltip corners, as the DESIGN.md Shapes rule says.
 - PR #180 added the DESIGN.md "Charts" section, matched `.impeccable/design.json` to the tokens and added the approved sample as `docs/design/players-sample.html`. On the owner's word "merge #180", the chief of staff squash-merged it as `mccomark21/fantasy-hoops-lab@d4283e3`. The pytest and ruff checks passed.
 - The owner told the chief of staff to file the issues, with the site consistency work as four issues (Home, Roster, Free agents, Trade). An agent filed 14 issues.
+
+## Issues filed and the stop point (2026-10-29)
+
+- On 2026-10-29, an agent filed #181 to #194, each with `ready-for-agent` and a "Blocked by" line:
+  - Data: #181 (name matches), #182 (rotation minute gaps), #183 (box scores and usage rate), #184 (competitive minutes).
+  - Shared chart style: #185. A comment on #185 records that PR #180 merged.
+  - Players page: #186 (shell), #187 (Role), #188 (Categories), #189 (Value and Comps).
+  - Site consistency: #190 (adds page audit), #191 to #194 (Home, Roster, Free agents, Trade).
+- The agent found 5 unmatched names in the current data, not 13 as the sample agent reported. Dort, Holland and Harkless are name mismatches. Tony Bradley and Reece Beekman have no projection row. #181 asks the builder to find and explain the full list.
+- On 2026-10-29, the owner said: "no lets stop after the tickets are finished". No build started. The next session starts the ticket pipeline only when the owner asks. #181, #182 and #185 have no open blocker.
