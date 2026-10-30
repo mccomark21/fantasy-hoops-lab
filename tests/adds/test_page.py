@@ -968,6 +968,75 @@ def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_t
                 assert pg.evaluate(CELL_CONTRAST, pg.locator(table).element_handle()) == [], (theme, width, table)
 
 
+# The chart audit of the adds page (#190). Row 1 has its first add on Fri, so the grid has empty add cells on Wed and
+# Thu, which are not past. Row 2 has a past add on Tue and an add on Thu with a band and a start square.
+AUDIT_RUN = replace(
+    TABLE_RUN,
+    record=WeekRecord(
+        runs=(WEEK[0], WEEK[1], WEEK[2]),
+        adds=(
+            SavedAdd(2, WEEK[1], ("PG",), ("POR",), (WEEK[1],)),
+            SavedAdd(1, WEEK[4], ("SG", "PF"), ("ATL", "CLE"), (WEEK[4], WEEK[5])),
+            SavedAdd(2, WEEK[3], ("PF",), ("CHI",), (WEEK[3], WEEK[5])),
+        ),
+    ),
+)
+
+# The computed look of each of the 7 spots of the audit, from the plan page in a browser.
+AUDIT_LOOK = r"""() => {
+  const css = (sel, prop, pseudo) => { const el = document.querySelector(sel);
+    return el ? getComputedStyle(el, pseudo || null)[prop] : "missing"; };
+  // The lab-stock ground in the color form of a heat cell: a 0% mix of mark.
+  const probe = document.createElement("i");
+  probe.style.background = "color-mix(in srgb, var(--mark) 0%, var(--lab-stock))"; document.body.append(probe);
+  const stockRgb = getComputedStyle(probe).backgroundColor; probe.remove();
+  const empty = [...document.querySelectorAll("#plan tr.add td:not(.past):not(.add):not(.band)")];
+  return {
+    empty: empty.length, emptyGrounds: [...new Set(empty.map(td => getComputedStyle(td).backgroundColor))],
+    stock: stockRgb,
+    gamesRule: css("#plan tr.games td", "borderBottomWidth"),
+    gamesWeight: css("#plan tr.games td", "fontWeight"),
+    addBorder: css("#plan a.addc", "borderTopWidth") + " " + css("#plan a.addc", "borderLeftWidth"),
+    pastBorder: css("#plan .addc.was", "borderTopWidth"),
+    muZebra: css("#matchup tbody tr:nth-child(even) td", "backgroundColor"),
+    muHeadRule: css("#matchup thead th", "borderBottomWidth"),
+    h2Rule: css("#plan h2", "borderBottomWidth"),
+    band: css("#plan td.band:not(.past) .bar", "height", "::before"),
+    square: css("#plan td.band:not(.past) .mk", "width"),
+  };
+}"""
+
+
+@pytest.mark.parametrize("width", [320, 390, 768, 1280])
+def test_the_plan_page_shows_the_7_changes_of_the_chart_audit(width):
+    """#190: the heat stops at an empty add cell, a 1px Games rule, a 1px add cell border, a plain matchup table, a
+    1px heading rule, a 2px band with a 10px square (8px below 600px) and regular Games numbers."""
+    with browser_page(width=width) as pg:
+        pg.set_content(page.render(AUDIT_RUN))
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            look = pg.evaluate(AUDIT_LOOK)
+            assert look["empty"] >= 2 and look["emptyGrounds"] == [look["stock"]], (theme, look)
+            assert look["gamesRule"] == "1px" and look["gamesWeight"] == "400", (theme, look)
+            assert look["addBorder"] == "1px 1px" and look["pastBorder"] == "1px", (theme, look)
+            assert look["muZebra"] == "rgba(0, 0, 0, 0)" and look["muHeadRule"] == "1px", (theme, look)
+            assert look["h2Rule"] == "1px", (theme, look)
+            assert look["band"] == "2px" and look["square"] == ("10px" if width >= 600 else "8px"), (theme, look)
+            assert pg.evaluate(BAND_CONTRAST) == [], (theme, width)
+            assert pg.evaluate(FIT) == [] and pg.evaluate("document.documentElement.scrollWidth") <= width
+
+
+def test_the_plan_page_has_the_shared_chart_style_and_passes_its_check():
+    """#190 adopts the shared chart style of #185 on the plan page. The Free agents page does not get it."""
+    from fantasyhoops.core import chart
+
+    html = page.render(AUDIT_RUN)
+    assert chart.CHART_STYLE in html and "__CHART_CSS__" not in html and "__PAGE_CSS__" not in html
+    assert chart.style_problems(html) == [] and chart.label_overlaps(html) == []
+    fa_page = page.render_free_agents(AUDIT_RUN)
+    assert chart.CHART_STYLE not in fa_page and "__PAGE_CSS__" not in fa_page
+
+
 SITE = "http://lab.test/"  # a fake origin for the site in the browser tests of #165
 
 

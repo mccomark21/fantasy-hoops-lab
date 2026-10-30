@@ -189,12 +189,13 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 - **Margin:** ink for a close margin, `lab-green` for a lead, `lab-red` for a deficit. A large margin is bold (800). The sign stays.
 - **Weight:** 1.00 in bold ink. Lower weights step to a 50% mix of ink and `lab-mute`, then to `lab-mute`.
 - **Key:** a line under the table shows each look.
+- **Rules (#190):** no zebra rows. A 1px `lab-rule` rule under the head, not the 2px `mark` rule of the Tables style.
 
 ### Week grid (signature component)
-- **Style:** the team plan of the adds page (#140, the approved C3 heat sample). A fixed-layout table with one column for each day of the fantasy week and the rows Games, Add 1 and Add 2. The games of the day shade the whole column with a `mark` tint, 0% to 40%, mixed with `lab-stock`. The Games row has a 2px ink rule below it.
-- **Add cell:** a box of `lab-stock` with a 1.5px ink border and a 3px top border: "+<slots>" in condensed caps, then the teams. Hover: the `zebra` ground. Selected (the cell that set the filters): `lab-stock` text on a solid `mark` block. Focus: a 2px ink outline. A day header that set the filters has the same selected state.
-- **Band:** a 6px ink band through the days that the new player holds the spot, with an 18px ink square (14px below 600px) on each day that he starts.
-- **Past day:** a 10% `lab-mute` ground and `lab-mute` text. A past add is a dashed `lamp-off` box with `lab-mute` text. A past band and its square are `lab-mute`.
+- **Style:** the team plan of the adds page (#140, the approved C3 heat sample). A fixed-layout table with one column for each day of the fantasy week and the rows Games, Add 1 and Add 2. The games of the day shade the day header, the Games row, the add cells and the bands with a `mark` tint, 0% to 40%, mixed with `lab-stock`. An empty add cell has no tint: a `lab-stock` ground (#190). The Games row has regular (400) numbers and a 1px `lamp-off` rule below it (#190).
+- **Add cell:** a box of `lab-stock` with a 1px `lamp-off` border, with no heavy top border (#190): "+<slots>" in condensed caps, then the teams. Hover: the `zebra` ground. Selected (the cell that set the filters): `lab-stock` text on a solid `mark` block. Focus: a 2px ink outline. A day header that set the filters has the same selected state.
+- **Band:** a 2px ink band (the hero line width) through the days that the new player holds the spot, with a 10px ink square (8px below 600px) and a 2px `lab-stock` ring on each day that he starts (#190).
+- **Past day:** a 10% `lab-mute` ground and `lab-mute` text. A past add is a 1px dashed `lamp-off` box with `lab-mute` text. A past band and its 8px square are `lab-mute`.
 
 ### Charts
 - **Source:** the "After + tooltips" look of `.impeccable/review/players-sample.html`. The owner approved the After marks on 2026-10-29, then its tooltips and label placement. The Before look of that file is not a rule. The reasons are in `docs/wiki/player-profile-design-2026-10-29.md`.

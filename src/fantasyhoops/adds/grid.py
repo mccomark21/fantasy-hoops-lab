@@ -3,7 +3,7 @@
 The design is in docs/adds/README.md, "The team plan". The owner approved the C3 heat sample on 2026-10-28.
 plan_section() makes the HTML from a PlanningRun (adds/plan.py) and its week_file.WeekRecord:
 - The day headers show the days of the fantasy week. The games of each day shade its column: more games, a deeper
-  mark tint (0% to 40%). A key under the grid shows the scale.
+  mark tint (0% to 40%). The tint stops at an empty add cell (#190). A key under the grid shows the scale.
 - Each add sits in the column of its add day: "+<slots> <teams>". With [adds] team_count_at teams or more, the cell
   gives the count. A band continues in the same row through each later day that the new player holds the spot. A
   filled square on the band marks a day that he starts.
@@ -209,7 +209,8 @@ def plan_section(run, interactive=True):
             elif a:
                 cells.append(_band_cell(a, d, past, heat[d]))
             else:
-                cells.append('<td class="past"></td>' if past else f'<td style="--h: {heat[d]}%"></td>')
+                # An empty add cell has no heat tint (#190): the heat shades the head and the Games row only.
+                cells.append('<td class="past"></td>' if past else "<td></td>")
         body.append(f'<tr class="add">{"".join(cells)}</tr>')
     current = [a for a in adds if a.day >= today]
     lines = []
@@ -294,14 +295,14 @@ CSS = """
   color: var(--muted); }
 .week thead th.past small { color: var(--muted); }
 .week td + td, .week th + th { border-left: 2px solid var(--bg); }
-.week tr.games td { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.week tr.games td.past { font-weight: 500; }
-.week tr.games td, .week tr.games th { border-bottom: 2px solid var(--fg); }
+/* The chart audit (issue 190): regular games numbers and a 1px lamp-off rule below the Games row. */
+.week tr.games td { font-size: 15px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.week tr.games td, .week tr.games th { border-bottom: var(--lab-c-sw-rule, 1px) solid var(--lamp-off); }
 .week tr.add td { padding: 3px 2px; height: auto; }
 .week tr.add th small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; }
 .addc { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; height: auto;
         min-height: 58px; min-width: 0; max-width: 100%; padding: 6px 2px; font: inherit; color: var(--fg);
-        background: var(--bg); border: 1.5px solid var(--fg); border-top-width: 3px; }
+        background: var(--bg); border: var(--lab-c-sw-rule, 1px) solid var(--lamp-off); }
 a.addc { text-decoration: none; }
 .addc b { font-size: 15px; font-weight: 900; font-stretch: 75%; line-height: 1; overflow-wrap: anywhere; }
 .addc .who { display: flex; flex-direction: column; max-width: 100%; font-size: 12px; font-weight: 700;
@@ -313,28 +314,28 @@ a.addc .who { color: var(--q); text-decoration: underline; text-underline-offset
 a.addc:hover { color: var(--fg); background: var(--zebra); }
 a.addc:hover .who { color: var(--q); text-decoration-thickness: 2px; }
 a.addc:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-.addc.was { color: var(--muted); background: var(--bg); border: 1.5px dashed var(--lamp-off); border-top-width: 3px; }
+.addc.was { color: var(--muted); background: var(--bg); border: var(--lab-c-sw-rule, 1px) dashed var(--lamp-off); }
 .addc.was b { font-weight: 800; }
 .addc.was .who { font-weight: 600; }
 /* The span of an add: a band through each later day that the new player holds the spot. A filled square on the band
-   marks a start. */
+   marks a start. The band has the width of the hero line of the shared chart style (issue 190). */
 .week td.band { position: relative; padding: 0; vertical-align: middle; }
 .week td.band .bar { position: relative; display: block; height: 58px; }
-.week td.band .bar::before { content: ""; position: absolute; left: -2px; right: 0; top: 50%; height: 6px;
-  margin-top: -3px; background: var(--fg); }
-.week td.band .mk { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
-  background: var(--fg); outline: 2px solid var(--bg); }
+.week td.band .bar::before { content: ""; position: absolute; left: -2px; right: 0; top: 50%;
+  height: var(--lab-c-sw-hero, 2px); margin-top: -1px; background: var(--fg); }
+.week td.band .mk { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  background: var(--fg); outline: var(--lab-c-sw-ring, 2px) solid var(--bg); }
 .week td.band.past .bar::before { background: var(--muted); }
-.week td.band.past .mk { background: var(--muted); width: 14px; height: 14px; margin: -7px 0 0 -7px; }
+.week td.band.past .mk { background: var(--muted); width: 8px; height: 8px; margin: -4px 0 0 -4px; }
 .heatkey { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 .heatkey i { display: inline-block; width: 18px; height: 12px;
              background: color-mix(in srgb, var(--q) var(--h, 0%), var(--bg)); }
 .spankey { gap: 6px 10px; flex-wrap: wrap; }
 .spankey .kbar { position: relative; display: inline-block; width: 30px; height: 14px; }
-.spankey .kbar::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 6px;
-  background: var(--fg); }
-.spankey .kmk { position: absolute; left: 9px; top: -1px; width: 14px; height: 14px; background: var(--fg);
-                outline: 2px solid var(--bg); }
+.spankey .kbar::before { content: ""; position: absolute; left: 0; right: 0; top: 6px;
+  height: var(--lab-c-sw-hero, 2px); background: var(--fg); }
+.spankey .kmk { position: absolute; left: 10px; top: 2px; width: 10px; height: 10px; background: var(--fg);
+                outline: var(--lab-c-sw-ring, 2px) solid var(--bg); }
 .from { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--fg);
         border: 1.5px solid var(--q); padding: 5px 10px; margin: 0 0 8px; }
 .from[hidden] { display: none; }
@@ -354,6 +355,6 @@ a.addc:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
   .addc { padding: 5px 1px; }
   .addc b { font-size: 13px; }
   .addc .who { font-size: 11px; }
-  .week td.band .mk { width: 14px; height: 14px; margin: -7px 0 0 -7px; }
+  .week td.band .mk { width: 8px; height: 8px; margin: -4px 0 0 -4px; }
 }
 """

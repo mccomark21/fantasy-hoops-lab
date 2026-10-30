@@ -67,11 +67,11 @@ def test_the_shell_puts_the_chart_css_in_place_of_the_placeholder():
     assert shell("<style>__CHART_CSS__</style>", "adds", CFG) == f"<style>{chart.CHART_STYLE}</style>"
 
 
-def test_no_page_template_has_the_chart_placeholder_yet():
-    """#185 changes no page. Each page adds __CHART_CSS__ in its own adoption issue."""
+def test_only_the_pages_that_adopted_the_chart_style_have_the_chart_placeholder():
+    """#185 changes no page. Each page adds __CHART_CSS__ in its own adoption issue: the adds plan page in #190."""
     src = Path(chart.__file__).parents[1]
     users = [p for p in src.rglob("*.py") if "__CHART_CSS__" in p.read_text(encoding="utf-8")]
-    assert sorted(p.name for p in users) == ["chart.py", "publish.py"]
+    assert sorted(p.relative_to(src).as_posix() for p in users) == ["adds/page.py", "core/chart.py", "core/publish.py"]
 
 
 # The SVG helpers

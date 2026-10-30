@@ -560,7 +560,7 @@ def render(run):
         timings_section(run.timings, run.market, run.cache, run.recent_skip),
         method_note(),
     ]
-    return _page(TITLE, "adds", run.cfg, sections, FORWARD)
+    return _page(TITLE, "adds", run.cfg, sections, FORWARD, PLAN_CSS)
 
 
 def fa_header(run):
@@ -593,9 +593,9 @@ def render_free_agents(run):
     return _page(FA_TITLE, "free-agents", run.cfg, [fa_header(run), *sections])
 
 
-def _page(title, current, cfg, sections, forward=""):
-    """A page of the planner: the template HTML with the title, the site shell and the sections."""
-    template = HTML.replace("__TITLE__", title).replace("__GRID_CSS__", grid.CSS.strip())
+def _page(title, current, cfg, sections, forward="", css=""):
+    """A page of the planner: the template HTML with the title, the site shell, the sections and the CSS of the page."""
+    template = HTML.replace("__TITLE__", title).replace("__GRID_CSS__", grid.CSS.strip()).replace("__PAGE_CSS__", css)
     shell = site.shell(template.replace("__FORWARD__", forward), current, cfg)
     return shell.replace("__BODY__", "\n".join(s for s in sections if s))
 
@@ -605,6 +605,13 @@ FORWARD = (
     "<script>if (/^#(fa|waivers)$/.test(location.hash)) "
     'location.replace("../free-agents/" + location.search + location.hash);</script>'
 )
+
+
+# The CSS of the plan page only (#190). The Free agents page does not get it.
+# 1. The shared chart style (core/chart.py, #185): the --lab-c-* sizes that the week grid and the matchup table use.
+# 2. The heading rule of the DESIGN.md "Charts" panel head: 1px, not 2px.
+PLAN_CSS = """__CHART_CSS__
+h2 { border-bottom-width: var(--lab-c-sw-rule); }"""
 
 
 def page_path():
@@ -750,7 +757,9 @@ label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q
 .mu .name { width: 62px; }
 .mu th.name { font-size: 12px; font-weight: 800; }
 .mu thead th { text-align: right; }
-.mu thead td { border-bottom: 2px solid var(--mark); }
+/* The chart audit (issue 190): no zebra rows and a 1px lab-rule under the head. */
+.mu thead th, .mu thead td { border-bottom: var(--lab-c-sw-rule) solid var(--line); }
+.mu tbody tr > * { background: transparent; }
 .lead { color: var(--good); }
 .trail { color: var(--bad); }
 .big { font-weight: 800; }
@@ -765,6 +774,7 @@ details.notes summary { cursor: pointer; color: var(--fg); font-weight: 700; wid
 .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
       clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 details.notes p, details.notes table { margin: 6px 0 0; }
+__PAGE_CSS__
 </style>
 </head>
 <body class="lab">
