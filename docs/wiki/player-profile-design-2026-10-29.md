@@ -26,7 +26,28 @@ On 2026-10-29, the owner asked for a player profile page. The page must give ins
 9. Similar players are the 5 nearest players in weighted z-score space on the blended line. Each one shows Val, owner (or FA) and the category with the largest difference.
 10. A static sample with real data for 3 contrasting players comes first. After the owner reviews it, the chief of staff splits the work into issues for the ticket pipeline.
 
+## First sample (2026-10-29)
+
+- An agent wrote `.impeccable/review/players-sample.html` (untracked) for Ace Bailey (minutes riser), Immanuel Quickley (30% of his minutes after the game was decided) and Karl-Anthony Towns (steady star).
+- The rotation fetch added 65 games (68 in all, 2026-10-20 to 2026-10-28). It found 9 players with a minute gap to the box score. The largest was Naji Marshall: 14.8 in the log, 21 in the box score.
+- 13 ESPN names had no projection match (for example "Luguentz Dort", "Ronald Holland II"). They need rows in `data/name_overrides.csv`.
+- A fit to the 68 games gave σ = 0.313 points per √second. That σ gives leads of about 28 (start of the 3rd quarter), 20 (12 minutes left) and 14 (6 minutes left). The chief of staff's estimate in decision 3 (22, 16, 11) used σ = 0.251, which was too low. The chief of staff recommended the measured σ. The owner did not answer this point. The second sample uses the measured σ.
+- Agent defaults, not yet owner-approved: rolling window 3 games, a band needs 3 games, a flag needs 5. Shrinkage strength in games: PTS, REB, AST 4. 3PM, BLK 10. STL 15. The blended line used projections plus ESPN games of the last 14 days, not Yahoo lines.
+
+## Owner decision on layout (2026-10-29)
+
+On 2026-10-29, the owner rejected the long scrolling page of the first sample. The owner said: "I was thinking it wouldn't be something you'd scroll down. Like a very valuble 4 quadrant report card". This supersedes the section order of decisions 6 and 7. The owner accepted this layout:
+
+1. Header: name, team, positions, owner or FA, Val, and 2 or 3 signal chips (the signals strip shrinks into the header).
+2. Role (top left): the minutes chart with competitive minutes as a second line. Usage and close-game minutes become labels. Usage has no chart.
+3. Categories (top right): the 6 percentile bars, unchanged from decision 4.
+4. Value (bottom left): the value line and band. The game dots show dud, normal or spike, which replaces the consistency strip.
+5. Comps (bottom right): the 5 similar players of decision 9.
+6. Methods notes go behind an info icon. Below about 800 px wide, the quadrants stack.
+
 ## Follow-ups (not filed)
+
+- Name-match rows for 13 ESPN players, and the 9 rotation-log minute gaps. These come before the page build.
 
 - A weekly consistency view, after about 6 weeks of data.
 - Change-point detection on the trends, at about 20 or more games.
