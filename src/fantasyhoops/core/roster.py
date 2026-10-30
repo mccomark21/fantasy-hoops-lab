@@ -14,6 +14,8 @@ publish.TABLE_STYLE (#143): the head, the rows, the team band and the player cel
 The module takes its data from the caller and opens no file and no web page. write() writes output/roster/index.html
 with publish.write_page(), which also writes the font to fonts/ next to the page.
 Each player name opens the player modal of core/profile.py (#186).
+The page template has __CHART_CSS__ (#192): publish.shell() puts the shared chart style of core/chart.py (#185) in the
+page head, so the player modal does not add its own copy.
 """
 
 import html
@@ -703,6 +705,7 @@ PAGE_HTML = """<!doctype html>
 __HEAD__
 <style>
 __TABLE_CSS__
+__CHART_CSS__
 __STYLE__
 </style>
 </head>

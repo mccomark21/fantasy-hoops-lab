@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fantasyhoops.core import profile, publish, roster as roster_page, tokens
+from fantasyhoops.core import chart, profile, publish, roster as roster_page, tokens
 from fantasyhoops.core.roster import NO_GAME, REST, SITS, START, Day, RosterPlayer, lineup_fit, playoff_days, render
 
 SLOTS = ["PG", "C"]  # 2 position slots + Util = 3 starters a day
@@ -151,14 +151,24 @@ def test_the_page_is_the_html_before_the_page_shell():
     The render reads no config.toml: the team count of the menu comes from CFG, and core/publish.py has no
     load_config(). #172 moved the page to /roster/ and changed the site menu, so the test compares the page with no
     site menu. #186 made each name a link to the player modal and added the modal, so the test removes both.
+    #192 put the shared chart style in the page head, so the test removes it too.
     """
     meta = "\n" + publish.page_meta("roster", "Roster · Fantasy Hoops Lab")  # #166 added the icon and preview tags
     before = (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
     menu = re.compile(r'<header class="lab-bar">.*?<div class="lab-scrim" hidden></div>', re.S)
     now = re.sub(r'<a class="lab-pname" [^>]*>([^<]*)</a>', r"\1", page().replace(meta, ""))
-    now = now.replace(profile.modal() + "\n", "")
+    now = now.replace(profile.modal(chart_css=False) + "\n", "").replace(chart.CHART_STYLE + "\n", "")
     assert menu.sub("", now) == menu.sub("", before)
     assert publish.site_menu("roster", 14) in page()
+
+
+def test_the_page_passes_the_chart_style_check_and_the_label_overlap_check():
+    """#192: the two checks of #185. The page head has the shared chart style once, so the modal has no copy of it."""
+    text = page()
+    assert chart.style_problems(text) == [] and chart.label_overlaps(text) == []
+    assert text.count(chart.CHART_STYLE) == 1 and "__CHART_CSS__" not in text
+    assert text.index(chart.CHART_STYLE) < text.index("</head>")
+    assert profile.modal(chart_css=False) in text
 
 
 def test_each_team_band_has_text_at_4_5_to_1():
