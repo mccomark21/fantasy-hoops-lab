@@ -30,21 +30,23 @@ PLAYED = {
     "fa five": Played("Fa Five", "NY", 5),
     "fa four": Played("Fa Four", "NY", 4),
 }
+# The Val of the Free agents page: the market value. Fa Plus is above the replacement free agent, Fa Zero is at it.
+VALUES = {
+    "ace bailey": data.Valued(Player("Ace Bailey", "UTAH", ("SF", "PF")), 0.52),
+    "fa plus": data.Valued(Player("Fa Plus", "BOS", ("C",)), 0.31),
+    "fa zero": data.Valued(Player("Fa Zero", "BOS", ("PG",)), 0.0),
+    "fa four": data.Valued(Player("Fa Four", "NY", ("SG",)), -0.4),
+}
 
 
-def test_the_list_has_each_rostered_player_and_each_free_agent_with_a_projected_value_or_5_games():
-    records = data.player_records(OWNED, PROJECTED, PLAYED)
+def test_the_list_has_each_rostered_player_and_each_free_agent_above_replacement_or_with_5_games():
+    """Owner decision of 2026-10-30: a free agent is on the page with a Val above 0 or with 5 or more games."""
+    records = data.player_records(OWNED, PROJECTED, PLAYED, VALUES)
     by_slug = {r["slug"]: r for r in records}
-    # Each rostered player, also with no projection and no game. A free agent with a projection, or with 5 games.
-    # Fa Four has 4 games and no projection, so he is not on the page.
-    assert set(by_slug) == {"ace-bailey", "karl-anthony-towns", "no-data-guy", "fa-projected", "fa-five"}
-    assert [r["slug"] for r in records] == [
-        "karl-anthony-towns",
-        "ace-bailey",
-        "fa-projected",
-        "fa-five",
-        "no-data-guy",
-    ]
+    # Each rostered player, also with no Val and no game. Fa Projected has a projection but no Val, Fa Zero is at the
+    # replacement level, and Fa Four has 4 games and a Val below 0, so none of the three is on the page.
+    assert set(by_slug) == {"ace-bailey", "karl-anthony-towns", "no-data-guy", "fa-plus", "fa-five"}
+    assert [r["slug"] for r in records] == ["ace-bailey", "fa-plus", "fa-five", "karl-anthony-towns", "no-data-guy"]
     assert by_slug["ace-bailey"] == {
         "slug": "ace-bailey",
         "name": "Ace Bailey",
@@ -57,6 +59,7 @@ def test_the_list_has_each_rostered_player_and_each_free_agent_with_a_projected_
         "signals": [],
     }
     assert by_slug["karl-anthony-towns"]["mine"] is False and by_slug["karl-anthony-towns"]["owner"] == "Doncic Go"
+    assert by_slug["karl-anthony-towns"]["val"] is None  # no Yahoo line in the run
     assert by_slug["fa-five"] == {
         "slug": "fa-five",
         "name": "Fa Five",
@@ -68,7 +71,27 @@ def test_the_list_has_each_rostered_player_and_each_free_agent_with_a_projected_
         "games": 5,
         "signals": [],
     }
-    assert by_slug["fa-projected"]["pos"] == "C" and by_slug["fa-projected"]["games"] == 0
+    assert by_slug["fa-plus"]["pos"] == "C" and by_slug["fa-plus"]["team"] == "BOS"
+
+
+def test_the_val_is_the_val_of_the_free_agents_page():
+    """Owner decision of 2026-10-30: the same blend and the same replacement value as the Free agents page."""
+    from fantasyhoops.adds.blend import blended_options
+    from fantasyhoops.adds.readers import FreeAgent
+    from fantasyhoops.adds.value import market_value
+    from fantasyhoops.trade.rostered import RosteredRead
+
+    scale = pd.DataFrame({"pts": [10.0, 5.0]}, index=["mean", "std"])
+    cfg = {"weights": {"pts": 1.0}}
+    star = RosteredPlayer(Player("Star", "NY", ("C",)), 3, {"pts": 30.0}, 3, "Doncic Go")
+    star_recent = RosteredPlayer(Player("Star", "NY", ("C",)), 7, {"pts": 20.0}, 3, "Doncic Go")
+    read = RosteredRead([star], [star_recent], {}, [], False)
+    fa = blended_options([FreeAgent(Player("Free Guy", "BOS", ("PG",)), 0, {"pts": 15.0})], [], scale, cfg)
+    values = data.market_values(read, fa, 0.5, scale, cfg)
+    # Star: (1 - 7/14) x 30 + 7/14 x 20 = 25 points, (25 - 10) / 5 = 3.0, minus 0.5.
+    assert values["star"].val == 2.5 == market_value(blended_options([star], [star_recent], scale, cfg)[0].value, 0.5)
+    assert values["free guy"].val == market_value(fa[0].value, 0.5) == 0.5
+    assert values["free guy"].player.team == "BOS"
 
 
 def test_the_signals_are_the_first_3_of_the_rules_and_each_links_to_a_quadrant():
@@ -83,7 +106,7 @@ def test_the_signals_are_the_first_3_of_the_rules_and_each_links_to_a_quadrant()
     with pytest.raises(ValueError, match="not a quadrant"):
         data.signals(record, [lambda r: Signal("Bad", "trends", True, "x")])
     rules = [rule(1)]
-    assert data.player_records(OWNED, {}, {}, rules)[0]["signals"][0]["kind"] == "Rule 1"
+    assert data.player_records(OWNED, {}, {}, {}, rules)[0]["signals"][0]["kind"] == "Rule 1"
     assert profile.MAX_SIGNALS == 3
 
 
@@ -144,8 +167,10 @@ def test_a_projection_and_a_log_name_find_the_yahoo_name_of_an_override():
     )
     played = data.played_players(log, OVERRIDES)
     assert played == {"yahoo name": Played("Espn Name", "MIA", 2), "other guy": Played("Other Guy", "BOS", 1)}
-    records = data.player_records({}, projected, played)
-    assert [r["name"] for r in records if r["slug"] == "yahoo-name"] == ["Yahoo Name"]
+    records = data.player_records(
+        {}, projected, played, {"yahoo name": data.Valued(Player("Yahoo Name", "MIA", ()), 1.0)}
+    )
+    assert [(r["name"], r["games"]) for r in records if r["slug"] == "yahoo-name"] == [("Yahoo Name", 2)]
 
 
 def test_with_no_data_files_the_reads_give_no_players(monkeypatch, tmp_path):

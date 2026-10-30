@@ -425,7 +425,7 @@ def run_command(
     market: the MarketRead of the fake read_lists(). None: no market free agents.
     roster: the build_roster() of the run (adds/roster.py). None: a function that makes no Roster page.
     values: the season values of drops.season_values(). None: no player has a season value.
-    owners: the RosteredPlayers of the rostered list for the Players page (#186). None: the read fails, so the run
+    owners: the RosteredRead of the rostered list for the Players page (#186). None: the read fails, so the run
     makes no Players page. "read": the real players_page.read_owners() runs.
     """
     fake_lists = yahoo is None
@@ -481,7 +481,7 @@ def run_command(
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(command, "build_roster", roster or (lambda *args: None))
     if owners != "read":  # "read": the real read_owners() runs
-        monkeypatch.setattr(command.players_page, "read_owners", lambda reader: owners)
+        monkeypatch.setattr(command.players_page, "read_owners", lambda reader, skip: owners)
 
     # The record of the publish: the pages, then the more_tools of the publish (#165, #172).
     def fake_publish(*a, cfg, more_tools=None):
@@ -864,10 +864,12 @@ def test_read_league_reads_the_record_from_the_team_page():
 def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_list(monkeypatch, tmp_path):
     """#186: the planning run puts the Players page and the player file at /players/ in its publish."""
     from fantasyhoops.adds.readers import Player
-    from fantasyhoops.trade.rostered import RosteredPlayer
+    from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
 
     published = []
-    owners = [RosteredPlayer(Player("Ace Bailey", "UTAH", ("SF",)), 0, {}, 1, "Lamb Chops")]
+    owners = RosteredRead(
+        [RosteredPlayer(Player("Ace Bailey", "UTAH", ("SF",)), 0, {}, 1, "Lamb Chops")], [], {}, [], True
+    )
     monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
     monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
     run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)

@@ -1,10 +1,13 @@
 """The players of the Players page and of the player modal (#186), and the fields of each player.
 
-The rule: each rostered player of the league, and each free agent with a projected value or with MIN_GAMES or more
-games in the rotation log. player_records() applies the rule.
+The rule (owner decision of 2026-10-30): each rostered player of the league, and each free agent with a Val above 0
+(above the replacement free agent) or with MIN_GAMES or more games in the rotation log. player_records() applies it.
 - The rostered players come from the Yahoo rostered list of all teams (trade/rostered.py), with their fantasy team.
-- A projected value is a row with games in the newest projections file. Val is the projected value per game above
-  replacement (pg_var of core/valuation.py). A player with no projection has no Val.
+- The projections file gives the NBA team and the positions of a player who is in no Yahoo list of the run.
+- Val is the Val of the Free agents page (owner decision of 2026-10-30): the blended value per game (adds/blend.py)
+  above the replacement free agent of the planning run (adds/value.py). market_values() gives it. A free agent comes
+  from the free-agent lists of the run, a rostered player from the rostered list. A player with no Yahoo line in the
+  run has no Val.
 - The games are the ESPN games of a player in data/rotation_log.csv.
 The names match after common.name_key(). data/name_overrides.csv gives the Yahoo name of a projection or ESPN name
 that does not match (core/identity.py).
@@ -40,7 +43,10 @@ class Owned:
 
 @dataclass(frozen=True)
 class Projected:
-    """A player of the projections file: the name, the NBA team, the Yahoo positions and the Val (pg_var)."""
+    """A player of the projections file: the name, the NBA team, the Yahoo positions and pg_var (core/valuation.py).
+
+    pg_var chooses between two rows with one name key. It is not the Val of the page.
+    """
 
     name: str
     team: str
@@ -176,27 +182,65 @@ def read_played():
     return played_players(log, read_overrides()), f"{log.date.min():%Y-%m-%d}", f"{log.date.max():%Y-%m-%d}"
 
 
-def player_records(owned, projected, played, rules=SIGNAL_RULES):
+@dataclass(frozen=True)
+class Valued:
+    """A player with a Val: his Yahoo Player (name, NBA team, positions) and the Val."""
+
+    player: object
+    val: float
+
+
+def market_values(rostered, options, replacement, scale, cfg):
+    """{name_key: Valued} with the formula of the Val column of the Free agents page: the value minus replacement.
+
+    rostered: the RosteredRead of the rostered list (both views, or the projected view when the run skips the recent
+    view). Its lines go through blend.blended_options(), as the free-agent lists do. options: the Options of the
+    planning run (the free agents). replacement: the replacement value of the run (value.replacement_value()).
+    scale: the category scale of the run (value.projection_scale()). A player with no value is not in the result.
+    """
+    from fantasyhoops.adds.blend import blended_options
+    from fantasyhoops.adds.value import market_value
+
+    out = {}
+    for o in [*blended_options(rostered.projected, rostered.recent, scale, cfg), *options]:
+        found = market_value(o.value, replacement)
+        if found is not None:
+            out.setdefault(name_key(o.player.name), Valued(o.player, found))
+    return out
+
+
+def player_records(owned, projected, played, values, rules=SIGNAL_RULES):
     """The players of the page and the file, as dicts, by Val (no Val last), then by name.
 
     owned, projected, played: {name_key: Owned}, {name_key: Projected} and {name_key: Played}.
-    The list has each owned player, and each other player in projected or with MIN_GAMES or more games in played.
+    values: {name_key: Valued} of market_values(). A player with no entry has no Val.
+    The list has each owned player, and each other player (a free agent) with a Val above 0 (above the replacement
+    free agent) or with MIN_GAMES or more games in played (owner decision of 2026-10-30).
     A record has slug, name, team, pos, owner (None for a free agent), mine, val, games and signals.
     """
     keys = list(owned)
-    keys += [k for k in dict.fromkeys([*projected, *played]) if k not in owned and _qualifies(k, projected, played)]
+    others = dict.fromkeys([*values, *played])
+    keys += [k for k in others if k not in owned and _qualifies(k, values, played)]
     records, slugs = [], set()
     for key in keys:
         own, proj, play = owned.get(key), projected.get(key), played.get(key)
-        name = own.name if own else proj.name if proj else play.name
+        listed = values[key].player if key in values else None
+        name = own.name if own else listed.name if listed else proj.name if proj else play.name
+        if own:
+            team, positions = own.team, own.positions
+        elif listed:
+            team, positions = listed.team, tuple(listed.positions)
+        else:
+            team = play.team if play else proj.team if proj else ""
+            positions = proj.positions if proj else ()
         record = {
             "slug": profile.slug(name),
             "name": name,
-            "team": (own.team if own else play.team if play else proj.team) or "",
-            "pos": "/".join(own.positions if own else proj.positions if proj else ()),
+            "team": team or "",
+            "pos": "/".join(positions),
             "owner": own.owner if own else None,
             "mine": bool(own and own.mine),
-            "val": round(proj.value, 2) if proj else None,
+            "val": values[key].val if key in values else None,
             "games": play.games if play else 0,
         }
         if not record["slug"] or record["slug"] in slugs:
@@ -207,5 +251,5 @@ def player_records(owned, projected, played, rules=SIGNAL_RULES):
     return sorted(records, key=lambda r: (r["val"] is None, -(r["val"] or 0), r["name"]))
 
 
-def _qualifies(key, projected, played):
-    return key in projected or (key in played and played[key].games >= MIN_GAMES)
+def _qualifies(key, values, played):
+    return (key in values and values[key].val > 0) or (key in played and played[key].games >= MIN_GAMES)

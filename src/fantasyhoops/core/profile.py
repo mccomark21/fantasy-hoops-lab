@@ -199,8 +199,9 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
     return '<h3>Methods and data</h3><ul>'
       + `<li><b>Players.</b> Each rostered player of the league (${m.rostered}), and each free agent with a projected value or ${m.min_games} or more games (${m.free_agents}).</li>`
       + `<li><b>Owners.</b> The Yahoo rostered list of ${esc(m.made)}.</li>`
-      + (m.projections ? `<li><b>Val.</b> Projected value per game above replacement, from <code>${esc(m.projections)}</code>. A player with no projection has no Val.</li>`
-        : "<li><b>Val.</b> The run found no projections file, so no player has a Val.</li>")
+      + (m.has_val ? `<li><b>Val.</b> The Val of the Free agents page: blended value per game above a replacement free agent (0 = the free agent at rank ${m.replacement_rank} by value). A player with no Yahoo line in the run has no Val.</li>`
+        : "<li><b>Val.</b> The run has no replacement free agent, so no player has a Val.</li>")
+      + (m.projections ? `<li><b>Projections.</b> <code>${esc(m.projections)}</code>.</li>` : "")
       + (log ? `<li><b>Games.</b>${log}</li>` : "")
       + `<li><b>Signals.</b> Each signal comes from a rule of a quadrant and links to it. The header shows ${MAX} at most.</li></ul>`;
   };
@@ -214,7 +215,7 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
 <div class="lc-band" style="${esc(d.bands[p.team] || d.bands[""])}">${esc(p.team || "–")}</div>
 <div class="lc-who"><h2 class="lc-name" id="${id}-name">${esc(p.name)}</h2>
 <p class="lc-sub">${esc(p.pos || "–")} · <b>${owner}</b></p></div>
-<dl class="lc-kv"><div><dt>Val</dt><dd>${val(p.val)}<small>proj</small></dd></div></dl>
+<dl class="lc-kv"><div><dt>Val</dt><dd>${val(p.val)}</dd></div></dl>
 <ul class="lc-sigs" aria-label="Signals">${signals(p)}</ul>
 <details class="lc-info"><summary aria-label="Methods and data" title="Methods and data">i</summary>
 <div class="lc-pop">${methods(d)}</div></details>

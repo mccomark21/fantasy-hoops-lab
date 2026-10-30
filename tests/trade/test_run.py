@@ -106,18 +106,13 @@ def test_with_no_publish_the_run_writes_the_trade_page_and_the_timings_and_skips
 def test_the_run_publishes_the_page_to_trade_keeps_the_other_pages_and_prints_the_url(
     fake_run, tmp_path, monkeypatch, capsys
 ):
-    """#151, #172: python -m fantasyhoops.trade publishes /trade/. The publish keeps the other folders.
-
-    #186: the same publish puts the Players page and the player file at /players/.
-    """
+    """#151, #172: python -m fantasyhoops.trade publishes /trade/. The publish keeps the other folders."""
     calls = []
     monkeypatch.setattr(site, "publish", lambda *args, **kwargs: calls.append((args, kwargs)))
     run.main([])
     ((args, kwargs),) = calls
     assert args == (common.ROOT, "trade", tmp_path / "trade" / "index.html")
-    players = (tmp_path / "players" / "index.html", (tmp_path / "players" / "players.json",))
-    assert kwargs == {"cfg": kwargs["cfg"], "more_tools": {"players": players}}
-    assert all(p.exists() for p in (players[0], *players[1]))
+    assert kwargs == {"cfg": kwargs["cfg"]}  # no more_tools: the run publishes only /trade/
     out = capsys.readouterr().out
     assert f"Published the trade page to {site.URL}trade/." in out
 

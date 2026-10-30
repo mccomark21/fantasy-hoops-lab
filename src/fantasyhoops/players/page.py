@@ -6,12 +6,14 @@ hash keeps the pick (/players/#<slug>). The card comes from core/profile.py, the
 Roster, Free agents and Trades pages. The page reads the shared player file, profile.DATA_FILE, as the modal does.
 The player file holds the players of players/data.py: each rostered player of the league, and each free agent with a
 projected value or 5 or more games.
-The planning run (adds/plan.py) and the trade run (trade/run.py) call write_site() after their Yahoo reads and
-publish the folder at /players/ with their own folders.
+The planning run (adds/plan.py) calls write_site() and publishes the folder at /players/ with its own folders.
+The trade run does not write the page, because it reads no free-agent list and so has no Val of the Free agents page.
+Its publish keeps /players/.
 """
 
 import json
 
+from fantasyhoops.adds.value import REPLACEMENT_RANK
 from fantasyhoops.core import common, profile
 from fantasyhoops.core import publish as site
 from fantasyhoops.players import data
@@ -24,17 +26,19 @@ def folder():
     return common.OUT / CURRENT
 
 
-def read_owners(reader):
-    """The RosteredPlayers of all teams from the projected view of the Yahoo rostered list, or None if the read fails.
+def read_owners(reader, skip_recent):
+    """The RosteredRead of all teams from the Yahoo rostered list, or None if the read fails.
 
-    reader: a reader with get(path), for example cache.PageCache.rostered(). Any failed read (a changed page, a page
+    reader: a reader with get(path), for example cache.PageCache.rostered(). skip_recent: True while
+    lists.skips_recent_view() skips the recent view, as for the free-agent lists. Then the read has the projected
+    view only. Any failed read (a changed page, a page
     that does not load, a Yahoo timeout or a network error) prints a warning. The planning run then continues, and its
     publish keeps the /players/ folder of the site. The Players page is not worth a stopped plan.
     """
     from fantasyhoops.trade.rostered import read_rostered
 
     try:
-        return read_rostered(reader, None, skip_recent=True).projected
+        return read_rostered(reader, None, skip_recent=skip_recent)
     except Exception as error:  # noqa: BLE001 - each failure of this optional read keeps the old page
         print(
             "Warning: the run could not read the rostered list for the Players page "
@@ -43,12 +47,13 @@ def read_owners(reader):
         return None
 
 
-def player_file(records, made, projections, log_first=None, log_last=None):
+def player_file(records, made, projections, log_first=None, log_last=None, replacement=None):
     """The shared player file as a dict: meta, the team band of each NBA team of the players and the players.
 
     records: players/data.player_records(). made: the date of the owners. projections: the projections file name, or
     None.
     log_first, log_last: the first and the last date of the rotation log, or None.
+    replacement: the replacement value of the run. None: no Val.
     """
     teams = sorted({r["team"] for r in records} | {""})
     rostered = sum(r["owner"] is not None for r in records)
@@ -61,6 +66,8 @@ def player_file(records, made, projections, log_first=None, log_last=None):
             "projections": projections,
             "log_first": log_first,
             "log_last": log_last,
+            "replacement_rank": REPLACEMENT_RANK,
+            "has_val": replacement is not None,
         },
         "bands": {t: site.band_style(t or None) for t in teams},
         "players": records,
@@ -78,16 +85,19 @@ def render(cfg, meta):
     return site.shell(PAGE, CURRENT, cfg).replace("__COUNT__", count_text(meta))
 
 
-def write_site(rostered, own_team, cfg, made):
+def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scale=None):
     """Write the Players page and the player file in folder(). Return (page path, (player file path,)).
 
-    rostered: the RosteredPlayers of all teams (read_owners()). own_team: your team ID ([adds] team).
-    made: the date of the rostered list. The return value is the more_tools entry of publish.publish().
+    rostered: the RosteredRead of all teams (read_owners()). own_team: your team ID ([adds] team).
+    made: the date of the rostered list. options, replacement, scale: the free-agent Options, the replacement value
+    and the category scale of the planning run, for the Val (data.market_values()). replacement None: no Val.
+    The return value is the more_tools entry of publish.publish().
     """
     projected, projections = data.read_projected(cfg)
     played, first, last = data.read_played()
-    records = data.player_records(data.owned_players(rostered, own_team), projected, played)
-    content = player_file(records, made, projections, first, last)
+    values = {} if replacement is None else data.market_values(rostered, options, replacement, scale, cfg)
+    records = data.player_records(data.owned_players(rostered.projected, own_team), projected, played, values)
+    content = player_file(records, made, projections, first, last, replacement)
     out = folder()
     out.mkdir(parents=True, exist_ok=True)
     path = out / profile.DATA_FILE

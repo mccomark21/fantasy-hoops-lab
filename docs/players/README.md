@@ -7,7 +7,7 @@ The Players page at `/players/` is a report card for one player of the league. A
 The card has a header and 4 quadrants. It is not a scrolling page: at 1440 x 900, the header and the 4 quadrants fit with no page scroll. Below 800 px wide, the quadrants stack.
 
 - **Header:** the NBA team band, the name, the positions, the owner (or FA), Val and up to 3 signal chips.
-  - Val is the projected value per game above replacement (`pg_var` of `core/valuation.py`), from the newest projections file. A player with no projection has no Val ("–").
+  - Val is the Val of the Free agents page (owner decision of 2026-10-30): the blended value per game above a replacement free agent (0 = the free agent at rank 15 by value). The value and the replacement come from the same planning run as the Free agents page. A free agent gets his Val from the free-agent lists of the run. A rostered player gets it from the rostered list, with the same blend. A player with no Yahoo line in the run has no Val ("–").
   - A signal comes from a rule of a quadrant, for example a band exit, a projection gap or consistency. Each chip links to its quadrant. With no signal, the header says "No signals: playing to projection". No rule exists yet. #187 to #189 add their rules to `SIGNAL_RULES` in `players/data.py`.
 - **Quadrants:** Role (top left), Categories (top right), Value (bottom left) and Comps (bottom right). A quadrant with no chart shows a dashed box that says what is missing.
 - **Methods:** the "i" icon in the header opens the methods and data notes.
@@ -17,8 +17,10 @@ The card has a header and 4 quadrants. It is not a scrolling page: at 1440 x 900
 The page and the modal have these players (`players/data.py`):
 
 1. Each rostered player of the league, from the Yahoo rostered list of all teams.
-2. Each free agent with a projected value: a row with games in the newest projections file.
+2. Each free agent with a Val above 0: above the replacement free agent of the Free agents page.
 3. Each free agent with 5 or more games in `data/rotation_log.csv`.
+
+The owner chose this rule on 2026-10-30.
 
 The names match after `name_key()`. `data/name_overrides.csv` gives the Yahoo name of a projection or ESPN name that does not match.
 
@@ -26,10 +28,10 @@ The names match after `name_key()`. `data/name_overrides.csv` gives the Yahoo na
 
 The players are in one file, `/players/players.json`. The Players page and the modal read it. The modal reads it on the first open. No page holds its own copy of the players.
 
-The planning run (`python -m fantasyhoops.adds.plan`) and the trade run (`python -m fantasyhoops.trade`) write the page and the file in `output/players/` and publish them at `/players/`:
+The planning run (`python -m fantasyhoops.adds.plan`) writes the page and the file in `output/players/` and publishes them at `/players/`:
 
-- The planning run reads the rostered list in the projected view, in its Yahoo reads step. The read uses the same-day cache of the trade run. With `--no-publish`, the run skips the read and the page. If the read fails, the run prints a warning and the publish keeps the `/players/` folder of the site.
-- The trade run uses the rostered list that it reads for the trades. After the trade deadline, the trade run reads no rostered list, and its publish keeps the `/players/` folder.
+- The planning run reads the rostered list in its Yahoo reads step, in the same views as the free-agent lists. The read uses the same-day cache of the trade run. With `--no-publish`, the run skips the read and the page. If the read fails for any reason (a changed page, a Yahoo timeout, a network error), the run prints a warning, the plan publishes and the publish keeps the `/players/` folder of the site.
+- The trade run (`python -m fantasyhoops.trade`) does not write the page: it reads no free-agent list, so it has no Val of the Free agents page. Its publish keeps the `/players/` folder.
 
 ## The Players page
 

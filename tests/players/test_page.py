@@ -7,7 +7,7 @@ from fantasyhoops.core import chart, common, profile
 from fantasyhoops.core import publish as site
 from fantasyhoops.players import data, page
 from fantasyhoops.players.data import Played, Projected
-from fantasyhoops.trade.rostered import RosteredPlayer
+from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
 
 CFG = {"league": {"teams": 14}}
 OWNERS = [
@@ -21,7 +21,8 @@ def write(monkeypatch):
     monkeypatch.setattr(data, "read_projected", lambda cfg: (projected, "Projections_2026-10-12.csv"))
     played = {"fa five": Played("Fa Five", "BOS", 5)}
     monkeypatch.setattr(data, "read_played", lambda: (played, "2026-10-20", "2026-10-28"))
-    return page.write_site(OWNERS, 1, CFG, date(2026, 10, 30))
+    read = RosteredRead(OWNERS, [], {}, [], True)
+    return page.write_site(read, 1, CFG, date(2026, 10, 30), replacement=None)
 
 
 def test_write_site_writes_the_page_the_player_file_and_the_font(monkeypatch):
@@ -36,6 +37,8 @@ def test_write_site_writes_the_page_the_player_file_and_the_font(monkeypatch):
         "projections": "Projections_2026-10-12.csv",
         "log_first": "2026-10-20",
         "log_last": "2026-10-28",
+        "replacement_rank": 15,
+        "has_val": False,
     }
     assert [p["slug"] for p in content["players"]] == ["ace-bailey", "fa-five", "karl-anthony-towns"]
     assert content["bands"]["UTAH"] == site.band_style("UTAH") and content["bands"][""] == site.band_style(None)
@@ -128,7 +131,7 @@ def test_each_failed_owner_read_gives_none_and_a_warning(capsys):
     from fantasyhoops.adds.session import PageNotReady
 
     for error in (PlaywrightTimeout("Timeout"), ConnectionError("down"), PageNotReady("no table"), OSError("reset")):
-        assert page.read_owners(FailingReader(error)) is None
+        assert page.read_owners(FailingReader(error), True) is None
         assert f"({type(error).__name__}: " in capsys.readouterr().out
 
 
