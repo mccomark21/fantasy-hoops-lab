@@ -245,7 +245,7 @@ The chart keeps a box around each mark, line and placed label. A new label goes 
 - **Crosshair:** on a trend chart, a 1px `lamp-off` vertical line runs through the game column for the full plot height while the card shows. The category chart has no crosshair.
 - **Focus:** each game column, category row and comps row is a tab stop. Focus shows the card. A focused chart target gets a 1px `lamp-off` outline. A focused comps row gets a 2px `lab-ink` outline and a `qcol` ground. Each target has an aria-label with the full card text and `aria-describedby` on the card.
 - **Mouse, tap and close:** a mouse shows the card on enter and hides it on leave. A tap shows the card and keeps it open. A tap outside a target, a scroll or Escape hides it.
-- **Corners:** the sample card has 3px rounded corners. The Shapes rule says all corners are square. The owner has not decided between the two yet.
+- **Corners:** square, as the Shapes rule says. On 2026-10-29, the owner chose square corners over the 3px corners of the sample card.
 
 #### Chart text
 | Text | Size | Weight | Token |
