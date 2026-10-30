@@ -197,7 +197,7 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
   const methods = d => {
     const m = d.meta, log = m.log_first ? ` ESPN games in the rotation log, ${esc(m.log_first)} to ${esc(m.log_last)}.` : "";
     return '<h3>Methods and data</h3><ul>'
-      + `<li><b>Players.</b> Each rostered player of the league (${m.rostered}), and each free agent with a projected value or ${m.min_games} or more games (${m.free_agents}).</li>`
+      + `<li><b>Players.</b> Each rostered player of the league (${m.rostered}), and each free agent with a Val above 0 (above the replacement free agent) or ${m.min_games} or more games (${m.free_agents}).</li>`
       + `<li><b>Owners.</b> The Yahoo rostered list of ${esc(m.made)}.</li>`
       + (m.has_val ? `<li><b>Val.</b> The Val of the Free agents page: blended value per game above a replacement free agent (0 = the free agent at rank ${m.replacement_rank} by value). A player with no Yahoo line in the run has no Val.</li>`
         : "<li><b>Val.</b> The run has no replacement free agent, so no player has a Val.</li>")

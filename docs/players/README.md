@@ -30,7 +30,8 @@ The players are in one file, `/players/players.json`. The Players page and the m
 
 The planning run (`python -m fantasyhoops.adds.plan`) writes the page and the file in `output/players/` and publishes them at `/players/`:
 
-- The planning run reads the rostered list in its Yahoo reads step, in the same views as the free-agent lists. The read uses the same-day cache of the trade run. With `--no-publish`, the run skips the read and the page. If the read fails for any reason (a changed page, a Yahoo timeout, a network error), the run prints a warning, the plan publishes and the publish keeps the `/players/` folder of the site.
+- The planning run reads the rostered list in its Yahoo reads step, after the free-agent lists, in the same views as those lists. A run that reads no free-agent list has no Val, so it reads the projected view only. The read uses the same-day cache of the trade run. With `--no-publish`, the run skips the read and the page.
+- If the read fails (a changed page, a Yahoo timeout, a network error), the run prints a warning, the plan publishes and the publish keeps the `/players/` folder of the site. A Yahoo block stops the run, as for each other Yahoo read (#107).
 - The trade run (`python -m fantasyhoops.trade`) does not write the page: it reads no free-agent list, so it has no Val of the Free agents page. Its publish keeps the `/players/` folder.
 
 ## The Players page

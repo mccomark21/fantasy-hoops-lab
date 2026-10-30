@@ -31,14 +31,18 @@ def read_owners(reader, skip_recent):
 
     reader: a reader with get(path), for example cache.PageCache.rostered(). skip_recent: True while
     lists.skips_recent_view() skips the recent view, as for the free-agent lists. Then the read has the projected
-    view only. Any failed read (a changed page, a page
-    that does not load, a Yahoo timeout or a network error) prints a warning. The planning run then continues, and its
-    publish keeps the /players/ folder of the site. The Players page is not worth a stopped plan.
+    view only.
+    A failed read (a changed page, a page that does not load, a Yahoo timeout or a network error) prints a warning.
+    The planning run then continues, and its publish keeps the /players/ folder of the site.
+    A Yahoo block (YahooBlocked) is not caught. #107 says that a block stops the planning run.
     """
+    from fantasyhoops.adds.session import YahooBlocked
     from fantasyhoops.trade.rostered import read_rostered
 
     try:
         return read_rostered(reader, None, skip_recent=skip_recent)
+    except YahooBlocked:
+        raise  # #107: a Yahoo block stops the planning run, with no more Yahoo loads
     except Exception as error:  # noqa: BLE001 - each failure of this optional read keeps the old page
         print(
             "Warning: the run could not read the rostered list for the Players page "

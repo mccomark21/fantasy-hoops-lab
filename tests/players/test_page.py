@@ -148,3 +148,13 @@ def test_the_players_page_has_its_own_tooltip_card_outside_the_closed_dialog(mod
     pg.goto(modal_site.url + "players/#player=ace-bailey")
     pg.locator("#lab-pm-name").wait_for()
     assert pg.evaluate("LabCard.tip(document.getElementById('lab-pm-card')).id") == "lab-tt"
+
+
+def test_a_yahoo_block_in_the_owner_read_is_not_caught():
+    """#107: a Yahoo block stops the planning run."""
+    import pytest
+
+    from fantasyhoops.adds.session import YahooBlocked
+
+    with pytest.raises(YahooBlocked):
+        page.read_owners(FailingReader(YahooBlocked("HTTP 999")), True)

@@ -274,12 +274,6 @@ def main(today=None, publish=True, timed=True, cache=True):
             yahoo = browser.enter_context(open_league(cfg["adds"]["league"], wait))
         with part("league and matchup pages", yahoo):
             data = read_league(yahoo, cfg, today)
-        if publish:
-            # The owners and the Val of the Players page (#186): the rostered list, through the same-day cache of the
-            # trade run, in the views of the free-agent lists.
-            with part("rostered list", yahoo):
-                owner_skip = skips_recent_view(recent_weight_limit(sched, today)[1], cfg)
-                owners = players_page.read_owners(pages.rostered(yahoo), owner_skip)
         window = planning_window(data.week, today)
         games, nights = team_games(sched, window), second_nights(sched, window)
         chance = cfg["adds"].get("rest_chance", DEFAULT_REST_CHANCE)
@@ -314,6 +308,13 @@ def main(today=None, publish=True, timed=True, cache=True):
                 trends = read_week_trends(
                     yahoo, trend_days(data.week, today, data.next_week), lambda day: pages.trends(yahoo, day)
                 )
+        if publish:
+            # The owners and the Val of the Players page (#186): the rostered list, through the same-day cache of the
+            # trade run, in the views of the free-agent lists. With no free-agent lists, the run has no replacement
+            # value and so no Val: the projected view gives the owners.
+            with part("rostered list", yahoo):
+                owner_skip = not read or skips_recent_view(recent_weight_limit(sched, today)[1], cfg)
+                owners = players_page.read_owners(pages.rostered(yahoo), owner_skip)
     if read:
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)

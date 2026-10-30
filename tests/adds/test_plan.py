@@ -900,3 +900,40 @@ def test_a_failed_owner_read_keeps_the_players_page_and_the_plan_publishes(monke
     assert "Warning: the run could not read the rostered list for the Players page (" in out
     assert "The publish keeps the old Players page." in out
     assert not (common.OUT / "players").exists()
+
+
+def test_a_yahoo_block_in_the_owner_read_stops_the_planning_run(monkeypatch, tmp_path):
+    """#107: a Yahoo block stops the run with no more Yahoo loads. The Players page read does not catch it (#186)."""
+    from fantasyhoops.adds.session import YahooBlocked
+    from fantasyhoops.trade import rostered
+
+    def block(*args, **kwargs):
+        raise YahooBlocked("Yahoo blocked the requests of the session: HTTP 999.")
+
+    monkeypatch.setattr(rostered, "read_rostered", block)
+    published = []
+    with pytest.raises(YahooBlocked):
+        run_command(monkeypatch, tmp_path, published, publish=True, owners="read")
+    assert published == []
+
+
+@pytest.mark.parametrize("used, recent", [(4, True), (5, False)])
+def test_the_owner_read_takes_the_recent_view_only_when_the_run_reads_the_free_agent_lists(
+    monkeypatch, tmp_path, used, recent
+):
+    """#186: with no adds left, the run reads no free-agent list and has no Val, so it reads the projected view only."""
+    from fantasyhoops.trade import rostered
+    from fantasyhoops.trade.rostered import RosteredRead
+
+    views = []
+
+    def fake(reader, own_team, skip_recent=False):
+        views.append(not skip_recent)
+        return RosteredRead([], [], {}, [], skip_recent)
+
+    monkeypatch.setattr(rostered, "read_rostered", fake)
+    monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
+    monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    league = command.LeagueData(roster=[], adds=Adds(used, 5), week=Week(12, tuple(WEEK[:2])))
+    run_command(monkeypatch, tmp_path, [], publish=True, owners="read", league=league)
+    assert views == [recent]
