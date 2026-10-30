@@ -13,6 +13,7 @@ publish.shell() gives the head, the menu and the menu script of the page (#132),
 publish.TABLE_STYLE (#143): the head, the rows, the team band and the player cell of the Roster table.
 The module takes its data from the caller and opens no file and no web page. write() writes output/roster/index.html
 with publish.write_page(), which also writes the font to fonts/ next to the page.
+Each player name opens the player modal of core/profile.py (#186).
 """
 
 import html
@@ -22,7 +23,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from fantasyhoops.core import publish as site
-from fantasyhoops.core import common
+from fantasyhoops.core import common, profile
 from fantasyhoops.core.lineup import UTIL, band, best_lineup, ideal_games
 from fantasyhoops.core.schedule import playoff_schedule
 
@@ -295,7 +296,7 @@ def _desk_row(fit, p_idx, few_limit):
     cells = [
         f'<td class="band" style="{site.band_style(p.team)}">{_e(p.team)}</td>',
         f'<td class="rk">{rank}</td>',
-        f'<th class="pl" scope="row"><b>{_e(p.name)}</b>{_flag(p)}<small>{_e(p.team)} · {_e(pos)} · {_e(p.slot)}</small></th>',
+        f'<th class="pl" scope="row"><b>{profile.name_link(p.name)}</b>{_flag(p)}<small>{_e(p.team)} · {_e(pos)} · {_e(p.slot)}</small></th>',
     ]
     for i, key in enumerate(STATS):
         v = _stat(p, key)
@@ -380,7 +381,7 @@ def _mob_row(fit, p_idx, few_limit):
         f'<details class="m-p{" il" if p.on_il else ""}">\n'
         f'<summary><span class="band" style="{site.band_style(p.team)}">{_e(p.team)}</span>'
         f'<span class="rk"><span class="vh">Rank </span>{rank}</span>'
-        f'<span class="nm"><b>{_e(p.name)}</b>{_flag(p)}<small>{_e("/".join(p.positions))} · {_e(p.slot)}</small></span>'
+        f'<span class="nm"><b>{profile.name_link(p.name)}</b>{_flag(p)}<small>{_e("/".join(p.positions))} · {_e(p.slot)}</small></span>'
         f'<span class="gp"><span class="vh">, games played </span>{gp or "–"}</span>'
         f'<span class="tg"><span class="vh">, playoff games </span>{total[1]}</span>'
         '<span class="chev" aria-hidden="true"></span></summary>\n'
@@ -719,6 +720,7 @@ __MOB__
 __LEGEND__
 <p class="foot">__FOOT__</p>
 </main>
+__PLAYER_MODAL__
 __SCRIPT__
 </body>
 </html>

@@ -1,8 +1,8 @@
 """Publish the Fantasy Hoops Lab site to GitHub Pages on the gh-pages branch, and make the shell of each site page.
 
 The site has the Home page at / (core/home.py, #172), the folder /roster/ for the Roster page (core/roster.py,
-#120), the folder /adds/ for the adds plan, the folder /free-agents/ for the free agents of the planning run (#165)
-and the folder /trade/ for the trades (#151).
+#120), the folder /adds/ for the adds plan, the folder /free-agents/ for the free agents of the planning run (#165),
+the folder /trade/ for the trades (#151) and the folder /players/ for the Players page and the player file (#186).
 A publish of one tool replaces its own folder and writes the Home page. It keeps the folders of the other tools in
 TOOLS. A publish can also replace the folders of more tools (more_tools). The planning run publishes /adds/,
 /free-agents/ and /roster/ in one publish. The trade run publishes /trade/ only.
@@ -18,6 +18,9 @@ table, the examples of the Home page and the Free agents and Waiver players tabl
 band_style() gives the team colors of a band.
 The shared charts (#185): shell() puts chart.CHART_STYLE in place of __CHART_CSS__ in a page template. The classes,
 the SVG helpers and the checks are in core/chart.py.
+The player modal (#186): shell() puts profile.modal() in place of __PLAYER_MODAL__ in a page template. The Roster,
+Free agents, Trades and Players pages have it. The /players/ folder holds the Players page and the shared player
+file (profile.DATA_FILE). A publish of more_tools can give a folder more files than its index.
 write_page() writes a page and the font next to it. The plan page, the Roster page and the Home page use it.
 The icon and the share card (#166): shell() also puts page_meta() in the <head>. It links the basketball icon (A2)
 and gives the Open Graph and Twitter card tags. The publish puts the files of ICON_FILES at the root of gh-pages.
@@ -30,7 +33,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from fantasyhoops.core import chart, tokens
+from fantasyhoops.core import chart, profile, tokens
 
 BRANCH = "gh-pages"
 URL = "https://mccomark21.github.io/fantasy-hoops-lab/"
@@ -47,6 +50,7 @@ TOOLS = {
     "adds": ("Adds plan", "How to use the 5 adds of the current fantasy week."),
     "free-agents": ("Free agents", "The free agents and the waiver players of the last planning run, with filters."),
     "trade": ("Trades", "Trades that raise your playoff starts and keep your season value."),
+    "players": ("Players", "A report card for each player of the league: role, categories, value and comps."),
 }
 
 
@@ -163,15 +167,18 @@ def band_style(team):
 
 
 def shell(template, current, cfg):
-    """Fill the site shell of a page template: __HEAD__, __MENU__, __SCRIPT__, __TABLE_CSS__ (TABLE_STYLE) and
-    __CHART_CSS__ (chart.CHART_STYLE).
+    """Fill the site shell of a page template: __HEAD__, __MENU__, __SCRIPT__, __TABLE_CSS__ (TABLE_STYLE),
+    __CHART_CSS__ (chart.CHART_STYLE) and __PLAYER_MODAL__ (profile.modal(), #186).
 
     __HEAD__ gets site_head() and page_meta() with the <title> of the template.
     current: the page in the site menu (site_menu()). cfg: the config. [league] teams gives the team count.
     """
     head = f"{site_head()}\n{page_meta(current, page_title(template))}"
+    # The modal brings the chart style only to a page that does not have it already.
+    player_modal = profile.modal(chart_css="__CHART_CSS__" not in template) if "__PLAYER_MODAL__" in template else ""
     return (
         template.replace("__HEAD__", head)
+        .replace("__PLAYER_MODAL__", player_modal)
         .replace("__TABLE_CSS__", TABLE_STYLE)
         .replace("__CHART_CSS__", chart.CHART_STYLE)
         .replace("__MENU__", site_menu(current, cfg["league"]["teams"]))
@@ -193,8 +200,10 @@ def publish(repo, tool, index, others=(), *, cfg, more_tools=None):
     index: the main page of the tool. It goes to /<tool>/index.html.
     others: more pages of the tool. Each one goes to /<tool>/ with its own file name.
     cfg: the config. The Home page (core/home.py) takes its league facts from it, and the menu its team count.
-    more_tools: {tool: index} for more tools in TOOLS. Each index goes to /<tool>/index.html in the same publish.
-    The planning run uses it for /free-agents/ (#165) and /roster/ (#172).
+    more_tools: {tool: index} or {tool: (index, files)} for more tools in TOOLS. Each index goes to
+    /<tool>/index.html in the same publish, and each of files to /<tool>/ with its own file name.
+    The planning run uses it for /free-agents/ (#165), /roster/ (#172) and /players/ (#186). The trade run uses it for
+    /players/.
     Each publish writes the Home page at the root of the site (#172). The page holds no live data.
     The folders of the other tools in TOOLS stay. Each page carries its own site menu (site_menu()).
     The publish does not change the pages.
@@ -203,20 +212,21 @@ def publish(repo, tool, index, others=(), *, cfg, more_tools=None):
     """
     from fantasyhoops.core import home  # here, not at the top: core/home.py imports this module for shell()
 
-    more_tools = more_tools or {}
-    for name, path in {tool: index, **more_tools}.items():
+    tools = {tool: (index, tuple(others))}
+    for name, spec in (more_tools or {}).items():
+        tools[name] = (spec[0], tuple(spec[1])) if isinstance(spec, tuple) else (spec, ())
+    for name, (page, files) in tools.items():
         if name not in TOOLS:
             raise ValueError(f"{name} is not a tool of the site. The tools are: {', '.join(TOOLS)}.")
-        if not path.exists():
-            raise FileNotFoundError(f"{path} does not exist.")
+        for path in (page, *files):
+            if not path.exists():
+                raise FileNotFoundError(f"{path} does not exist.")
     folders = published_folders(published_site(repo))
     fonts = font_folder(repo)
-    pages = {"index.html": index.read_bytes(), **{o.name: o.read_bytes() for o in others}}
-    entries = {n: ("100644", "blob", write_blob(repo, d)) for n, d in pages.items()}
-    folders[tool] = ("040000", "tree", make_tree(repo, {**entries, "fonts": fonts}))
-    for name, path in more_tools.items():
-        blob = ("100644", "blob", write_blob(repo, path.read_bytes()))
-        folders[name] = ("040000", "tree", make_tree(repo, {"index.html": blob, "fonts": fonts}))
+    for name, (page, files) in tools.items():
+        data = {"index.html": page.read_bytes(), **{f.name: f.read_bytes() for f in files}}
+        entries = {n: ("100644", "blob", write_blob(repo, d)) for n, d in data.items()}
+        folders[name] = ("040000", "tree", make_tree(repo, {**entries, "fonts": fonts}))
     root = {
         name: ("100644", "blob", write_blob(repo, data))
         for name, data in {".nojekyll": b"", "index.html": home.render(cfg).encode()}.items()

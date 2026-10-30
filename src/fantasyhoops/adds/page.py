@@ -19,6 +19,7 @@ The Free agents page (output/adds/free_agents.html, published at /free-agents/) 
   A mark such as "Mon open" names each of the first days of next week on which he plays and fills an open slot (#76).
 - Waiver players: the waiver players (W) with their clear days.
 - Role up: the absent starters and the free agents at their positions (adds/role_up.py).
+Each player name of the Free agents and Waiver players tables opens the player modal of core/profile.py (#186).
 The Free agents table and the Waiver players table have the look of the Roster table of the Roster page (#143): a
 team band, the player cell, and the head and row style of publish.TABLE_STYLE, the one source of the table CSS.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the free-agent table.
@@ -40,7 +41,7 @@ from fantasyhoops.adds.planner import waiver_options
 from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core import publish as site
-from fantasyhoops.core import common
+from fantasyhoops.core import common, profile
 
 TITLE = "Weekly adds plan"
 FA_TITLE = "Free agents"  # the title of the Free agents page (#165)
@@ -234,6 +235,7 @@ def free_agent_data(
         players.append(
             {
                 "name": p.name,
+                "slug": profile.slug(p.name),
                 "team": p.team,
                 "pos": list(p.positions),
                 "status": p.status,
@@ -417,7 +419,7 @@ def waivers_section(options, replacement):
 
     rows = "".join(
         f'<tr><td class="band" style="{site.band_style(o.player.team)}">{_e(o.player.team)}</td>'
-        f'<th class="pl" scope="row"><b>{_e(o.player.name)}</b>{_status(o.player)}'
+        f'<th class="pl" scope="row"><b>{profile.name_link(o.player.name)}</b>{_status(o.player)}'
         f"<small>{_e(o.player.team)} · {_e('/'.join(o.player.positions))}</small></th>"
         f'<td class="s1">{_day(o.player.clear_day)}</td><td>{_day(o.player.clear_day + timedelta(days=1))}</td>'
         f'<td class="n s1">{market(o.value)}</td></tr>'
@@ -596,6 +598,8 @@ def render_free_agents(run):
 def _page(title, current, cfg, sections, forward="", css=""):
     """A page of the planner: the template HTML with the title, the site shell, the sections and the CSS of the page."""
     template = HTML.replace("__TITLE__", title).replace("__GRID_CSS__", grid.CSS.strip()).replace("__PAGE_CSS__", css)
+    if current == "free-agents":  # a player name of the Free agents page opens the player modal (#186)
+        template = template.replace("__SCRIPT__", "__PLAYER_MODAL__\n__SCRIPT__")
     shell = site.shell(template.replace("__FORWARD__", forward), current, cfg)
     return shell.replace("__BODY__", "\n".join(s for s in sections if s))
 
@@ -861,7 +865,8 @@ function render() {
     + `${th("value", "s1")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
     + rows.slice(0, DATA.rows).map(p =>
       `<tr><td class="band" style="${esc(p.band)}">${esc(p.team)}</td>`
-      + `<th class="pl" scope="row"><b>${esc(p.name)}</b>`
+      + `<th class="pl" scope="row"><b>${p.slug ? `<a class="lab-pname" href="#player=${p.slug}" data-player="${p.slug}">`
+        + `${esc(p.name)}</a>` : esc(p.name)}</b>`
       + `${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
       + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
       + `${p.rise ? ' <span class="flag">MIN+</span>' : ""}`

@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
+from fantasyhoops.core import profile
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.trade import page
@@ -65,9 +66,15 @@ def test_each_row_shows_both_players_the_partner_the_week_cells_and_both_value_c
         in row
     )
     assert f'<td class="band" style="{site.band_style("CHA")}">CHA</td>' in row
-    assert '<b>Hurt Point Guard</b><span class="status">IL</span><small>CHA · PG</small>' in row
+    assert (
+        '<b><a class="lab-pname" href="#player=hurt-point-guard" data-player="hurt-point-guard">Hurt Point Guard</a></b><span class="status">IL</span><small>CHA · PG</small>'
+        in row
+    )
     assert "Val <i>−1.89</i> · Pre <i>0.50</i>" in row
-    assert "<b>Steady Combo Guard</b><small>ATL · PG/SG</small>" in row
+    assert (
+        '<b><a class="lab-pname" href="#player=steady-combo-guard" data-player="steady-combo-guard">Steady Combo Guard</a></b><small>ATL · PG/SG</small>'
+        in row
+    )
     assert '<td class="pt">Rival Squad<small class="pe up" aria-hidden="true">' in row
     assert '<td class="wk up s1"><span aria-hidden="true"><b>29</b><small>+1</small>' in row
     assert '<span class="vh">29 starts, up 1 from 28</span>' in row
@@ -308,7 +315,14 @@ def test_a_value_change_that_rounds_to_0_has_no_sign_and_a_team_code_of_4_letter
 def test_the_menu_shows_trades_after_adds_plan_as_the_current_page():
     """#151: the Trades tab of publish.TOOLS."""
     html = render()
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == [
+        "Home",
+        "Roster",
+        "Adds plan",
+        "Free agents",
+        "Trades",
+        "Players",
+    ]
     assert '<a href="../trade/" aria-current="page">Trades</a>' in html
 
 
@@ -617,3 +631,15 @@ def test_the_trade_pages_have_the_icon_links_and_the_preview_tags():
     """#166: the head of the Trades page and of the deadline page has publish.page_meta()."""
     assert site.page_meta("trade", "Trades") in render()
     assert site.page_meta("trade", "Trades") in page.render_deadline(CFG, MADE, PAST)
+
+
+def test_a_player_name_opens_the_player_modal_and_a_name_in_the_builder_does_not_pick_the_player(modal_site):
+    """#186: each name of the suggestions and of the builder tables is a link that opens the player modal."""
+    pg = modal_site.open("trade", render_builder())
+    modal_site.check_modal()
+    box = pg.locator(f'#pk-give input[aria-label="Give {GUARD.name}"]')
+    checked = box.is_checked()
+    pg.locator(f'#pk-give a.lab-pname[data-player="{profile.slug(GUARD.name)}"]').click()
+    pg.locator("#lab-pmodal").wait_for(state="visible")
+    assert box.is_checked() == checked  # the click opens the modal and does not pick the player
+    assert "lab-pmodal" not in page.render_deadline(CFG, MADE, DEADLINE)

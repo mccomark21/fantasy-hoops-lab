@@ -6,7 +6,8 @@ The run reads your team page (readers.read_roster()) for your roster and IL slot
 league settings through the same-day cache (trade/reads.py). It scores the trades with trade/suggest.py and writes
 output/trade/index.html (trade/page.py). It times its steps in output/trade/timings.csv (adds/timing.py).
 The publish (publish_page()) puts the page at /trade/ on gh-pages, keeps the other tool folders there and writes the
-Home page at / (core/home.py, #172).
+Home page at / (core/home.py, #172). The same publish puts the Players page and its player file at /players/
+(players/page.py, #186). The run makes them from the rostered list. After the trade deadline, the publish keeps them.
 With --no-publish, the run does not change gh-pages.
 Edge states (#153):
 1. The run reads the league settings first. After the trade deadline, it does not read your team page or the
@@ -38,6 +39,7 @@ from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import load_config, name_key
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
+from fantasyhoops.players import page as players_page
 from fantasyhoops.trade import page
 from fantasyhoops.trade.reads import TradeInputs, read_deadline
 from fantasyhoops.trade.rostered import read_rostered
@@ -247,15 +249,18 @@ def warnings(mine, inputs, missing=(), settings=None):
     return out + list(missing)
 
 
-def publish_page(path, cfg, publish=True):
+def publish_page(path, cfg, publish=True, players=None):
     """Publish the trade page to /trade/ and print the URL. The other folders of gh-pages stay (#172).
 
     publish False (--no-publish): print that the run did not publish.
+    players: the Players page and the player file (players_page.write_site(), #186), or None. The same publish puts
+    them at /players/. With None, the publish keeps the /players/ folder of gh-pages.
     """
     if not publish:
         print("Publish: skipped (--no-publish).")
         return
-    site.publish(common.ROOT, page.CURRENT, path, cfg=cfg)
+    more = {"more_tools": {players_page.CURRENT: players}} if players else {}
+    site.publish(common.ROOT, page.CURRENT, path, cfg=cfg, **more)
     print(f"Published the trade page to {site.URL}{page.CURRENT}/. GitHub can take a few minutes to show the new page.")
 
 
@@ -313,11 +318,13 @@ def main(argv=None):
         builder = page.builder_data(result, mine, others, local.days, cfg["league"]["slots"], weeks, settings)
         html = page.render(result, weeks, cfg, made, today, inputs.deadline, line, builder, lines)
         path = page.write(html)
+        # The rostered list holds the players of all teams, so it gives the owners of the Players page (#186).
+        players = players_page.write_site(inputs.rostered.projected, own, cfg, today)
     print(f"Wrote the trade page: {path}")
     print(f"Suggestions: {len(result.rows)}. {best_line(result)}")
     for text in page.offer_lines(result, settings.offer):
         print(text)
-    publish_page(path, cfg, publish=not args.no_publish)
+    publish_page(path, cfg, publish=not args.no_publish, players=players)
     for w in lines:
         print(w)
     print(f"Timings: {timings_path()}")

@@ -342,7 +342,10 @@ def test_the_waiver_table_has_the_team_band_and_the_player_cell_of_the_roster_ta
     html = fa(options=OPTIONS + [CLAIM])
     table = html.split('id="wv-table">')[1].split("</table>")[0]
     assert f'<td class="band" style="{site.band_style("CHI")}">CHI</td>' in table
-    assert '<th class="pl" scope="row"><b>Claim Guy</b> <span class="status"' in table
+    assert (
+        '<th class="pl" scope="row"><b><a class="lab-pname" href="#player=claim-guy" data-player="claim-guy">Claim Guy</a></b> <span class="status"'
+        in table
+    )
     assert "<small>CHI · C</small></th>" in table
 
 
@@ -446,7 +449,7 @@ def test_the_page_script_draws_the_next_week_badge_in_the_free_agent_row():
     )
     table = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True, encoding="utf-8").stdout
     rows = {
-        re.search(r'<th class="pl" scope="row"><b>([^<]*)', row).group(1).strip(): row
+        re.search(r'<th class="pl" scope="row"><b>(?:<a [^>]*>)?([^<]*)', row).group(1).strip(): row
         for row in re.findall(r"<tr>(.*?)</tr>", table)
         if '<th class="pl" scope="row">' in row
     }
@@ -1142,7 +1145,14 @@ def test_the_free_agents_sections_are_on_the_free_agents_page_and_not_on_the_pla
 
 def test_the_free_agents_page_shows_the_site_menu_with_free_agents_current():
     html = fa()
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html) == [
+        "Home",
+        "Roster",
+        "Adds plan",
+        "Free agents",
+        "Trades",
+        "Players",
+    ]
     assert '<a href="../free-agents/" aria-current="page">Free agents</a>' in html
     assert html.count('aria-current="page"') == 1
 
@@ -1168,3 +1178,29 @@ def test_the_plan_and_free_agents_pages_have_the_icon_links_and_the_preview_tags
     plan_title = re.search(r"<title>(.*?)</title>", plan).group(1)
     assert publish.page_meta("adds", plan_title) in plan
     assert publish.page_meta("free-agents", page.FA_TITLE) in free
+
+
+def test_a_player_name_opens_the_player_modal(modal_site):
+    """#186: each name of the Free agents and Waiver players tables is a link that opens the player modal. The page
+    script draws the free-agent names, so the name of a free agent has a slug in the page data."""
+    html = fa(options=OPTIONS + [CLAIM])
+    data = json.loads(html.split('<script type="application/json" id="fa-data">')[1].split("</script>")[0])
+    records = [
+        {
+            "slug": p["slug"],
+            "name": p["name"],
+            "team": p["team"],
+            "pos": "/".join(p["pos"]),
+            "owner": None,
+            "mine": False,
+            "val": p["value"],
+            "games": 5,
+            "signals": [],
+        }
+        for p in data["players"]
+    ]
+    pg = modal_site.open("free-agents", html, records=records)
+    assert pg.locator("#fa-table a.lab-pname").count() == len(data["players"])
+    assert pg.locator('#wv-table a.lab-pname[data-player="claim-guy"]').count() == 1
+    modal_site.check_modal()
+    assert "lab-pmodal" not in render()  # not on the Adds plan page

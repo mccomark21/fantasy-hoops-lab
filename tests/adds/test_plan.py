@@ -403,6 +403,7 @@ def run_command(
     cache=False,
     roster=None,
     values=None,
+    owners=None,
 ):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
@@ -424,6 +425,8 @@ def run_command(
     market: the MarketRead of the fake read_lists(). None: no market free agents.
     roster: the build_roster() of the run (adds/roster.py). None: a function that makes no Roster page.
     values: the season values of drops.season_values(). None: no player has a season value.
+    owners: the RosteredPlayers of the rostered list for the Players page (#186). None: the read fails, so the run
+    makes no Players page.
     """
     fake_lists = yahoo is None
     yahoo = yahoo or FakeLeague()
@@ -477,6 +480,7 @@ def run_command(
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(command, "build_roster", roster or (lambda *args: None))
+    monkeypatch.setattr(command.players_page, "read_owners", lambda reader: owners)
 
     # The record of the publish: the pages, then the more_tools of the publish (#165, #172).
     def fake_publish(*a, cfg, more_tools=None):
@@ -854,3 +858,19 @@ def test_read_league_reads_the_record_from_the_team_page():
     cfg = {"adds": {"team": 10}}
     data = command.read_league(TeamAndMatchup(), cfg, date(2026, 10, 21))
     assert data.record == "4-2-1" and len(data.roster) == 10
+
+
+def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_list(monkeypatch, tmp_path):
+    """#186: the planning run puts the Players page and the player file at /players/ in its publish."""
+    from fantasyhoops.adds.readers import Player
+    from fantasyhoops.trade.rostered import RosteredPlayer
+
+    published = []
+    owners = [RosteredPlayer(Player("Ace Bailey", "UTAH", ("SF",)), 0, {}, 1, "Lamb Chops")]
+    monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
+    monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)
+    players = (common.OUT / "players" / "index.html", (common.OUT / "players" / "players.json",))
+    assert published[0][3] == {"free-agents": page.free_agents_path(), "players": players}
+    file = json.loads(players[1][0].read_text(encoding="utf-8"))
+    assert file["players"][0]["owner"] == "Lamb Chops" and file["players"][0]["mine"] is True

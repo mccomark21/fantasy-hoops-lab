@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fantasyhoops.core import publish, roster as roster_page, tokens
+from fantasyhoops.core import profile, publish, roster as roster_page, tokens
 from fantasyhoops.core.roster import NO_GAME, REST, SITS, START, Day, RosterPlayer, lineup_fit, playoff_days, render
 
 SLOTS = ["PG", "C"]  # 2 position slots + Util = 3 starters a day
@@ -93,9 +93,12 @@ def page():
 
 def test_the_page_shows_the_roster_in_rank_order_with_the_il_flag_and_the_stats():
     text = page()
-    names = re.findall(r'<th class="pl" scope="row"><b>([^<]+)</b>', text)
+    names = re.findall(r'<th class="pl" scope="row"><b><a class="lab-pname" [^>]*>([^<]+)</a></b>', text)
     assert names == ["Guard One", "Big Man", "Second Guard", "Third Guard", "No Rank"]
-    assert '<b>Big Man</b> <em class="flag" title="On IL now. Counts in the playoff starts.">IL</em>' in text
+    assert (
+        '<b><a class="lab-pname" href="#player=big-man" data-player="big-man">Big Man</a></b> <em class="flag" title="On IL now. Counts in the playoff starts.">IL</em>'
+        in text
+    )
     assert '<tr class="il">' in text and '<details class="m-p il">' in text
     assert '<td class="n s1">3</td><td class="n">30.0</td><td class="n">25.0</td><td class="n">5.3</td>' in text
     assert '<td class="rk">–</td>' in text  # No Rank
@@ -132,7 +135,10 @@ def test_the_day_grid_marks_the_quality_day_and_the_rest_night():
 def test_the_page_uses_the_shared_tokens_the_menu_and_no_colors_of_its_own():
     text = page()
     assert tokens.TOKENS in text
-    assert text.count('<li><a href="') == 5 and '<a href="../roster/" aria-current="page">Roster</a>' in text
+    assert (
+        text.split("</nav>")[0].count('<li><a href="') == 6
+        and '<a href="../roster/" aria-current="page">Roster</a>' in text
+    )
     assert 'href="../adds/">Adds plan</a>' in text and '<a href="../">Home</a>' in text  # #172: /roster/
     style = re.sub(r"/\*.*?\*/", "", roster_page.PAGE_STYLE, flags=re.S)
     assert not re.findall(r"#[0-9a-fA-F]{3,8}\b|rgb\(", style)
@@ -144,12 +150,14 @@ def test_the_page_is_the_html_before_the_page_shell():
 
     The render reads no config.toml: the team count of the menu comes from CFG, and core/publish.py has no
     load_config(). #172 moved the page to /roster/ and changed the site menu, so the test compares the page with no
-    site menu.
+    site menu. #186 made each name a link to the player modal and added the modal, so the test removes both.
     """
     meta = "\n" + publish.page_meta("roster", "Roster · Fantasy Hoops Lab")  # #166 added the icon and preview tags
     before = (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
     menu = re.compile(r'<header class="lab-bar">.*?<div class="lab-scrim" hidden></div>', re.S)
-    assert menu.sub("", page().replace(meta, "")) == menu.sub("", before)
+    now = re.sub(r'<a class="lab-pname" [^>]*>([^<]*)</a>', r"\1", page().replace(meta, ""))
+    now = now.replace(profile.modal() + "\n", "")
+    assert menu.sub("", now) == menu.sub("", before)
     assert publish.site_menu("roster", 14) in page()
 
 
@@ -299,7 +307,9 @@ ROSTER_LOOK = r"""() => {
     "borderLeftWidth", "borderBottomColor", "borderLeftColor", "boxShadow", "textTransform", "verticalAlign"];
   document.querySelectorAll("details.m-p").forEach(d => d.open = true);
   // A hidden element (the table on a phone, the phone rows on a desktop) has no box and does not count.
-  return [...document.querySelectorAll(".scroll *, section.mob *")].filter(el => el.getClientRects().length).map(el => {
+  // The name links of #186 are new. The test compares the other elements.
+  return [...document.querySelectorAll(".scroll *, section.mob *")]
+    .filter(el => el.getClientRects().length && !el.matches("a.lab-pname")).map(el => {
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     return [el.tagName, el.className, Math.round(r.left), Math.round(r.top), Math.round(r.width),
       Math.round(r.height), ...props.map(p => s[p])].join("|");
@@ -327,3 +337,9 @@ def test_the_shared_table_css_does_not_change_the_roster_table(width):
 def test_the_page_has_the_icon_links_and_the_preview_tags():
     """#166, #172: the head of the Roster page has publish.page_meta() of /roster/ with the page title."""
     assert publish.page_meta("roster", "Roster · Fantasy Hoops Lab") in page()
+
+
+def test_a_player_name_opens_the_player_modal(modal_site):
+    """#186: each name of the Roster table is a link that opens the player modal."""
+    modal_site.open("roster", page())
+    assert modal_site.check_modal() == "guard-one"
