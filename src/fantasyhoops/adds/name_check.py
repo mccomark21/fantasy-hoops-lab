@@ -22,6 +22,7 @@ import pandas as pd
 
 from fantasyhoops.core.common import DATA, latest_projections, load_config, name_key
 from fantasyhoops.core.console import use_utf8_output
+from fantasyhoops.core.identity import YAHOO_COLS, link_players
 from fantasyhoops.core.rotation import LOG
 
 ROSTERS = DATA / "rosters.csv"
@@ -39,13 +40,26 @@ class Mismatch:
 
 @dataclass(frozen=True)
 class NameCheck:
+    """The 3 lists of the module docstring. Each list is sorted."""
+
     mismatches: list  # Mismatch, sorted by projection name
-    no_espn: list  # projection names, sorted
-    no_projection: list  # ESPN names, sorted
+    no_espn: list  # projection names
+    no_projection: list  # ESPN names
 
 
 def _last_name(key):
     return key.split()[-1] if key else ""
+
+
+def _espn_matches(projections, espn_names, overrides):
+    """The matched ESPN name of each projection row, with the index of projections. NaN for no match.
+
+    link_players() of core/identity.py does the match, so the check uses the same rule as the planner.
+    A team override in data/name_overrides.csv gives the team code in place of an ESPN name.
+    """
+    rosters = pd.DataFrame({"espn_name": espn_names, "team": espn_names})
+    yahoo = pd.DataFrame(columns=["name", "positions", *YAHOO_COLS])
+    return link_players(projections, rosters, yahoo, overrides).team
 
 
 def check_names(projections, espn_names, overrides):
@@ -54,22 +68,19 @@ def check_names(projections, espn_names, overrides):
     projections: a frame with the columns player_id, name and games. espn_names: the ESPN names of the log and
     of rosters.csv. overrides: data/name_overrides.csv, read with dtype=str and fillna("").
     """
-    fixes = overrides.set_index("player_id").espn_name
-    fixes = fixes[fixes != ""]
-    ids = projections.player_id.astype(str)
-    keys = ids.map(fixes).fillna(projections.name).map(name_key)
+    espn_names = list(espn_names)
+    matches = _espn_matches(projections, espn_names, overrides)
+    matched = set(matches.dropna().map(name_key))
 
     espn = {}  # ESPN name key: the first ESPN name with the key
     for n in espn_names:
         espn.setdefault(name_key(n), n)
-    no_row = {k: n for k, n in espn.items() if k not in set(keys)}
+    no_row = {k: n for k, n in espn.items() if k not in matched}
 
     mismatches, no_espn = [], []
-    projected = projections.games > 0
-    for pid, name, key in zip(ids[projected], projections.name[projected], keys[projected]):
-        if key in espn:
-            continue
-        found = [n for k, n in no_row.items() if _last_name(k) == _last_name(key)]
+    unmatched = projections[(projections.games > 0) & matches.isna()]
+    for pid, name in zip(unmatched.player_id.astype(str), unmatched.name):
+        found = [n for k, n in no_row.items() if _last_name(k) == _last_name(name_key(name))]
         mismatches += [Mismatch(pid, name, n) for n in found]
         if not found:
             no_espn.append(name)
