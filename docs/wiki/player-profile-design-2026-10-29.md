@@ -67,3 +67,9 @@ On 2026-10-29, the owner rejected the long scrolling page of the first sample. T
 - A weekly consistency view, after about 6 weeks of data.
 - Change-point detection on the trends, at about 20 or more games.
 - Glossary terms for competitive minutes, dud, spike and signal.
+
+## Chart rules merged (2026-10-29)
+
+- On 2026-10-29, the owner chose square tooltip corners, as the DESIGN.md Shapes rule says.
+- PR #180 added the DESIGN.md "Charts" section, matched `.impeccable/design.json` to the tokens and added the approved sample as `docs/design/players-sample.html`. On the owner's word "merge #180", the chief of staff squash-merged it as `mccomark21/fantasy-hoops-lab@d4283e3`. The pytest and ruff checks passed.
+- The owner told the chief of staff to file the issues, with the site consistency work as four issues (Home, Roster, Free agents, Trade). An agent filed 14 issues.
