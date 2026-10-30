@@ -38,6 +38,9 @@ One planning run:
     at /adds/ and /free-agents/ in one publish. --no-publish: no publish.
     Before the plan page, build_roster() writes the Roster page in output/roster/ (adds/roster.py, #120). The publish
     puts it at /roster/ and writes the Home page at / (core/home.py, #172). --no-publish also skips the Roster page.
+    The Players page and its player file (players/page.py, #186) go to /players/ in the same publish. The Yahoo reads
+    step reads the rostered list of all teams for them, in the views of the free-agent lists, through the same-day
+    cache of the trade run. The Val of the Players page is the Val of the Free agents page. --no-publish skips that read and the Players page.
     The page shows how many pages came from the cache (PageCache.line()).
     The terminal prints a short summary (#130): the page path, one line for each add of the team plan, the URL or
     the --no-publish line (publish_page()), then the warnings (print_summary()). The page shows all other results.
@@ -84,6 +87,7 @@ from fantasyhoops.core import publish as site
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
+from fantasyhoops.players import page as players_page
 
 URL = site.URL + "adds/"
 
@@ -220,12 +224,14 @@ def save_week(week, today, plan, spots):
     return record
 
 
-def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None):
+def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, players=None):
     """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
     roster: the Roster page (adds/roster.py), or None. The same publish puts it at /roster/ (#172). With None, the
     publish keeps the /roster/ folder of gh-pages. cfg: the config of the run.
     free_agents: the Free agents page (page.render_free_agents(), #165). The same publish puts it at /free-agents/.
+    players: the Players page and the player file (players_page.write_site(), #186), or None. The same publish puts
+    them at /players/. With None, the publish keeps the /players/ folder of gh-pages.
     The publish also writes the Home page at / (core/home.py).
     """
     print()
@@ -237,7 +243,7 @@ def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None):
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
-    more = {name: p for name, p in (("free-agents", free_agents), ("roster", roster)) if p}
+    more = {name: p for name, p in (("free-agents", free_agents), ("roster", roster), ("players", players)) if p}
     site.publish(ROOT, "adds", path, cfg=cfg, more_tools=more)
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
@@ -254,7 +260,7 @@ def main(today=None, publish=True, timed=True, cache=True):
     with step("schedule read"):
         sched = read_schedule()
     plan, read, options, warnings, weights, match_replacement = None, [], [], [], None, None
-    recent, skip_line, market_text = [], None, None
+    recent, skip_line, market_text, owners = [], None, None, None
     pages = PageCache(today, use=cache)
     pages.remove_old_days()
     with step("season values"):
@@ -302,6 +308,13 @@ def main(today=None, publish=True, timed=True, cache=True):
                 trends = read_week_trends(
                     yahoo, trend_days(data.week, today, data.next_week), lambda day: pages.trends(yahoo, day)
                 )
+        if publish:
+            # The owners and the Val of the Players page (#186): the rostered list, through the same-day cache of the
+            # trade run, in the views of the free-agent lists. With no free-agent lists, the run has no replacement
+            # value and so no Val: the projected view gives the owners.
+            with part("rostered list", yahoo):
+                owner_skip = not read or skips_recent_view(recent_weight_limit(sched, today)[1], cfg)
+                owners = players_page.read_owners(pages.rostered(yahoo), owner_skip)
     if read:
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
@@ -358,7 +371,12 @@ def main(today=None, publish=True, timed=True, cache=True):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
         free_agents = page.write_free_agents(page.render_free_agents(run))
-        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents)
+        players = None
+        if owners is not None:
+            # The Val of the Players page is the Val of the Free agents page: the same values and replacement.
+            team = cfg["adds"]["team"]
+            players = players_page.write_site(owners, team, cfg, today, run.options, run.replacement, scale)
+        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players)
     print_summary(run)
 
 

@@ -108,9 +108,9 @@ def test_publish_does_not_change_the_pages(repo, remote_pages):
     assert pages["adds/index.html"] == text and pages["adds/notes.html"] == "<body>n</body>"
 
 
-def test_the_menu_has_home_roster_adds_plan_free_agents_and_trades_only():
+def test_the_menu_has_home_roster_adds_plan_free_agents_trades_and_players_only():
     home, adds = site_menu("home", 14), site_menu("adds", 14)
-    labels = ["Home", "Roster", "Adds plan", "Free agents", "Trades"]
+    labels = ["Home", "Roster", "Adds plan", "Free agents", "Trades", "Players"]
     assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == labels
     assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", adds) == labels
     assert '<a href="free-agents/">Free agents</a>' in home and '<a href="../free-agents/">Free agents</a>' in adds
@@ -284,3 +284,35 @@ def test_publish_puts_the_icons_and_the_share_card_at_the_root(repo, remote_page
     for name, source in site.ICON_FILES.items():
         assert git(repo, "rev-parse", f"FETCH_HEAD:{name}") == git(repo, "hash-object", str(source))
     assert pages["icon.svg"].startswith("<svg") and site.CARD in site.ICON_FILES
+
+
+def players_folder(repo):
+    """The Players page and the player file (#186), as the more_tools entry of a publish."""
+    return (page(repo, "players/index.html", "<p>players</p>"), (page(repo, "players/players.json", '{"players":[]}'),))
+
+
+def test_a_planning_run_publish_and_a_trade_publish_keep_the_players_page_and_the_player_file(repo, remote_pages):
+    """#186: players is in TOOLS, so each publish keeps /players/ and its player file."""
+    publish(
+        repo,
+        "trade",
+        page(repo, "trade/index.html", "<p>trades</p>"),
+        cfg=CFG,
+        more_tools={"players": players_folder(repo)},
+    )
+    pages = remote_pages(repo)
+    assert pages["players/index.html"] == "<p>players</p>" and pages["players/players.json"] == '{"players":[]}'
+    assert f"players/{tokens.FONT_HREF}" in pages
+    planning_publish(repo)  # no Players page in this publish
+    pages = remote_pages(repo)
+    assert pages["players/index.html"] == "<p>players</p>" and pages["players/players.json"] == '{"players":[]}'
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades 2</p>"), cfg=CFG)
+    pages = remote_pages(repo)
+    assert pages["players/players.json"] == '{"players":[]}' and pages["trade/index.html"] == "<p>trades 2</p>"
+
+
+def test_a_publish_of_more_tools_with_files_needs_each_file(repo):
+    plan = page(repo, "adds/plan.html", "<p>plan</p>")
+    index = page(repo, "players/index.html", "<p>players</p>")
+    with pytest.raises(FileNotFoundError):
+        publish(repo, "adds", plan, cfg=CFG, more_tools={"players": (index, (repo / "output" / "missing.json",))})

@@ -403,6 +403,7 @@ def run_command(
     cache=False,
     roster=None,
     values=None,
+    owners=None,
 ):
     """Run plan.main() with no Yahoo session, no schedule file and site.publish replaced. Return the FakeLeague.
 
@@ -424,6 +425,8 @@ def run_command(
     market: the MarketRead of the fake read_lists(). None: no market free agents.
     roster: the build_roster() of the run (adds/roster.py). None: a function that makes no Roster page.
     values: the season values of drops.season_values(). None: no player has a season value.
+    owners: the RosteredRead of the rostered list for the Players page (#186). None: the read fails, so the run
+    makes no Players page. "read": the real players_page.read_owners() runs.
     """
     fake_lists = yahoo is None
     yahoo = yahoo or FakeLeague()
@@ -477,6 +480,8 @@ def run_command(
     monkeypatch.setattr(command, "projection_scale", lambda cfg: scale)
     monkeypatch.setattr(command, "read_absences", lambda today, cfg: list(absences))
     monkeypatch.setattr(command, "build_roster", roster or (lambda *args: None))
+    if owners != "read":  # "read": the real read_owners() runs
+        monkeypatch.setattr(command.players_page, "read_owners", lambda reader, skip: owners)
 
     # The record of the publish: the pages, then the more_tools of the publish (#165, #172).
     def fake_publish(*a, cfg, more_tools=None):
@@ -854,3 +859,81 @@ def test_read_league_reads_the_record_from_the_team_page():
     cfg = {"adds": {"team": 10}}
     data = command.read_league(TeamAndMatchup(), cfg, date(2026, 10, 21))
     assert data.record == "4-2-1" and len(data.roster) == 10
+
+
+def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_list(monkeypatch, tmp_path):
+    """#186: the planning run puts the Players page and the player file at /players/ in its publish."""
+    from fantasyhoops.adds.readers import Player
+    from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
+
+    published = []
+    owners = RosteredRead(
+        [RosteredPlayer(Player("Ace Bailey", "UTAH", ("SF",)), 0, {}, 1, "Lamb Chops")], [], {}, [], True
+    )
+    monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
+    monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)
+    players = (common.OUT / "players" / "index.html", (common.OUT / "players" / "players.json",))
+    assert published[0][3] == {"free-agents": page.free_agents_path(), "players": players}
+    file = json.loads(players[1][0].read_text(encoding="utf-8"))
+    assert file["players"][0]["owner"] == "Lamb Chops" and file["players"][0]["mine"] is True
+
+
+@pytest.mark.parametrize("error", ["timeout", "network"])
+def test_a_failed_owner_read_keeps_the_players_page_and_the_plan_publishes(monkeypatch, tmp_path, capsys, error):
+    """#186: a Yahoo timeout or a network error in the rostered list read does not stop the planning run. The
+    publish has no /players/ folder, so the site keeps the old one."""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    from fantasyhoops.trade import rostered
+
+    def fail(*args, **kwargs):
+        if error == "timeout":
+            raise PlaywrightTimeout("Timeout 30000ms exceeded.")
+        raise ConnectionError("The network is down.")
+
+    monkeypatch.setattr(rostered, "read_rostered", fail)
+    published = []
+    run_command(monkeypatch, tmp_path, published, publish=True, owners="read")
+    out = capsys.readouterr().out
+    assert published == [(command.ROOT, "adds", page.page_path(), {"free-agents": page.free_agents_path()})]
+    assert "Warning: the run could not read the rostered list for the Players page (" in out
+    assert "The publish keeps the old Players page." in out
+    assert not (common.OUT / "players").exists()
+
+
+def test_a_yahoo_block_in_the_owner_read_stops_the_planning_run(monkeypatch, tmp_path):
+    """#107: a Yahoo block stops the run with no more Yahoo loads. The Players page read does not catch it (#186)."""
+    from fantasyhoops.adds.session import YahooBlocked
+    from fantasyhoops.trade import rostered
+
+    def block(*args, **kwargs):
+        raise YahooBlocked("Yahoo blocked the requests of the session: HTTP 999.")
+
+    monkeypatch.setattr(rostered, "read_rostered", block)
+    published = []
+    with pytest.raises(YahooBlocked):
+        run_command(monkeypatch, tmp_path, published, publish=True, owners="read")
+    assert published == []
+
+
+@pytest.mark.parametrize("used, recent", [(4, True), (5, False)])
+def test_the_owner_read_takes_the_recent_view_only_when_the_run_reads_the_free_agent_lists(
+    monkeypatch, tmp_path, used, recent
+):
+    """#186: with no adds left, the run reads no free-agent list and has no Val, so it reads the projected view only."""
+    from fantasyhoops.trade import rostered
+    from fantasyhoops.trade.rostered import RosteredRead
+
+    views = []
+
+    def fake(reader, own_team, skip_recent=False):
+        views.append(not skip_recent)
+        return RosteredRead([], [], {}, [], skip_recent)
+
+    monkeypatch.setattr(rostered, "read_rostered", fake)
+    monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
+    monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    league = command.LeagueData(roster=[], adds=Adds(used, 5), week=Week(12, tuple(WEEK[:2])))
+    run_command(monkeypatch, tmp_path, [], publish=True, owners="read", league=league)
+    assert views == [recent]

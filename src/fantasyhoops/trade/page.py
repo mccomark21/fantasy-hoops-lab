@@ -10,6 +10,7 @@ draft/team_builder.js and trade/trade_builder.js, as draft/board.py does. A clic
 builder. The partner starts are an estimate ("est."), because the rostered list does not show the IL slots.
 Warning lines (no trade deadline, players with no match in the data files) sit under the header (#153).
 After the trade deadline, render_deadline() gives a short page with only the header and the deadline line.
+Each player name of the suggestions and of the builder tables opens the player modal of core/profile.py (#186).
 render() and render_deadline() take their data from the caller. write() writes output/trade/index.html with
 publish.write_page().
 """
@@ -19,7 +20,7 @@ import json
 from pathlib import Path
 
 from fantasyhoops import draft
-from fantasyhoops.core import common
+from fantasyhoops.core import common, profile
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.lineup import UTIL
 
@@ -154,7 +155,8 @@ def _band(team, tag="td"):
 
 def _player_cell(p):
     return (
-        f'<th class="pl" scope="row"><b>{_e(p.name)}</b>{_flag(p)}<small>{_e(p.team)} · {_e("/".join(p.positions))}'
+        f'<th class="pl" scope="row"><b>{profile.name_link(p.name)}</b>{_flag(p)}'
+        f"<small>{_e(p.team)} · {_e('/'.join(p.positions))}"
         f"</small><small>{_values(p)}</small></th>"
     )
 
@@ -222,9 +224,9 @@ def mob_list(result, weeks):
         items.append(
             f'<li class="ms" data-give="{_e(g.name)}" data-k="{k - 1}"><span class="rk">{_load(k)}</span>'
             f"{_band(g.team, 'span')}"
-            f'<span class="nm"><b>{_e(g.name)}</b>{_flag(g)}<small>You give · {_e("/".join(g.positions))} · '
+            f'<span class="nm"><b>{profile.name_link(g.name)}</b>{_flag(g)}<small>You give · {_e("/".join(g.positions))} · '
             f"{_values(g)}</small></span>{_band(r.team, 'span')}"
-            f'<span class="nm"><b>{_e(r.name)}</b>{_flag(r)}<small>You get from {_e(r.team_name)} · '
+            f'<span class="nm"><b>{profile.name_link(r.name)}</b>{_flag(r)}<small>You get from {_e(r.team_name)} · '
             f'{_e("/".join(r.positions))} · {_values(r)}</small></span><span class="nums">{"".join(nums)}</span>'
             f"{partner_line(s)}</li>"
         )
@@ -281,6 +283,7 @@ def _player_data(p, pid, settings):
     return {
         "id": pid,
         "name": p.name,
+        "slug": profile.slug(p.name),
         "team": p.team,
         "pos": list(p.positions),
         "slot": p.slot,
@@ -680,6 +683,9 @@ BUILDER_SCRIPT = """<script>
   const team = () => D.teams.find(t => t.id === st.team);
   const flag = p => (p.il ? '<span class="status">IL</span>' : p.status ? `<span class="status">${esc(p.status)}</span>` : "");
   const band = p => `<td class="band${p.team.length > 3 ? " b4" : ""}" style="${p.style}">${esc(p.team)}</td>`;
+  // A player name opens the player modal of core/profile.py (#186).
+  const pname = p => p.slug
+    ? `<a class="lab-pname" href="#player=${p.slug}" data-player="${p.slug}">${esc(p.name)}</a>` : esc(p.name);
 
   function bar(d, total) {
     if (d > 0) return `<i class="up" style="--d:${Math.min(d, total ? 6 : 4)}"></i>`;
@@ -701,7 +707,7 @@ BUILDER_SCRIPT = """<script>
       const line = [p.team, p.pos.join("/")].concat(kept.has(p.id) ? ["kept"] : [], off ? ["untouchable"] : []);
       return `<tr class="${off ? "off" : ""}${on ? " on" : ""}" data-id="${p.id}">`
         + `<td class="ck"><input type="checkbox" aria-label="${mine ? "Give" : "Get"} ${esc(p.name)}"${on ? " checked" : ""}`
-        + `${off ? " disabled" : ""}></td>${band(p)}<th class="pl" scope="row"><b>${esc(p.name)}</b>${flag(p)}`
+        + `${off ? " disabled" : ""}></td>${band(p)}<th class="pl" scope="row"><b>${pname(p)}</b>${flag(p)}`
         + `<small>${esc(line.join(" · "))}</small></th>`
         + `<td class="n s1">${val(p.val)}${p.mark ? " __MARK__" : ""}</td><td class="n">${val(p.pg)}</td></tr>`;
     }).join("");
@@ -860,6 +866,7 @@ __SCRIPT__
     + SCRIPT
     + """
 __BUILDER_JS__
+__PLAYER_MODAL__
 </body>
 </html>
 """
