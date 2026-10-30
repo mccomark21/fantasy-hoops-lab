@@ -59,6 +59,32 @@ DARK = {
 }
 
 
+# The chart sizes of the DESIGN.md "Charts" section (#185). core/chart.py writes them as CSS custom properties and
+# gives the marker sizes to its SVG helpers. All values are in px, except the opacities and the font weights.
+CHART_STROKES = {
+    "hero": 2,  # the hero line
+    "ring": 2,  # the lab-stock ring around a hero dot
+    "second": 1.25,  # the secondary line, the category connector and the projection dot
+    "rule": 1,  # a reference line, a category track and the crosshair
+    "empty": 1.5,  # the dashed box of a chart with no data
+}
+CHART_MARKERS = {
+    "game": 3.5,  # the radius of a game dot
+    "hero": 4,  # the radius of the hero dot of a trend chart
+    "now": 5,  # the radius of the hero dot of a category ("now")
+    "proj": 4,  # the radius of a projection dot
+    "tri-w": 9,  # the width of a dud or spike triangle
+    "tri-h": 7.5,  # the height of a dud or spike triangle
+}
+CHART_OPACITIES = {
+    "second": 0.8,  # the secondary line
+    "game": 0.9,  # a game dot: 3:1 or more on lab-stock and on zebra in both themes (#185)
+    "conn": 0.7,  # the category connector
+}
+CHART_TEXT = {"small": 10.5, "label": 11}  # the font sizes of the chart text. 10.5px is outside the type ramp.
+CHART_WEIGHTS = {"small": 400, "label": 700, "exit": 800}  # the font weights of the chart text
+
+
 def _declarations(colors, scheme):
     return " ".join(f"--{name}: {value};" for name, value in colors.items()) + f" color-scheme: {scheme};"
 

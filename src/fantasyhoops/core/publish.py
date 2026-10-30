@@ -16,6 +16,8 @@ The shared tables (#143): shell() puts TABLE_STYLE in place of __TABLE_CSS__ in 
 class lab-t gets the look of the Roster table: the head, the rows, the team band and the player cell. The Roster
 table, the examples of the Home page and the Free agents and Waiver players tables of the Free agents page use it.
 band_style() gives the team colors of a band.
+The shared charts (#185): shell() puts chart.CHART_STYLE in place of __CHART_CSS__ in a page template. The classes,
+the SVG helpers and the checks are in core/chart.py.
 write_page() writes a page and the font next to it. The plan page, the Roster page and the Home page use it.
 The icon and the share card (#166): shell() also puts page_meta() in the <head>. It links the basketball icon (A2)
 and gives the Open Graph and Twitter card tags. The publish puts the files of ICON_FILES at the root of gh-pages.
@@ -28,7 +30,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from fantasyhoops.core import tokens
+from fantasyhoops.core import chart, tokens
 
 BRANCH = "gh-pages"
 URL = "https://mccomark21.github.io/fantasy-hoops-lab/"
@@ -161,7 +163,8 @@ def band_style(team):
 
 
 def shell(template, current, cfg):
-    """Fill the site shell of a page template: __HEAD__, __MENU__, __SCRIPT__ and __TABLE_CSS__ (TABLE_STYLE).
+    """Fill the site shell of a page template: __HEAD__, __MENU__, __SCRIPT__, __TABLE_CSS__ (TABLE_STYLE) and
+    __CHART_CSS__ (chart.CHART_STYLE).
 
     __HEAD__ gets site_head() and page_meta() with the <title> of the template.
     current: the page in the site menu (site_menu()). cfg: the config. [league] teams gives the team count.
@@ -170,6 +173,7 @@ def shell(template, current, cfg):
     return (
         template.replace("__HEAD__", head)
         .replace("__TABLE_CSS__", TABLE_STYLE)
+        .replace("__CHART_CSS__", chart.CHART_STYLE)
         .replace("__MENU__", site_menu(current, cfg["league"]["teams"]))
         .replace("__SCRIPT__", MENU_SCRIPT)
     )
