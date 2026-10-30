@@ -39,7 +39,7 @@ def projected_lines(projections, overrides, cfg):
 
     projections: a projections table. overrides: data/name_overrides.csv as text. The result has one row for each
     Yahoo name key, with one column for each category of cfg["weights"]. Two rows with one key: the row with the
-    higher pg_var stays. The pool is the top teams x roster_spots players by value (core/valuation.py).
+    higher value stays. The pool is the top teams x roster_spots name keys by value (core/valuation.py).
     """
     df = projections[projections.games > 0].copy()
     if df.empty:
@@ -51,9 +51,9 @@ def projected_lines(projections, overrides, cfg):
     names = [yahoo_names.get(str(i)) or f"{f} {last}" for i, f, last in zip(df.player_id, df.first_name, df.last_name)]
     df["key"] = [name_key(n) for n in names]
     pool_size = cfg["league"]["teams"] * cfg["league"]["roster_spots"]
-    pool = df.nlargest(pool_size, "value").key.tolist()
-    lines = df.sort_values("pg_var", ascending=False).drop_duplicates("key").set_index("key")
-    return lines[list(cfg["weights"])], list(dict.fromkeys(pool))
+    # One row for each key: the row with the higher value. The pool then has pool_size different players.
+    lines = df.sort_values("value", ascending=False).drop_duplicates("key").set_index("key")
+    return lines[list(cfg["weights"])], lines.index[:pool_size].tolist()
 
 
 def season_lines(box, overrides, cats):

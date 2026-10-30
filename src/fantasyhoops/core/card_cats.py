@@ -5,8 +5,8 @@ SCRIPT sets LabCard.fill.cats (core/profile.py). It draws one row for each categ
 is the Categories quadrant of the "After + tooltips" view of docs/design/players-sample.html and the DESIGN.md
 "Charts" rules. The marks use the classes of core/chart.py, and the "now" and "proj" labels follow chart.now_proj().
 A player with no "cats" field gets the "No data" box.
-A row is a tab stop. A mouse, a tap or the focus shows the tooltip card of LabCard.tip().
-profile.modal() adds STYLE and SCRIPT. The module writes no files.
+A row is a tab stop. LabCard.bindTip() (core/profile.py) shows its tooltip card on a mouse, a tap or the focus.
+profile.FILLS lists the module, so profile.modal() adds STYLE and script(). The module writes no files.
 """
 
 from fantasyhoops.core import chart, tokens
@@ -16,19 +16,22 @@ NO_DATA = "No projection: no category ranks."  # the text of the "No data" box
 # The chart sizes of the approved sample, in px of the 580px viewBox.
 GEOMETRY = {"W": 580, "ROW": 38, "T": 18, "L": 84, "R": 104}
 
-STYLE = """/* The Categories quadrant (issue 188): the heading label, the state line and the tooltip card text. */
+STYLE = """/* The Categories quadrant (issue 188): the heading label and the state line. */
 .lab-card .lc-q h3 .lc-lab { font-size: 12px; font-weight: 700; font-stretch: 100%; text-transform: none;
   color: var(--lab-mute); }
-.lab-card .lc-cats .lab-c-state { margin: 2px 0 0; }
-.lab-tt .lab-tt-ctx { color: var(--lab-mute); font-size: 11px; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; }
-.lab-tt .lab-tt-key { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 1px; }
-.lab-tt .lab-tt-num { font-size: 20px; font-weight: 800; font-stretch: 85%; line-height: 1.1; }
-.lab-tt .lab-tt-lab { color: var(--lab-mute); font-size: 11px; }
-.lab-tt .lab-tt-rows { display: grid; grid-template-columns: auto auto; gap: 1px 14px; margin: 4px 0 0;
-  padding-top: 4px; border-top: 1px solid var(--lab-rule); }
-.lab-tt .lab-tt-rows dt { color: var(--lab-mute); white-space: nowrap; }
-.lab-tt .lab-tt-rows dd { margin: 0; text-align: right; white-space: nowrap; }"""
+.lab-card .lc-cats .lab-c-state { margin: 2px 0 0; }"""
+
+# The Categories line of the methods note (the "i" icon), from the cats of the player or, with none, of a player of
+# the file. The JS function gives "" when no player has cats.
+METHODS = r"""(p, d) => {
+  const c = p.cats || (d.players.find(x => x.cats) || {}).cats;
+  if (!c || !c.rows || !c.rows.length) return "";
+  const ks = c.rows.map(r => `${LabCard.esc(r.cat)} ${r.k}`).join(", ");
+  return `<li><b>Categories.</b> The percentile of each category in the pool: the top ${c.pool} players by projected `
+    + "value. proj ranks the projection per game. now ranks the season line, shrunk toward the projection: "
+    + `(n × season + k × projection) / (n + k), with n games and k in games: ${ks}. `
+    + "The k values are agent defaults that the owner did not approve yet.</li>";
+}"""
 
 _SCRIPT = r"""(() => {
   const G = __GEOMETRY__, M = __MARKERS__, NP = __NOW_PROJ__, NO_DATA = "__NO_DATA__";
@@ -47,43 +50,6 @@ _SCRIPT = r"""(() => {
     if (xs <= xp) return [[xs + NP.dx, cy - NP.dy, "end"], [xp - NP.dx, cy + NP.below, "start"]];
     return [[xs - NP.dx, cy - NP.dy, "start"], [xp + NP.dx, cy + NP.below, "end"]];
   };
-  // The tooltip card (DESIGN.md "Tooltips"): beside the mark, never over it, 8px inside the viewport.
-  const showTip = (tip, spec, mark) => {
-    const add = (parent, tag, cls, s) => {
-      const node = document.createElement(tag);
-      if (cls) node.className = cls;
-      if (s != null) node.textContent = s;
-      parent.appendChild(node);
-      return node;
-    };
-    tip.replaceChildren();
-    add(tip, "div", "lab-tt-ctx", spec.ctx);
-    const key = add(tip, "div", "lab-tt-key");
-    add(key, "span", "lab-tt-num", spec.value);
-    add(key, "span", "lab-tt-lab", spec.label);
-    const dl = add(tip, "dl", "lab-tt-rows");
-    spec.rows.slice(0, 3).forEach(([a, b]) => { add(dl, "dt", null, a); add(dl, "dd", null, b); });
-    tip.hidden = false;
-    const w = tip.offsetWidth, h = tip.offsetHeight, gap = 12, pad = 8;
-    let x = mark.right + gap, y = (mark.top + mark.bottom) / 2 - h / 2;
-    if (x + w > innerWidth - pad) x = mark.left - gap - w;
-    if (x < pad) {
-      x = Math.max(pad, Math.min(innerWidth - pad - w, (mark.left + mark.right) / 2 - w / 2));
-      y = mark.top - gap - h >= pad ? mark.top - gap - h : mark.bottom + gap;
-    }
-    y = Math.max(pad, Math.min(innerHeight - pad - h, y));
-    tip.style.left = Math.round(x) + "px";
-    tip.style.top = Math.round(y) + "px";
-  };
-  const hideAll = () => document.querySelectorAll(".lab-tt").forEach(t => { t.hidden = true; });
-  // A tap outside a chart target, a scroll or Escape hides the card. The modal also hides it on its own scroll.
-  document.addEventListener("pointerdown", e => { if (!(e.target.closest && e.target.closest(".lab-c-hit"))) hideAll(); });
-  window.addEventListener("scroll", hideAll, { passive: true });
-  // In the modal, the dialog handles Escape: the first Escape hides the card, the next one closes the modal.
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && !(e.target.closest && e.target.closest("dialog"))) hideAll();
-  });
-
   LabCard.fill.cats = (body, p) => {
     const c = p.cats;
     if (!c || !c.rows || !c.rows.length) {
@@ -127,8 +93,7 @@ _SCRIPT = r"""(() => {
     body.innerHTML = `<div class="lc-cats"><svg class="lab-chart" viewBox="0 0 ${W} ${H}" role="img"`
       + ` aria-label="Percentile of each category in the pool: now and projection">${s}</svg>`
       + `<p class="lab-c-state">${state}</p></div>`;
-    const svg = body.querySelector("svg"), tip = LabCard.tip(body);
-    if (!tip) return;
+    const svg = body.querySelector("svg");
     // The viewport box of the marks of a row: the two dots, 8px wider on each side.
     const markAt = ({ a, b, cy }) => {
       const box = svg.getBoundingClientRect(), k = box.width / W, rx = (b - a) / 2 + 8, mid = (a + b) / 2;
@@ -136,14 +101,7 @@ _SCRIPT = r"""(() => {
         bottom: box.top + (cy + 12) * k };
     };
     svg.querySelectorAll(".lab-c-hit").forEach((hit, i) => {
-      const on = () => showTip(tip, specs[i].spec, markAt(specs[i]));
-      const off = () => { tip.hidden = true; };
-      hit.setAttribute("aria-describedby", tip.id);
-      hit.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") on(); });
-      hit.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") off(); });
-      hit.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") { on(); e.stopPropagation(); } });
-      hit.addEventListener("focus", on);
-      hit.addEventListener("blur", off);
+      LabCard.bindTip(hit, body, specs[i].spec, () => markAt(specs[i]));
     });
   };
 })();"""

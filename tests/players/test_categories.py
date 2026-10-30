@@ -85,6 +85,14 @@ def test_the_population_is_the_valuation_pool_of_140_players():
     assert out[key(0)]["n"] == 0 and out[key(0)]["gap"] is None
 
 
+def test_two_rows_with_one_name_key_count_once_in_the_pool():
+    rows = projections()
+    twin = rows.iloc[[0]].assign(player_id="9999")  # a second row of the best player, for example after a trade
+    proj, pool = categories.projected_lines(pd.concat([rows, twin], ignore_index=True), NO_OVERRIDES, CFG)
+    assert len(pool) == len(set(pool)) == 140 and len(proj) == 200
+    assert set(pool) == {key(i) for i in range(140)}
+
+
 def test_a_category_with_few_games_shrinks_toward_the_projection():
     proj, pool = categories.projected_lines(projections(), NO_OVERRIDES, CFG)
     line = proj.loc[key(70)]

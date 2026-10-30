@@ -24,6 +24,7 @@ The Categories quadrant (#188) shows the percentile of each weighted category (P
 - **Row:** the category, its punt weight from `[weights]` (for example ×0.70), the season per game and "proj" with the projection per game. A mouse, a tap or the focus on a row shows its tooltip card.
 - **Projection gap:** a header signal when a category has 5 or more games and a gap of 25 or more percentile points between now and proj (`gap_games` and `gap_points`). The largest gap gives the chip, for example "REB above projection: percentile 63 vs 25".
 - A player with no projection shows the box "No projection: no category ranks."
+- The methods note (the "i" icon) gives the pool and the k values.
 
 ## The players
 
@@ -69,4 +70,6 @@ A player name on the Roster, Free agents and Trades pages is a link. The Adds pl
 - `players/data.py`: the player rule, Val, the games and the signal rules.
 - `players/page.py`: the Players page and the player file.
 - `players/categories.py`: the percentiles of the Categories quadrant and its signal rule. `core/card_cats.py`: the chart of the quadrant (`LabCard.fill.cats`).
+- `profile.FILLS` lists the quadrant fills. Each fill module has `STYLE`, `script()` (it sets `LabCard.fill.<quadrant>`) and `METHODS` (its line of the methods note). A quadrant adds one entry.
+- `LabCard.bindTip(target, root, spec, markAt)` in `core/profile.py` is the one tooltip function of the fills. It shows the tooltip card of DESIGN.md "Tooltips" on a mouse, a tap or the focus.
 - The card uses the shared chart style of `core/chart.py` (DESIGN.md "Charts").

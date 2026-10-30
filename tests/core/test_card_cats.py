@@ -66,6 +66,21 @@ def texts(pg, root="#pc-q-cats"):
     )
 
 
+def test_the_modal_adds_each_fill_of_the_fills_list_once():
+    assert card_cats in profile.FILLS
+    text = profile.modal()
+    for fill in profile.FILLS:
+        assert text.count(fill.STYLE) == 1 and text.count(fill.script()) == 1
+
+
+def test_the_tooltip_card_is_one_shared_function_of_the_card_script():
+    """#188 review: the fills use LabCard.bindTip() of core/profile.py and keep no tooltip code of their own."""
+    assert "out.bindTip = " in profile.CARD_SCRIPT and ".lab-tt .lab-tt-num" in profile.MODAL_STYLE
+    assert "LabCard.bindTip(" in card_cats.script()
+    for fill in profile.FILLS:
+        assert "lab-tt" not in fill.STYLE and "replaceChildren" not in fill.script()
+
+
 def test_the_modal_of_each_page_has_the_categories_fill():
     text = profile.modal()
     assert "LabCard.fill.cats = " in text and card_cats.STYLE in text
@@ -189,3 +204,14 @@ def test_with_the_chart_the_card_fits_at_1440_by_900(modal_site):
     assert pg.evaluate("document.documentElement.scrollHeight") <= 900
     modal_site.page.set_viewport_size({"width": 390, "height": 844})
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390
+
+
+def test_the_methods_note_has_the_categories_line_from_the_fills_list(modal_site):
+    assert card_cats.METHODS in profile.card_script()
+    pg = open_card(modal_site, [record("Ace Bailey", ACE), record("Fa Five")], hash="#fa-five")
+    pg.locator("#pp-card .lc-info summary").click()
+    items = pg.locator("#pp-card .lc-pop li").all_inner_texts()
+    cats = [t for t in items if t.startswith("Categories.")]
+    assert len(cats) == 1 and "top 140 players" in cats[0]  # Fa Five has no cats: the line uses a player of the file
+    assert "k in games: PTS 4, REB 4, AST 4, 3PM 10, BLK 10, STL 15." in cats[0]
+    assert items[-1].startswith("Signals.") and items.index(cats[0]) == len(items) - 2

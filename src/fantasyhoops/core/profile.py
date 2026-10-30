@@ -30,6 +30,11 @@ QUADRANTS = (
     ("comps", "Comps", "No comps yet."),
 )
 QUADRANT_KEYS = tuple(key for key, _, _ in QUADRANTS)
+# The quadrant fills (#187 to #189). Each module has STYLE, script() and METHODS. Its script sets
+# LabCard.fill.<quadrant> and runs after the card script. METHODS is a JS function (player, file) that gives the
+# <li> of the quadrant in the methods note, or "". modal() and card_script() add each fill. A quadrant issue adds one
+# entry.
+FILLS = (card_cats,)
 MAX_SIGNALS = 3  # the header shows this many signal chips at most
 NO_SIGNALS = "No signals: playing to projection"  # the header text when a player has no signal
 
@@ -53,18 +58,19 @@ def modal(chart_css=True):
 
     chart_css: True adds chart.CHART_STYLE, for a page whose template has no __CHART_CSS__.
     """
-    css = (chart.CHART_STYLE + "\n" if chart_css else "") + CARD_STYLE + "\n" + MODAL_STYLE
-    css += "\n" + card_cats.STYLE  # the quadrant fills (#187 to #189)
-    fills = card_cats.script()
+    css = "\n".join(([chart.CHART_STYLE] if chart_css else []) + [CARD_STYLE, MODAL_STYLE] + [f.STYLE for f in FILLS])
+    fills = "\n".join(f.script() for f in FILLS)
     return f"{MODAL_HTML}\n<style>\n{css}\n</style>\n<script>\n{card_script()}\n{fills}\n{MODAL_SCRIPT}\n</script>"
 
 
 def card_script():
-    """CARD_SCRIPT with the data URL, the quadrants and the header rules of this module."""
+    """CARD_SCRIPT with the data URL, the quadrants, the header rules and the methods notes of FILLS."""
     quads = ", ".join(f'["{k}", "{t}", "{e}"]' for k, t, e in QUADRANTS)
+    notes = ", ".join(f.METHODS for f in FILLS)
     return (
         CARD_SCRIPT.replace("__DATA_URL__", DATA_URL)
         .replace("__QUADS__", quads)
+        .replace("__NOTES__", notes)
         .replace("__MAX_SIGNALS__", str(MAX_SIGNALS))
         .replace("__NO_SIGNALS__", NO_SIGNALS)
     )
@@ -156,6 +162,15 @@ dialog.lab-pmodal .lab-card { padding: 8px 24px 16px; }
   background: var(--lab-stock); color: var(--lab-ink); font: 400 12px/1.3 var(--lab-face);
   font-variant-numeric: tabular-nums; }
 .lab-tt[hidden] { display: none; }
+.lab-tt .lab-tt-ctx { color: var(--lab-mute); font-size: 11px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.lab-tt .lab-tt-key { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 1px; }
+.lab-tt .lab-tt-num { font-size: 20px; font-weight: 800; font-stretch: 85%; line-height: 1.1; }
+.lab-tt .lab-tt-lab { color: var(--lab-mute); font-size: 11px; }
+.lab-tt .lab-tt-rows { display: grid; grid-template-columns: auto auto; gap: 1px 14px; margin: 4px 0 0;
+  padding-top: 4px; border-top: 1px solid var(--lab-rule); }
+.lab-tt .lab-tt-rows dt { color: var(--lab-mute); white-space: nowrap; }
+.lab-tt .lab-tt-rows dd { margin: 0; text-align: right; white-space: nowrap; }
 @media (max-width: 799px) {
   dialog.lab-pmodal { width: 100vw; height: 100dvh; max-height: none; margin: 0; border: 0; }
   .lab-pm-bar { position: sticky; top: 0; z-index: 4; padding: 8px 14px; background: var(--lab-stock);
@@ -176,6 +191,8 @@ MODAL_HTML = """<dialog class="lab-pmodal" id="lab-pmodal" aria-label="Player pr
 # draws a quadrant. Without it, the quadrant shows its empty box. #187 to #189 add them.
 CARD_SCRIPT = r"""window.LabCard = (() => {
   const QUADS = [__QUADS__];
+  // The methods notes of the quadrant fills (profile.FILLS): each gives the HTML of its <li>, or "".
+  const NOTES = [__NOTES__];
   const MAX = __MAX_SIGNALS__;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
   const val = v => v == null ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2);
@@ -196,7 +213,7 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
     return s.map(x => `<li><a href="#" data-q="${esc(x.quadrant)}"><span class="lc-sig-k${x.up ? "" : " alert"}">`
       + `${esc(x.kind)} ${x.up ? "▲" : "▼"}</span><span class="lc-t">${esc(x.text)}</span></a></li>`).join("");
   };
-  const methods = d => {
+  const methods = (d, p) => {
     const m = d.meta, log = m.log_first ? ` ESPN games in the rotation log, ${esc(m.log_first)} to ${esc(m.log_last)}.` : "";
     return '<h3>Methods and data</h3><ul>'
       + `<li><b>Players.</b> Each rostered player of the league (${m.rostered}), and each free agent with a Val above 0 (above the replacement free agent) or ${m.min_games} or more games (${m.free_agents}).</li>`
@@ -205,11 +222,67 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
         : "<li><b>Val.</b> The run has no replacement free agent, so no player has a Val.</li>")
       + (m.projections ? `<li><b>Projections.</b> <code>${esc(m.projections)}</code>.</li>` : "")
       + (log ? `<li><b>Games.</b>${log}</li>` : "")
+      + NOTES.map(note => note(p, d)).join("")
       + `<li><b>Signals.</b> Each signal comes from a rule of a quadrant and links to it. The header shows ${MAX} at most.</li></ul>`;
   };
   // The tooltip card of a card root. In the modal: #lab-tt, in the dialog (the top layer). On the Players page:
   // #lab-tt-page, outside the closed dialog, so that it can show.
   out.tip = root => document.getElementById(root.closest("dialog") ? "lab-tt" : "lab-tt-page");
+  // The tooltip card (DESIGN.md "Tooltips"): the context line, the key number and its label, and up to 3 rows. The card
+  // goes beside the mark, never over it, and stays 8px inside the viewport.
+  const showTip = (tip, spec, mark) => {
+    const add = (parent, tag, cls, s) => {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (s != null) node.textContent = s;
+      parent.appendChild(node);
+      return node;
+    };
+    tip.replaceChildren();
+    add(tip, "div", "lab-tt-ctx", spec.ctx);
+    const key = add(tip, "div", "lab-tt-key");
+    add(key, "span", "lab-tt-num", spec.value);
+    add(key, "span", "lab-tt-lab", spec.label);
+    if (spec.rows && spec.rows.length) {
+      const dl = add(tip, "dl", "lab-tt-rows");
+      spec.rows.slice(0, 3).forEach(([a, b]) => { add(dl, "dt", null, a); add(dl, "dd", null, b); });
+    }
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight, gap = 12, pad = 8;
+    let x = mark.right + gap, y = (mark.top + mark.bottom) / 2 - h / 2;
+    if (x + w > innerWidth - pad) x = mark.left - gap - w;
+    if (x < pad) {
+      x = Math.max(pad, Math.min(innerWidth - pad - w, (mark.left + mark.right) / 2 - w / 2));
+      y = mark.top - gap - h >= pad ? mark.top - gap - h : mark.bottom + gap;
+    }
+    y = Math.max(pad, Math.min(innerHeight - pad - h, y));
+    tip.style.left = Math.round(x) + "px";
+    tip.style.top = Math.round(y) + "px";
+  };
+  // The one tooltip function of the quadrant fills. target: a chart target (class lab-c-hit) in the card root.
+  // spec: {ctx, value, label, rows: [[name, value]]}. markAt(): the viewport box {left, right, top, bottom} of the
+  // marks of the target. A mouse shows the card on enter and hides it on leave. A tap shows it and keeps it. The focus
+  // shows it.
+  out.bindTip = (target, root, spec, markAt) => {
+    const tip = out.tip(root);
+    if (!tip) return;
+    const on = () => showTip(tip, spec, markAt());
+    const off = () => { tip.hidden = true; };
+    target.setAttribute("aria-describedby", tip.id);
+    target.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") on(); });
+    target.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") off(); });
+    target.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") { on(); e.stopPropagation(); } });
+    target.addEventListener("focus", on);
+    target.addEventListener("blur", off);
+  };
+  // A tap outside a chart target, a scroll or Escape hides the card. In the modal, the dialog handles Escape: the
+  // first Escape hides the card, the next one closes the modal. The modal also hides the card on its own scroll.
+  const hideTips = () => document.querySelectorAll(".lab-tt").forEach(t => { t.hidden = true; });
+  document.addEventListener("pointerdown", e => { if (!(e.target.closest && e.target.closest(".lab-c-hit"))) hideTips(); });
+  window.addEventListener("scroll", hideTips, { passive: true });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !(e.target.closest && e.target.closest("dialog"))) hideTips();
+  });
   // root: the .lab-card element. p: one player of the file. d: the file. id: a prefix for the ids of the card.
   out.render = (root, p, d, id) => {
     const owner = p.owner ? `${esc(p.owner)}${p.mine ? " (you)" : ""}` : "FA";
@@ -220,7 +293,7 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
 <dl class="lc-kv"><div><dt>Val</dt><dd>${val(p.val)}</dd></div></dl>
 <ul class="lc-sigs" aria-label="Signals">${signals(p)}</ul>
 <details class="lc-info"><summary aria-label="Methods and data" title="Methods and data">i</summary>
-<div class="lc-pop">${methods(d)}</div></details>
+<div class="lc-pop">${methods(d, p)}</div></details>
 </header>
 <div class="lc-grid">${QUADS.map(([k, t]) => `<section class="lc-q" id="${id}-q-${k}" aria-labelledby="${id}-h-${k}">`
       + `<h3 id="${id}-h-${k}" tabindex="-1">${t}</h3><div class="lc-body" data-q="${k}"></div></section>`).join("")}</div>`;
