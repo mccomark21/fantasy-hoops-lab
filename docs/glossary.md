@@ -43,6 +43,9 @@ The rotation log (`data/rotation_log.csv`) gives these terms. `core/rotation.py`
 | Start | The player is in the starting lineup of the game, from the ESPN box score. |
 | Close game | At some moment in the last 5:00 of the fourth quarter or of an overtime period, the margin is 5 points or fewer. A game with an overtime period is always a close game. The settings are `close_minutes` and `close_margin` in `[rotation]`. |
 | Close | The player is on the floor at the end of a close game. The closes of a player are counted against the close games of his team. |
+| Decided | The lead is the lead needed or more. Lead needed = 2.33 × 0.313 × √(seconds left): about 28 points at the start of the third quarter, 20 with 12:00 left and 14 with 6:00 left. In an overtime period, the seconds left go to the end of that period. A comeback makes the game not decided again. The settings are `decided_sigma` and `decided_win_chance` (99%) in `[rotation]`. |
+| Competitive minutes | The minutes of a player while the game is not decided. They are never more than his minutes. `core/rotation.py` `competitive_minutes()` gives them from the stints and the scoring plays. |
+| Close-game minutes | The mean minutes of a player in the close games that he played. |
 | Starter flag | New, Regular or Inconsistent, from his starts in his last 10 games that he played. No flag with fewer than 5 games. `core/role_flags.py` gives it. The settings are in `[adds.flags]`. See the [adds guide](adds/README.md#starter-flag-and-closer-flag). |
 | Closer flag | New, Regular or Inconsistent, from his closes in the last 8 close games of his NBA team. A close game that he did not play counts as not closed. No flag with fewer than 4 close games. |
 | New (flag) | He started (closed) each of the last 3 games (2 close games), and fewer than half of the earlier games in the window. |

@@ -6,6 +6,9 @@ from fantasyhoops.core.rotation import (
     LOG,
     SCORES,
     close_games,
+    competitive_minutes,
+    decided_spans,
+    lead_needed,
     period_bounds,
     player_games,
     read_log,
@@ -110,7 +113,73 @@ def test_team_games_count_the_close_games():
 
 
 def test_config_has_the_close_game_settings():
-    assert load_config()["rotation"] == {"close_margin": 5, "close_minutes": 5, "minute_tolerance": 1.5}
+    assert load_config()["rotation"] == {
+        "close_margin": 5,
+        "close_minutes": 5,
+        "minute_tolerance": 1.5,
+        "decided_sigma": 0.313,
+        "decided_win_chance": 0.99,
+    }
+
+
+DECIDED = {"rotation": {"decided_sigma": 0.313, "decided_win_chance": 0.99}}
+
+
+@pytest.mark.parametrize(("sec_left", "lead"), [(1440, 28), (720, 20), (360, 14)])
+def test_lead_needed_grows_with_the_square_root_of_the_time_left(sec_left, lead):
+    # The start of the third quarter, 12:00 left and 6:00 left.
+    assert lead_needed(sec_left, load_config()) == pytest.approx(lead, abs=0.6)
+
+
+def test_the_settings_change_the_lead_needed():
+    low = {"rotation": {"decided_sigma": 0.251, "decided_win_chance": 0.99}}
+    assert lead_needed(1440, low) == pytest.approx(22, abs=0.6)
+    assert lead_needed(1440, {"rotation": {"decided_sigma": 0.313, "decided_win_chance": 0.9}}) < 28
+
+
+def test_a_game_is_decided_when_the_lead_needed_falls_to_the_lead():
+    # 15 up at 12:00 left (2160) and no more scores: the lead needed falls to 15 at about 7:04 left.
+    (span,) = decided_spans(scores("1", [(2160, 15, 0)]), END, DECIDED)
+    assert span == (pytest.approx(END - (15 / lead_needed(1, DECIDED)) ** 2), END)
+    assert lead_needed(END - span[0], DECIDED) == pytest.approx(15)
+    # 20 up at 12:00 left is more than the lead needed (about 19.5), so the game is decided at once.
+    assert decided_spans(scores("1", [(2160, 20, 0)]), END, DECIDED) == [(2160.0, END)]
+
+
+def test_a_comeback_makes_the_game_not_decided_again():
+    rows = [(1500, 30, 0), (2000, 30, 25), (END - 10, 31, 25)]
+    spans = decided_spans(scores("1", rows), END, DECIDED)
+    assert spans[0] == (1500.0, 2000.0)  # 30 up with 23:00 left is decided
+    assert spans[1][0] > 2000  # 5 up is decided only near the end
+    assert spans[1][1] == END
+
+
+def test_a_tie_at_the_end_of_regulation_is_not_decided():
+    rows = [(END - 1, 100, 100), (END + 290, 110, 100)]
+    spans = decided_spans(scores("1", rows), END + 300, DECIDED)
+    assert len(spans) == 1 and spans[0][0] >= END + 290  # only the last seconds of overtime
+
+
+def test_competitive_minutes_leave_out_the_minutes_after_the_decided_point():
+    # HHH leads by 30 from 24:00 left (1440). The lead needed then is about 28, so the game is decided at 1440.
+    stints = pd.DataFrame(
+        [
+            stint("1", "HHH", "AAA", "star", 0, 2160, starter=True),  # 36 minutes, 12 of them after the decided point
+            stint("1", "HHH", "AAA", "bench", 2160, END),  # 12 minutes, all after the decided point
+            stint("1", "HHH", "AAA", "early", 0, 1200),  # 20 minutes, all before
+        ]
+    )
+    rows = scores("1", [(600, 10, 0), (1440, 30, 0)])
+    cm = competitive_minutes(stints, rows, DECIDED).set_index("player_id").competitive_minutes
+    assert cm.to_dict() == {"bench": 0.0, "early": 20.0, "star": 24.0}
+
+
+def test_a_close_game_keeps_all_its_minutes():
+    stints = pd.DataFrame(game("1"))
+    cm = competitive_minutes(stints, scores("1", [(1000, 10, 8), (END - 1, 100, 99)]), DECIDED)
+    pg = player_games(stints, scores("1", [(1000, 10, 8)]), CFG).merge(cm, on=["game_id", "player_id"])
+    # A lead of 2 is decided only in the last 8 seconds.
+    assert (pg.minutes - pg.competitive_minutes).abs().max() <= 0.15
 
 
 def test_read_the_saved_log():
@@ -120,3 +189,15 @@ def test_read_the_saved_log():
     assert (stints.out_sec > stints.in_sec).all()
     pg = player_games(stints, score_rows, load_config())
     assert pg.groupby(["game_id", "team"]).started.sum().eq(5).all()
+
+
+def test_competitive_minutes_of_the_saved_log():
+    if not (LOG.exists() and SCORES.exists()):
+        pytest.skip("data/rotation_log.csv is not downloaded")
+    stints, score_rows = read_log(), read_scores()
+    cfg = load_config()
+    pg = player_games(stints, score_rows, cfg).merge(
+        competitive_minutes(stints, score_rows, cfg), on=["game_id", "player_id"], how="left"
+    )
+    assert pg.competitive_minutes.notna().all()
+    assert (pg.competitive_minutes >= 0).all() and (pg.competitive_minutes <= pg.minutes).all()
