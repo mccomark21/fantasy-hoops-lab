@@ -352,6 +352,14 @@ A player with no flag has no word after the count. The legend in "Columns and ma
 
 The planner links each Yahoo name to an ESPN name after `name_key()`. `data/name_overrides.csv` gives the ESPN name for a player whose names do not match. If two ESPN players have the same name, the player with games for the NBA team of the free agent wins. If neither has games for that team, the free agent gets no role line. A player who is not in the log has no role line. Without `data/rotation_log.csv`, the page has no role lines.
 
+To find the names that do not match, run `python -m fantasyhoops.adds.name_check` (#181). It prints 3 lists:
+
+1. Mismatches: a projected player with no ESPN match, and an ESPN name with no projection row and the same last name. Put the ESPN name in the `espn_name` cell of his row in `data/name_overrides.csv`.
+2. Projected players with no ESPN name: no game in the log, and not on `data/rosters.csv`.
+3. ESPN names with no projection row, for example Tony Bradley. These are not mismatches.
+
+The ESPN names come from `data/rotation_log.csv` and `data/rosters.csv`. A projected player has more than 0 games in the newest projections file. The test `tests/adds/test_name_check.py` fails when the local data has a mismatch, and skips when a file is missing.
+
 ### Waiver players
 
 A separate table lists the waiver players that the run read, best value first. It has the look of the Roster table (#143): the team band, then the player cell with the name, the W tag and a small line with the team and the positions. Then it shows the clear day, the first day that he can play for you and Val (the same market value as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
