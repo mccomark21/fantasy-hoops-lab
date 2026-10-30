@@ -16,7 +16,7 @@ publish.shell() puts modal() in place of __PLAYER_MODAL__ in a page template. Th
 
 import html
 
-from fantasyhoops.core import chart
+from fantasyhoops.core import card_cats, chart
 from fantasyhoops.core.common import name_key
 
 DATA_FILE = "players.json"  # the shared player file, in the /players/ folder of the site
@@ -54,7 +54,9 @@ def modal(chart_css=True):
     chart_css: True adds chart.CHART_STYLE, for a page whose template has no __CHART_CSS__.
     """
     css = (chart.CHART_STYLE + "\n" if chart_css else "") + CARD_STYLE + "\n" + MODAL_STYLE
-    return f"{MODAL_HTML}\n<style>\n{css}\n</style>\n<script>\n{card_script()}\n{MODAL_SCRIPT}\n</script>"
+    css += "\n" + card_cats.STYLE  # the quadrant fills (#187 to #189)
+    fills = card_cats.script()
+    return f"{MODAL_HTML}\n<style>\n{css}\n</style>\n<script>\n{card_script()}\n{fills}\n{MODAL_SCRIPT}\n</script>"
 
 
 def card_script():

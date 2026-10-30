@@ -16,7 +16,7 @@ import json
 from fantasyhoops.adds.value import REPLACEMENT_RANK
 from fantasyhoops.core import common, profile
 from fantasyhoops.core import publish as site
-from fantasyhoops.players import data
+from fantasyhoops.players import categories, data
 
 CURRENT = "players"  # the page in the site menu and its folder on the site (publish.TOOLS)
 
@@ -100,7 +100,10 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
     projected, projections = data.read_projected(cfg)
     played, first, last = data.read_played()
     values = {} if replacement is None else data.market_values(rostered, options, replacement, scale, cfg)
-    records = data.player_records(data.owned_players(rostered.projected, own_team), projected, played, values)
+    extras = {key: {"cats": cats} for key, cats in categories.read_categories(cfg).items()}
+    records = data.player_records(
+        data.owned_players(rostered.projected, own_team), projected, played, values, extras=extras
+    )
     content = player_file(records, made, projections, first, last, replacement)
     out = folder()
     out.mkdir(parents=True, exist_ok=True)

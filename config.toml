@@ -251,3 +251,11 @@ value_band = [0.95, 1.10]       # the value of the player you get: give - 5% to 
 kept = 8                        # the playoff starts count this number of players of a team (the kept set)
 per_player = 3                  # suggestions for each player you give, at most
 rows = 20                       # suggestions in all, at most
+
+# The Categories quadrant of the player card (src/fantasyhoops/players/categories.py, #188). The "now" line of a
+# category is (n x season + k x projection) / (n + k), with n games played and k from shrink.
+# The shrink values are agent defaults that the owner did not approve yet (2026-10-29).
+[players.categories]
+shrink = { pts = 4, reb = 4, ast = 4, threes = 10, blk = 10, stl = 15 }  # shrinkage strength in games
+gap_points = 25                 # a projection-gap signal needs this gap between "now" and "proj", in percentile points
+gap_games = 5                   # and this number of games or more
