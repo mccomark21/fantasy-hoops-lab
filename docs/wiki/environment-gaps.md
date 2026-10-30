@@ -48,3 +48,9 @@ Dated observations of what the repo did not have. Each item names the date of th
 
 - On 2026-10-29, an Impeccable documenter agent made the branch `docs/chart-rules` in the main checkout and left it checked out. The chief of staff then committed a wiki change on that branch by mistake, and its push of `main` sent nothing. The chief of staff moved the commit to `main` as `mccomark21/fantasy-hoops-lab@4e735f7` and rebased the branch to drop it.
 - Lesson: an agent that makes a branch works in its own worktree, not in the main checkout. Before a wiki commit, check that the current branch is `main`.
+
+## Gaps seen on 2026-10-30
+
+- Parallel agents shared the session scratchpad. One agent overwrote another agent's `pr.md` after the PR opened. Briefs must give each agent unique scratch file names, for example `<ticket>-pr.md`.
+- The venv of the main checkout had no pytest. The #185 builder ran the tests with the system Python 3.11 and `PYTHONPATH=src`.
+- No test checked that the font URLs in committed HTML files exist. `docs/design/players-sample.html` loaded a missing font (see [Run of 2026-10-30](run-2026-10-30.md)).
