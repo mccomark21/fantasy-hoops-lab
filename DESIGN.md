@@ -196,6 +196,66 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 - **Band:** a 6px ink band through the days that the new player holds the spot, with an 18px ink square (14px below 600px) on each day that he starts.
 - **Past day:** a 10% `lab-mute` ground and `lab-mute` text. A past add is a dashed `lamp-off` box with `lab-mute` text. A past band and its square are `lab-mute`.
 
+### Charts
+- **Source:** the After look of `.impeccable/review/players-sample.html`, approved by the owner on 2026-10-29. The Before look of that file is not a rule. The reasons are in `docs/wiki/player-profile-design-2026-10-29.md`.
+- **Canvas:** an SVG with a 580px viewBox that scales to the width of its panel. All chart text has tabular figures.
+- **Panel head:** the h2 of a chart panel has a 1px `mark` rule below it, not 2px.
+- **No gridlines:** a value axis shows tick labels only, with about 4 ticks. The category chart shows the labels 0, "50th pct" and 100.
+- **No frames:** no axis lines, no plot border and no box around the plot.
+- **No legends:** a direct label names each mark. The labels at the right end of a trend chart start 8px right of the plot. The chart moves them down to keep 13px between labels. A trend chart shows the date under each game, with no opponent line.
+
+#### Marks
+| Mark | Look | Tokens |
+| --- | --- | --- |
+| Hero line (the 3-game average) | 2px stroke, round joins and caps | `mark` |
+| Hero dot (the last hero point, the "now" dot of a category) | trend: 4px radius. Category: 5px radius. A 2px `lab-stock` ring around it. | `mark`, `lab-stock` |
+| Secondary line (for example, competitive minutes) | 1.25px stroke, 80% opacity, round joins | `lamp-off` |
+| Game dot | 3.5px radius, 75% opacity, no stroke | `lamp-off` |
+| Dud | a down triangle, 9px wide and 7.5px high, no stroke | `lab-red` |
+| Spike | an up triangle, 9px wide and 7.5px high, no stroke | `lab-ink` |
+| Normal-range band | a filled rect across the plot | `zebra` |
+| Reference line (replacement, top-30 level, 50th pct) | 1px stroke | `lab-rule` |
+| Category track (0 to 100) | 1px stroke | `lab-rule` |
+| Category connector (projection to now) | 1.25px stroke, 70% opacity | `lamp-off` |
+| Projection dot | 4px radius, 1.25px stroke, hollow | `lamp-off` on `lab-stock` |
+
+- **Normal-range band:** the label "normal range <low>–<high>" sits inside the band, 4px from the left edge and 5px above the bottom edge.
+- **Reference lines:** each line has its name as an end label at the right.
+- **Duds and spikes:** the first dud and the first spike of a chart get the label "dud" or "spike", 7px to the right. Other duds and spikes get no label.
+- **Range exit:** when the hero point leaves the band, a label "▲ out" or "▼ out" shows above or below it.
+- **Dot-on-track category bars:** one row per category, 38px high. The row shows the category name and its punt weight (×0.70) at the left, then the track. The connector joins the projection dot and the hero dot. The per-game value and "proj <value>" show at the right. Only the first row labels its dots "now" and "proj". The "proj" label moves below the track when the two dots are 34px apart or less.
+- **Tooltips:** pending owner review (2026-10-29).
+
+#### Chart text
+| Text | Size | Weight | Token |
+| --- | --- | --- | --- |
+| Tick labels, end labels of secondary marks and reference lines, band label, dates, weights, "proj" | 10.5px | 400 | `lab-mute` |
+| The hero end label ("3-game 31.4"), category names, per-game values, "now" | 11px | 700 | `lab-ink` |
+| Range exit label | 11px | 800 | `lab-red` |
+| State line under the chart | 11px | 400, lead words 800 in `lab-ink` | `lab-mute` |
+
+#### Thin data
+- **Under 3 games:** no band. The state line reads "**Too few games for a range:** <n> of 3."
+- **3 or 4 games:** the band shows. No range exit and no signal shows. The state line reads "**Too few games for a flag:** <n> of 5." and gives the width of the range.
+- **One hero point:** the chart draws the hero dot only, with no line.
+- **Under 5 games on the value chart:** the state line adds "One game moves a rate <n> points."
+- **No data for a chart:** a dashed 1.5px `lamp-off` box with centered `lab-mute` text that says what is missing, for example "No projection: no category ranks."
+
+#### Named Rules
+**The One Hero Rule.** Each chart has one hero mark in `mark`: the line or dot that answers the question of the chart. All other data marks use `lamp-off` at a lower weight, or `lab-red` and `lab-ink` for the dud and spike triangles.
+
+**The Ink Only Rule.** A chart has no gridlines, no frames and no legends. Each mark in it is data, a reference line, or a direct label.
+
+**The Thin Data Rule.** A chart that has too few games for a mark does not draw that mark. The state line says how many games the chart has and how many the mark needs.
+
+#### Token gaps
+These values have no token in `core/tokens.py` yet. Each chart writes them as literal values today.
+- Stroke widths: 2px, 1.25px, 1px (and 1.5px for the empty box).
+- Marker sizes: dot radius 3.5px, 4px and 5px. Triangle 9px by 7.5px. The 2px `lab-stock` ring.
+- Opacities of the muted marks: 80%, 75% and 70%.
+- The 10.5px text size. It is outside the type ramp (Label is 11–12px).
+- Contrast: a game dot is `lamp-off` at 75% opacity. On white, that is about 2.8:1, below the 3:1 for a needed graphic. Measure it in both themes before the shared chart style uses it.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -209,3 +269,4 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 - **Don't** use `mark` as a text color for a mark that is not selected, sorted or a link.
 - **Don't** use side-stripe borders. A notice gets a full border.
 - **Don't** add gradients, shadows or rounded pills.
+- **Don't** draw gridlines, frames or legends in a chart.

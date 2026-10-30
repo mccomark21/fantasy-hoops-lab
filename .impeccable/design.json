@@ -78,6 +78,14 @@
       "description": "The bar at the top of each published page.",
       "html": "<nav class=\"ds-nav\"><a href=\"#\">Home</a> · <a href=\"#\" aria-current=\"page\">Adds</a> · <a href=\"#\">Draft</a></nav>",
       "css": ".ds-nav { padding: 8px 16px; font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; background: #fafaf9; color: #78716c; border-bottom: 1px solid #e7e5e4; } .ds-nav a { color: #7c3aed; font-weight: 600; text-decoration: none; } .ds-nav a[aria-current] { color: #1c1917; } .ds-nav a:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }"
+    },
+    {
+      "name": "Trend Chart",
+      "kind": "custom",
+      "refersTo": "chart",
+      "description": "A game trend in the approved chart look: one hero line in mark, muted game dots, the normal-range band, a reference line and direct end labels. No gridlines, frames or legends.",
+      "html": "<svg class=\"ds-chart\" viewBox=\"0 0 300 120\" role=\"img\" aria-label=\"Minutes per game, 3-game average\"><rect class=\"ds-band\" x=\"20\" y=\"30\" width=\"200\" height=\"40\"/><text class=\"ds-axis\" x=\"24\" y=\"65\">normal range 24.9–37.1</text><line class=\"ds-ref\" x1=\"20\" x2=\"220\" y1=\"90\" y2=\"90\"/><circle class=\"ds-dot\" cx=\"40\" cy=\"60\" r=\"3.5\"/><circle class=\"ds-dot\" cx=\"80\" cy=\"38\" r=\"3.5\"/><circle class=\"ds-dot\" cx=\"120\" cy=\"50\" r=\"3.5\"/><path class=\"ds-dud\" d=\"M155.5,97L164.5,97L160,104.5Z\"/><text class=\"ds-axis\" x=\"167\" y=\"104\">dud</text><circle class=\"ds-dot\" cx=\"200\" cy=\"44\" r=\"3.5\"/><path class=\"ds-hero\" d=\"M120,48L160,62L200,52\"/><circle class=\"ds-hero-dot\" cx=\"200\" cy=\"52\" r=\"4\"/><text class=\"ds-label\" x=\"228\" y=\"56\">3-game 31.4</text><text class=\"ds-axis\" x=\"228\" y=\"94\">replacement</text></svg>",
+      "css": ".ds-chart { width: 100%; max-width: 420px; font-family: var(--lab-face); font-variant-numeric: tabular-nums; background: var(--lab-stock); } .ds-band { fill: var(--zebra); } .ds-ref { stroke: var(--lab-rule); stroke-width: 1; } .ds-dot { fill: var(--lamp-off); opacity: .75; } .ds-dud { fill: var(--lab-red); } .ds-hero { stroke: var(--mark); stroke-width: 2; fill: none; stroke-linejoin: round; stroke-linecap: round; } .ds-hero-dot { fill: var(--mark); stroke: var(--lab-stock); stroke-width: 2; } .ds-axis { fill: var(--lab-mute); font-size: 10.5px; } .ds-label { fill: var(--lab-ink); font-size: 11px; font-weight: 700; }"
     }
   ],
   "narrative": {
@@ -94,7 +102,10 @@
       { "name": "The One Accent Rule", "body": "Violet is the only interaction color. If an element is selected, sorted or chosen, it is violet. No other element is violet.", "section": "colors" },
       { "name": "The Copied Token Problem", "body": "Each page generator holds its own copy of the tokens. The site nav uses literal hex values. The keeper report uses a different palette. The redesign must move all pages to one shared token source.", "section": "colors" },
       { "name": "The Tabular Rule", "body": "All numbers use font-variant-numeric: tabular-nums, so that the digits align in each column.", "section": "typography" },
-      { "name": "The Flat Page Rule", "body": "Surfaces have no shadow. Only a floating menu has a shadow.", "section": "elevation" }
+      { "name": "The Flat Page Rule", "body": "Surfaces have no shadow. Only a floating menu has a shadow.", "section": "elevation" },
+      { "name": "The One Hero Rule", "body": "Each chart has one hero mark in `mark`: the line or dot that answers the question of the chart. All other data marks use `lamp-off` at a lower weight, or `lab-red` and `lab-ink` for the dud and spike triangles.", "section": "components" },
+      { "name": "The Ink Only Rule", "body": "A chart has no gridlines, no frames and no legends. Each mark in it is data, a reference line, or a direct label.", "section": "components" },
+      { "name": "The Thin Data Rule", "body": "A chart that has too few games for a mark does not draw that mark. The state line says how many games the chart has and how many the mark needs.", "section": "components" }
     ],
     "dos": [
       "Do use tabular figures for all numbers.",
@@ -106,7 +117,8 @@
       "Don't add a new page with its own palette. The keeper report shows the problem.",
       "Don't put white text on Signal Good. White on #16a34a is approximately 3.3:1, which fails WCAG AA for 11px text. The \"new\" flag does this now.",
       "Don't add new side-stripe borders. The skip notice on the adds plan uses a 3px left border in Signal Warn. The redesign must replace it.",
-      "Don't show good and bad with color only. PRODUCT.md requires a sign, a label or a shape too."
+      "Don't show good and bad with color only. PRODUCT.md requires a sign, a label or a shape too.",
+      "Don't draw gridlines, frames or legends in a chart."
     ]
   }
 }
