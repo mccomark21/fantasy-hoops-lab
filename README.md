@@ -135,7 +135,7 @@ Run each tool from the repo root with `python -m`:
 
 ```sh
 python -m fantasyhoops.fetch.espn       # Download the NBA rosters and the schedule (public NBA stats)
-python -m fantasyhoops.fetch.rotation   # Add the finished games to the rotation log
+python -m fantasyhoops.fetch.rotation   # Add the finished games to the rotation log and the box scores
 python -m fantasyhoops.adds.plan        # Plan the adds, write the pages and publish the site
 python -m fantasyhoops.trade            # Suggest trades and publish the Trades page
 python -m fantasyhoops.draft.board      # Write the local draft board

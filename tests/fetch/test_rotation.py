@@ -240,22 +240,23 @@ def test_update_reads_each_game_once(tmp_path, monkeypatch):
         asked.append(url)
         return board if "scoreboard" in url else tiny_game()
 
-    log, scores = tmp_path / "rotation_log.csv", tmp_path / "rotation_scores.csv"
-    first = update(get, today="2026-10-21", log=log, scores=scores)
+    log, scores, box = tmp_path / "rotation_log.csv", tmp_path / "rotation_scores.csv", tmp_path / "box_scores.csv"
+    first = update(get, today="2026-10-21", log=log, scores=scores, box_scores=box)
     assert first["games"] == ["900"] and first["gaps"] == []
     assert sum("summary" in u for u in asked) == 1
     rows = read_csv(log)
     assert {r["game_id"] for r in rows} == {"900"} and len(read_csv(scores)) == 2
+    assert len(read_csv(box)) == 12  # one row for each player on the box score, b6 too
 
     asked.clear()
-    second = update(get, today="2026-10-21", log=log, scores=scores)
+    second = update(get, today="2026-10-21", log=log, scores=scores, box_scores=box)
     assert second["games"] == [] and not any("summary" in u for u in asked)
-    assert len(read_csv(log)) == len(rows)
+    assert len(read_csv(log)) == len(rows) and len(read_csv(box)) == 12
 
 
 def test_rebuild_writes_each_logged_game_again(tmp_path, monkeypatch):
     monkeypatch.setattr(rotation, "load_config", lambda: {"rotation": {"minute_tolerance": 1.5}})
-    log, scores = tmp_path / "rotation_log.csv", tmp_path / "rotation_scores.csv"
+    log, scores, box = tmp_path / "rotation_log.csv", tmp_path / "rotation_scores.csv", tmp_path / "box_scores.csv"
     stints, score_rows, _ = game_stints(tiny_game())
     old = [{**s, "out_sec": s["out_sec"] - 1} for s in stints]  # the rows of an older version of the code
     rotation._append(log, rotation.LOG_COLUMNS, old)
@@ -266,12 +267,104 @@ def test_rebuild_writes_each_logged_game_again(tmp_path, monkeypatch):
         asked.append(url)
         return tiny_game()
 
-    result = rotation.rebuild(get, log=log, scores=scores)
+    result = rotation.rebuild(get, log=log, scores=scores, box_scores=box)
     assert result["games"] == ["900"] and asked == [f"{rotation.API}/summary?event=900"]
     assert len(read_csv(log)) == len(stints) and len(read_csv(scores)) == len(score_rows)
     assert [float(r["out_sec"]) for r in read_csv(log)] == [s["out_sec"] for s in stints]
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["rotation_log.csv", "rotation_scores.csv"]
+    assert len(read_csv(box)) == 12
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["box_scores.csv", "rotation_log.csv", "rotation_scores.csv"]
 
 
 def test_logged_games_of_a_missing_log_is_empty(tmp_path):
     assert rotation.logged_games(tmp_path / "rotation_log.csv") == (set(), None)
+
+
+def test_usage_rate_matches_a_hand_computed_example():
+    # Player: 20 FGA, 10 FTA, 4 TOV in 36 minutes. Team: 80 FGA, 25 FTA, 12 TOV in 240 minutes.
+    # (20 + 0.44 * 10 + 4) * (240 / 5) / (36 * (80 + 0.44 * 25 + 12)) = 28.4 * 48 / 3708 = 0.3676
+    assert rotation.usage_rate(20, 10, 4, 36, 80, 25, 12, 240) == 36.8
+    assert rotation.usage_rate(1, 0, 0, 0, 80, 25, 12, 240) is None
+
+
+def test_box_rows_hold_the_stats_and_the_usage_of_each_player():
+    """BOS @ DET, 2026-10-20 (ESPN event 401909088). Paul George: 38 points, 12-21 FG, 7-12 3PT, 7-8 FT, 3 TO."""
+    _, _, box = game_stints(load("summary_401909088.json"))
+    rows = {r["player"]: r for r in rotation.box_rows(box)}
+    assert len(rows) == 28
+    george = rows["Paul George"]
+    assert {k: george[k] for k in ("game_id", "date", "team", "opponent", "starter", "played")} == {
+        "game_id": "401909088",
+        "date": "2026-10-20",
+        "team": "BOS",
+        "opponent": "DET",
+        "starter": True,
+        "played": True,
+    }
+    stats = ("min", "pts", "fgm", "fga", "fg3m", "fg3a", "ftm", "fta", "tov", "plus_minus")
+    assert [george[k] for k in stats] == [31, 38, 12, 21, 7, 12, 7, 8, 3, 9]
+    bos = [r for r in rows.values() if r["team"] == "BOS" and r["played"]]
+    team = {c: sum(r[c] for r in bos) for c in ("fga", "fta", "tov", "min")}
+    assert (team["fga"], team["fta"], team["tov"]) == (88, 21, 14)  # the team totals of the ESPN box score
+    assert george["usg"] == rotation.usage_rate(21, 8, 3, 31, 88, 21, 14, team["min"])
+    conley = rows["Mike Conley"]
+    assert (conley["played"], conley["min"], conley["usg"]) == (False, "", None)
+
+
+def test_saved_box_minutes_match_the_rotation_log(tmp_path, monkeypatch):
+    """Each player game in the saved box scores has the minutes of his stints in the rotation log."""
+    monkeypatch.setattr(
+        rotation, "load_config", lambda: {"league": {"espn_season": 2027}, "rotation": {"minute_tolerance": 1.5}}
+    )
+    board = {
+        "leagues": [{"calendar": ["2026-10-20T07:00Z"]}],
+        "events": [{"id": "401909088", "season": {"year": 2027, "type": 2}, "status": {"type": {"completed": True}}}],
+    }
+
+    def get(url):
+        return board if "scoreboard" in url else load("summary_401909088.json")
+
+    log, scores, box = tmp_path / "rotation_log.csv", tmp_path / "rotation_scores.csv", tmp_path / "box_scores.csv"
+    update(get, today="2026-10-20", log=log, scores=scores, box_scores=box)
+    minutes = {}
+    for s in read_csv(log):
+        key = (s["game_id"], s["player_id"])
+        minutes[key] = minutes.get(key, 0) + (float(s["out_sec"]) - float(s["in_sec"])) / 60
+    played = {(r["game_id"], r["player_id"]): int(r["min"]) for r in read_csv(box) if r["played"] == "True"}
+    assert set(played) == set(minutes)
+    assert all(abs(played[k] - minutes[k]) <= 1 for k in played)
+
+
+def test_backfill_adds_the_box_scores_of_logged_games_once(tmp_path):
+    log, box = tmp_path / "rotation_log.csv", tmp_path / "box_scores.csv"
+    stints, _, _ = game_stints(tiny_game())
+    rotation._append(log, rotation.LOG_COLUMNS, stints)
+    asked = []
+
+    def get(url):
+        asked.append(url)
+        return tiny_game()
+
+    assert rotation.backfill(get, log=log, box_scores=box) == {"games": ["900"]}
+    assert len(read_csv(box)) == 12 and asked == [f"{rotation.API}/summary?event=900"]
+    assert rotation.backfill(get, log=log, box_scores=box) == {"games": []}
+    assert len(read_csv(box)) == 12 and len(asked) == 1
+
+
+def test_update_does_not_write_a_box_score_twice(tmp_path, monkeypatch):
+    """A run that stopped before the log wrote the box score. The next run reads the game again."""
+    monkeypatch.setattr(
+        rotation, "load_config", lambda: {"league": {"espn_season": 2027}, "rotation": {"minute_tolerance": 1.5}}
+    )
+    board = {
+        "leagues": [{"calendar": ["2026-10-21T07:00Z"]}],
+        "events": [{"id": "900", "season": {"year": 2027, "type": 2}, "status": {"type": {"completed": True}}}],
+    }
+    box = tmp_path / "box_scores.csv"
+    rotation._append(box, rotation.BOX_COLUMNS, rotation.box_rows(game_stints(tiny_game())[2]))
+
+    def get(url):
+        return board if "scoreboard" in url else tiny_game()
+
+    update(get, today="2026-10-21", log=tmp_path / "log.csv", scores=tmp_path / "scores.csv", box_scores=box)
+    assert len(read_csv(box)) == 12
+    assert len(read_csv(tmp_path / "log.csv")) > 0

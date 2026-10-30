@@ -1,4 +1,4 @@
-"""Download the play-by-play of each finished NBA game from ESPN and add the stints to the rotation log.
+"""Download the play-by-play and the box score of each finished NBA game from ESPN, and add them to the data files.
 
 A stint is the time from a check-in to the next check-out of one player in one period.
 The log starts at the first regular-season game of espn_season in config.toml.
@@ -7,7 +7,9 @@ The run prints each player whose stints are more than minute_tolerance ([rotatio
 Output (the run adds rows):
   data/rotation_log.csv     - one row for each stint, with the score at the check-in and at the check-out
   data/rotation_scores.csv  - one row for each play that changes the score
-With --rebuild, the run reads each game in the log again and writes both files again.
+  data/box_scores.csv       - one row for each player on the box score of each game, with his usage rate (usg)
+With --rebuild, the run reads each game in the log again and writes the 3 files again.
+With --box-scores, the run reads the logged games that are not in data/box_scores.csv and adds their box scores.
 The reader for other tools is fantasyhoops.core.rotation.
 """
 
@@ -19,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 from fantasyhoops.core.common import load_config
 from fantasyhoops.core.console import use_utf8_output
-from fantasyhoops.core.rotation import LOG, SCORES, period_bounds
+from fantasyhoops.core.rotation import BOX_SCORES, LOG, SCORES, period_bounds
 from fantasyhoops.fetch.espn import API, get_json, local_date
 
 LOG_COLUMNS = [
@@ -39,6 +41,38 @@ LOG_COLUMNS = [
     "out_opp_score",
 ]
 SCORE_COLUMNS = ["game_id", "sec", "home_score", "away_score"]
+# The box-score columns of ESPN -> the columns of data/box_scores.csv. ESPN gives "12-21" for made and attempted.
+BOX_STATS = {
+    "MIN": ["min"],
+    "PTS": ["pts"],
+    "FG": ["fgm", "fga"],
+    "3PT": ["fg3m", "fg3a"],
+    "FT": ["ftm", "fta"],
+    "OREB": ["oreb"],
+    "DREB": ["dreb"],
+    "REB": ["reb"],
+    "AST": ["ast"],
+    "STL": ["stl"],
+    "BLK": ["blk"],
+    "TO": ["tov"],
+    "PF": ["pf"],
+    "+/-": ["plus_minus"],
+}
+STAT_COLUMNS = [col for cols in BOX_STATS.values() for col in cols]
+BOX_COLUMNS = [
+    "game_id",
+    "date",
+    "team",
+    "opponent",
+    "player_id",
+    "player",
+    "starter",
+    "played",
+    *STAT_COLUMNS,
+    "usg",
+]
+# The weight of a free-throw attempt in a possession, as in the usage rate of Basketball-Reference.
+FTA_WEIGHT = 0.44
 LINEUP = 5
 # A player on the bench can get these. They do not show that he is on the floor.
 BENCH_PLAYS = ("Technical", "Ejection")
@@ -86,24 +120,89 @@ def _period_lineup(plays, last_lineup, team_of):
     return lineup
 
 
+def _stat_values(names, values):
+    """{column of data/box_scores.csv: int} from one ESPN box-score row. A stat that ESPN does not give is missing."""
+    out = {}
+    for name, text in zip(names, values):
+        cols = BOX_STATS.get(name)
+        if cols is None:
+            continue
+        parts = text.split("-") if len(cols) == 2 else [text.lstrip("+")]
+        for col, part in zip(cols, parts):
+            try:
+                out[col] = int(part)
+            except ValueError:
+                out[col] = 0
+    return out
+
+
 def box_score(summary):
-    """The box score of one game. Gives {player_id: {"player", "team", "team_id", "minutes", "starter"}}."""
-    abbr = {c["team"]["id"]: c["team"]["abbreviation"] for c in summary["header"]["competitions"][0]["competitors"]}
+    """The box score of one game. Gives {player_id: {"player", "team", "team_id", "minutes", "starter", ...}}.
+
+    Each player also has "game_id", "date", "opponent", "played" and "stats" ({column in STAT_COLUMNS: int}).
+    A player who did not play has "played" False and no stats.
+    """
+    comp = summary["header"]["competitions"][0]
+    abbr = {c["team"]["id"]: c["team"]["abbreviation"] for c in comp["competitors"]}
+    other = {a: b for a in abbr for b in abbr if a != b}
+    game_id, date = summary["header"]["id"], local_date(comp["date"])
     box = {}
     for team in summary["boxscore"]["players"]:
         team_id = team["team"]["id"]
         stats = team["statistics"][0]
-        col = stats["names"].index("MIN")
         for row in stats["athletes"]:
-            text = row["stats"][col] if row.get("stats") else ""
+            values = _stat_values(stats["names"], row.get("stats") or [])
             box[row["athlete"]["id"]] = {
+                "game_id": game_id,
+                "date": date,
                 "player": row["athlete"]["displayName"],
                 "team": abbr[team_id],
                 "team_id": team_id,
-                "minutes": int(text) if text.isdigit() else 0,
+                "opponent": abbr[other[team_id]],
+                "minutes": values.get("min", 0),
                 "starter": row["starter"],
+                "played": bool(values),
+                "stats": values,
             }
     return box
+
+
+def usage_rate(fga, fta, tov, minutes, team_fga, team_fta, team_tov, team_minutes):
+    """USG%: the percent of the team plays that a player uses while he is on the floor. None for 0 minutes.
+
+    USG% = 100 * (FGA + 0.44 * FTA + TOV) * (team MIN / 5) / (MIN * (team FGA + 0.44 * team FTA + team TOV))
+    """
+    team_plays = team_fga + FTA_WEIGHT * team_fta + team_tov
+    if minutes <= 0 or team_plays <= 0:
+        return None
+    return round(100 * (fga + FTA_WEIGHT * fta + tov) * (team_minutes / 5) / (minutes * team_plays), 1)
+
+
+def box_rows(box):
+    """The rows of data/box_scores.csv for one game, from box_score(). The team totals are the sums of its players."""
+    totals = defaultdict(lambda: defaultdict(int))
+    for b in box.values():
+        for col, value in b["stats"].items():
+            totals[b["team_id"]][col] += value
+    rows = []
+    for pid, b in box.items():
+        stats, team = b["stats"], totals[b["team_id"]]
+        usg = None
+        if b["played"]:
+            usg = usage_rate(
+                stats.get("fga", 0),
+                stats.get("fta", 0),
+                stats.get("tov", 0),
+                stats.get("min", 0),
+                team["fga"],
+                team["fta"],
+                team["tov"],
+                team["min"],
+            )
+        game = {k: b[k] for k in ("game_id", "date", "team", "opponent")}
+        player = {"player_id": pid, "player": b["player"], "starter": b["starter"], "played": b["played"]}
+        rows.append({**game, **player, **{c: stats.get(c, "") for c in STAT_COLUMNS}, "usg": usg})
+    return rows
 
 
 def game_stints(summary):
@@ -279,6 +378,14 @@ def logged_games(log=LOG):
     return {r["game_id"] for r in rows}, max((r["date"] for r in rows), default=None)
 
 
+def box_games(box_scores=BOX_SCORES):
+    """The game IDs in data/box_scores.csv."""
+    if not box_scores.exists():
+        return set()
+    with open(box_scores, newline="", encoding="utf-8") as f:
+        return {r["game_id"] for r in csv.DictReader(f)}
+
+
 def _append(path, columns, rows):
     new = not path.exists()
     with open(path, "a", newline="", encoding="utf-8") as f:
@@ -293,12 +400,13 @@ def read_game(get, game_id):
     return game_stints(get(f"{API}/summary?event={game_id}"))
 
 
-def update(get=get_json, today=None, log=LOG, scores=SCORES):
+def update(get=get_json, today=None, log=LOG, scores=SCORES, box_scores=BOX_SCORES):
     """Add the finished games that are not in the log. Gives {"games": new game IDs, "gaps": minute gaps}."""
     cfg = load_config()
     season, tolerance = cfg["league"]["espn_season"], cfg["rotation"]["minute_tolerance"]
     today = today or datetime.now(ZoneInfo("America/New_York")).date().isoformat()
     done, newest = logged_games(log)
+    boxed = box_games(box_scores)
     log.parent.mkdir(exist_ok=True)
 
     calendar = get(f"{API}/scoreboard?dates={today.replace('-', '')}")
@@ -309,8 +417,11 @@ def update(get=get_json, today=None, log=LOG, scores=SCORES):
             if game_id in done:
                 continue
             stints, score_rows, box = read_game(get, game_id)
-            # The scores go first. If the run stops between the two files, the game is not in the log and the next run reads it again.
+            # The log goes last. If the run stops before the log, the game is not in the log and the next run reads it again.
             _append(scores, SCORE_COLUMNS, score_rows)
+            if game_id not in boxed:
+                _append(box_scores, BOX_COLUMNS, box_rows(box))
+                boxed.add(game_id)
             _append(log, LOG_COLUMNS, stints)
             done.add(game_id)
             new.append(game_id)
@@ -319,8 +430,30 @@ def update(get=get_json, today=None, log=LOG, scores=SCORES):
     return {"games": new, "gaps": gaps, "tolerance": tolerance}
 
 
-def rebuild(get=get_json, log=LOG, scores=SCORES):
-    """Read each game in the log again and write both files again. Gives the same dict as update().
+def _log_games(log):
+    """The game IDs in the log, in the order of the log."""
+    if not log.exists():
+        return []
+    with open(log, newline="", encoding="utf-8") as f:
+        return list(dict.fromkeys(r["game_id"] for r in csv.DictReader(f)))
+
+
+def backfill(get=get_json, log=LOG, box_scores=BOX_SCORES):
+    """Add the box score of each game in the log that is not in data/box_scores.csv. Gives {"games": game IDs}.
+
+    A second run reads no game again, so it adds no duplicate rows.
+    """
+    boxed = box_games(box_scores)
+    games = [g for g in _log_games(log) if g not in boxed]
+    for game_id in games:
+        _, _, box = read_game(get, game_id)
+        _append(box_scores, BOX_COLUMNS, box_rows(box))
+        print(f"{game_id}: {len(box)} players")
+    return {"games": games}
+
+
+def rebuild(get=get_json, log=LOG, scores=SCORES, box_scores=BOX_SCORES):
+    """Read each game in the log again and write the 3 files again. Gives the same dict as update().
 
     Run it after a change to game_stints(). The run writes new files next to the old ones,
     and replaces the old files only at the end.
@@ -328,24 +461,30 @@ def rebuild(get=get_json, log=LOG, scores=SCORES):
     tolerance = load_config()["rotation"]["minute_tolerance"]
     if not log.exists():
         return {"games": [], "gaps": [], "tolerance": tolerance}
-    with open(log, newline="", encoding="utf-8") as f:
-        games = list(dict.fromkeys(r["game_id"] for r in csv.DictReader(f)))
+    games = _log_games(log)
     new_log, new_scores = log.with_suffix(".csv.new"), scores.with_suffix(".csv.new")
-    for path in (new_log, new_scores):
+    new_box = box_scores.with_suffix(".csv.new")
+    for path in (new_log, new_scores, new_box):
         path.unlink(missing_ok=True)
     gaps = []
     for game_id in games:
         stints, score_rows, box = read_game(get, game_id)
         _append(new_scores, SCORE_COLUMNS, score_rows)
+        _append(new_box, BOX_COLUMNS, box_rows(box))
         _append(new_log, LOG_COLUMNS, stints)
         gaps += [{"game_id": game_id, **g} for g in minute_gaps(stints, box, tolerance)]
         print(f"{game_id}: {len(stints)} stints")
     new_scores.replace(scores)
+    new_box.replace(box_scores)
     new_log.replace(log)
     return {"games": games, "gaps": gaps, "tolerance": tolerance}
 
 
-def main(again=False):
+def main(again=False, box_only=False):
+    if box_only:
+        result = backfill()
+        print(f"Added the box scores of {len(result['games'])} games to {BOX_SCORES}")
+        return
     result = rebuild() if again else update()
     print(f"{'Wrote' if again else 'Added'} {len(result['games'])} games to {LOG}")
     if result["gaps"]:
@@ -360,4 +499,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--rebuild", action="store_true", help="Read each game in the log again, and write the log again."
     )
-    main(again=parser.parse_args().rebuild)
+    parser.add_argument(
+        "--box-scores",
+        action="store_true",
+        help="Add the box score of each logged game that is not in data/box_scores.csv.",
+    )
+    args = parser.parse_args()
+    main(again=args.rebuild, box_only=args.box_scores)

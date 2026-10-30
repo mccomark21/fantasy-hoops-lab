@@ -15,6 +15,7 @@ from fantasyhoops.core.common import DATA
 
 LOG = DATA / "rotation_log.csv"
 SCORES = DATA / "rotation_scores.csv"
+BOX_SCORES = DATA / "box_scores.csv"  # fetch/rotation.py writes it. This module does not read it.
 QUARTER = 720  # seconds
 OVERTIME = 300
 QUARTERS = 4
