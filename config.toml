@@ -122,6 +122,13 @@ some_share = 0.2
 close_margin = 5           # points
 close_minutes = 5          # minutes at the end of the fourth quarter and of each overtime period
 minute_tolerance = 1.5     # the fetch run prints each player whose stints differ from his box-score minutes by more than this
+# Competitive minutes (#184): a game is decided while the lead is the lead needed or more. Lead needed =
+# z x decided_sigma x the square root of the seconds left. z comes from decided_win_chance (0.99 gives z = 2.33).
+# decided_sigma: the spread of the margin change, in points per square root of a second. A fit to 68 games of
+# 2026-10-20 to 2026-10-28 gave 0.313. The leads needed: about 28 at the start of the third quarter,
+# 20 with 12:00 left and 14 with 6:00 left. The first estimate was 0.251 (22, 16 and 11). The owner can change it.
+decided_sigma = 0.313      # points per square root of a second
+decided_win_chance = 0.99  # the chance that the team with the lead wins
 
 # Matchup weights: the weight of a category from your margin in the current matchup (adds/matchup.py, #59).
 # A margin of close or less keeps weight 1. A margin of large or more (a lead or a deficit) gets min_weight.

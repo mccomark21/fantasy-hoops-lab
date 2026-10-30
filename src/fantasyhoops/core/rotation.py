@@ -6,8 +6,14 @@ Inputs:
   data/rotation_scores.csv  - one row for each play that changes the score
 A close game: at some moment in the last close_minutes of the fourth quarter or of an overtime period,
 the margin is close_margin points or fewer. A close: the player is on the floor at the end of a close game.
+Competitive minutes: the minutes of a player while the game is not decided. A game is decided while the lead is
+the lead needed or more. Lead needed = z x decided_sigma x the square root of the seconds left, with z from
+decided_win_chance. In regulation, the seconds left go to the end of the fourth quarter. In an overtime period,
+they go to the end of that period.
 The settings are in [rotation] in config.toml.
 """
+
+from statistics import NormalDist
 
 import pandas as pd
 
@@ -93,3 +99,71 @@ def team_games(stints, scores, cfg):
     teams = stints[["game_id", "date", "team", "opponent"]].drop_duplicates()
     close = close_games(stints, scores, cfg).rename(columns={"close": "close_game"})
     return teams.merge(close, on="game_id", how="left").reset_index(drop=True)
+
+
+def lead_needed(sec_left, cfg):
+    """The lead in points that makes a game decided with sec_left seconds left."""
+    rot = cfg["rotation"]
+    return NormalDist().inv_cdf(rot["decided_win_chance"]) * rot["decided_sigma"] * sec_left**0.5
+
+
+def decided_spans(game_scores, game_end, cfg):
+    """The (start, end) seconds of each span in which the game is decided. game_scores: the score rows of one game.
+
+    The lead stays the same from one scoring play to the next. The lead needed gets smaller while the clock runs.
+    The game becomes decided when the lead needed falls to the lead. A comeback makes the game not decided again.
+    """
+    rot = cfg["rotation"]
+    scale = NormalDist().inv_cdf(rot["decided_win_chance"]) * rot["decided_sigma"]
+    regulation = QUARTERS * QUARTER
+    rows = game_scores.sort_values("sec", kind="stable")
+    times, leads = [0.0], [0]
+    for sec, home, away in zip(rows.sec, rows.home_score, rows.away_score):
+        if sec == times[-1]:
+            leads[-1] = abs(home - away)  # the last play at the same second gives the score
+        else:
+            times.append(float(sec))
+            leads.append(abs(home - away))
+    # The ends of the time blocks: the end of regulation, then the end of each overtime period.
+    ends = [regulation]
+    while ends[-1] < game_end:
+        ends.append(ends[-1] + OVERTIME)
+    spans = []
+    for i, lead in enumerate(leads):
+        start = times[i]
+        stop = times[i + 1] if i + 1 < len(times) else max(game_end, start)
+        if lead <= 0:
+            continue
+        for block_end in ends:
+            block_start = block_end - (regulation if block_end == regulation else OVERTIME)
+            a, b = max(start, block_start), min(stop, block_end)
+            if a >= b:
+                continue
+            a = max(a, block_end - (lead / scale) ** 2)  # from here on, the lead needed is the lead or less
+            if a < b:
+                if spans and spans[-1][1] == a:
+                    spans[-1] = (spans[-1][0], b)
+                else:
+                    spans.append((a, b))
+    return spans
+
+
+def competitive_minutes(stints, scores, cfg):
+    """One row for each player in each game that he played: game_id, player_id, competitive_minutes.
+
+    The minutes of his stints, minus the minutes in the decided spans of the game. Merge on player_games().
+    """
+    by_game = {game_id: game for game_id, game in scores.groupby("game_id")}
+    empty = scores.iloc[0:0]
+    rows = []
+    for game_id, game in stints.groupby("game_id"):
+        spans = decided_spans(by_game.get(game_id, empty), game.out_sec.max(), cfg)
+        for player_id, own in game.groupby("player_id"):
+            sec = 0.0
+            for in_sec, out_sec in zip(own.in_sec, own.out_sec):
+                sec += out_sec - in_sec
+                sec -= sum(max(0.0, min(out_sec, b) - max(in_sec, a)) for a, b in spans)
+            rows.append({"game_id": game_id, "player_id": player_id, "competitive_minutes": sec / 60})
+    out = pd.DataFrame(rows, columns=["game_id", "player_id", "competitive_minutes"])
+    out["competitive_minutes"] = out.competitive_minutes.round(1)  # the same rounding as the minutes of player_games()
+    return out
