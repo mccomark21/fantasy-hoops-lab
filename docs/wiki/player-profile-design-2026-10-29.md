@@ -45,6 +45,17 @@ On 2026-10-29, the owner rejected the long scrolling page of the first sample. T
 5. Comps (bottom right): the 5 similar players of decision 9.
 6. Methods notes go behind an info icon. Below about 800 px wide, the quadrants stack.
 
+## Owner decisions on chart style (2026-10-29)
+
+1. The owner said the sample charts had "a clunky look". The owner picked two causes: the marks were too heavy, and too many marks had the same weight. A polish pass with a Before / After toggle followed.
+2. The owner asked for the same polish on the adds plan page. An agent made a read-only audit of the adds page first.
+3. The owner approved chart rules in DESIGN.md, written from the approved polish.
+4. The owner said: "lets make sure we're consistent across the site if we make changes". The owner picked shared code plus a test:
+   - one shared chart style in `core/` (CSS classes from `tokens.py` in the page shell of `core/publish.py`, and small SVG helpers),
+   - a test that fails on inline stroke widths, raw hex colors or a chart outside the shared classes,
+   - one issue per page to adopt it (home, roster, free agents, adds, trade, players), each with a Before / After page for the owner.
+5. Order: owner approval of the polish, then the DESIGN.md rules with the shared module and the test, then each page.
+
 ## Follow-ups (not filed)
 
 - Name-match rows for 13 ESPN players, and the 9 rotation-log minute gaps. These come before the page build.
