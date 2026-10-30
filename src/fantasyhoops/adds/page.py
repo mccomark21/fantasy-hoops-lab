@@ -20,6 +20,8 @@ The Free agents page (output/adds/free_agents.html, published at /free-agents/) 
 - Waiver players: the waiver players (W) with their clear days.
 - Role up: the absent starters and the free agents at their positions (adds/role_up.py).
 Each player name of the Free agents and Waiver players tables opens the player modal of core/profile.py (#186).
+The Free agents page has the shared chart style of core/chart.py (#185) in its head (FA_CSS, #193), so the player
+modal does not add its own copy. The page draws no chart, so its look does not change.
 The Free agents table and the Waiver players table have the look of the Roster table of the Roster page (#143): a
 team band, the player cell, and the head and row style of publish.TABLE_STYLE, the one source of the table CSS.
 A small "2" marks each game on the second night of a back-to-back (adds/rest.py), in the free-agent table.
@@ -592,7 +594,7 @@ def render_free_agents(run):
     ]
     if not any(sections):
         sections = [f'<p id="fa-none">{_e(NO_FREE_AGENTS)}</p>']
-    return _page(FA_TITLE, "free-agents", run.cfg, [fa_header(run), *sections])
+    return _page(FA_TITLE, "free-agents", run.cfg, [fa_header(run), *sections], css=FA_CSS)
 
 
 def _page(title, current, cfg, sections, forward="", css=""):
@@ -616,6 +618,11 @@ FORWARD = (
 # 2. The heading rule of the DESIGN.md "Charts" panel head: 1px, not 2px.
 PLAN_CSS = """__CHART_CSS__
 h2 { border-bottom-width: var(--lab-c-sw-rule); }"""
+
+# The CSS of the Free agents page only (#193): the shared chart style in the page head, so that the player modal
+# does not add its own copy (#186). The page draws no chart of the DESIGN.md "Marks" table, so its look does not
+# change. Its h2 is not the head of a chart panel, so the h2 rule stays 2px.
+FA_CSS = "__CHART_CSS__"
 
 
 def page_path():
