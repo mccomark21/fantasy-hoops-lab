@@ -7,9 +7,11 @@ The run prints each player whose stints are more than minute_tolerance ([rotatio
 Output (the run adds rows):
   data/rotation_log.csv     - one row for each stint, with the score at the check-in and at the check-out
   data/rotation_scores.csv  - one row for each play that changes the score
+With --rebuild, the run reads each game in the log again and writes both files again.
 The reader for other tools is fantasyhoops.core.rotation.
 """
 
+import argparse
 import csv
 from collections import defaultdict
 from datetime import datetime
@@ -84,10 +86,30 @@ def _period_lineup(plays, last_lineup, team_of):
     return lineup
 
 
+def box_score(summary):
+    """The box score of one game. Gives {player_id: {"player", "team", "team_id", "minutes", "starter"}}."""
+    abbr = {c["team"]["id"]: c["team"]["abbreviation"] for c in summary["header"]["competitions"][0]["competitors"]}
+    box = {}
+    for team in summary["boxscore"]["players"]:
+        team_id = team["team"]["id"]
+        stats = team["statistics"][0]
+        col = stats["names"].index("MIN")
+        for row in stats["athletes"]:
+            text = row["stats"][col] if row.get("stats") else ""
+            box[row["athlete"]["id"]] = {
+                "player": row["athlete"]["displayName"],
+                "team": abbr[team_id],
+                "team_id": team_id,
+                "minutes": int(text) if text.isdigit() else 0,
+                "starter": row["starter"],
+            }
+    return box
+
+
 def game_stints(summary):
     """The stints, the score changes and the box score of one game.
 
-    Gives (stints, scores, box). box is {player_id: {"player", "team", "minutes"}}.
+    Gives (stints, scores, box). box is the box_score() of the game.
     """
     comp = summary["header"]["competitions"][0]
     game_id = summary["header"]["id"]
@@ -96,23 +118,12 @@ def game_stints(summary):
     abbr = {c["team"]["id"]: c["team"]["abbreviation"] for c in comp["competitors"]}
     other = {a: b for a in side for b in side if a != b}
 
-    box, team_of, starters = {}, {}, defaultdict(list)
-    for team in summary["boxscore"]["players"]:
-        team_id = team["team"]["id"]
-        stats = team["statistics"][0]
-        col = stats["names"].index("MIN")
-        for row in stats["athletes"]:
-            pid = row["athlete"]["id"]
-            text = row["stats"][col] if row.get("stats") else ""
-            box[pid] = {
-                "player": row["athlete"]["displayName"],
-                "team": abbr[team_id],
-                "minutes": int(text) if text.isdigit() else 0,
-                "starter": row["starter"],
-            }
-            team_of[pid] = team_id
-            if row["starter"]:
-                starters[team_id].append(pid)
+    box = box_score(summary)
+    team_of = {pid: b["team_id"] for pid, b in box.items()}
+    starters = defaultdict(list)
+    for pid, b in box.items():
+        if b["starter"]:
+            starters[b["team_id"]].append(pid)
 
     # ESPN gives the plays in time order. Do not sort by sequenceNumber: a play that ESPN adds late
     # (for example a substitution after a review) gets a high sequenceNumber.
@@ -122,6 +133,8 @@ def game_stints(summary):
 
     score = {"home": 0, "away": 0}
     stints, scores, open_ = [], [], {}
+    # The substitutions of the current period: who each player replaced, and who replaced each player.
+    came_in_for, went_out_for = {}, {}
 
     def team_score(pid):
         team = team_of[pid]
@@ -132,35 +145,74 @@ def game_stints(summary):
             open_[pid] = (sec, period, *team_score(pid))
 
     def check_out(pid, sec):
+        """Close the stint of pid. Gives (open stint, row), with no row for a stint of 0 seconds.
+
+        Gives None if pid is not on the floor.
+        """
         if pid not in open_:
-            return
-        in_sec, period, in_team, in_opp = open_.pop(pid)
+            return None
+        start = open_.pop(pid)
+        in_sec, period, in_team, in_opp = start
         if sec <= in_sec:
-            return  # a stint of 0 seconds, for example a substitution at 12:00
+            return start, None  # a stint of 0 seconds, for example a substitution at 12:00
         team = team_of[pid]
         out_team, out_opp = team_score(pid)
-        stints.append(
-            {
-                "game_id": game_id,
-                "date": date,
-                "team": abbr[team],
-                "opponent": abbr[other[team]],
-                "player_id": pid,
-                "player": box[pid]["player"],
-                "starter": box[pid]["starter"],
-                "period": period,
-                "in_sec": in_sec,
-                "out_sec": sec,
-                "in_team_score": in_team,
-                "in_opp_score": in_opp,
-                "out_team_score": out_team,
-                "out_opp_score": out_opp,
-            }
-        )
+        row = {
+            "game_id": game_id,
+            "date": date,
+            "team": abbr[team],
+            "opponent": abbr[other[team]],
+            "player_id": pid,
+            "player": box[pid]["player"],
+            "starter": box[pid]["starter"],
+            "period": period,
+            "in_sec": in_sec,
+            "out_sec": sec,
+            "in_team_score": in_team,
+            "in_opp_score": in_opp,
+            "out_team_score": out_team,
+            "out_opp_score": out_opp,
+        }
+        stints.append(row)
+        return start, row
+
+    def undo_sub(pid, sec):
+        """Move the last substitution that put pid on the floor to sec. Gives False if there is none to move.
+
+        ESPN can log one substitution twice, the first copy at a wrong time.
+        The player that pid replaced stays on the floor until sec.
+        """
+        replaced = came_in_for.get(pid)
+        if replaced is None or replaced in open_ or went_out_for.get(replaced, (None,))[0] != pid:
+            return False
+        _, (start, row) = went_out_for.pop(replaced)
+        if row is not None:
+            stints.remove(row)
+        open_[replaced] = start
+        open_[pid] = (sec, open_[pid][1], *team_score(pid))
+        del came_in_for[pid]
+        return True
+
+    def substitute(pid_in, pid_out, sec, period):
+        """Apply "pid_in enters the game for pid_out". ESPN substitutions can be wrong, so check them first."""
+        if pid_in in open_ and not undo_sub(pid_in, sec):
+            return  # the player is on the floor and no substitution put him there: ESPN logged a wrong player
+        if pid_out not in open_:
+            # ESPN can give the wrong player out. If pid_out left the floor for a player who is still on it,
+            # that player goes out now.
+            replacement = went_out_for.get(pid_out, (None,))[0]
+            pid_out = replacement if replacement in open_ and came_in_for.get(replacement) == pid_out else None
+        closed = check_out(pid_out, sec) if pid_out else None
+        check_in(pid_in, sec, period)
+        if closed and pid_in in open_:
+            went_out_for[pid_out] = (pid_in, closed)
+            came_in_for[pid_in] = pid_out
 
     lineup = {team: starters[team] for team in side}
     for period in range(1, max(by_period) + 1):
         start, length = period_bounds(period)
+        came_in_for.clear()
+        went_out_for.clear()
         if period > 1:
             lineup = _period_lineup(by_period[period], lineup, team_of)
         for pids in lineup.values():
@@ -170,8 +222,7 @@ def game_stints(summary):
             sec = round(start + length - clock_seconds(play["clock"]["displayValue"]), 1)
             ids = _ids(play)
             if _is_sub(play) and len(ids) == 2:
-                check_out(ids[1], sec)
-                check_in(ids[0], sec, period)
+                substitute(ids[0], ids[1], sec, period)
                 continue
             new = {"home": play["homeScore"], "away": play["awayScore"]}
             if new != score:
@@ -237,6 +288,11 @@ def _append(path, columns, rows):
         writer.writerows(rows)
 
 
+def read_game(get, game_id):
+    """Download the ESPN game summary of one game. Gives (stints, scores, box), as game_stints() does."""
+    return game_stints(get(f"{API}/summary?event={game_id}"))
+
+
 def update(get=get_json, today=None, log=LOG, scores=SCORES):
     """Add the finished games that are not in the log. Gives {"games": new game IDs, "gaps": minute gaps}."""
     cfg = load_config()
@@ -252,7 +308,7 @@ def update(get=get_json, today=None, log=LOG, scores=SCORES):
         for game_id in finished_games(get(f"{API}/scoreboard?dates={day}"), season):
             if game_id in done:
                 continue
-            stints, score_rows, box = game_stints(get(f"{API}/summary?event={game_id}"))
+            stints, score_rows, box = read_game(get, game_id)
             # The scores go first. If the run stops between the two files, the game is not in the log and the next run reads it again.
             _append(scores, SCORE_COLUMNS, score_rows)
             _append(log, LOG_COLUMNS, stints)
@@ -263,9 +319,35 @@ def update(get=get_json, today=None, log=LOG, scores=SCORES):
     return {"games": new, "gaps": gaps, "tolerance": tolerance}
 
 
-def main():
-    result = update()
-    print(f"Added {len(result['games'])} games to {LOG}")
+def rebuild(get=get_json, log=LOG, scores=SCORES):
+    """Read each game in the log again and write both files again. Gives the same dict as update().
+
+    Run it after a change to game_stints(). The run writes new files next to the old ones,
+    and replaces the old files only at the end.
+    """
+    tolerance = load_config()["rotation"]["minute_tolerance"]
+    if not log.exists():
+        return {"games": [], "gaps": [], "tolerance": tolerance}
+    with open(log, newline="", encoding="utf-8") as f:
+        games = list(dict.fromkeys(r["game_id"] for r in csv.DictReader(f)))
+    new_log, new_scores = log.with_suffix(".csv.new"), scores.with_suffix(".csv.new")
+    for path in (new_log, new_scores):
+        path.unlink(missing_ok=True)
+    gaps = []
+    for game_id in games:
+        stints, score_rows, box = read_game(get, game_id)
+        _append(new_scores, SCORE_COLUMNS, score_rows)
+        _append(new_log, LOG_COLUMNS, stints)
+        gaps += [{"game_id": game_id, **g} for g in minute_gaps(stints, box, tolerance)]
+        print(f"{game_id}: {len(stints)} stints")
+    new_scores.replace(scores)
+    new_log.replace(log)
+    return {"games": games, "gaps": gaps, "tolerance": tolerance}
+
+
+def main(again=False):
+    result = rebuild() if again else update()
+    print(f"{'Wrote' if again else 'Added'} {len(result['games'])} games to {LOG}")
     if result["gaps"]:
         print(f"{len(result['gaps'])} players are more than {result['tolerance']} minutes from the box score:")
         for g in result["gaps"]:
@@ -274,4 +356,8 @@ def main():
 
 if __name__ == "__main__":
     use_utf8_output()
-    main()
+    parser = argparse.ArgumentParser(description="Add the finished NBA games to the rotation log.")
+    parser.add_argument(
+        "--rebuild", action="store_true", help="Read each game in the log again, and write the log again."
+    )
+    main(again=parser.parse_args().rebuild)
