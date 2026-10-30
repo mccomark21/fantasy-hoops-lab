@@ -43,3 +43,8 @@ Dated observations of what the repo did not have. Each item names the date of th
 ## The share card source is outside git (2026-10-29)
 
 - On 2026-10-29, the README PR #169 changed `card.png`, but its source (`card-a2.html` and `build.py`) lives only in `output/icons/prototype/`, which git ignores. A later change to the card depends on that folder in the main checkout.
+
+## A branch agent in the main checkout (2026-10-29)
+
+- On 2026-10-29, an Impeccable documenter agent made the branch `docs/chart-rules` in the main checkout and left it checked out. The chief of staff then committed a wiki change on that branch by mistake, and its push of `main` sent nothing. The chief of staff moved the commit to `main` as `mccomark21/fantasy-hoops-lab@4e735f7` and rebased the branch to drop it.
+- Lesson: an agent that makes a branch works in its own worktree, not in the main checkout. Before a wiki commit, check that the current branch is `main`.
