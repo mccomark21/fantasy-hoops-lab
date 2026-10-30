@@ -20,6 +20,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Ideas
 
+- [Player pop-up of 2026-10-30](player-profile-design-2026-10-30-popup.md): the owner decision of 2026-10-30 to open the player profile as a modal from Roster, Free agents and Trade, with the `/players/` page kept.
 - [Player profile design of 2026-10-29](player-profile-design-2026-10-29.md): the grilling session of 2026-10-29 for a `/players/` page (trends with bands, competitive minutes, category percentiles, signals), the 10 owner decisions and the sample-first plan.
 - [About home page of 2026-10-29](about-home-page-2026-10-29.md): the owner request for a Home page with an about section and a page guide; Roster moves to /roster/.
 - [README rewrite of 2026-10-29](readme-rewrite-2026-10-29.md): the owner request for a welcoming README with the logo and screenshots, and its order after the joint publish.

@@ -83,3 +83,7 @@ On 2026-10-29, the owner rejected the long scrolling page of the first sample. T
   - Site consistency: #190 (adds page audit), #191 to #194 (Home, Roster, Free agents, Trade).
 - The agent found 5 unmatched names in the current data, not 13 as the sample agent reported. Dort, Holland and Harkless are name mismatches. Tony Bradley and Reece Beekman have no projection row. #181 asks the builder to find and explain the full list.
 - On 2026-10-29, the owner said: "no lets stop after the tickets are finished". No build started. The next session starts the ticket pipeline only when the owner asks. #181, #182 and #185 have no open blocker.
+
+## Superseded in part (2026-10-30)
+
+On 2026-10-30, the owner changed decision 5: player names open a modal, not a page link. See [Player pop-up of 2026-10-30](player-profile-design-2026-10-30-popup.md).
