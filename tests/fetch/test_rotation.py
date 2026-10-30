@@ -153,6 +153,61 @@ def test_real_game_matches_the_box_score():
     assert scores[-1]["home_score"] == 121 and scores[-1]["away_score"] == 113
 
 
+def test_a_substitution_of_a_player_on_the_floor_does_not_take_the_other_player_off():
+    """SA @ DAL, 2026-10-26 (ESPN event 401909858), trimmed to the fields that the script reads.
+
+    ESPN logs "Daniel Gafford enters the game for Naji Marshall" at 9:14 of period 1, with Gafford on the floor
+    since the tip. Marshall plays on until 3:09. The old code took him off at 9:14: 14.8 minutes, box score 21.
+    """
+    stints, _, box = game_stints(load("summary_401909858.json"))
+    marshall = next(pid for pid, b in box.items() if b["player"] == "Naji Marshall")
+    assert round(seconds(stints, marshall) / 60, 1) == 20.9
+    assert [(s["in_sec"], s["out_sec"]) for s in stints if s["player_id"] == marshall][0] == (0, 531)
+    assert minute_gaps(stints, box, 0.5) == []
+
+
+def sub(seq, clock, pid_in, pid_out):
+    return play(seq, 1, clock, "Substitution", [pid_in, pid_out])
+
+
+def period_1(stints, pid):
+    return [(s["in_sec"], s["out_sec"]) for s in stints if s["player_id"] == pid and s["period"] == 1]
+
+
+def game_with_period_1(plays):
+    """tiny_game(), with these plays in period 1 in place of its own."""
+    game = tiny_game()
+    game["plays"] = [play(1, 1, "12:00", "Jumpball", ["a1", "b1"]), *plays, play(4, 1, "0.0", "End Period")]
+    game["plays"] += [play(5, 2, "11:00", "Jump Shot", ["a1"]), play(8, 4, "0.0", "End Game")]
+    return game
+
+
+def test_a_second_copy_of_a_substitution_moves_it_to_the_later_time():
+    """ESPN can log a substitution twice, the first copy at a wrong time (game 401909872, period 3)."""
+    stints, _, _ = game_stints(game_with_period_1([sub(90, "6:00", "a6", "a1"), sub(10, "4:00", "a6", "a1")]))
+    assert period_1(stints, "a1") == [(0, 480)]
+    assert period_1(stints, "a6") == [(480, 720)]
+
+
+def test_a_moved_substitution_keeps_the_player_it_replaced_on_the_floor():
+    """ESPN can give the wrong player out in the first copy (game 401909868, period 3)."""
+    stints, _, _ = game_stints(game_with_period_1([sub(90, "6:00", "a6", "a1"), sub(10, "4:00", "a6", "a2")]))
+    assert period_1(stints, "a1") == [(0, 720)]
+    assert period_1(stints, "a2") == [(0, 480)]
+    assert period_1(stints, "a6") == [(480, 720)]
+
+
+def test_a_substitution_for_a_player_off_the_floor_takes_off_his_replacement():
+    """ESPN can give the wrong player out (game 401909891, period 3). The player who replaced him goes out."""
+    game = game_with_period_1([sub(10, "6:00", "a6", "a1"), sub(11, "4:00", "a7", "a1")])
+    game["boxscore"]["players"][0]["statistics"][0]["athletes"].append(athlete("a7", False, 4))
+    stints, _, _ = game_stints(game)
+    assert period_1(stints, "a6") == [(360, 480)]
+    assert period_1(stints, "a7") == [(480, 720)]
+    on_floor = sum(s["out_sec"] - s["in_sec"] for s in stints if s["team"] == "AAA" and s["period"] == 1)
+    assert on_floor == 5 * 720
+
+
 def test_finished_games_keep_final_regular_season_games():
     board = load("scoreboard_20261020.json")
     board["events"].append({"id": "1", "season": {"year": 2027, "type": 1}, "status": {"type": {"completed": True}}})
@@ -196,6 +251,26 @@ def test_update_reads_each_game_once(tmp_path, monkeypatch):
     second = update(get, today="2026-10-21", log=log, scores=scores)
     assert second["games"] == [] and not any("summary" in u for u in asked)
     assert len(read_csv(log)) == len(rows)
+
+
+def test_rebuild_writes_each_logged_game_again(tmp_path, monkeypatch):
+    monkeypatch.setattr(rotation, "load_config", lambda: {"rotation": {"minute_tolerance": 1.5}})
+    log, scores = tmp_path / "rotation_log.csv", tmp_path / "rotation_scores.csv"
+    stints, score_rows, _ = game_stints(tiny_game())
+    old = [{**s, "out_sec": s["out_sec"] - 1} for s in stints]  # the rows of an older version of the code
+    rotation._append(log, rotation.LOG_COLUMNS, old)
+    rotation._append(scores, rotation.SCORE_COLUMNS, score_rows + score_rows)
+    asked = []
+
+    def get(url):
+        asked.append(url)
+        return tiny_game()
+
+    result = rotation.rebuild(get, log=log, scores=scores)
+    assert result["games"] == ["900"] and asked == [f"{rotation.API}/summary?event=900"]
+    assert len(read_csv(log)) == len(stints) and len(read_csv(scores)) == len(score_rows)
+    assert [float(r["out_sec"]) for r in read_csv(log)] == [s["out_sec"] for s in stints]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["rotation_log.csv", "rotation_scores.csv"]
 
 
 def test_logged_games_of_a_missing_log_is_empty(tmp_path):
