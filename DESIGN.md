@@ -210,7 +210,7 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 | Hero line (the 3-game average) | 2px stroke, round joins and caps | `mark` |
 | Hero dot (the last hero point, the "now" dot of a category) | trend: 4px radius. Category: 5px radius. A 2px `lab-stock` ring around it. | `mark`, `lab-stock` |
 | Secondary line (for example, competitive minutes) | 1.25px stroke, 80% opacity, round joins | `lamp-off` |
-| Game dot | 3.5px radius, 75% opacity, no stroke | `lamp-off` |
+| Game dot | 3.5px radius, 90% opacity, no stroke. 3:1 or more on `lab-stock` and `zebra` in both themes (#185). | `lamp-off` |
 | Dud | a down triangle, 9px wide and 7.5px high, no stroke | `lab-red` |
 | Spike | an up triangle, 9px wide and 7.5px high, no stroke | `lab-ink` |
 | Normal-range band | a filled rect across the plot | `zebra` |
@@ -269,14 +269,12 @@ The chart keeps a box around each mark, line and placed label. A new label goes 
 
 **The Thin Data Rule.** A chart that has too few games for a mark does not draw that mark. The state line says how many games the chart has and how many the mark needs.
 
+#### Shared code
+`core/tokens.py` holds the chart sizes: `CHART_STROKES`, `CHART_MARKERS`, `CHART_OPACITIES`, `CHART_TEXT` and `CHART_WEIGHTS` (#185). `core/chart.py` writes them as CSS custom properties (`--lab-c-*`) in `CHART_STYLE`. A page gets `CHART_STYLE` when its template has `__CHART_CSS__`. The SVG helpers of `core/chart.py` draw each mark of the "Marks" table with its class. `style_problems()` and `label_overlaps()` check a page.
+
 #### Token gaps
 These values have no token in `core/tokens.py` yet. Each chart writes them as literal values today.
-- Stroke widths: 2px, 1.25px, 1px (and 1.5px for the empty box).
 - Tooltip sizes: the 20px key number at width 85%, and the 168–260px card width.
-- Marker sizes: dot radius 3.5px, 4px and 5px. Triangle 9px by 7.5px. The 2px `lab-stock` ring.
-- Opacities of the muted marks: 80%, 75% and 70%.
-- The 10.5px text size. It is outside the type ramp (Label is 11–12px).
-- Contrast: a game dot is `lamp-off` at 75% opacity. On white, that is about 2.8:1, below the 3:1 for a needed graphic. Measure it in both themes before the shared chart style uses it.
 
 ## Do's and Don'ts
 
