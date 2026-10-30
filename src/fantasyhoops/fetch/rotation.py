@@ -417,10 +417,12 @@ def update(get=get_json, today=None, log=LOG, scores=SCORES, box_scores=BOX_SCOR
             if game_id in done:
                 continue
             stints, score_rows, box = read_game(get, game_id)
+            # Make all the rows before the run writes a file. A game that fails then changes no file.
+            game_box = box_rows(box) if game_id not in boxed else []
             # The log goes last. If the run stops before the log, the game is not in the log and the next run reads it again.
             _append(scores, SCORE_COLUMNS, score_rows)
-            if game_id not in boxed:
-                _append(box_scores, BOX_COLUMNS, box_rows(box))
+            if game_box:
+                _append(box_scores, BOX_COLUMNS, game_box)
                 boxed.add(game_id)
             _append(log, LOG_COLUMNS, stints)
             done.add(game_id)
@@ -469,8 +471,9 @@ def rebuild(get=get_json, log=LOG, scores=SCORES, box_scores=BOX_SCORES):
     gaps = []
     for game_id in games:
         stints, score_rows, box = read_game(get, game_id)
+        game_box = box_rows(box)
         _append(new_scores, SCORE_COLUMNS, score_rows)
-        _append(new_box, BOX_COLUMNS, box_rows(box))
+        _append(new_box, BOX_COLUMNS, game_box)
         _append(new_log, LOG_COLUMNS, stints)
         gaps += [{"game_id": game_id, **g} for g in minute_gaps(stints, box, tolerance)]
         print(f"{game_id}: {len(stints)} stints")
@@ -497,7 +500,9 @@ if __name__ == "__main__":
     use_utf8_output()
     parser = argparse.ArgumentParser(description="Add the finished NBA games to the rotation log.")
     parser.add_argument(
-        "--rebuild", action="store_true", help="Read each game in the log again, and write the log again."
+        "--rebuild",
+        action="store_true",
+        help="Read each game in the log again. Write the log, the scores and the box scores again.",
     )
     parser.add_argument(
         "--box-scores",

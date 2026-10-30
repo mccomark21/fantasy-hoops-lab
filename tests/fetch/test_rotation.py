@@ -350,6 +350,36 @@ def test_backfill_adds_the_box_scores_of_logged_games_once(tmp_path):
     assert len(read_csv(box)) == 12 and len(asked) == 1
 
 
+def test_a_game_that_fails_changes_no_file(tmp_path, monkeypatch):
+    """If box_rows() fails, the run writes no score rows. The next run reads the game again with no duplicates."""
+    monkeypatch.setattr(
+        rotation, "load_config", lambda: {"league": {"espn_season": 2027}, "rotation": {"minute_tolerance": 1.5}}
+    )
+    board = {
+        "leagues": [{"calendar": ["2026-10-21T07:00Z"]}],
+        "events": [{"id": "900", "season": {"year": 2027, "type": 2}, "status": {"type": {"completed": True}}}],
+    }
+
+    def get(url):
+        return board if "scoreboard" in url else tiny_game()
+
+    def fail(box):
+        raise ValueError("bad box score")
+
+    monkeypatch.setattr(rotation, "box_rows", fail)
+    try:
+        update(
+            get,
+            today="2026-10-21",
+            log=tmp_path / "log.csv",
+            scores=tmp_path / "scores.csv",
+            box_scores=tmp_path / "box.csv",
+        )
+    except ValueError:
+        pass
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_update_does_not_write_a_box_score_twice(tmp_path, monkeypatch):
     """A run that stopped before the log wrote the box score. The next run reads the game again."""
     monkeypatch.setattr(
