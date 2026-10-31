@@ -85,4 +85,5 @@ A player name on the Roster, Free agents and Trades pages is a link. The Adds pl
 - `players/categories.py`: the percentiles of the Categories quadrant and its signal rule. `core/card_cats.py`: the chart of the quadrant (`LabCard.fill.cats`).
 - `profile.FILLS` lists the quadrant fills. Each fill module has `STYLE`, `script()` (it sets `LabCard.fill.<quadrant>`) and `METHODS` (its line of the methods note). A quadrant adds one entry.
 - `LabCard.bindTip(target, root, spec, markAt)` in `core/profile.py` is the one tooltip function of the fills. It shows the tooltip card of DESIGN.md "Tooltips" on a mouse, a tap or the focus.
+- `LabCard.bindCrosshair(target, cross, x)` in `core/profile.py` is the one crosshair function of the trend charts. It shows the `lab-c-cross` line of a game column with the show and hide rules of `bindTip()`.
 - The card uses the shared chart style of `core/chart.py` (DESIGN.md "Charts").

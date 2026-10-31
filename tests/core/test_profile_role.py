@@ -231,3 +231,12 @@ def test_in_the_modal_the_first_esc_hides_the_tooltip_and_the_second_closes_the_
     pg.keyboard.press("Escape")
     pg.wait_for_function("!document.getElementById('lab-pmodal').open")
     assert chart.style_problems(pg.content()) == []
+
+
+def test_the_crosshair_function_is_shared_and_the_role_script_keeps_no_copy():
+    """LabCard.bindCrosshair() is the one crosshair function of the trend charts (core/profile.py)."""
+    modal = profile.modal()
+    assert modal.count("out.bindCrosshair = ") == 1 and profile.CARD_SCRIPT.count("out.bindCrosshair = ") == 1
+    role_script = profile_role.script()
+    assert "LC.bindCrosshair(" in role_script
+    assert not re.search(r"setAttribute\(\"visibility\"|bindCrosshair\s*=|hideCross|showCross", role_script)

@@ -5,7 +5,8 @@ SCRIPT adds LabCard.fill.role to the card script of core/profile.py. It draws th
 competitive minutes (a secondary line) and the band of the normal range, with "▲ out" or "▼ out" at a range exit.
 The quadrant head gets the usage label and the close-game minutes label. The state line under the chart follows the
 DESIGN.md "Thin data" rules. LabCard.role.draw(role) gives the SVG text and the hit columns with no DOM, so a test can
-run it in Node. LabCard.bindTip() (core/profile.py) shows the tooltip card of each game column.
+run it in Node. LabCard.bindTip() and LabCard.bindCrosshair() (core/profile.py) show the tooltip card and the
+crosshair of each game column.
 The look is the Role quadrant of the approved sample (docs/design/players-sample.html, "After + tooltips"). The marks
 use the classes of core/chart.py. The label placement mirrors chart.end_labels(), chart.point_label() and
 chart.band_label(). STYLE holds the styles of the quadrant labels. METHODS gives the Role line of the methods note.
@@ -202,18 +203,6 @@ SCRIPT = r"""(() => {
       + (role.other_min == null ? "" : ` (${f1(role.other_min)} other)`) : `Close <b>0 of ${g}</b>`;
     return `<span class="lc-lab">${usg}</span><span class="lc-lab">${close}</span>`;
   }
-  // The crosshair of a trend chart (DESIGN.md "Tooltips"): it shows while the tooltip card of its game column shows.
-  // LabCard.bindTip() of core/profile.py shows the card. These handlers follow the same show and hide rules.
-  let crossShown = null;
-  const hideCross = () => { if (crossShown) crossShown.setAttribute("visibility", "hidden"); crossShown = null; };
-  const showCross = (cross, cx) => {
-    hideCross();
-    cross.setAttribute("x1", n(cx)); cross.setAttribute("x2", n(cx)); cross.setAttribute("visibility", "visible");
-    crossShown = cross;
-  };
-  document.addEventListener("pointerdown", e => { if (!(e.target.closest && e.target.closest(".lab-c-hit"))) hideCross(); });
-  window.addEventListener("scroll", hideCross, { passive: true, capture: true });
-  document.addEventListener("keydown", e => { if (e.key === "Escape") hideCross(); });
   LC.role = { draw, heads };
   LC.fill.role = (body, p) => {
     const role = p.role;
@@ -236,12 +225,7 @@ SCRIPT = r"""(() => {
           top: b.top + (c.top - 6) * t, bottom: b.top + (c.bottom + 6) * t };
       };
       LC.bindTip(r, body, c.spec, markAt);
-      const on = () => showCross(cross, c.x);
-      r.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") on(); });
-      r.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") hideCross(); });
-      r.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") on(); });
-      r.addEventListener("focus", on);
-      r.addEventListener("blur", hideCross);
+      LC.bindCrosshair(r, cross, n(c.x));
     });
   };
 })();"""
