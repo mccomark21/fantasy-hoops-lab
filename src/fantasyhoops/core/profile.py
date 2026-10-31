@@ -16,7 +16,7 @@ publish.shell() puts modal() in place of __PLAYER_MODAL__ in a page template. Th
 
 import html
 
-from fantasyhoops.core import card_cats, chart
+from fantasyhoops.core import card_cats, chart, profile_role
 from fantasyhoops.core.common import name_key
 
 DATA_FILE = "players.json"  # the shared player file, in the /players/ folder of the site
@@ -34,7 +34,7 @@ QUADRANT_KEYS = tuple(key for key, _, _ in QUADRANTS)
 # LabCard.fill.<quadrant> and runs after the card script. METHODS is a JS function (player, file) that gives the
 # <li> of the quadrant in the methods note, or "". modal() and card_script() add each fill. A quadrant issue adds one
 # entry.
-FILLS = (card_cats,)
+FILLS = (card_cats, profile_role)
 MAX_SIGNALS = 3  # the header shows this many signal chips at most
 NO_SIGNALS = "No signals: playing to projection"  # the header text when a player has no signal
 
@@ -276,6 +276,28 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
     target.addEventListener("focus", on);
     target.addEventListener("blur", off);
   };
+  // The one crosshair function of the trend charts (DESIGN.md "Tooltips"): a 1px lab-c-cross line through the game
+  // column of target for the full plot height. cross: the <line class="lab-c-cross"> of the chart, with
+  // visibility="hidden". x: the x of the game column in the units of the SVG. The line follows the show and hide rules of
+  // bindTip(): a mouse shows it on enter and hides it on leave, a tap or the focus shows it, and a blur, a tap outside
+  // each lab-c-hit element, a scroll or Escape hides it.
+  let crossShown = null;
+  const hideCross = () => { if (crossShown) crossShown.setAttribute("visibility", "hidden"); crossShown = null; };
+  out.bindCrosshair = (target, cross, x) => {
+    const on = () => {
+      hideCross();
+      cross.setAttribute("x1", String(x)); cross.setAttribute("x2", String(x)); cross.setAttribute("visibility", "visible");
+      crossShown = cross;
+    };
+    target.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") on(); });
+    target.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") hideCross(); });
+    target.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") on(); });
+    target.addEventListener("focus", on);
+    target.addEventListener("blur", hideCross);
+  };
+  document.addEventListener("pointerdown", e => { if (!(e.target.closest && e.target.closest(".lab-c-hit"))) hideCross(); });
+  window.addEventListener("scroll", hideCross, { passive: true, capture: true });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") hideCross(); });
   // A tap outside a chart target, a scroll or Escape hides the card. In the modal, the dialog handles Escape: the
   // first Escape hides the card, the next one closes the modal. The modal also hides the card on its own scroll.
   const hideTips = () => document.querySelectorAll(".lab-tt").forEach(t => { t.hidden = true; });

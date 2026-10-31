@@ -5,7 +5,7 @@ The page is a 4-quadrant report card of one player, not a scrolling page. A sear
 hash keeps the pick (/players/#<slug>). The card comes from core/profile.py, the same card as the player modal of the
 Roster, Free agents and Trades pages. The page reads the shared player file, profile.DATA_FILE, as the modal does.
 The player file holds the players of players/data.py: each rostered player of the league, and each free agent with a
-projected value or 5 or more games.
+projected value or 5 or more games. Each player has the "role" field of players/role.py (#187).
 The planning run (adds/plan.py) calls write_site() and publishes the folder at /players/ with its own folders.
 The trade run does not write the page, because it reads no free-agent list and so has no Val of the Free agents page.
 Its publish keeps /players/.
@@ -16,7 +16,7 @@ import json
 from fantasyhoops.adds.value import REPLACEMENT_RANK
 from fantasyhoops.core import common, profile
 from fantasyhoops.core import publish as site
-from fantasyhoops.players import categories, data
+from fantasyhoops.players import categories, data, role
 
 CURRENT = "players"  # the page in the site menu and its folder on the site (publish.TOOLS)
 
@@ -101,6 +101,8 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
     played, first, last = data.read_played()
     values = {} if replacement is None else data.market_values(rostered, options, replacement, scale, cfg)
     extras = {key: {"cats": cats} for key, cats in categories.read_categories(cfg).items()}
+    for key, found in role.read_roles(cfg, data.read_overrides()).items():
+        extras.setdefault(key, {})["role"] = found
     records = data.player_records(
         data.owned_players(rostered.projected, own_team), projected, played, values, extras=extras
     )

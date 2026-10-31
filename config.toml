@@ -130,6 +130,16 @@ minute_tolerance = 1.5     # the fetch run prints each player whose stints diffe
 decided_sigma = 0.313      # points per square root of a second
 decided_win_chance = 0.99  # the chance that the team with the lead wins
 
+# The Role quadrant of the player card (#187, players/role.py): the minutes trend. Agent defaults of 2026-10-29,
+# approved by the owner on 2026-10-30. The band (normal range) = the season mean ± band_sd x spread / the square
+# root of window. The spread mixes his own spread with the league spread, which counts as prior_games games.
+[players.role]
+window = 3                 # games in the rolling average (the hero line)
+band_min = 3               # the band needs this number of games
+flag_min = 5               # a range exit ("▲ out", "▼ out") and its signal need this number of games
+prior_games = 4            # the weight of the league spread, in games
+band_sd = 2                # the half width of the band, in spreads of a window average
+
 # Matchup weights: the weight of a category from your margin in the current matchup (adds/matchup.py, #59).
 # A margin of close or less keeps weight 1. A margin of large or more (a lead or a deficit) gets min_weight.
 # Between the two, the weight goes down in a straight line. The margins are for a whole week. The planner
