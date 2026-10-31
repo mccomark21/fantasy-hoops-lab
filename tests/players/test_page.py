@@ -2,14 +2,16 @@ import json
 import re
 from datetime import date
 
+import pandas as pd
+
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.core import chart, common, profile
 from fantasyhoops.core import publish as site
-from fantasyhoops.players import categories, data, page
+from fantasyhoops.players import categories, data, page, value
 from fantasyhoops.players.data import Played, Projected
 from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
 
-CFG = {"league": {"teams": 14}}
+CFG = {"league": {"teams": 14, "projections": "data/Projections_*.csv"}}
 # The cats of Ace Bailey on the data of 2026-10-29 (players/categories.py), with the REB gap.
 CATS = {
     "n": 5,
@@ -46,7 +48,14 @@ OWNERS = [
 ]
 
 
-def write(monkeypatch):
+def write(monkeypatch, root=None):
+    """write_site() with fixture owners, projections and games. root: the repo root of the data files (common.ROOT).
+
+    No root: a folder with no data files, so the page has no box scores and no projections file.
+    """
+    root = root or common.OUT / "no-data"
+    monkeypatch.setattr(common, "ROOT", root)
+    monkeypatch.setattr(common, "DATA", root / "data")
     projected = {"ace bailey": Projected("Ace Bailey", "UTAH", ("SF",), 0.52)}
     monkeypatch.setattr(data, "read_projected", lambda cfg: (projected, "Projections_2026-10-12.csv"))
     played = {"fa five": Played("Fa Five", "BOS", 5)}
@@ -70,6 +79,7 @@ def test_write_site_writes_the_page_the_player_file_and_the_font(monkeypatch):
         "log_last": "2026-10-28",
         "replacement_rank": 15,
         "has_val": False,
+        "value": None,
     }
     assert [p["slug"] for p in content["players"]] == ["ace-bailey", "fa-five", "karl-anthony-towns"]
     ace = content["players"][0]
@@ -194,3 +204,158 @@ def test_a_yahoo_block_in_the_owner_read_is_not_caught():
 
     with pytest.raises(YahooBlocked):
         page.read_owners(FailingReader(YahooBlocked("HTTP 999")), True)
+
+
+STAT_KEYS = ["pts", "reb", "ast", "threes", "stl", "blk"]
+QUAD_CFG = {**CFG, "weights": dict.fromkeys(STAT_KEYS, 1.0)}
+QUAD_CFG["players"] = {
+    "value": {"window": 3, "band_min": 3, "flag_min": 5, "prior_games": 4, "band_sd": 2, "consistency_min_games": 5}
+}
+SCALE = pd.DataFrame({c: [1.0, 1.0] for c in STAT_KEYS}, index=["mean", "std"])
+
+
+def quadrant_data(root, names, games):
+    """data/box_scores.csv with games games of each name, and a projections file with each name."""
+    (root / "data").mkdir(parents=True)
+    box = [
+        {
+            "game_id": str(100 + g),
+            "date": f"2026-10-{20 + g}",
+            "team": "NY",
+            "opponent": "SA",
+            "player_id": str(i),
+            "player": name,
+            "starter": True,
+            "played": True,
+            **{"pts": 2 + i + g % 3, "reb": 1, "ast": 1, "fg3m": 1, "stl": 1, "blk": 1},
+        }
+        for i, name in enumerate(names)
+        for g in range(games)
+    ]
+    pd.DataFrame(box).to_csv(root / "data" / "box_scores.csv", index=False)
+    rows = [
+        {"player_id": i, "first_name": n.split()[0], "last_name": n.split()[1], "games": 10, "minutes": 300 - i}
+        for i, n in enumerate(names)
+    ]
+    stats = {"field_goals": 40, "threes": 10, "free_throws": 10, "offensive_rebounds": 10, "defensive_rebounds": 10}
+    stats |= {"assists": 10, "steals": 10, "blocks": 10}
+    projections = pd.DataFrame(rows).assign(**stats)
+    projections.to_csv(root / "data" / "Projections_2026-10-12.csv", index=False)
+
+
+def test_the_quadrants_add_the_value_block_the_comps_and_the_consistency_signal(monkeypatch, tmp_path):
+    names = ["Ace Bailey", "Bo Two", "Cy Three", "Di Four", "Ed Five", "Fa Six", "Gu Seven"]
+    root = tmp_path / "repo"
+    quadrant_data(root, names, 5)
+    monkeypatch.setattr(common, "ROOT", root)
+    monkeypatch.setattr(common, "DATA", root / "data")
+    found = [{"slug": profile.slug(n), "name": n, "val": 1.0 + i, "signals": []} for i, n in enumerate(names)]
+    meta = page.add_quadrants(found, QUAD_CFG, date(2026, 10, 30), SCALE, 0.0)
+    assert meta["spike"] == 1.0 and meta["window"] == 3  # 7 Vals: the top-30 level is the last one
+    ace = found[0]
+    assert ace["value"]["n"] == 5 and ace["value"]["svg"].startswith('<svg class="lab-chart"')
+    assert len(ace["comps"]) == 5 and ace["comps"][0]["slug"] == "bo-two"
+    assert ace["signals"] == [{"kind": "Consistency", "quadrant": "value", "up": True, "text": "Spikes: 5 of 5 games"}]
+
+
+def test_with_no_val_the_value_quadrant_says_so_and_the_comps_stay(monkeypatch, tmp_path):
+    root = tmp_path / "repo"
+    quadrant_data(root, ["Ace Bailey", "Bo Two"], 2)
+    monkeypatch.setattr(common, "ROOT", root)
+    monkeypatch.setattr(common, "DATA", root / "data")
+    found = [{"slug": profile.slug(n), "name": n, "val": None, "signals": []} for n in ("Ace Bailey", "Bo Two")]
+    assert page.add_quadrants(found, QUAD_CFG, date(2026, 10, 30), SCALE, None) is None
+    assert found[0]["value"] == {"n": 0, "empty": value.NO_VAL}
+    assert [c["slug"] for c in found[0]["comps"]] == ["bo-two"]
+    # No scale (a run with no projections file): no value chart and no comps.
+    assert page.add_quadrants(found, QUAD_CFG, date(2026, 10, 30), None, None) is None
+    assert found[0]["value"] == {"n": 0, "empty": value.NO_VAL} and found[0]["comps"] is None
+
+
+def quadrant_records():
+    """The records() players and 2 more, each with a Value block and comps. Ace Bailey has 4 games, the others 5."""
+    from tests.players.test_value import ACE, ACE_SD, games
+
+    extra = [("bo-two", "Bo Two"), ("cy-three", "Cy Three")]
+    out = records() + [
+        {"slug": s, "name": n, "team": "BOS", "pos": "PG", "owner": None, "mine": False, "val": 0.5, "games": 5}
+        for s, n in extra
+    ]
+    for i, r in enumerate(out):
+        n = 4 if i == 0 else 5
+        r["value"] = value.value_block(games(n), ACE[:n], ACE_SD, 4.0)
+        others = [o for o in out if o is not r]
+        r["comps"] = [{"slug": o["slug"], "dist": 0.5 + j, "cat": "REB", "diff": -1.19} for j, o in enumerate(others)]
+    return out
+
+
+def test_the_value_and_comps_quadrants_draw_the_sample_look_with_tooltips(modal_site):
+    pg = modal_site.open("players", page.render(CFG, {"rostered": 1, "free_agents": 4}), records=quadrant_records())
+    pg.locator("#pc-name").wait_for()
+    value_q = pg.locator("#pc-q-value")
+    assert value_q.locator("h3 .lc-lab").inner_text() == "Duds 1 of 4 (25%) · Spikes 1 of 4 (25%)"
+    assert value_q.locator("svg.lab-chart").count() == 1
+    state = value_q.locator(".lab-c-state").inner_text()
+    assert state.startswith("Too few games for a flag: 4 of 5.") and state.endswith("One game moves a rate 25 points.")
+    content = pg.content()
+    assert chart.style_problems(content) == [] and chart.label_overlaps(content) == []
+    # A mouse on a game column shows the card right of the mark, and the crosshair.
+    value_q.locator(".lab-c-hit").nth(1).hover()
+    tip = pg.locator("#lab-tt-page")
+    tip.wait_for(state="visible")
+    assert tip.locator(".lab-tt-ctx").inner_text() == "Oct 21 vs SA · bench"
+    assert tip.locator(".lab-tt-num").inner_text() == "−3.37"
+    assert tip.locator(".lab-tt-lab").inner_text() == "value · dud"
+    assert tip.locator("dt").all_inner_texts() == ["PTS · REB · AST", "3PM · STL · BLK", "3-game avg"]
+    assert value_q.locator(".lab-c-cross").get_attribute("visibility") == "visible"
+    hit, card = value_q.locator(".lab-c-hit").nth(1).bounding_box(), tip.bounding_box()
+    assert card["x"] > hit["x"] + hit["width"] / 2
+    pg.mouse.move(5, 5)
+    tip.wait_for(state="hidden")
+    assert value_q.locator(".lab-c-cross").get_attribute("visibility") == "hidden"
+    # The keyboard: each game column is a tab stop with the card text as its aria-label.
+    first = value_q.locator(".lab-c-hit").first
+    assert first.get_attribute("tabindex") == "0" and first.get_attribute("aria-describedby") == "lab-tt-page"
+    assert first.get_attribute("aria-label").startswith("Oct 20 vs SA · start. value +1.95. PTS · REB · AST 12 · 5 · 3")
+    first.focus()
+    tip.wait_for(state="visible")
+    pg.keyboard.press("Escape")
+    tip.wait_for(state="hidden")
+    # Comps: the rows in file order (nearest first) with Val, owner or FA and the biggest difference.
+    rows = pg.locator("#pc-q-comps tbody tr")
+    assert rows.count() == 4 and pg.locator("#pc-q-comps h3 .lc-lab").inner_text() == "nearest 4 on the blended line"
+    assert rows.first.locator("th small").inner_text() == "C · FA"
+    assert rows.first.locator("td").all_inner_texts()[1:] == ["+2.00", "REB −1.19"]
+    rows.first.hover()
+    tip.wait_for(state="visible")
+    assert tip.locator(".lab-tt-ctx").inner_text() == "Karl-Anthony Towns · FA"
+    assert tip.locator("dd").all_inner_texts() == ["REB −1.19 z", "0.50", "+3.00"]
+    assert tip.locator("dt").all_inner_texts()[2] == "Bailey's Val"
+
+
+def test_the_value_and_comps_quadrants_fit_in_the_modal_and_the_page_at_1440_by_900(modal_site):
+    pg = modal_site.open("players", page.render(CFG, {"rostered": 1, "free_agents": 4}), records=quadrant_records())
+    pg.locator("#pc-name").wait_for()
+    assert pg.evaluate("document.documentElement.scrollHeight") <= 900
+    pg.goto(modal_site.url + "players/#player=ace-bailey")
+    pg.locator("#lab-pm-name").wait_for()
+    fit = pg.evaluate(
+        "(() => { const d = document.getElementById('lab-pmodal'); return [d.scrollHeight, d.clientHeight]; })()"
+    )
+    assert fit[0] <= fit[1], fit
+    pg.locator("#lab-pm-card .lab-c-hit").first.hover()
+    pg.locator("#lab-tt").wait_for(state="visible")
+    pg.keyboard.press("Escape")  # the first Escape hides the card, and the modal stays open
+    pg.locator("#lab-tt").wait_for(state="hidden")
+    assert pg.evaluate("document.getElementById('lab-pmodal').open")
+    assert pg.locator("#lab-pm-card .lab-c-cross").get_attribute("visibility") == "hidden"
+
+
+def test_a_player_with_no_block_gets_the_empty_boxes(modal_site):
+    found = records()
+    found[0]["value"] = {"n": 0, "empty": value.NO_GAMES}
+    found[0]["comps"] = None
+    pg = modal_site.open("players", page.render(CFG, {"rostered": 1, "free_agents": 2}), records=found)
+    pg.locator("#pc-name").wait_for()
+    assert pg.locator("#pc-q-value .lab-c-empty").inner_text() == value.NO_GAMES
+    assert pg.locator("#pc-q-comps .lab-c-empty").inner_text() == "No projection and no recent games: no comps."

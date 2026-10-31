@@ -6,6 +6,8 @@ hash keeps the pick (/players/#<slug>). The card comes from core/profile.py, the
 Roster, Free agents and Trades pages. The page reads the shared player file, profile.DATA_FILE, as the modal does.
 The player file holds the players of players/data.py: each rostered player of the league, and each free agent with a
 projected value or 5 or more games. Each player has the "role" field of players/role.py (#187).
+add_quadrants() adds the data of the Value and Comps quadrants (players/value.py and players/comps.py, #189) to
+each player. They read data/box_scores.csv, the rotation log and the newest projections file.
 The planning run (adds/plan.py) calls write_site() and publishes the folder at /players/ with its own folders.
 The trade run does not write the page, because it reads no free-agent list and so has no Val of the Free agents page.
 Its publish keeps /players/.
@@ -16,7 +18,7 @@ import json
 from fantasyhoops.adds.value import REPLACEMENT_RANK
 from fantasyhoops.core import common, profile
 from fantasyhoops.core import publish as site
-from fantasyhoops.players import categories, data, role
+from fantasyhoops.players import categories, comps, data, role, value
 
 CURRENT = "players"  # the page in the site menu and its folder on the site (publish.TOOLS)
 
@@ -84,6 +86,23 @@ def count_text(meta):
     return f"{total} players: {meta['rostered']} rostered and {meta['free_agents']} free agents."
 
 
+def add_quadrants(records, cfg, made, scale, replacement):
+    """Add the Value block and the comps to each record, then its signals again. Return the Value meta, or None.
+
+    The Value and Comps quadrants are #189 (players/value.py, players/comps.py). The signal rules of the quadrants
+    read these blocks, so data.signals() runs again after them.
+    scale: the category scale of the run (value.projection_scale()). None: no value chart and no comps.
+    """
+    overrides = data.read_overrides()
+    games = value.read_games(cfg, overrides)
+    meta = value.attach(records, games, overrides, scale, replacement, cfg)
+    lines = {} if scale is None else comps.read_lines(cfg, overrides, games, made)
+    comps.attach(records, lines, overrides, scale, cfg)
+    for r in records:
+        r["signals"] = data.signals(r)
+    return meta
+
+
 def render(cfg, meta):
     """The HTML of the Players page. cfg: the config ([league] teams for the menu). meta: the meta of player_file()."""
     return site.shell(PAGE, CURRENT, cfg).replace("__COUNT__", count_text(meta))
@@ -106,7 +125,9 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
     records = data.player_records(
         data.owned_players(rostered.projected, own_team), projected, played, values, extras=extras
     )
+    value_meta = add_quadrants(records, cfg, made, scale, replacement)
     content = player_file(records, made, projections, first, last, replacement)
+    content["meta"]["value"] = value_meta
     out = folder()
     out.mkdir(parents=True, exist_ok=True)
     path = out / profile.DATA_FILE
