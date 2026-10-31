@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free agents</title>
+
+<script>try { const t = localStorage.getItem("lab-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="preload" href="fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face {
+  font-family: Archivo; font-style: normal; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url(fonts/archivo-latin.woff2) format("woff2");
+}
+:root {
+  --lab-stock: #ffffff; --lab-ink: #14171c; --lab-mute: #5b6270; --lab-rule: #e7e9ee; --lab-blue: #1d4f91; --lab-blue-deep: #163f75; --lab-on-blue: #ffffff; --lab-red: #c8102e; --lab-on-red: #ffffff; --lab-green: #17743a; --mark: #1d4f91; --zebra: #eff3f8; --qcol: #e0e8f4; --qcol-z: #dae3f1; --vrule: #d2d9e4; --lamp-off: #6f7889; --lab-scrim: rgb(8 16 32 / .5); color-scheme: light;
+  --lab-face: Archivo, "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+::selection { background: var(--lab-blue); color: var(--lab-on-blue); }
+</style>
+<style>
+/* Card Back: the site menu. A royal-blue side panel on a desktop, a top bar with a drawer on a phone. */
+:root { --lab-menu-w: 216px; --z-menu: 30; --z-scrim: 20; --z-bar: 10; }
+body.lab { margin: 0; background: var(--lab-stock); color: var(--lab-ink); }
+body.lab-locked { overflow: hidden; }
+.lab-menu {
+  position: fixed; inset: 0 auto 0 0; width: var(--lab-menu-w); z-index: var(--z-menu);
+  display: flex; flex-direction: column; background: var(--lab-blue); color: var(--lab-on-blue);
+  font: 600 14px/1.3 var(--lab-face); padding: 22px 0 18px; overflow-y: auto;
+}
+.lab-site {
+  display: block; color: inherit; text-decoration: none; padding: 0 20px 16px; margin: 0 0 10px;
+  font-weight: 900; font-stretch: 68%; text-transform: uppercase; font-size: 24px; line-height: .95;
+  border-bottom: 3px solid var(--lab-on-blue);
+}
+.lab-site small { display: block; margin-top: 7px; font-size: 12px; font-weight: 600; font-stretch: 100%;
+  text-transform: none; line-height: 1.2; }
+.lab-menu ul { list-style: none; margin: 0; padding: 0; }
+.lab-menu li a {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 20px;
+  color: inherit; text-decoration: none; font-size: 15px;
+}
+.lab-menu li a::before { content: ""; width: 9px; height: 9px; flex: none; }
+.lab-menu li a:hover { background: var(--lab-blue-deep); }
+.lab-menu li a[aria-current] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 800; }
+.lab-menu li a[aria-current]::before { background: var(--lab-red); }
+.lab-menu a:focus-visible, .lab-open:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: -4px; }
+.lab-menu li a[aria-current]:focus-visible { outline-color: var(--lab-ink); }
+.lab-bar, .lab-close { display: none; }
+.lab-main { display: block; margin-left: var(--lab-menu-w); min-width: 0; }
+@media (max-width: 899px) {
+  .lab-bar {
+    position: sticky; top: 0; z-index: var(--z-bar); display: flex; align-items: center;
+    justify-content: space-between; min-height: 48px;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    background: var(--lab-blue); color: var(--lab-on-blue); font: 900 18px/1 var(--lab-face);
+  }
+  .lab-name { color: inherit; text-decoration: none; font-stretch: 68%; text-transform: uppercase; font-size: 20px; }
+  .lab-name:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-open {
+    min-height: 40px; padding: 0 14px; border: 2px solid var(--lab-on-blue); border-radius: 0; background: transparent;
+    color: inherit; font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-menu { transform: translateX(-100%); visibility: hidden;
+    transition: transform .28s cubic-bezier(.16, 1, .3, 1), visibility 0s .28s; }
+  .lab-menu.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.16, 1, .3, 1); }
+  .lab-main { margin-left: 0; }
+  .lab-close {
+    display: block; align-self: flex-end; margin: -10px 12px 10px 0; min-height: 40px; padding: 0 14px;
+    border: 2px solid var(--lab-on-blue); background: transparent; color: var(--lab-on-blue);
+    font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-close:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-scrim { position: fixed; inset: 0; z-index: var(--z-scrim); background: var(--lab-scrim); }
+}
+.lab-scrim[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .lab-menu, .lab-menu.open { transition: none; } }
+.lab-theme { margin: auto 0 0; padding: 16px 20px 0; font-size: 12px; font-weight: 600; }
+.lab-theme > span { display: block; margin-bottom: 6px; }
+.lab-seg { display: flex; border: 2px solid var(--lab-on-blue); }
+.lab-seg button {
+  flex: 1; min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--lab-on-blue);
+  font: 700 13px/1 var(--lab-face); cursor: pointer;
+}
+.lab-seg button + button { border-left: 2px solid var(--lab-on-blue); }
+.lab-seg button:hover { background: var(--lab-blue-deep); }
+.lab-seg button[aria-pressed="true"] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 900; }
+.lab-seg button:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; position: relative;
+  z-index: 1; }
+</style>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="icon" href="../icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="theme-color" content="#1d4f91" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16305a" media="(prefers-color-scheme: dark)">
+<meta name="description" content="The free agents and the waiver players of the last planning run, with filters.">
+<meta property="og:site_name" content="Fantasy Hoops Lab">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Free agents">
+<meta property="og:description" content="The free agents and the waiver players of the last planning run, with filters.">
+<meta property="og:url" content="https://mccomark21.github.io/fantasy-hoops-lab/free-agents/">
+<meta property="og:image" content="https://mccomark21.github.io/fantasy-hoops-lab/card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Fantasy Hoops Lab: a white basketball on a royal-blue tile.">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. Below 900px,
+   the phone row of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that
+   a class rule of a page wins over them. */
+table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+:where(.lab-t) thead th, :where(.lab-t) thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right;
+  padding: 0 6px 6px; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+:where(.lab-t) thead .l { text-align: left; }
+:where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px;
+  text-align: right; vertical-align: middle; font-weight: 400; }
+:where(.lab-t) tbody tr:nth-child(even) > * { background: var(--zebra); }
+.lab-t .s1 { border-left: 1px solid var(--vrule); }
+.lab-t td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+.lab-t td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
+.lab-t th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
+.lab-t .pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
+.lab-t .pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
+.lab-t td.n { font-size: 14px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lab-t td.band, :root:not([data-theme="light"]) .m-p .band {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+}
+:root[data-theme="dark"] .lab-t td.band, :root[data-theme="dark"] .m-p .band {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+/* Phone: the sizes of the phone row of the Roster. */
+@media (max-width: 899px) {
+  :where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 52px; }
+  .lab-t td.band { font-size: 17px; }
+  .lab-t td.rk { font-size: 19px; }
+  .lab-t .pl b { font-size: 18px; }
+  .m-p .band { background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
+  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; }
+  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
+}
+/* Short names for the shared tokens of core/tokens.py. The page has no colors of its own. */
+:root { --bg: var(--lab-stock); --fg: var(--lab-ink); --muted: var(--lab-mute); --line: var(--lab-rule);
+        --bad: var(--lab-red); --good: var(--lab-green); --q: var(--mark); }
+* { box-sizing: border-box; }
+body { font: 400 14px/1.4 var(--lab-face); }
+.sheet { max-width: 776px; padding: 24px max(28px, env(safe-area-inset-right)) 32px max(28px, env(safe-area-inset-left)); }
+@media (max-width: 599px) {
+  .sheet { padding: 16px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+}
+h1 { margin: 0 0 10px; padding-bottom: 10px; border-bottom: 3px solid var(--mark); color: var(--mark);
+     font-weight: 900; font-stretch: 66%; font-size: clamp(30px, 4vw, 40px); line-height: .9;
+     text-transform: uppercase; text-wrap: balance; }
+h2 { margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--mark); font-weight: 900;
+     font-stretch: 75%; font-size: 19px; line-height: 1.1; text-transform: uppercase; }
+h3 { font-size: 15px; font-weight: 800; margin: 0 0 4px; }
+p { margin: 0 0 8px; color: var(--muted); }
+a { color: var(--q); text-underline-offset: 3px; }
+.muted { color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 0; margin: 12px 0; }
+.stat { display: flex; flex-direction: column-reverse; padding: 0 16px; border-left: 1px solid var(--line); }
+.stat:first-child { padding-left: 0; border-left: 0; }
+.stat b { font-size: 24px; font-weight: 900; font-stretch: 75%; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+.warning { border: 2px solid var(--bad); padding: 6px 12px; margin: 8px 0; }
+.warning ul { margin: 0; padding-left: 18px; color: var(--bad); font-weight: 700; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--line); }
+thead th { font-size: 11px; font-weight: 800; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+tbody tr:nth-child(even) > * { background: var(--zebra); }
+th.name, td.name { text-align: left; overflow-wrap: anywhere; }
+td.name.sub { padding-left: 20px; color: var(--muted); }
+i { font-style: normal; font-weight: 900; }
+sup.b2b { font-size: 9px; font-weight: 800; color: var(--bad); margin-left: 1px; }
+/* The team plan (issue 140): the C3 heat week grid. The games of the day shade the whole column (--h). */
+.tp-lede { color: var(--fg); font-size: 14px; margin: 0 0 10px; }
+.tp-lede b { font-weight: 800; }
+.tp-note { font-size: 12px; margin: 4px 0 0; }
+.week { table-layout: fixed; font-size: 13px; }
+.week th, .week td { text-align: center; padding: 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.week col.lab { width: 64px; }
+.week thead th { padding: 0 0 2px; border-bottom: 0; font-size: 13px; }
+.week thead th:first-child { text-align: left; vertical-align: bottom; }
+.week thead b { display: block; font-size: 15px; font-weight: 900; font-stretch: 75%; text-transform: uppercase;
+                line-height: 1; }
+.week thead small { display: block; margin-top: 3px; font-size: 11px; color: var(--fg); font-weight: 400; }
+.week thead .short { display: none; }
+.week thead th.past, .week thead th.plain { padding: 4px 0 6px; }
+.week thead a.dayc { display: block; color: var(--fg); text-decoration: none; width: 100%; min-height: 40px;
+                     padding: 4px 0; }
+.week thead a.dayc:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.week thead a.dayc:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px; }
+.week tbody th { text-align: left; padding: 8px 4px 8px 0; font-size: 12px; font-weight: 800; }
+.week td { padding: 8px 2px; }
+.week tbody tr > * { background: transparent; }
+.week td, .week thead th + th { background: color-mix(in srgb, var(--q) var(--h, 0%), var(--bg)); }
+.week tbody tr > td { background: color-mix(in srgb, var(--q) var(--h, 0%), var(--bg)); }
+.week tbody tr > td.past, .week thead th.past { background: color-mix(in srgb, var(--muted) 10%, var(--bg));
+  color: var(--muted); }
+.week thead th.past small { color: var(--muted); }
+.week td + td, .week th + th { border-left: 2px solid var(--bg); }
+/* The chart audit (issue 190): regular games numbers and a 1px lamp-off rule below the Games row. */
+.week tr.games td { font-size: 15px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.week tr.games td, .week tr.games th { border-bottom: var(--lab-c-sw-rule, 1px) solid var(--lamp-off); }
+.week tr.add td { padding: 3px 2px; height: auto; }
+.week tr.add th small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; }
+.addc { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; height: auto;
+        min-height: 58px; min-width: 0; max-width: 100%; padding: 6px 2px; font: inherit; color: var(--fg);
+        background: var(--bg); border: var(--lab-c-sw-rule, 1px) solid var(--lamp-off); }
+a.addc { text-decoration: none; }
+.addc b { font-size: 15px; font-weight: 900; font-stretch: 75%; line-height: 1; overflow-wrap: anywhere; }
+.addc .who { display: flex; flex-direction: column; max-width: 100%; font-size: 12px; font-weight: 700;
+             line-height: 1.2; }
+.addc .who span { overflow-wrap: anywhere; }
+a.addc .who { color: var(--q); text-decoration: underline; text-underline-offset: 2px; }
+/* The states of an add cell. Each state sets the text color and the background together, so each pair has 4.5:1
+   or more in both themes. Hover: the zebra ground. Focus: a 2px ink outline. */
+a.addc:hover { color: var(--fg); background: var(--zebra); }
+a.addc:hover .who { color: var(--q); text-decoration-thickness: 2px; }
+a.addc:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.addc.was { color: var(--muted); background: var(--bg); border: var(--lab-c-sw-rule, 1px) dashed var(--lamp-off); }
+.addc.was b { font-weight: 800; }
+.addc.was .who { font-weight: 600; }
+/* The span of an add: a band through each later day that the new player holds the spot. A filled square on the band
+   marks a start. The band has the width of the hero line of the shared chart style (issue 190). */
+.week td.band { position: relative; padding: 0; vertical-align: middle; }
+.week td.band .bar { position: relative; display: block; height: 58px; }
+.week td.band .bar::before { content: ""; position: absolute; left: -2px; right: 0; top: 50%;
+  height: var(--lab-c-sw-hero, 2px); margin-top: -1px; background: var(--fg); }
+.week td.band .mk { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  background: var(--fg); outline: var(--lab-c-sw-ring, 2px) solid var(--bg); }
+.week td.band.past .bar::before { background: var(--muted); }
+.week td.band.past .mk { background: var(--muted); width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+.heatkey { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.heatkey i { display: inline-block; width: 18px; height: 12px;
+             background: color-mix(in srgb, var(--q) var(--h, 0%), var(--bg)); }
+.spankey { gap: 6px 10px; flex-wrap: wrap; }
+.spankey .kbar { position: relative; display: inline-block; width: 30px; height: 14px; }
+.spankey .kbar::before { content: ""; position: absolute; left: 0; right: 0; top: 6px;
+  height: var(--lab-c-sw-hero, 2px); background: var(--fg); }
+.spankey .kmk { position: absolute; left: 10px; top: 2px; width: 10px; height: 10px; background: var(--fg);
+                outline: var(--lab-c-sw-ring, 2px) solid var(--bg); }
+.from { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--fg);
+        border: 1.5px solid var(--q); padding: 5px 10px; margin: 0 0 8px; }
+.from[hidden] { display: none; }
+.from a { font-weight: 700; }
+#fa, #plan { scroll-margin-top: 8px; }
+@media (max-width: 899px) { #fa, #plan { scroll-margin-top: 56px; } }
+#team-chips button.chip { font-size: 12px; padding: 3px 6px; min-height: 28px; }
+@media (max-width: 599px) {
+  .week col.lab { width: 44px; }
+  .week { font-size: 12px; }
+  .week thead .long { display: none; }
+  .week thead .short { display: inline; }
+  .week thead b { font-size: 14px; }
+  .week tbody th { font-size: 11px; }
+  .week tr.add th small { display: none; }
+  .week tr.games td { font-size: 14px; }
+  .addc { padding: 5px 1px; }
+  .addc b { font-size: 13px; }
+  .addc .who { font-size: 11px; }
+  .week td.band .mk { width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+}
+.legend { font-size: 12px; margin-top: 6px; max-width: 75ch; }
+.skip { font-size: 13px; color: var(--fg); border: 1.5px solid var(--lamp-off); padding: 4px 8px; width: fit-content; }
+.key { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; margin: 0 0 6px; }
+.key > span { white-space: nowrap; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 0 0 8px; }
+.tools label.toggle { margin: 0; }
+.empty { border: 1.5px solid var(--lamp-off); padding: 10px 12px; margin: 0 0 8px; }
+.empty p { color: var(--fg); font-weight: 700; }
+.empty[hidden], .fa[hidden], .empty button[hidden] { display: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.filters .label { width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); }
+button.chip { font: inherit; font-size: 13px; font-weight: 700; padding: 4px 9px; border: 1.5px solid var(--lamp-off);
+              border-radius: 0; background: var(--bg); color: var(--fg); cursor: pointer; line-height: 1.2;
+              min-height: 28px; }
+button.chip small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+button.chip:hover { border-color: var(--fg); }
+/* A day with no open slot: a dashed chip. This rule comes before the pressed rule, so that a pressed chip
+   has stock text on the blue fill. */
+button.chip.none { color: var(--muted); border-style: dashed; }
+button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: var(--bg); }
+button.chip[aria-pressed="true"] small { color: var(--bg); }
+button.chip.act { min-height: 32px; }
+label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; min-height: 28px;
+               cursor: pointer; }
+label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q); }
+.count { font-size: 12px; margin: 0 0 4px; }
+/* The free-agent table and the waiver table (issue 143): publish.TABLE_STYLE gives the look of the Roster table.
+   These rules add the sort buttons, the day columns and the role line. */
+.fa, .wv { font-size: 13px; }
+.fa td.band, .wv td.band { width: 44px; }
+/* A long name wraps inside its cell. The name is an inline block, so that its glyph box stays inside the line. */
+.fa th.pl, .wv th.pl { overflow-wrap: anywhere; }
+.fa .pl b, .wv .pl b { display: inline-block; }
+.lab-t .pl .status, .lab-t .pl .flag { vertical-align: 3px; margin-left: 2px; }
+.fa th.pl small + small { font-size: 11px; }
+.fa th.sort { white-space: nowrap; padding: 0; }
+.fa th.sort button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; width: 100%;
+                     min-height: 28px; padding: 0 6px 6px; display: flex; align-items: flex-end;
+                     justify-content: flex-end; }
+.fa th.sort[aria-sort] { box-shadow: inset 0 -3px var(--q); }
+.fa th.day, .fa td.day { text-align: center; width: 26px; padding: 0 0 6px; }
+.fa td.day { padding: 0; }
+.fa th.day.sel { box-shadow: inset 0 -3px var(--q); }
+.fa td.sel { background: color-mix(in srgb, var(--q) 12%, var(--bg)); }
+.fa th.day small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+.wv td { white-space: nowrap; }
+/* Below 600px, the free-agent table has 4 number columns and up to 7 day columns next to the name. A smaller
+   band and name keep a long name such as VALANCIUNAS on one line. */
+@media (max-width: 599px) {
+  .fa th.day, .fa td.day { width: 18px; }
+  .fa td.n, .wv td { padding: 0 4px; }
+  .fa th.sort button { padding: 0 4px 6px; }
+  .fa td.band { width: 36px; font-size: 15px; }
+  .fa th.pl { padding-left: 6px; }
+  .fa .pl b { font-size: 15px; }
+}
+/* At 320px, the value cells and the sort buttons get less padding, so that a wide fallback font also fits. */
+@media (max-width: 359px) {
+  .fa td.n { padding: 0 2px; font-size: 13px; }
+  .fa th.sort button { padding: 0 2px 6px; }
+  .fa td.band { font-size: 13px; }
+}
+.dot { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; }
+.dot.fit { background: var(--fg); }
+.dot.game { border: 1.5px solid var(--muted); }
+.flag { display: inline-block; padding: 0 3px; border: 1.5px solid var(--fg); color: var(--fg);
+        font-size: 11px; font-weight: 800; line-height: 1.25; }
+.flag.next { background: var(--fg); color: var(--bg); }
+.neg { color: var(--muted); }
+.wide { display: none; }
+@media (min-width: 600px) { .fa .wide { display: table-cell; } }
+.status { display: inline-block; padding: 0 4px; background: var(--bad); color: var(--lab-on-red);
+          font-size: 11px; font-weight: 800; line-height: 1.4; }
+.ranking { font-size: 13px; }
+/* The matchup table (issue 144): one column for each category. The fixed layout keeps the 6 columns inside 320px. */
+.mu { font-size: 13px; table-layout: fixed; }
+.mu .name { width: 62px; }
+.mu th.name { font-size: 12px; font-weight: 800; }
+.mu thead th { text-align: right; }
+/* The chart audit (issue 190): no zebra rows and a 1px lab-rule under the head. */
+.mu thead th, .mu thead td { border-bottom: var(--lab-c-sw-rule) solid var(--line); }
+.mu tbody tr > * { background: transparent; }
+.lead { color: var(--good); }
+.trail { color: var(--bad); }
+.big { font-weight: 800; }
+.w0 { color: var(--fg); font-weight: 800; }
+.w1 { color: var(--fg); }
+.w2 { color: color-mix(in srgb, var(--fg) 50%, var(--muted)); }
+.w3 { color: var(--muted); }
+details.notes { margin: 16px 0 8px; color: var(--muted); }
+details.notes summary { cursor: pointer; color: var(--fg); font-weight: 700; width: fit-content; padding: 4px 0;
+                         min-height: 28px; }
+:focus-visible { outline: 2px solid var(--q); outline-offset: 2px; }
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+details.notes p, details.notes table { margin: 6px 0 0; }
+/* The shared chart style (issue 185): the DESIGN.md "Charts" rules. The sizes come from core/tokens.py. */
+:root { --lab-c-sw-hero: 2px; --lab-c-sw-ring: 2px; --lab-c-sw-second: 1.25px; --lab-c-sw-rule: 1px; --lab-c-sw-empty: 1.5px; --lab-c-op-second: 0.8; --lab-c-op-game: 0.9; --lab-c-op-conn: 0.7; --lab-c-fs-small: 10.5px; --lab-c-fs-label: 11px; --lab-c-fw-small: 400; --lab-c-fw-label: 700; --lab-c-fw-exit: 800; }
+svg.lab-chart { display: block; width: 100%; height: auto; font-variant-numeric: tabular-nums; }
+.lab-c-hero { fill: none; stroke: var(--mark); stroke-width: var(--lab-c-sw-hero); stroke-linejoin: round;
+  stroke-linecap: round; }
+.lab-c-hero-dot { fill: var(--mark); stroke: var(--lab-stock); stroke-width: var(--lab-c-sw-ring); }
+.lab-c-second { fill: none; stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-second); stroke-linejoin: round;
+  opacity: var(--lab-c-op-second); }
+.lab-c-game { fill: var(--lamp-off); opacity: var(--lab-c-op-game); }
+.lab-c-dud { fill: var(--lab-red); }
+.lab-c-spike { fill: var(--lab-ink); }
+.lab-c-band { fill: var(--zebra); }
+.lab-c-ref, .lab-c-track { stroke: var(--lab-rule); stroke-width: var(--lab-c-sw-rule); }
+.lab-c-conn { stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-second); opacity: var(--lab-c-op-conn); }
+.lab-c-proj { fill: var(--lab-stock); stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-second); }
+.lab-c-cross { stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-rule); }
+.lab-c-hit { fill: transparent; }
+.lab-c-hit:focus-visible { outline: none; stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-rule); }
+.lab-c-tick { fill: var(--lab-mute); font-size: var(--lab-c-fs-small); font-weight: var(--lab-c-fw-small); }
+.lab-c-label { fill: var(--lab-ink); font-size: var(--lab-c-fs-label); font-weight: var(--lab-c-fw-label); }
+.lab-c-exit { fill: var(--lab-red); font-size: var(--lab-c-fs-label); font-weight: var(--lab-c-fw-exit); }
+.lab-c-state { color: var(--lab-mute); font-size: var(--lab-c-fs-label); font-weight: var(--lab-c-fw-small); }
+.lab-c-state b { color: var(--lab-ink); font-weight: var(--lab-c-fw-exit); }
+.lab-c-empty { border: var(--lab-c-sw-empty) dashed var(--lamp-off); color: var(--lab-mute); text-align: center; }
+</style>
+</head>
+<body class="lab">
+<header class="lab-bar"><a class="lab-name" href="../">Fantasy Hoops Lab</a>
+<button class="lab-open" type="button" aria-controls="lab-menu" aria-expanded="false">Menu</button></header>
+<nav class="lab-menu" id="lab-menu" aria-label="Site">
+<button class="lab-close" type="button">Close</button>
+<a class="lab-site" href="../">Fantasy<br>Hoops Lab<small>2026–27 · 14-team league</small></a>
+<ul>
+<li><a href="../">Home</a></li>
+<li><a href="../roster/">Roster</a></li>
+<li><a href="../adds/">Adds plan</a></li>
+<li><a href="../free-agents/" aria-current="page">Free agents</a></li>
+<li><a href="../trade/">Trades</a></li>
+<li><a href="../players/">Players</a></li>
+</ul>
+<div class="lab-theme" role="group" aria-labelledby="lab-theme-l">
+<span id="lab-theme-l">Theme</span>
+<div class="lab-seg"><button type="button" data-set="system" aria-pressed="true">Auto</button><button type="button" data-set="light" aria-pressed="false">Light</button><button type="button" data-set="dark" aria-pressed="false">Dark</button></div>
+</div>
+</nav>
+<div class="lab-scrim" hidden></div>
+<main class="lab-main"><div class="sheet">
+<h1>Free agents</h1>
+<p>Week 2: Mon 10/26 to Sun 11/1. Planning window: Sat 10/31 to Sun 11/1. Made on Sat 10/31. The <a href="../adds/#plan">team plan</a> is on the Adds plan page.</p>
+<section id="fa"><h2>Free agents</h2>
+<p class="from" id="fa-from" hidden><span id="fa-from-text"></span> <a href="../adds/#plan">Back to the team plan</a></p>
+<div class="filters" id="day-chips"></div>
+<div class="filters" id="pos-chips"></div>
+<div class="filters" id="team-chips"></div>
+<div class="tools"><label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill an open slot</label>
+<button type="button" class="chip act" id="fa-reset">Reset filters</button></div>
+<p class="key" id="fa-key"><span class="vh">Key: </span><span><span class="dot fit"></span> game, open slot</span><span><span class="dot game"></span> game, no open slot</span><span><sup class="b2b" title="second game of a back-to-back">2</sup> back-to-back</span><span><span class="flag">FA?</span> unusual value</span><span><span class="flag up">UP</span> role up</span><span><span class="flag">MIN+</span> more minutes</span><span><span class="flag next">Tue open</span> slot next week</span></p>
+<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>
+<div class="empty" id="fa-empty" hidden><p id="fa-empty-text"></p><button type="button" class="chip act" id="fa-clear-days">Clear days</button></div>
+<table class="fa lab-t" id="fa-table"></table>
+<details class="notes" id="fa-notes"><summary>Columns and marks</summary>
+<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill <span class="dot game"></span> game, no open slot for him. <sup class="b2b" title="second game of a back-to-back">2</sup> second game of a back-to-back. Val: blended value per game above a replacement free agent (0 = the free agent at rank 15 by value). Match: the same value with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. <span class="flag">FA?</span> a value this high is unusual for a free agent. <span class="flag up">UP</span> role up: a starter at his position is absent.</p>
+<p class="legend">Min: his mean minutes in his last 5 games (L5) and in the last 14 days (14d), with the change. Starts: his starts / his games in the last 14 days. Closes: his closes / the close games of his team in the last 14 days. A close: he is on the floor at the end of a close game. The ESPN play-by-play gives these numbers. <span class="flag">MIN+</span> L5 is 4 minutes or more above 14d. The word after Starts is the starter flag, from his last 10 games (5 or more). The word after Closes is the closer flag, from the last 8 close games of his team (4 or more). A close game that he did not play counts as not closed. New: he started each of his last 3 games (closed each of the last 2 close games), and fewer than half of the earlier games in the window. Regular: 70% or more. Inconsistent: 20% or more. No word: less, or too few games. They do not change Val.</p>
+<p class="legend">Next Monday 11/2: your core players fill all slots. No player gets a mark. <span class="flag next">Tue open</span>: he has a game next Tuesday 11/3, and your core players leave a slot open that he can fill (6 open slots). The mark changes no value and no plan.</p>
+</details>
+<script type="application/json" id="fa-data">{"days": [{"label": "Sat", "md": "10/31", "date": "2026-10-31", "nba": 7, "open": 3}, {"label": "Sun", "md": "11/1", "date": "2026-11-01", "nba": 4, "open": 4}], "players": [{"name": "Anthony Black", "slug": "anthony-black", "team": "ORL", "pos": ["PG", "SG", "SF"], "status": "", "value": 3.38, "recent": 3.06, "match": 1.68, "trend": 920, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 23.9 L5, 23.9 14d (+0.0) · Starts 1/2 · Closes 0/2", "rise": false, "role_up": ["Jalen Suggs"], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Ja'Kobe Walter", "slug": "jakobe-walter", "team": "TOR", "pos": ["PG", "SG"], "status": "", "value": 2.27, "recent": 2.26, "match": 1.08, "trend": 428, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 26.5 L5, 26.5 14d (+0.0) · Starts 2/4 · Closes 0/0", "rise": false, "role_up": ["Kawhi Leonard"], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Isaiah Jackson", "slug": "isaiah-jackson", "team": "LAC", "pos": ["C"], "status": "", "value": 2.0, "recent": 1.78, "match": 1.77, "trend": 766, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.3 L5, 21.3 14d (+0.0) · Starts 4/4 · Closes 0/1", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Derrick Jones Jr.", "slug": "derrick-jones", "team": "LAC", "pos": ["SF", "PF"], "status": "", "value": 1.07, "recent": 1.42, "match": 0.66, "trend": 1542, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 29.6 L5, 29.6 14d (+0.0) · Starts 4/4 · Closes 1/1", "rise": false, "role_up": ["Rui Hachimura"], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Keon Ellis", "slug": "keon-ellis", "team": "BKN", "pos": ["SG", "SF"], "status": "", "value": 0.67, "recent": -0.36, "match": 0.02, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 26.1 L5, 26.1 14d (+0.0) · Starts 3/4 · Closes 2/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Dillon Brooks", "slug": "dillon-brooks", "team": "PHX", "pos": ["SF", "PF"], "status": "", "value": 0.58, "recent": 1.33, "match": 0.1, "trend": 530, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 31.0 L5, 31.0 14d (+0.0) · Starts 3/3 · Closes 0/0", "rise": false, "role_up": [], "band": "--team:#1d1160;--team-ink:#ffffff", "next_open": []}, {"name": "Julian Champagnie", "slug": "julian-champagnie", "team": "SA", "pos": ["SF", "PF"], "status": "", "value": 0.54, "recent": 1.96, "match": 0.22, "trend": 1091, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 27.9 L5, 27.9 14d (+0.0) · Starts 0/5 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Tristan da Silva", "slug": "tristan-da-silva", "team": "ORL", "pos": ["SF", "PF"], "status": "", "value": 0.5, "recent": -0.5, "match": 0.19, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 28.8 L5, 28.8 14d (+0.0) · Starts 0/4 · Closes 1/2", "rise": false, "role_up": ["Paolo Banchero"], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Obi Toppin", "slug": "obi-toppin", "team": "IND", "pos": ["SF", "PF"], "status": "Q", "value": 0.46, "recent": 0.09, "match": 0.42, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 22.9 L5, 22.9 14d (+0.0) · Starts 0/5 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Zaccharie Risacher", "slug": "zaccharie-risacher", "team": "DAL", "pos": ["SF", "PF"], "status": "", "value": 0.41, "recent": 3.22, "match": 0.25, "trend": 1713, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 29.8 L5, 29.8 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 1/1", "rise": false, "role_up": [], "band": "--team:#00538c;--team-ink:#ffffff", "next_open": []}, {"name": "Ziaire Williams", "slug": "ziaire-williams", "team": "LAL", "pos": ["SG", "SF"], "status": "Q", "value": 0.36, "recent": 0.46, "match": 0.05, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 28.4 L5, 28.4 14d (+0.0) · Starts 4/4 · Closes 2/2", "rise": false, "role_up": ["Luka Doncic"], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Matisse Thybulle", "slug": "matisse-thybulle", "team": "LAL", "pos": ["SG", "SF"], "status": "", "value": 0.33, "recent": 0.19, "match": -0.23, "trend": 420, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 24.7 L5, 24.7 14d (+0.0) · Starts 5/5 (Regular) · Closes 2/2", "rise": false, "role_up": ["Luka Doncic", "Ziaire Williams"], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Zach Edey", "slug": "zach-edey", "team": "MEM", "pos": ["C"], "status": "", "value": 0.15, "recent": -0.61, "match": 0.86, "trend": 261, "plays": [true, false], "fits": [false, false], "b2b": [false, false], "role": "Min 20.6 L5, 20.6 14d (+0.0) · Starts 4/4 · Closes 2/3", "rise": false, "role_up": [], "band": "--team:#5d76a9;--team-ink:#ffffff", "next_open": []}, {"name": "Khaman Maluach", "slug": "khaman-maluach", "team": "PHX", "pos": ["C"], "status": "", "value": 0.09, "recent": -0.97, "match": 0.71, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 23.4 L5, 23.4 14d (+0.0) · Starts 3/3 · Closes 0/0", "rise": false, "role_up": [], "band": "--team:#1d1160;--team-ink:#ffffff", "next_open": []}, {"name": "De'Anthony Melton", "slug": "deanthony-melton", "team": "GS", "pos": ["PG", "SG"], "status": "", "value": 0.0, "recent": 0.47, "match": -0.2, "trend": 868, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.4 L5, 21.4 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Scoot Henderson", "slug": "scoot-henderson", "team": "POR", "pos": ["PG"], "status": "", "value": -0.04, "recent": -4.24, "match": -0.27, "trend": 4230, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 18.8 L5, 18.8 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Jarace Walker", "slug": "jarace-walker", "team": "IND", "pos": ["SF", "PF"], "status": "", "value": -0.23, "recent": -0.98, "match": 0.1, "trend": 353, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.0 L5, 21.0 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 2/3", "rise": false, "role_up": [], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Brook Lopez", "slug": "brook-lopez", "team": "LAC", "pos": ["C"], "status": "", "value": -0.37, "recent": -0.15, "match": -0.11, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 22.8 L5, 22.8 14d (+0.0) · Starts 0/4 · Closes 1/1", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Sandro Mamukelashvili", "slug": "sandro-mamukelashvili", "team": "LAL", "pos": ["PF", "C"], "status": "", "value": -0.44, "recent": -0.86, "match": 0.0, "trend": 270, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 24.2 L5, 24.2 14d (+0.0) · Starts 0/5 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Jamal Shead", "slug": "jamal-shead", "team": "TOR", "pos": ["PG"], "status": "", "value": -0.59, "recent": -1.29, "match": -0.74, "trend": 239, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.0 L5, 21.0 14d (+0.0) · Starts 0/4 · Closes 0/0", "rise": false, "role_up": [], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Aaron Wiggins", "slug": "aaron-wiggins", "team": "ATL", "pos": ["SG", "SF"], "status": "", "value": -0.59, "recent": 1.52, "match": -0.5, "trend": 2296, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 24.9 L5, 26.0 14d (-1.2) · Starts 0/6 · Closes 2/3", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Daniss Jenkins", "slug": "daniss-jenkins", "team": "DET", "pos": ["PG", "SG"], "status": "", "value": -0.59, "recent": -0.3, "match": -0.54, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 24.8 L5, 24.8 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 2/2", "rise": false, "role_up": [], "band": "--team:#1d42ba;--team-ink:#ffffff", "next_open": []}, {"name": "Mikel Brown Jr.", "slug": "mikel-brown", "team": "BKN", "pos": ["PG"], "status": "", "value": -0.78, "recent": -0.51, "match": -0.68, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 22.5 L5, 22.5 14d (+0.0) · Starts 0/3 · Closes 2/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Naji Marshall", "slug": "naji-marshall", "team": "DAL", "pos": ["SG", "SF", "PF"], "status": "", "value": -0.79, "recent": 2.12, "match": -0.56, "trend": 216, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 27.6 L5, 27.6 14d (+0.0) · Starts 1/3 · Closes 0/1", "rise": false, "role_up": [], "band": "--team:#00538c;--team-ink:#ffffff", "next_open": []}, {"name": "Jaylin Williams", "slug": "jaylin-williams", "team": "OKC", "pos": ["PF", "C"], "status": "", "value": -0.82, "recent": -4.26, "match": -0.02, "trend": 2147, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 16.6 L5, 16.6 14d (+0.0) · Starts 0/5 · Closes 0/1", "rise": false, "role_up": ["Chet Holmgren", "Jalen Williams"], "band": "--team:#007ac1;--team-ink:#ffffff", "next_open": []}, {"name": "Tre Jones", "slug": "tre-jones", "team": "CHI", "pos": ["PG", "SG"], "status": "", "value": -0.84, "recent": -0.87, "match": -0.71, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 17.7 L5, 17.7 14d (+0.0) · Starts 0/5 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Herbert Jones", "slug": "herbert-jones", "team": "NO", "pos": ["SG", "SF"], "status": "", "value": -0.95, "recent": -3.34, "match": -0.71, "trend": 1554, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 20.4 L5, 20.4 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 2/3", "rise": false, "role_up": [], "band": "--team:#0c2340;--team-ink:#ffffff", "next_open": []}, {"name": "Cameron Johnson", "slug": "cameron-johnson", "team": "DEN", "pos": ["SF", "PF"], "status": "", "value": -0.99, "recent": -1.53, "match": -0.58, "trend": 1142, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 11.3 L5, 11.3 14d (+0.0) · Starts 1/1 · Closes 0/1", "rise": false, "role_up": [], "band": "--team:#0e2240;--team-ink:#ffffff", "next_open": []}, {"name": "Gui Santos", "slug": "gui-santos", "team": "GS", "pos": ["SF", "PF"], "status": "", "value": -1.0, "recent": -2.53, "match": -0.43, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 23.9 L5, 23.9 14d (+0.0) · Starts 3/4 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Neemias Queta", "slug": "neemias-queta", "team": "BOS", "pos": ["C"], "status": "", "value": -1.1, "recent": -1.17, "match": -0.27, "trend": 198, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 19.7 L5, 19.7 14d (+0.0) · Starts 0/4 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Jerami Grant", "slug": "jerami-grant", "team": "MEM", "pos": ["SF", "PF"], "status": "", "value": -1.13, "recent": -1.34, "match": -0.89, "trend": 0, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 24.6 L5, 24.6 14d (+0.0) · Starts 0/5 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#5d76a9;--team-ink:#ffffff", "next_open": []}, {"name": "Nolan Traore", "slug": "nolan-traore", "team": "BKN", "pos": ["PG"], "status": "", "value": -1.13, "recent": -1.91, "match": -1.04, "trend": 285, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 17.4 L5, 17.4 14d (+0.0) · Starts 1/4 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Miles McBride", "slug": "miles-mcbride", "team": "NY", "pos": ["PG", "SG"], "status": "", "value": -1.28, "recent": -2.86, "match": -1.01, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 17.5 L5, 17.5 14d (+0.0) · Starts 0/5 · Closes 0/4", "rise": false, "role_up": [], "band": "--team:#006bb6;--team-ink:#ffffff", "next_open": []}, {"name": "Aaron Nesmith", "slug": "aaron-nesmith", "team": "IND", "pos": ["SG", "SF"], "status": "", "value": -1.63, "recent": -1.65, "match": -1.12, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.8 L5, 21.8 14d (+0.0) · Starts 3/4 · Closes 0/3", "rise": false, "role_up": ["Tyrese Haliburton"], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Kobe Sanders", "slug": "kobe-sanders", "team": "LAC", "pos": ["SG", "SF"], "status": "", "value": -1.67, "recent": -1.09, "match": -1.11, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.3 L5, 21.3 14d (+0.0) · Starts 1/4 · Closes 0/1", "rise": false, "role_up": ["Rui Hachimura"], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Jakob Poeltl", "slug": "jakob-poeltl", "team": "TOR", "pos": ["C"], "status": "", "value": -1.71, "recent": -3.04, "match": -0.46, "trend": 516, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 19.5 L5, 19.5 14d (+0.0) · Starts 4/4 · Closes 0/0", "rise": false, "role_up": [], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Kelly Oubre Jr.", "slug": "kelly-oubre", "team": "IND", "pos": ["SF", "PF"], "status": "", "value": -1.71, "recent": -2.57, "match": -1.02, "trend": 226, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 24.0 L5, 24.0 14d (+0.0) · Starts 3/5 (Inconsistent) · Closes 2/3", "rise": false, "role_up": [], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Isaiah Collier", "slug": "isaiah-collier", "team": "UTAH", "pos": ["PG", "SG"], "status": "", "value": -1.78, "recent": -1.68, "match": -1.13, "trend": 820, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 18.3 L5, 18.3 14d (+0.0) · Starts 0/5 · Closes 0/4", "rise": false, "role_up": [], "band": "--team:#002b5c;--team-ink:#ffffff", "next_open": []}, {"name": "Bilal Coulibaly", "slug": "bilal-coulibaly", "team": "WSH", "pos": ["SG", "SF"], "status": "", "value": -1.84, "recent": -0.65, "match": -1.12, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 27.2 L5, 27.2 14d (+0.0) · Starts 4/5 (Regular) · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#002b5c;--team-ink:#ffffff", "next_open": []}, {"name": "Keldon Johnson", "slug": "keldon-johnson", "team": "SA", "pos": ["SF", "PF"], "status": "", "value": -1.93, "recent": -2.12, "match": -0.89, "trend": 444, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 22.1 L5, 22.1 14d (+0.0) · Starts 0/5 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Noah Clowney", "slug": "noah-clowney", "team": "BKN", "pos": ["PF", "C"], "status": "", "value": -1.95, "recent": -2.2, "match": -1.01, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.4 L5, 21.4 14d (+0.0) · Starts 0/4 · Closes 1/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Robert Williams III", "slug": "robert-williams", "team": "POR", "pos": ["C"], "status": "", "value": -1.96, "recent": -0.14, "match": -0.64, "trend": 420, "plays": [true, false], "fits": [false, false], "b2b": [false, false], "role": "Min 18.1 L5, 18.1 14d (+0.0) · Starts 0/3 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Quenton Jackson", "slug": "quenton-jackson", "team": "IND", "pos": ["PG", "SG"], "status": "", "value": -1.97, "recent": -1.7, "match": -1.34, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 18.3 L5, 18.3 14d (+0.0) · Starts 0/5 · Closes 2/3", "rise": false, "role_up": ["Tyrese Haliburton"], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Anfernee Simons", "slug": "anfernee-simons", "team": "PHI", "pos": ["PG", "SG"], "status": "", "value": -2.06, "recent": -1.51, "match": -1.45, "trend": 7552, "plays": [true, false], "fits": [true, false], "b2b": [true, false], "role": "Min 23.2 L5, 23.2 14d (+0.0) · Starts 0/5 · Closes 0/4", "rise": false, "role_up": [], "band": "--team:#006bb6;--team-ink:#ffffff", "next_open": []}, {"name": "Marcus Smart", "slug": "marcus-smart", "team": "HOU", "pos": ["PG", "SG"], "status": "", "value": -2.09, "recent": -1.32, "match": -1.43, "trend": 577, "plays": [true, false], "fits": [true, false], "b2b": [true, false], "role": "Min 23.9 L5, 23.9 14d (+0.0) · Starts 0/2 · Closes 1/2", "rise": false, "role_up": [], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Cam Spencer", "slug": "cam-spencer", "team": "MEM", "pos": ["PG", "SG"], "status": "", "value": -2.16, "recent": -0.71, "match": -1.46, "trend": 3203, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 18.0 L5, 18.0 14d (+0.0) · Starts 0/5 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#5d76a9;--team-ink:#ffffff", "next_open": []}, {"name": "Klay Thompson", "slug": "klay-thompson", "team": "MIA", "pos": ["SG", "SF"], "status": "", "value": -2.18, "recent": -2.15, "match": -1.59, "trend": 283, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 19.9 L5, 19.9 14d (+0.0) · Starts 5/5 (Regular) · Closes 2/2", "rise": false, "role_up": [], "band": "--team:#98002e;--team-ink:#ffffff", "next_open": []}, {"name": "Luguentz Dort", "slug": "luguentz-dort", "team": "ATL", "pos": ["SG", "SF"], "status": "", "value": -2.2, "recent": -2.2, "match": -1.33, "trend": 0, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 21.8 L5, 22.9 14d (-1.1) · Starts 0/6 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Oso Ighodaro", "slug": "oso-ighodaro", "team": "PHX", "pos": ["C"], "status": "", "value": -2.23, "recent": -2.93, "match": -0.91, "trend": null, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 14.6 L5, 14.6 14d (+0.0) · Starts 0/1 · Closes 0/0", "rise": false, "role_up": [], "band": "--team:#1d1160;--team-ink:#ffffff", "next_open": []}, {"name": "Tre Johnson", "slug": "tre-johnson", "team": "WSH", "pos": ["PG", "SG", "SF"], "status": "", "value": -2.25, "recent": -3.09, "match": -1.5, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 22.6 L5, 22.6 14d (+0.0) · Starts 0/4 · Closes 2/3", "rise": false, "role_up": [], "band": "--team:#002b5c;--team-ink:#ffffff", "next_open": []}, {"name": "Mike Conley", "slug": "mike-conley", "team": "BOS", "pos": ["PG"], "status": "", "value": -2.26, "recent": -2.26, "match": -1.97, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 7.1 L5, 7.1 14d (+0.0) · Starts 0/1 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Moritz Wagner", "slug": "moritz-wagner", "team": "BKN", "pos": ["C"], "status": "", "value": -2.36, "recent": -1.48, "match": -1.24, "trend": 1684, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 16.7 L5, 16.7 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Graham Ike", "slug": "graham-ike", "team": "GS", "pos": ["PF"], "status": "", "value": -2.36, "recent": -2.15, "match": -1.34, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 13.4 L5, 13.4 14d (+0.0) · Starts 2/4 · Closes 0/2", "rise": false, "role_up": ["Gui Santos"], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Scotty Pippen Jr.", "slug": "scotty-pippen", "team": "MEM", "pos": ["PG"], "status": "Q", "value": -2.36, "recent": -2.8, "match": -1.62, "trend": 0, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 16.0 L5, 16.0 14d (+0.0) · Starts 0/5 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#5d76a9;--team-ink:#ffffff", "next_open": []}, {"name": "Joan Beringer", "slug": "joan-beringer", "team": "MIN", "pos": ["PF", "C"], "status": "", "value": -2.41, "recent": -2.78, "match": -0.91, "trend": 1122, "plays": [true, false], "fits": [true, false], "b2b": [true, false], "role": "Min 15.6 L5, 15.6 14d (+0.0) · Starts 0/5 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#0c2340;--team-ink:#ffffff", "next_open": []}, {"name": "Georges Niang", "slug": "georges-niang", "team": "GS", "pos": ["PF"], "status": "", "value": -2.53, "recent": -2.56, "match": -1.51, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 19.5 L5, 19.5 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 0/2", "rise": false, "role_up": ["Gui Santos"], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Sam Hauser", "slug": "sam-hauser", "team": "BOS", "pos": ["SF", "PF"], "status": "", "value": -2.55, "recent": -2.72, "match": -1.51, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.5 L5, 21.5 14d (+0.0) · Starts 0/4 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Allen Graves", "slug": "allen-graves", "team": "TOR", "pos": ["PF"], "status": "", "value": -2.57, "recent": -2.77, "match": -1.4, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 16.0 L5, 16.0 14d (+0.0) · Starts 0/4 · Closes 0/0", "rise": false, "role_up": ["Kawhi Leonard"], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Collin Sexton", "slug": "collin-sexton", "team": "LAL", "pos": ["PG", "SG"], "status": "", "value": -2.6, "recent": -2.13, "match": -1.8, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 17.8 L5, 17.8 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": ["Luka Doncic", "Ziaire Williams"], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Nikola Vučević", "slug": "nikola-vucevic", "team": "ORL", "pos": ["C"], "status": "", "value": -2.64, "recent": -5.21, "match": -1.28, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 10.0 L5, 10.0 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Kevin Huerter", "slug": "kevin-huerter", "team": "DET", "pos": ["SG", "SF"], "status": "", "value": -2.64, "recent": -2.48, "match": -1.65, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 20.0 L5, 20.0 14d (+0.0) · Starts 0/5 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#1d42ba;--team-ink:#ffffff", "next_open": []}, {"name": "Tim Hardaway Jr.", "slug": "tim-hardaway", "team": "MIA", "pos": ["SG", "SF"], "status": "", "value": -2.66, "recent": -3.66, "match": -1.73, "trend": null, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 19.5 L5, 19.5 14d (+0.0) · Starts 0/5 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#98002e;--team-ink:#ffffff", "next_open": []}, {"name": "Morez Johnson Jr.", "slug": "morez-johnson", "team": "DAL", "pos": ["PF"], "status": "", "value": -2.76, "recent": -4.53, "match": -1.42, "trend": 0, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 15.1 L5, 15.1 14d (+0.0) · Starts 0/5 · Closes 1/1", "rise": false, "role_up": [], "band": "--team:#00538c;--team-ink:#ffffff", "next_open": []}, {"name": "Jordan Walsh", "slug": "jordan-walsh", "team": "BOS", "pos": ["SF", "PF"], "status": "", "value": -2.78, "recent": -2.74, "match": -1.47, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 19.0 L5, 19.0 14d (+0.0) · Starts 4/4 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Al Horford", "slug": "al-horford", "team": "GS", "pos": ["PF", "C"], "status": "", "value": -2.82, "recent": -3.39, "match": -1.49, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 18.3 L5, 18.3 14d (+0.0) · Starts 0/4 · Closes 1/2", "rise": false, "role_up": ["Gui Santos"], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Jamal Cain", "slug": "jamal-cain", "team": "ORL", "pos": ["SG", "SF"], "status": "", "value": -2.82, "recent": -5.36, "match": -1.66, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 14.1 L5, 14.1 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": ["Jalen Suggs"], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Brice Sensabaugh", "slug": "brice-sensabaugh", "team": "UTAH", "pos": ["SG", "SF", "PF"], "status": "", "value": -2.9, "recent": -3.02, "match": -1.75, "trend": 635, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 14.8 L5, 14.8 14d (+0.0) · Starts 0/5 · Closes 2/4 (New)", "rise": false, "role_up": ["Jaren Jackson Jr.", "Lauri Markkanen"], "band": "--team:#002b5c;--team-ink:#ffffff", "next_open": []}, {"name": "Malik Monk", "slug": "malik-monk", "team": "SAC", "pos": ["PG", "SG"], "status": "", "value": -2.96, "recent": -4.98, "match": -1.98, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 11.3 L5, 11.3 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#5a2d81;--team-ink:#ffffff", "next_open": []}, {"name": "Chaney Johnson", "slug": "chaney-johnson", "team": "BKN", "pos": ["PF"], "status": "", "value": -3.0, "recent": -2.8, "match": -1.7, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 20.7 L5, 20.7 14d (+0.0) · Starts 0/4 · Closes 1/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Jake LaRavia", "slug": "jake-laravia", "team": "LAL", "pos": ["SF", "PF"], "status": "", "value": -3.05, "recent": -0.21, "match": -1.87, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.8 L5, 21.8 14d (+0.0) · Starts 1/4 · Closes 0/2", "rise": false, "role_up": ["Ziaire Williams"], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Jase Richardson", "slug": "jase-richardson", "team": "ORL", "pos": ["PG", "SG"], "status": "", "value": -3.11, "recent": -2.91, "match": -1.97, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 15.1 L5, 15.1 14d (+0.0) · Starts 2/4 · Closes 1/2", "rise": false, "role_up": ["Jalen Suggs"], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Gradey Dick", "slug": "gradey-dick", "team": "LAC", "pos": ["SG", "SF"], "status": "", "value": -3.36, "recent": -3.73, "match": -1.98, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 16.9 L5, 16.9 14d (+0.0) · Starts 0/4 · Closes 0/1", "rise": false, "role_up": ["Rui Hachimura"], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Goga Bitadze", "slug": "goga-bitadze", "team": "ORL", "pos": ["C"], "status": "", "value": -3.39, "recent": -4.65, "match": -1.7, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 11.7 L5, 11.7 14d (+0.0) · Starts 0/3 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Jock Landale", "slug": "jock-landale", "team": "ATL", "pos": ["C"], "status": "", "value": -3.49, "recent": -2.12, "match": -1.73, "trend": 252, "plays": [true, false], "fits": [false, false], "b2b": [false, false], "role": "Min 17.4 L5, 17.6 14d (-0.2) · Starts 0/6 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Brandon Williams", "slug": "brandon-williams", "team": "GS", "pos": ["PG"], "status": "", "value": -3.51, "recent": -1.06, "match": -2.24, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 16.0 L5, 16.0 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 1/2", "rise": false, "role_up": [], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Royce O'Neale", "slug": "royce-oneale", "team": "CHA", "pos": ["SF", "PF"], "status": "", "value": -3.62, "recent": -4.04, "match": -2.13, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [true, false], "role": "Min 17.3 L5, 17.3 14d (+0.0) · Starts 0/5 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#00788c;--team-ink:#ffffff", "next_open": []}, {"name": "Baylor Scheierman", "slug": "baylor-scheierman", "team": "BOS", "pos": ["SG", "SF"], "status": "", "value": -3.63, "recent": -3.93, "match": -2.06, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 17.2 L5, 17.2 14d (+0.0) · Starts 0/4 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "GG Jackson", "slug": "gg-jackson", "team": "MEM", "pos": ["SF", "PF", "C"], "status": "", "value": -3.77, "recent": -3.31, "match": -2.11, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 16.1 L5, 16.1 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#5d76a9;--team-ink:#ffffff", "next_open": []}, {"name": "Jevon Carter", "slug": "jevon-carter", "team": "ORL", "pos": ["PG", "SG"], "status": "", "value": -4.05, "recent": -4.05, "match": -2.77, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 17.6 L5, 17.6 14d (+0.0) · Starts 0/2 · Closes 0/2", "rise": false, "role_up": ["Jalen Suggs"], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Deandre Ayton", "slug": "deandre-ayton", "team": "WSH", "pos": ["C"], "status": "", "value": -4.11, "recent": -4.35, "match": -2.04, "trend": null, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 13.9 L5, 13.9 14d (+0.0) · Starts 0/5 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#002b5c;--team-ink:#ffffff", "next_open": []}, {"name": "Jalen Slawson", "slug": "jalen-slawson", "team": "IND", "pos": ["SF", "PF"], "status": "", "value": -4.18, "recent": -4.18, "match": -2.43, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 9.9 L5, 9.9 14d (+0.0) · Starts 0/4 · Closes 2/3", "rise": false, "role_up": [], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Jamison Battle", "slug": "jamison-battle", "team": "TOR", "pos": ["SF", "PF"], "status": "", "value": -4.33, "recent": -4.03, "match": -2.66, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 14.0 L5, 14.0 14d (+0.0) · Starts 0/4 · Closes 0/0", "rise": false, "role_up": ["Kawhi Leonard"], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Gary Payton II", "slug": "gary-payton", "team": "GS", "pos": ["SG", "SF"], "status": "", "value": -4.49, "recent": -5.28, "match": -2.64, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 13.6 L5, 13.6 14d (+0.0) · Starts 0/5 · Closes 2/2", "rise": false, "role_up": ["Gui Santos"], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Bennedict Mathurin", "slug": "bennedict-mathurin", "team": "NO", "pos": ["SG", "SF"], "status": "", "value": -4.52, "recent": -3.44, "match": -2.7, "trend": 0, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 17.2 L5, 17.2 14d (+0.0) · Starts 0/5 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#0c2340;--team-ink:#ffffff", "next_open": []}, {"name": "Kyle Filipowski", "slug": "kyle-filipowski", "team": "UTAH", "pos": ["PF", "C"], "status": "", "value": -4.53, "recent": -6.54, "match": -2.55, "trend": 0, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 8.3 L5, 8.3 14d (+0.0) · Starts 0/3 · Closes 0/4", "rise": false, "role_up": ["Jaren Jackson Jr.", "Lauri Markkanen"], "band": "--team:#002b5c;--team-ink:#ffffff", "next_open": []}, {"name": "Josh Minott", "slug": "josh-minott", "team": "BKN", "pos": ["SF", "PF"], "status": "", "value": -4.54, "recent": -4.54, "match": -2.63, "trend": 0, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 10.2 L5, 10.2 14d (+0.0) · Starts 0/3 · Closes 1/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Larry Nance Jr.", "slug": "larry-nance", "team": "IND", "pos": ["PF", "C"], "status": "", "value": -4.77, "recent": -3.39, "match": -2.79, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 14.1 L5, 14.1 14d (+0.0) · Starts 0/5 · Closes 1/3", "rise": false, "role_up": ["Ivica Zubac"], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Baba Miller", "slug": "baba-miller", "team": "LAC", "pos": ["PF"], "status": "", "value": -4.92, "recent": -4.92, "match": -2.72, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 9.6 L5, 9.6 14d (+0.0) · Starts 0/3 · Closes 0/1", "rise": false, "role_up": ["Rui Hachimura"], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Jarred Vanderbilt", "slug": "jarred-vanderbilt", "team": "LAL", "pos": ["PF", "C"], "status": "", "value": -5.03, "recent": -5.03, "match": -2.39, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 21.0 L5, 21.0 14d (+0.0) · Starts 0/1 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Corey Kispert", "slug": "corey-kispert", "team": "ATL", "pos": ["SG", "SF"], "status": "", "value": -5.23, "recent": -4.79, "match": -3.23, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 5.5 L5, 5.5 14d (+0.0) · Starts 0/2 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "LJ Cryer", "slug": "lj-cryer", "team": "GS", "pos": ["PG"], "status": "", "value": -5.33, "recent": -5.33, "match": -3.41, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 8.6 L5, 8.6 14d (+0.0) · Starts 0/3 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Kevon Looney", "slug": "kevon-looney", "team": "LAL", "pos": ["PF", "C"], "status": "", "value": -5.48, "recent": -6.87, "match": -2.99, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 7.2 L5, 7.2 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Luka Garza", "slug": "luka-garza", "team": "BOS", "pos": ["C"], "status": "", "value": -5.51, "recent": -5.19, "match": -3.2, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 9.3 L5, 9.3 14d (+0.0) · Starts 0/4 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Nique Clifford", "slug": "nique-clifford", "team": "SAC", "pos": ["SG", "SF"], "status": "", "value": -5.6, "recent": -6.69, "match": -3.4, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 6.8 L5, 6.8 14d (+0.0) · Starts 0/4 · Closes 0/2", "rise": false, "role_up": ["Keegan Murray"], "band": "--team:#5a2d81;--team-ink:#ffffff", "next_open": []}, {"name": "Colin Castleton", "slug": "colin-castleton", "team": "ORL", "pos": ["PF", "C"], "status": "", "value": -5.66, "recent": -5.66, "match": -3.29, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 5.3 L5, 5.3 14d (+0.0) · Starts 0/2 · Closes 0/2", "rise": false, "role_up": ["Paolo Banchero"], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Kyle Anderson", "slug": "kyle-anderson", "team": "TOR", "pos": ["SF", "PF"], "status": "", "value": -5.81, "recent": -5.76, "match": -3.46, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 6.8 L5, 6.8 14d (+0.0) · Starts 0/3 · Closes 0/0", "rise": false, "role_up": ["Kawhi Leonard"], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Jalen Pickett", "slug": "jalen-pickett", "team": "LAC", "pos": ["PG", "SG"], "status": "", "value": -5.87, "recent": -5.87, "match": -3.68, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 4.8 L5, 4.8 14d (+0.0) · Starts 0/2 · Closes 0/1", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Trayce Jackson-Davis", "slug": "trayce-jackson-davis", "team": "TOR", "pos": ["C"], "status": "", "value": -5.99, "recent": -5.68, "match": -3.44, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 9.2 L5, 9.2 14d (+0.0) · Starts 0/4 · Closes 0/0", "rise": false, "role_up": [], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Hugo González", "slug": "hugo-gonzalez", "team": "BOS", "pos": ["SG", "SF"], "status": "", "value": -6.04, "recent": -5.73, "match": -3.5, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 10.8 L5, 10.8 14d (+0.0) · Starts 0/4 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Will Richard", "slug": "will-richard", "team": "GS", "pos": ["SG", "SF"], "status": "", "value": -6.1, "recent": -4.31, "match": -3.7, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 16.2 L5, 16.2 14d (+0.0) · Starts 1/5 (Inconsistent) · Closes 0/2", "rise": false, "role_up": ["Gui Santos"], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Kobe Brown", "slug": "kobe-brown", "team": "IND", "pos": ["SF", "PF"], "status": "", "value": -6.19, "recent": -6.19, "match": -3.55, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 0.8 L5, 0.8 14d (+0.0) · Starts 0/2 · Closes 1/3", "rise": false, "role_up": [], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Will Riley", "slug": "will-riley", "team": "WSH", "pos": ["SF", "PF"], "status": "", "value": -6.19, "recent": -7.99, "match": -3.73, "trend": null, "plays": [false, false], "fits": [false, false], "b2b": [false, false], "role": "Min 3.2 L5, 3.2 14d (+0.0) · Starts 0/3 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#002b5c;--team-ink:#ffffff", "next_open": []}, {"name": "Jaden Hardy", "slug": "jaden-hardy", "team": "LAL", "pos": ["PG", "SG", "SF"], "status": "", "value": -6.41, "recent": -6.41, "match": -3.86, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 8.1 L5, 8.1 14d (+0.0) · Starts 0/2 · Closes 0/2", "rise": false, "role_up": ["Luka Doncic", "Ziaire Williams"], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Ron Harper Jr.", "slug": "ron-harper", "team": "BOS", "pos": ["SF"], "status": "", "value": -6.51, "recent": -6.51, "match": -4.0, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 6.9 L5, 6.9 14d (+0.0) · Starts 0/1 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Drake Powell", "slug": "drake-powell", "team": "BKN", "pos": ["PG", "SG"], "status": "", "value": -6.58, "recent": -6.58, "match": -3.94, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 12.4 L5, 12.4 14d (+0.0) · Starts 0/1 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Charles Bassey", "slug": "charles-bassey", "team": "GS", "pos": ["C"], "status": "", "value": -6.62, "recent": -5.1, "match": -3.82, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 5.6 L5, 5.6 14d (+0.0) · Starts 0/3 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Blake Wesley", "slug": "blake-wesley", "team": "LAC", "pos": ["PG", "SG"], "status": "", "value": -6.64, "recent": -6.64, "match": -3.39, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": null, "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Chris Cenac Jr.", "slug": "chris-cenac", "team": "BOS", "pos": ["PF"], "status": "", "value": -6.67, "recent": -6.67, "match": -3.89, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 4.9 L5, 4.9 14d (+0.0) · Starts 0/1 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#007a33;--team-ink:#ffffff", "next_open": []}, {"name": "Jaden Bradley", "slug": "jaden-bradley", "team": "TOR", "pos": ["PG"], "status": "", "value": -6.76, "recent": -6.61, "match": -4.11, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 3.8 L5, 3.8 14d (+0.0) · Starts 0/4 · Closes 0/0", "rise": false, "role_up": [], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Alijah Martin", "slug": "alijah-martin", "team": "TOR", "pos": ["PG", "SG"], "status": "", "value": -6.76, "recent": -6.43, "match": -4.1, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 4.2 L5, 4.2 14d (+0.0) · Starts 0/4 · Closes 0/0", "rise": false, "role_up": ["Kawhi Leonard"], "band": "--team:#ce1141;--team-ink:#ffffff", "next_open": []}, {"name": "Dorian Finney-Smith", "slug": "dorian-finney-smith", "team": "ATL", "pos": ["SF", "PF"], "status": "", "value": -6.8, "recent": -6.91, "match": -4.09, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 4.8 L5, 4.8 14d (+0.0) · Starts 0/2 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Jalen Wilson", "slug": "jalen-wilson", "team": "ATL", "pos": ["SF", "PF"], "status": "", "value": -6.92, "recent": null, "match": -4.18, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": null, "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Asa Newell", "slug": "asa-newell", "team": "ATL", "pos": ["PF", "C"], "status": "", "value": -6.93, "recent": -7.16, "match": -4.13, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 4.8 L5, 4.8 14d (+0.0) · Starts 0/2 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Zuby Ejiofor", "slug": "zuby-ejiofor", "team": "ATL", "pos": ["PF"], "status": "", "value": -6.99, "recent": -7.16, "match": -4.12, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": "Min 4.8 L5, 4.8 14d (+0.0) · Starts 0/2 · Closes 0/3", "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Nick Martinelli", "slug": "nick-martinelli", "team": "LAC", "pos": ["SF"], "status": "", "value": -7.01, "recent": -7.01, "match": -4.1, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 4.0 L5, 4.0 14d (+0.0) · Starts 0/2 · Closes 0/1", "rise": false, "role_up": ["Rui Hachimura"], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Malevy Leons", "slug": "malevy-leons", "team": "GS", "pos": ["PF"], "status": "", "value": -7.05, "recent": -7.05, "match": -4.27, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 5.4 L5, 5.4 14d (+0.0) · Starts 0/3 · Closes 0/2", "rise": false, "role_up": ["Gui Santos"], "band": "--team:#1d428a;--team-ink:#ffffff", "next_open": []}, {"name": "Danny Wolf", "slug": "danny-wolf", "team": "BKN", "pos": ["PF", "C"], "status": "", "value": -7.08, "recent": -2.7, "match": -4.24, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 15.3 L5, 15.3 14d (+0.0) · Starts 0/1 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "RayJ Dennis", "slug": "rayj-dennis", "team": "ATL", "pos": ["PG"], "status": "", "value": -7.14, "recent": null, "match": -4.34, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": null, "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Cam Christie", "slug": "cam-christie", "team": "LAC", "pos": ["SG", "SF"], "status": "", "value": -7.16, "recent": -7.16, "match": -4.37, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 7.8 L5, 7.8 14d (+0.0) · Starts 0/2 · Closes 0/1", "rise": false, "role_up": ["Rui Hachimura"], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Terance Mann", "slug": "terance-mann", "team": "BKN", "pos": ["SG", "SF"], "status": "", "value": -7.26, "recent": -3.89, "match": -4.4, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": null, "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Braden Smith", "slug": "braden-smith", "team": "IND", "pos": ["PG"], "status": "", "value": -7.36, "recent": -7.28, "match": -4.48, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 2.7 L5, 2.7 14d (+0.0) · Starts 0/2 · Closes 1/3", "rise": false, "role_up": ["Tyrese Haliburton"], "band": "--team:#002d62;--team-ink:#ffffff", "next_open": []}, {"name": "Keshon Gilbert", "slug": "keshon-gilbert", "team": "ATL", "pos": ["SG"], "status": "", "value": -7.38, "recent": null, "match": -4.47, "trend": null, "plays": [true, false], "fits": [true, false], "b2b": [false, false], "role": null, "rise": false, "role_up": [], "band": "--team:#c8102e;--team-ink:#ffffff", "next_open": []}, {"name": "Alex Morales", "slug": "alex-morales", "team": "ORL", "pos": ["SG"], "status": "", "value": -7.4, "recent": -7.4, "match": -4.29, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 5.3 L5, 5.3 14d (+0.0) · Starts 0/2 · Closes 0/2", "rise": false, "role_up": ["Jalen Suggs"], "band": "--team:#0077c0;--team-ink:#ffffff", "next_open": []}, {"name": "Ben Saraf", "slug": "ben-saraf", "team": "BKN", "pos": ["SG"], "status": "", "value": -7.41, "recent": -7.41, "match": -4.35, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 3.6 L5, 3.6 14d (+0.0) · Starts 0/1 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}, {"name": "Chris Mañon", "slug": "chris-manon", "team": "LAL", "pos": ["SG", "SF"], "status": "", "value": -7.8, "recent": -7.8, "match": -4.64, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 5.6 L5, 5.6 14d (+0.0) · Starts 0/1 · Closes 0/2", "rise": false, "role_up": ["Luka Doncic", "Ziaire Williams"], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Bronny James", "slug": "bronny-james", "team": "LAL", "pos": ["PG", "SG"], "status": "", "value": -7.99, "recent": -7.99, "match": -4.84, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 6.8 L5, 6.8 14d (+0.0) · Starts 0/1 · Closes 0/2", "rise": false, "role_up": ["Luka Doncic", "Ziaire Williams"], "band": "--team:#552583;--team-ink:#ffffff", "next_open": []}, {"name": "Joshua Jefferson", "slug": "joshua-jefferson", "team": "BKN", "pos": ["PF"], "status": "", "value": -8.19, "recent": -8.19, "match": -4.94, "trend": null, "plays": [false, true], "fits": [false, true], "b2b": [false, false], "role": "Min 3.6 L5, 3.6 14d (+0.0) · Starts 0/1 · Closes 0/2", "rise": false, "role_up": [], "band": "--team:#000000;--team-ink:#ffffff", "next_open": []}], "positions": ["PG", "SG", "SF", "PF", "C"], "flag": 1.5, "rows": 10}</script>
+<script>
+const DATA = JSON.parse(document.getElementById("fa-data").textContent);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const fmt = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2);
+const B2B = '<sup class="b2b" title="second game of a back-to-back">2</sup>';
+const state = {days: new Set(), pos: new Set(), teams: new Set(), fit: true, sort: "value"};
+// The team filter (issue 140): a chip for each team of the free agents that the run read.
+const TEAMS = [...new Set(DATA.players.map(p => p.team))].sort();
+const hits = p => state.fit ? p.fits : p.plays;
+const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
+const SORTS = {value: p => p.value, games: p => games(p) * 100 + p.value, recent: p => p.recent ?? -99,
+  match: p => p.match ?? -99};
+const SORT_NAMES = {value: "Val", match: "Match", recent: "Recent", games: "Gms"};
+// A day chip has an aria-label such as "Tue 10/27, 5 open slots, 4 NBA games". The visible text stays short.
+const chip = (label, sub, said, dim) => `<button type="button" class="chip${dim ? " none" : ""}" aria-pressed="false"`
+  + `${said ? ` aria-label="${esc(`${label}, ${said}`)}"` : ""}>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}`
+  + `</button>`;
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const DOT_FIT = '<span class="dot fit" role="img" aria-label="game in an open slot"></span>';
+const DOT_GAME = '<span class="dot game" role="img" aria-label="game"></span>';
+
+function toggle(set, v) { set.has(v) ? set.delete(v) : set.add(v); render(); }
+
+// The script makes the chips one time. render() changes only aria-pressed, so a chip keeps the focus after a press.
+function chips() {
+  $("day-chips").innerHTML = `<span class="label">Days (plays on all selected days)</span>` + DATA.days.map(d =>
+    chip(`${d.label} ${d.md}`, `${d.open} open · ${d.nba} NBA`,
+      `${plural(d.open, "open slot")}, ${plural(d.nba, "NBA game")}`, !d.open)).join("");
+  $("pos-chips").innerHTML = `<span class="label">Positions (any)</span>`
+    + DATA.positions.map(p => chip(p, "", "", false)).join("");
+  $("team-chips").innerHTML = `<span class="label">Teams (any)</span>`
+    + TEAMS.map(t => chip(t, "", "", false)).join("");
+  $("day-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.days, i));
+  $("team-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.teams, TEAMS[i]));
+  $("pos-chips").querySelectorAll("button").forEach((b, i) => b.onclick = () => toggle(state.pos, DATA.positions[i]));
+}
+
+function pressed() {
+  $("day-chips").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", state.days.has(i)));
+  $("pos-chips").querySelectorAll("button").forEach((b, i) =>
+    b.setAttribute("aria-pressed", state.pos.has(DATA.positions[i])));
+  $("team-chips").querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-pressed", state.teams.has(TEAMS[i])));
+}
+
+function render() {
+  pressed();
+  const rows = DATA.players.filter(p => [...state.days].every(i => hits(p)[i])
+    && (!state.pos.size || p.pos.some(x => state.pos.has(x)))
+    && (!state.teams.size || state.teams.has(p.team)))
+    .sort((a, b) => SORTS[state.sort](b) - SORTS[state.sort](a));
+  $("fa-count").textContent = rows.length
+    ? `Top ${Math.min(DATA.rows, rows.length)} of ${rows.length} free agents that match the filters`
+    : "0 free agents match the filters";
+  if (state.teams.size) $("fa-count").textContent += ` (teams: ${[...state.teams].sort().join(", ")})`;
+  // With no match, the table hides and a message shows. With selected days, the message has a Clear days button.
+  $("fa-empty").hidden = rows.length > 0;
+  $("fa-table").hidden = !rows.length;
+  $("fa-empty-text").textContent = state.days.size
+    ? "No free agent plays on all selected days." : "No free agent matches the filters.";
+  $("fa-clear-days").hidden = !state.days.size;
+  // Each sort header holds a button. The th of the sorted column has aria-sort and shows an arrow.
+  const th = (key, cls) => `<th class="sort ${cls || ""}"${state.sort === key ? ' aria-sort="descending"' : ""}>`
+    + `<button type="button" data-sort="${key}">${SORT_NAMES[key]}`
+    + `${state.sort === key ? '<span aria-hidden="true"> ▼</span>' : ""}</button></th>`;
+  const sel = i => state.days.has(i) ? " sel" : "";
+  const head = DATA.days.map((d, i) => `<th scope="col" class="day${i ? "" : " s1"}${sel(i)}">${d.label.slice(0, 2)}<br><small>${d.open}</small></th>`).join("");
+  const active = document.activeElement;
+  const focus = active && active.dataset ? active.dataset.sort : undefined;
+  $("fa-table").innerHTML = `<caption class="vh">Free agents, sorted by ${SORT_NAMES[state.sort]}, highest first`
+    + `</caption><thead><tr><th scope="col" class="l">Team</th><th scope="col" class="l">Player</th>`
+    + `${th("value", "s1")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
+    + rows.slice(0, DATA.rows).map(p =>
+      `<tr><td class="band" style="${esc(p.band)}">${esc(p.team)}</td>`
+      + `<th class="pl" scope="row"><b>${p.slug ? `<a class="lab-pname" href="#player=${p.slug}" data-player="${p.slug}">`
+        + `${esc(p.name)}</a>` : esc(p.name)}</b>`
+      + `${p.status ? ` <span class="status">${esc(p.status)}</span>` : ""}`
+      + `${p.value >= DATA.flag ? ' <span class="flag">FA?</span>' : ""}`
+      + `${p.rise ? ' <span class="flag">MIN+</span>' : ""}`
+      + `${p.role_up.length ? ' <span class="flag up">UP</span>' : ""}`
+      + p.next_open.map(m => ` <span class="flag next">${esc(m)}</span>`).join("")
+      + `<small>${esc(p.team)} · ${esc(p.pos.join("/"))}${p.trend ? ` · ${p.trend} adds today` : ""}`
+      + `${p.role_up.length ? ` · role up: ${esc(p.role_up.join(", "))} absent` : ""}</small>`
+      + `${p.role ? `<small>${esc(p.role)}</small>` : ""}</th>`
+      + `<td class="n s1${p.value < 0 ? " neg" : ""}">${fmt(p.value)}</td>`
+      + `<td class="n${p.match < 0 ? " neg" : ""}">${fmt(p.match)}</td><td class="n wide">${fmt(p.recent)}</td>`
+      + `<td class="n">${games(p)}</td>`
+      + DATA.days.map((d, i) => `<td class="day${i ? "" : " s1"}${sel(i)}">${p.fits[i] ? DOT_FIT
+        : p.plays[i] ? DOT_GAME : ""}${p.b2b[i] ? B2B : ""}</td>`).join("") + `</tr>`).join("")
+      + `</tbody>`;
+  $("fa-table").querySelectorAll("th.sort button").forEach(b => {
+    b.onclick = () => { state.sort = b.dataset.sort; render(); };
+    // render() makes a new table. The sort button that had the focus gets it again.
+    if (focus && b.dataset.sort === focus) b.focus();
+  });
+}
+
+$("fit-only").onchange = e => { state.fit = e.target.checked; render(); };
+// Clear days hides itself, so the focus goes to the first day chip.
+$("fa-clear-days").onclick = () => {
+  state.days.clear(); render();
+  const first = $("day-chips").querySelector("button");
+  if (first) first.focus();
+};
+// Reset filters restores the defaults: no days, no positions, no teams, only games that fill an open slot, sort by Val.
+// It also removes the filters of a plan link from the URL, so that a reload shows the defaults.
+$("fa-reset").onclick = () => {
+  state.days.clear(); state.pos.clear(); state.teams.clear(); state.fit = true; state.sort = "value";
+  $("fit-only").checked = true; $("fa-from").hidden = true;
+  try { if (location.search) history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
+  render();
+};
+// The team plan of the Adds plan page (issues 140 and 165) links here with the filters in the URL: days (the dates,
+// for example 2027-01-07), pos (the slots, empty for Util: any position), teams, and from (the text of the line).
+// A date that is not a day of the table does not set a filter.
+const list = s => (s || "").split(",").filter(Boolean);
+function fromPlan() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has("from")) return false;
+  const dates = list(q.get("days"));
+  state.days = new Set(DATA.days.map((d, i) => dates.includes(d.date) ? i : -1).filter(i => i >= 0));
+  state.pos = new Set(list(q.get("pos")));
+  state.teams = new Set(list(q.get("teams")));
+  $("fa-from-text").textContent = `Filters from the team plan: ${q.get("from")}.`;
+  $("fa-from").hidden = false;
+  return true;
+}
+chips();
+const linked = fromPlan();
+render();
+if (linked) {
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("fa").scrollIntoView({behavior: still ? "auto" : "smooth", block: "start"});
+  $("fa-count").focus({preventScroll: true});
+}
+</script></section>
+<section id="waivers"><h2>Waiver players</h2>
+<table class="wv lab-t" id="wv-table"><caption class="vh">Waiver players, best value first</caption><thead><tr><th scope="col" class="l">Team</th><th scope="col" class="l">Player</th><th scope="col" class="s1">Clears</th><th scope="col">First day</th><th scope="col" class="s1">Val</th></tr></thead><tbody><tr><td class="band" style="--team:#00471b;--team-ink:#ffffff">MIL</td><th class="pl" scope="row"><b><a class="lab-pname" href="#player=myles-turner" data-player="myles-turner">Myles Turner</a></b> <span class="status" title="Waiver claim, not sure. Clears Sun 11/1.">W</span><small>MIL · C</small></th><td class="s1">Sun 11/1</td><td>Mon 11/2</td><td class="n s1">+1.07</td></tr><tr><td class="band" style="--team:#1d42ba;--team-ink:#ffffff">DET</td><th class="pl" scope="row"><b><a class="lab-pname" href="#player=duncan-robinson" data-player="duncan-robinson">Duncan Robinson</a></b> <span class="status" title="Waiver claim, not sure. Clears Mon 11/2.">W</span><small>DET · SG/SF</small></th><td class="s1">Mon 11/2</td><td>Tue 11/3</td><td class="n s1">+0.77</td></tr><tr><td class="band" style="--team:#5d76a9;--team-ink:#ffffff">MEM</td><th class="pl" scope="row"><b><a class="lab-pname" href="#player=jaylen-wells" data-player="jaylen-wells">Jaylen Wells</a></b> <span class="status" title="Waiver claim, not sure. Clears Sun 11/1.">W</span><small>MEM · SG/SF</small></th><td class="s1">Sun 11/1</td><td>Mon 11/2</td><td class="n s1">+0.52</td></tr><tr><td class="band" style="--team:#006bb6;--team-ink:#ffffff">NY</td><th class="pl" scope="row"><b><a class="lab-pname" href="#player=landry-shamet" data-player="landry-shamet">Landry Shamet</a></b> <span class="status" title="Waiver claim, not sure. Clears Mon 11/2.">W</span><small>NY · SG/SF</small></th><td class="s1">Mon 11/2</td><td>Tue 11/3</td><td class="n s1">-3.55</td></tr></tbody></table>
+<p class="legend">First day: the first day that he can play for you, the day after he clears waivers. Val: the same value as in the free-agent table. W: a waiver claim. It is not sure: a team with a higher waiver priority can claim him first. A claim uses an add.</p></section>
+<section id="role-up"><h2>Role up</h2>
+<ul><li>Gui Santos is absent. Role up: Al Horford (GS), Gary Payton II (GS), Will Richard (GS), Georges Niang (GS), Malevy Leons (GS), Graham Ike (GS).</li><li>Tyrese Haliburton is absent. Role up: Aaron Nesmith (IND), Quenton Jackson (IND), Braden Smith (IND).</li><li>Ivica Zubac is absent. Role up: Larry Nance Jr. (IND).</li><li>Rui Hachimura is absent. Role up: Derrick Jones Jr. (LAC), Gradey Dick (LAC), Kobe Sanders (LAC), Cam Christie (LAC), Baba Miller (LAC), Nick Martinelli (LAC).</li><li>Ziaire Williams is absent. Role up: Jake LaRavia (LAL), Collin Sexton (LAL), Matisse Thybulle (LAL), Jaden Hardy (LAL), Bronny James (LAL), Chris Mañon (LAL), Cameron Carr (LAL).</li><li>Luka Doncic is absent. Role up: Ziaire Williams (LAL), Collin Sexton (LAL), Matisse Thybulle (LAL), Jaden Hardy (LAL), Bronny James (LAL), Chris Mañon (LAL), Cameron Carr (LAL).</li><li>Jalen Suggs is absent. Role up: Anthony Black (ORL), Jase Richardson (ORL), Jevon Carter (ORL), Jamal Cain (ORL), Alex Morales (ORL).</li><li>Paolo Banchero is absent. Role up: Tristan da Silva (ORL), Colin Castleton (ORL).</li><li>Kawhi Leonard is absent. Role up: Ja&#x27;Kobe Walter (TOR), Allen Graves (TOR), Kyle Anderson (TOR), Jamison Battle (TOR), Malachi Smith (TOR), Alijah Martin (TOR).</li><li>Jaren Jackson Jr. is absent. Role up: Kyle Filipowski (UTAH), Brice Sensabaugh (UTAH).</li><li>Lauri Markkanen is absent. Role up: Kyle Filipowski (UTAH), Brice Sensabaugh (UTAH).</li><li>Keegan Murray is absent. Role up: Nique Clifford (SAC).</li><li>Chet Holmgren is absent. Role up: Jaylin Williams (OKC).</li><li>Jalen Williams is absent. Role up: Jaylin Williams (OKC).</li></ul>
+<p class="legend">Absent: he started most of his recent games, then missed the last games of his team. His backups can get more minutes. Their recent line does not show the new role yet. The mark changes no value.</p></section>
+</div></main>
+<dialog class="lab-pmodal" id="lab-pmodal" aria-label="Player profile">
+<div class="lab-pm-bar"><span class="lab-pm-k">Player profile</span>
+<a class="lab-pm-full" id="lab-pm-full" href="../players/">Open full profile</a>
+<button type="button" class="lab-pm-close" id="lab-pm-close">Close <span aria-hidden="true">×</span></button></div>
+<div class="lab-card" id="lab-pm-card"></div>
+<div class="lab-tt" id="lab-tt" role="tooltip" hidden></div>
+</dialog>
+<style>
+/* The player card (issue 186). Each rule has the scope .lab-card, so the page rules do not change the card. */
+.lab-card, .lab-card *, .lab-card *::before, .lab-card *::after { box-sizing: border-box; }
+.lab-card { background: var(--lab-stock); color: var(--lab-ink); font: 400 13px/1.35 var(--lab-face);
+  font-variant-numeric: tabular-nums; text-align: left; }
+.lab-card h2, .lab-card h3, .lab-card p, .lab-card ul, .lab-card dl, .lab-card dd { margin: 0; padding: 0; border: 0;
+  letter-spacing: normal; color: inherit; }
+.lab-card a { color: var(--mark); }
+.lab-card :focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+.lab-card .lc-msg { padding: 18px 0; color: var(--lab-mute); }
+.lab-card .lc-head { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px 16px; padding-bottom: 8px;
+  border-bottom: 3px solid var(--mark); }
+.lab-card .lc-band { flex: none; width: 54px; display: flex; align-items: center; justify-content: center;
+  background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 19px; }
+.lab-card .lc-name { color: var(--mark); font-weight: 900; font-stretch: 66%; font-size: 38px; line-height: .9;
+  text-transform: uppercase; }
+.lab-card .lc-sub { margin-top: 3px; font-size: 12px; color: var(--lab-mute); }
+.lab-card .lc-sub b { color: var(--lab-ink); font-weight: 800; }
+.lab-card .lc-kv { display: flex; align-items: flex-end; }
+.lab-card .lc-kv div { padding: 0 12px; border-left: 1px solid var(--lab-rule); }
+.lab-card .lc-kv dt { font-size: 11px; color: var(--lab-mute); }
+.lab-card .lc-kv dd { font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }
+.lab-card .lc-kv dd small { margin-left: 3px; font-size: 11px; font-weight: 600; font-stretch: 100%;
+  color: var(--lab-mute); }
+.lab-card .lc-sigs { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; max-width: 330px;
+  list-style: none; }
+.lab-card .lc-sigs a { display: flex; gap: 6px; align-items: baseline; color: var(--lab-ink); text-decoration: none;
+  font-size: 12px; }
+.lab-card .lc-sigs a:hover .lc-t { text-decoration: underline; }
+.lab-card .lc-sig-k { flex: none; padding: 0 4px; border: 1.5px solid var(--lab-ink); font-size: 10.5px;
+  font-weight: 800; white-space: nowrap; }
+.lab-card .lc-sig-k.alert { background: var(--lab-red); border-color: var(--lab-red); color: var(--lab-on-red); }
+.lab-card .lc-none { font-size: 12px; color: var(--lab-mute); }
+.lab-card .lc-none b { color: var(--lab-ink); font-weight: 800; }
+.lab-card .lc-info { position: relative; margin-left: auto; align-self: flex-start; }
+.lab-card .lc-info summary { list-style: none; cursor: pointer; width: 22px; height: 22px; display: flex;
+  align-items: center; justify-content: center; border: 1.5px solid var(--lab-ink); color: var(--lab-ink);
+  font-weight: 900; font-size: 13px; font-style: italic; }
+.lab-card .lc-info summary::-webkit-details-marker { display: none; }
+.lab-card .lc-info[open] summary { background: var(--lab-ink); color: var(--lab-stock); }
+.lab-card .lc-pop { position: absolute; right: 0; top: 28px; z-index: 20; width: min(560px, 86vw); max-height: 70vh;
+  overflow: auto; padding: 10px 14px; border: 1.5px solid var(--lab-ink); background: var(--lab-stock);
+  color: var(--lab-ink); font-size: 12px; }
+.lab-card .lc-pop h3 { margin: 0 0 4px; font-weight: 900; font-stretch: 75%; font-size: 15px; text-transform: uppercase; }
+.lab-card .lc-pop ul { padding-left: 16px; }
+.lab-card .lc-pop li { margin: 4px 0; }
+.lab-card .lc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; margin-top: 10px; }
+.lab-card .lc-q { min-width: 0; display: flex; flex-direction: column; }
+.lab-card .lc-q h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding-bottom: 3px;
+  border-bottom: 1px solid var(--mark); font-weight: 900; font-stretch: 75%; font-size: 17px; line-height: 1.1;
+  text-transform: uppercase; scroll-margin-top: 60px; }
+.lab-card .lc-body { margin-top: 6px; }
+.lab-card .lc-empty { display: flex; align-items: center; justify-content: center; min-height: 120px; padding: 18px; }
+@media (max-width: 799px) {
+  .lab-card .lc-grid { grid-template-columns: 1fr; gap: 12px; }
+  .lab-card .lc-q { padding: 10px 12px; border: 1.5px solid var(--lab-rule); }
+  .lab-card .lc-info { margin-left: 0; }
+  .lab-card .lc-kv div:first-child { padding-left: 0; border-left: 0; }
+}
+/* The player modal (issue 186): a large centered dialog. Below 800px, a full-screen sheet. */
+/* inline-block: the link box is the line box of the name, so it stays in the name cell. */
+a.lab-pname { display: inline-block; color: inherit; text-decoration: underline; text-decoration-thickness: 1px;
+  text-underline-offset: 3px; }
+a.lab-pname:hover { color: var(--mark); text-decoration-thickness: 2px; }
+a.lab-pname:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+dialog.lab-pmodal { box-sizing: border-box; width: min(1240px, calc(100vw - 48px)); max-width: none;
+  max-height: calc(100dvh - 24px); margin: auto; padding: 0; overflow: auto; overscroll-behavior: contain;
+  border: 1.5px solid var(--lab-ink); border-radius: 0; background: var(--lab-stock); color: var(--lab-ink); }
+dialog.lab-pmodal::backdrop { background: var(--lab-scrim); }
+.lab-pm-bar { display: flex; align-items: center; gap: 6px 14px; padding: 8px 24px 0; font: 400 12px/1.35 var(--lab-face); }
+.lab-pm-k { color: var(--lab-mute); font-weight: 700; }
+.lab-pm-full { color: var(--mark); font-weight: 800; }
+.lab-pm-close { margin-left: auto; min-height: 24px; padding: 3px 9px; border: 1.5px solid var(--lab-ink);
+  border-radius: 0; background: var(--lab-stock); color: var(--lab-ink); font: 800 12px/1.35 var(--lab-face);
+  cursor: pointer; }
+.lab-pm-close:hover { background: var(--lab-ink); color: var(--lab-stock); }
+.lab-pm-bar :focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+dialog.lab-pmodal .lab-card { padding: 8px 24px 16px; }
+/* The tooltip card of the charts (DESIGN.md "Tooltips"). It sits in the dialog, in the top layer. */
+.lab-tt { position: fixed; z-index: 50; pointer-events: none; box-sizing: border-box; min-width: 168px;
+  max-width: 260px; padding: 7px 10px 8px; border: 1px solid var(--lamp-off); border-radius: 0;
+  background: var(--lab-stock); color: var(--lab-ink); font: 400 12px/1.3 var(--lab-face);
+  font-variant-numeric: tabular-nums; }
+.lab-tt[hidden] { display: none; }
+.lab-tt .lab-tt-ctx { color: var(--lab-mute); font-size: 11px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.lab-tt .lab-tt-key { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 1px; }
+.lab-tt .lab-tt-num { font-size: 20px; font-weight: 800; font-stretch: 85%; line-height: 1.1; }
+.lab-tt .lab-tt-lab { color: var(--lab-mute); font-size: 11px; }
+.lab-tt .lab-tt-rows { display: grid; grid-template-columns: auto auto; gap: 1px 14px; margin: 4px 0 0;
+  padding-top: 4px; border-top: 1px solid var(--lab-rule); }
+.lab-tt .lab-tt-rows dt { color: var(--lab-mute); white-space: nowrap; }
+.lab-tt .lab-tt-rows dd { margin: 0; text-align: right; white-space: nowrap; }
+@media (max-width: 799px) {
+  dialog.lab-pmodal { width: 100vw; height: 100dvh; max-height: none; margin: 0; border: 0; }
+  .lab-pm-bar { position: sticky; top: 0; z-index: 4; padding: 8px 14px; background: var(--lab-stock);
+    border-bottom: 1px solid var(--lab-rule); }
+  .lab-pm-close { min-height: 32px; padding: 4px 12px; }
+  dialog.lab-pmodal .lab-card { padding: 8px 14px 32px; }
+}
+/* The Categories quadrant (issue 188): the heading label and the state line. */
+.lab-card .lc-q h3 .lc-lab { font-size: 12px; font-weight: 700; font-stretch: 100%; text-transform: none;
+  color: var(--lab-mute); }
+.lab-card .lc-cats .lab-c-state { margin: 2px 0 0; }
+</style>
+<script>
+window.LabCard = (() => {
+  const QUADS = [["role", "Role", "No minutes chart yet."], ["cats", "Categories", "No category chart yet."], ["value", "Value", "No value chart yet."], ["comps", "Comps", "No comps yet."]];
+  // The methods notes of the quadrant fills (profile.FILLS): each gives the HTML of its <li>, or "".
+  const NOTES = [(p, d) => {
+  const c = p.cats || (d.players.find(x => x.cats) || {}).cats;
+  if (!c || !c.rows || !c.rows.length) return "";
+  const ks = c.rows.map(r => `${LabCard.esc(r.cat)} ${r.k}`).join(", ");
+  return `<li><b>Categories.</b> The percentile of each category in the pool: the top ${c.pool} players by projected `
+    + "value. proj ranks the projection per game. now ranks the season line, shrunk toward the projection: "
+    + `(n × season + k × projection) / (n + k), with n games and k in games: ${ks}.</li>`;
+}];
+  const MAX = 3;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const val = v => v == null ? "–" : (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(2);
+  const fill = {};
+  const out = { data: null, fill, esc, val };
+  let loading = null;
+  out.load = () => {
+    if (!loading) {
+      loading = fetch("../players/players.json").then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(d => { d.bySlug = new Map(d.players.map(p => [p.slug, p])); out.data = d; return d; });
+      loading.catch(() => { loading = null; });  // the next open tries the file again
+    }
+    return loading;
+  };
+  const signals = p => {
+    const s = (p.signals || []).slice(0, MAX);
+    if (!s.length) return '<li class="lc-none"><b>No signals: playing to projection</b></li>';
+    return s.map(x => `<li><a href="#" data-q="${esc(x.quadrant)}"><span class="lc-sig-k${x.up ? "" : " alert"}">`
+      + `${esc(x.kind)} ${x.up ? "▲" : "▼"}</span><span class="lc-t">${esc(x.text)}</span></a></li>`).join("");
+  };
+  const methods = (d, p) => {
+    const m = d.meta, log = m.log_first ? ` ESPN games in the rotation log, ${esc(m.log_first)} to ${esc(m.log_last)}.` : "";
+    return '<h3>Methods and data</h3><ul>'
+      + `<li><b>Players.</b> Each rostered player of the league (${m.rostered}), and each free agent with a Val above 0 (above the replacement free agent) or ${m.min_games} or more games (${m.free_agents}).</li>`
+      + `<li><b>Owners.</b> The Yahoo rostered list of ${esc(m.made)}.</li>`
+      + (m.has_val ? `<li><b>Val.</b> The Val of the Free agents page: blended value per game above a replacement free agent (0 = the free agent at rank ${m.replacement_rank} by value). A player with no Yahoo line in the run has no Val.</li>`
+        : "<li><b>Val.</b> The run has no replacement free agent, so no player has a Val.</li>")
+      + (m.projections ? `<li><b>Projections.</b> <code>${esc(m.projections)}</code>.</li>` : "")
+      + (log ? `<li><b>Games.</b>${log}</li>` : "")
+      + NOTES.map(note => note(p, d)).join("")
+      + `<li><b>Signals.</b> Each signal comes from a rule of a quadrant and links to it. The header shows ${MAX} at most.</li></ul>`;
+  };
+  // The tooltip card of a card root. In the modal: #lab-tt, in the dialog (the top layer). On the Players page:
+  // #lab-tt-page, outside the closed dialog, so that it can show.
+  out.tip = root => document.getElementById(root.closest("dialog") ? "lab-tt" : "lab-tt-page");
+  // The tooltip card (DESIGN.md "Tooltips"): the context line, the key number and its label, and up to 3 rows. The card
+  // goes beside the mark, never over it, and stays 8px inside the viewport.
+  const showTip = (tip, spec, mark) => {
+    const add = (parent, tag, cls, s) => {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (s != null) node.textContent = s;
+      parent.appendChild(node);
+      return node;
+    };
+    tip.replaceChildren();
+    add(tip, "div", "lab-tt-ctx", spec.ctx);
+    const key = add(tip, "div", "lab-tt-key");
+    add(key, "span", "lab-tt-num", spec.value);
+    add(key, "span", "lab-tt-lab", spec.label);
+    if (spec.rows && spec.rows.length) {
+      const dl = add(tip, "dl", "lab-tt-rows");
+      spec.rows.slice(0, 3).forEach(([a, b]) => { add(dl, "dt", null, a); add(dl, "dd", null, b); });
+    }
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight, gap = 12, pad = 8;
+    let x = mark.right + gap, y = (mark.top + mark.bottom) / 2 - h / 2;
+    if (x + w > innerWidth - pad) x = mark.left - gap - w;
+    if (x < pad) {
+      x = Math.max(pad, Math.min(innerWidth - pad - w, (mark.left + mark.right) / 2 - w / 2));
+      y = mark.top - gap - h >= pad ? mark.top - gap - h : mark.bottom + gap;
+    }
+    y = Math.max(pad, Math.min(innerHeight - pad - h, y));
+    tip.style.left = Math.round(x) + "px";
+    tip.style.top = Math.round(y) + "px";
+  };
+  // The one tooltip function of the quadrant fills. target: a chart target in the card root. The target must have the
+  // class lab-c-hit (core/chart.py): the tap rule below hides the card on a tap outside each lab-c-hit element.
+  // spec: {ctx, value, label, rows: [[name, value]]}. markAt(): the viewport box {left, right, top, bottom} of the
+  // marks of the target. A mouse shows the card on enter and hides it on leave. A tap shows it and keeps it. The focus
+  // shows it.
+  out.bindTip = (target, root, spec, markAt) => {
+    const tip = out.tip(root);
+    if (!tip) return;
+    const on = () => showTip(tip, spec, markAt());
+    const off = () => { tip.hidden = true; };
+    target.setAttribute("aria-describedby", tip.id);
+    target.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") on(); });
+    target.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") off(); });
+    target.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") { on(); e.stopPropagation(); } });
+    target.addEventListener("focus", on);
+    target.addEventListener("blur", off);
+  };
+  // A tap outside a chart target, a scroll or Escape hides the card. In the modal, the dialog handles Escape: the
+  // first Escape hides the card, the next one closes the modal. The modal also hides the card on its own scroll.
+  const hideTips = () => document.querySelectorAll(".lab-tt").forEach(t => { t.hidden = true; });
+  document.addEventListener("pointerdown", e => { if (!(e.target.closest && e.target.closest(".lab-c-hit"))) hideTips(); });
+  window.addEventListener("scroll", hideTips, { passive: true });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !(e.target.closest && e.target.closest("dialog"))) hideTips();
+  });
+  // root: the .lab-card element. p: one player of the file. d: the file. id: a prefix for the ids of the card.
+  out.render = (root, p, d, id) => {
+    const owner = p.owner ? `${esc(p.owner)}${p.mine ? " (you)" : ""}` : "FA";
+    root.innerHTML = `<header class="lc-head">
+<div class="lc-band" style="${esc(d.bands[p.team] || d.bands[""])}">${esc(p.team || "–")}</div>
+<div class="lc-who"><h2 class="lc-name" id="${id}-name">${esc(p.name)}</h2>
+<p class="lc-sub">${esc(p.pos || "–")} · <b>${owner}</b></p></div>
+<dl class="lc-kv"><div><dt>Val</dt><dd>${val(p.val)}</dd></div></dl>
+<ul class="lc-sigs" aria-label="Signals">${signals(p)}</ul>
+<details class="lc-info"><summary aria-label="Methods and data" title="Methods and data">i</summary>
+<div class="lc-pop">${methods(d, p)}</div></details>
+</header>
+<div class="lc-grid">${QUADS.map(([k, t]) => `<section class="lc-q" id="${id}-q-${k}" aria-labelledby="${id}-h-${k}">`
+      + `<h3 id="${id}-h-${k}" tabindex="-1">${t}</h3><div class="lc-body" data-q="${k}"></div></section>`).join("")}</div>`;
+    QUADS.forEach(([k, , empty]) => {
+      const body = root.querySelector(`.lc-body[data-q="${k}"]`);
+      if (fill[k]) fill[k](body, p, d);
+      else body.innerHTML = `<div class="lab-c-empty lc-empty">${empty}</div>`;
+    });
+    root.querySelectorAll(".lc-sigs a").forEach(a => a.addEventListener("click", e => {
+      e.preventDefault();
+      const h = document.getElementById(`${id}-h-${a.dataset.q}`);
+      if (h) { h.scrollIntoView({ block: "nearest" }); h.focus({ preventScroll: true }); }
+    }));
+  };
+  return out;
+})();
+(() => {
+  const G = {"W": 580, "ROW": 38, "T": 18, "L": 84, "R": 104}, M = {"now": 5, "proj": 4}, NP = {"apart": 34, "dy": 10, "below": 18, "dx": 2}, NO_DATA = "No projection: no category ranks.";
+  const esc = LabCard.esc;
+  const f1 = v => v == null ? "–" : (Math.round(v * 10) / 10).toFixed(1);
+  const ord = v => {
+    const n = Math.round(v), t = n % 100;
+    return n + ((t >= 11 && t <= 13) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"));
+  };
+  const n2 = v => String(Math.round(v * 100) / 100);
+  const text = (x, y, s, kind, anchor) => `<text class="lab-c-${kind}" x="${n2(x)}" y="${n2(y)}"`
+    + (anchor && anchor !== "start" ? ` text-anchor="${anchor}"` : "") + `>${esc(s)}</text>`;
+  // The "now" and "proj" labels of the first row: chart.now_proj() of core/chart.py.
+  const nowProj = (xs, xp, cy) => {
+    if (Math.abs(xs - xp) > NP.apart) return [[xs, cy - NP.dy, "middle"], [xp, cy - NP.dy, "middle"]];
+    if (xs <= xp) return [[xs + NP.dx, cy - NP.dy, "end"], [xp - NP.dx, cy + NP.below, "start"]];
+    return [[xs - NP.dx, cy - NP.dy, "start"], [xp + NP.dx, cy + NP.below, "end"]];
+  };
+  LabCard.fill.cats = (body, p) => {
+    const c = p.cats;
+    if (!c || !c.rows || !c.rows.length) {
+      body.innerHTML = `<div class="lab-c-empty lc-empty">${NO_DATA}</div>`;
+      return;
+    }
+    const h3 = body.parentElement && body.parentElement.querySelector("h3");
+    if (h3) h3.insertAdjacentHTML("beforeend", `<span class="lc-lab">percentile of the ${c.pool}-player pool</span>`);
+    const { W, ROW, T, L, R } = G, H = T + ROW * c.rows.length;
+    const x = v => L + (W - L - R) * v / 100;
+    let s = [0, 50, 100].map(t => text(x(t), T - 6, t === 50 ? "50th pct" : String(t), "tick", "middle")).join("");
+    s += `<line class="lab-c-ref" x1="${n2(x(50))}" y1="${T}" x2="${n2(x(50))}" y2="${H - 6}"/>`;
+    s += text(W - R + 30, T - 6, "per game", "tick");
+    const specs = [];
+    c.rows.forEach((r, i) => {
+      const cy = T + ROW * i + ROW / 2, xs = x(r.now), xp = x(r.proj);
+      s += text(0, cy + 4, r.cat, "label") + text(34, cy + 4, `×${r.w.toFixed(2)}`, "tick");
+      s += `<line class="lab-c-track" x1="${n2(x(0))}" y1="${n2(cy)}" x2="${n2(x(100))}" y2="${n2(cy)}"/>`;
+      s += `<line class="lab-c-conn" x1="${n2(xp)}" y1="${n2(cy)}" x2="${n2(xs)}" y2="${n2(cy)}"/>`;
+      s += `<circle class="lab-c-proj" cx="${n2(xp)}" cy="${n2(cy)}" r="${M.proj}"/>`;
+      s += `<circle class="lab-c-hero-dot" cx="${n2(xs)}" cy="${n2(cy)}" r="${M.now}"/>`;
+      if (i === 0) {
+        const [now, proj] = nowProj(xs, xp, cy);
+        s += text(now[0], now[1], "now", "label", now[2]) + text(proj[0], proj[1], "proj", "tick", proj[2]);
+      }
+      s += text(W - R + 14, cy + 4, f1(r.raw), "label") + text(W - R + 46, cy + 4, "proj " + f1(r.line), "tick");
+      const spec = {
+        ctx: `${r.cat} · punt weight ${r.w.toFixed(2)}`, value: ord(r.now), label: "percentile now",
+        rows: [["Projection", ord(r.proj)], ["Per game now", c.n ? `${f1(r.raw)} (shrunk ${f1(r.shrunk)})` : "–"],
+          ["Season weight", `${Math.round(r.nw * 100)}% after ${c.n} ${c.n === 1 ? "game" : "games"}`]],
+      };
+      specs.push({ spec, a: Math.min(xs, xp), b: Math.max(xs, xp), cy });
+      const aria = `${spec.ctx}. ${spec.label} ${spec.value}. ` + spec.rows.map(([a, b]) => `${a} ${b}`).join(". ");
+      s += `<rect class="lab-c-hit" x="0" y="${n2(cy - ROW / 2)}" width="${W}" height="${ROW}" tabindex="0"`
+        + ` aria-label="${esc(aria)}"/>`;
+    });
+    const first = c.rows[0], last = c.rows[c.rows.length - 1];
+    const state = c.n
+      ? `${c.n} ${c.n === 1 ? "game" : "games"}: the season line has ${Math.round(first.nw * 100)}% of the weight for ${esc(first.cat)}, ${Math.round(last.nw * 100)}% for ${esc(last.cat)}.`
+      : "<b>No games yet:</b> now is the projection.";
+    body.innerHTML = `<div class="lc-cats"><svg class="lab-chart" viewBox="0 0 ${W} ${H}" role="img"`
+      + ` aria-label="Percentile of each category in the pool: now and projection">${s}</svg>`
+      + `<p class="lab-c-state">${state}</p></div>`;
+    const svg = body.querySelector("svg");
+    // The viewport box of the marks of a row: the two dots, 8px wider on each side.
+    const markAt = ({ a, b, cy }) => {
+      const box = svg.getBoundingClientRect(), k = box.width / W, rx = (b - a) / 2 + 8, mid = (a + b) / 2;
+      return { left: box.left + (mid - rx) * k, right: box.left + (mid + rx) * k, top: box.top + (cy - 12) * k,
+        bottom: box.top + (cy + 12) * k };
+    };
+    svg.querySelectorAll(".lab-c-hit").forEach((hit, i) => {
+      LabCard.bindTip(hit, body, specs[i].spec, () => markAt(specs[i]));
+    });
+  };
+})();
+(() => {
+  const dlg = document.getElementById("lab-pmodal");
+  if (!dlg || !window.LabCard) return;
+  const card = document.getElementById("lab-pm-card"), full = document.getElementById("lab-pm-full");
+  const closer = document.getElementById("lab-pm-close"), tip = document.getElementById("lab-tt");
+  let openSlug = null, pushed = false, ask = 0;
+  const slugOf = () => { const m = location.hash.match(/^#player=([a-z0-9-]+)$/); return m ? m[1] : null; };
+  // A page script can draw its names again, so the name is found again by its slug, the shown one first.
+  const nameOf = slug => {
+    const all = [...document.querySelectorAll(`a.lab-pname[data-player="${slug}"]`)].filter(a => !dlg.contains(a));
+    return all.find(a => a.getClientRects().length) || all[0] || null;
+  };
+  const draw = (slug, d) => {
+    const p = d.bySlug.get(slug);
+    if (!p) {
+      card.innerHTML = '<p class="lc-msg">No profile for this player: he is not in the player file.</p>';
+      dlg.setAttribute("aria-label", "Player profile");
+      return;
+    }
+    LabCard.render(card, p, d, "lab-pm");
+    dlg.setAttribute("aria-label", `${p.name}, player profile`);
+  };
+  function show(slug) {
+    openSlug = slug;
+    full.href = `../players/#${slug}`;
+    if (!dlg.open) { dlg.showModal(); document.body.classList.add("lab-locked"); }
+    const n = ++ask;
+    if (LabCard.data) draw(slug, LabCard.data);
+    else {
+      card.innerHTML = '<p class="lc-msg">Loading the player file…</p>';
+      LabCard.load().then(d => { if (n === ask && dlg.open) draw(slug, d); }, () => {
+        if (n === ask && dlg.open) card.innerHTML = '<p class="lc-msg">The player file did not load. Try again later.</p>';
+      });
+    }
+    dlg.scrollTop = 0;
+    closer.focus();
+  }
+  function hide() {
+    if (!dlg.open) return;
+    const slug = openSlug;
+    tip.hidden = true;
+    dlg.close();
+    document.body.classList.remove("lab-locked");
+    openSlug = null; pushed = false;
+    const back = slug && nameOf(slug);
+    if (back) back.focus();
+  }
+  function requestClose() {
+    if (pushed) { pushed = false; history.back(); }
+    else { history.replaceState(null, "", location.href.split("#")[0]); hide(); }
+  }
+  closer.addEventListener("click", requestClose);
+  dlg.addEventListener("cancel", e => {
+    e.preventDefault();
+    const info = dlg.querySelector(".lc-info[open]");
+    if (info) { info.open = false; info.querySelector("summary").focus(); return; }
+    if (!tip.hidden) { tip.hidden = true; return; }
+    requestClose();
+  });
+  dlg.addEventListener("click", e => { if (e.target === dlg) requestClose(); });
+  dlg.addEventListener("scroll", () => { tip.hidden = true; }, { passive: true });
+  // The focus stays in the modal: Tab from the last control goes to the first, Shift+Tab from the first to the last.
+  dlg.addEventListener("keydown", e => {
+    if (e.key !== "Tab") return;
+    const f = [...dlg.querySelectorAll('a[href], button, summary, [tabindex="0"]')].filter(n => n.getClientRects().length);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  // A name link changes the hash itself. The capture stops the click there, so a click handler of a table row
+  // (for example the trade builder) does not also act on it.
+  document.addEventListener("click", e => {
+    if (e.target.closest && e.target.closest("a.lab-pname") && !dlg.open) e.stopPropagation();
+  }, true);
+  window.addEventListener("hashchange", () => {
+    const slug = slugOf();
+    if (slug) { if (slug !== openSlug) { show(slug); pushed = true; } }
+    else hide();
+  });
+  const first = slugOf();
+  if (first) show(first);
+})();
+</script>
+<script>
+(() => {
+  const btn = document.querySelector(".lab-open"), nav = document.getElementById("lab-menu");
+  const scrim = document.querySelector(".lab-scrim");
+  if (!btn || !nav) return;
+  const behind = [...document.querySelectorAll(".lab-main, .lab-bar")];
+  const set = open => {
+    nav.classList.toggle("open", open); btn.setAttribute("aria-expanded", open);
+    document.body.classList.toggle("lab-locked", open);
+    scrim.hidden = !open; behind.forEach(el => el.inert = open);
+    if (open) nav.querySelector(".lab-close").focus();
+  };
+  nav.querySelector(".lab-close").addEventListener("click", () => { set(false); btn.focus(); });
+  btn.addEventListener("click", () => set(!nav.classList.contains("open")));
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && nav.classList.contains("open")) { set(false); btn.focus(); }
+  });
+  scrim.addEventListener("click", () => set(false));
+})();
+(() => {
+  const root = document.documentElement, btns = [...document.querySelectorAll(".lab-seg button")];
+  const show = () => {
+    const t = root.dataset.theme || "system";
+    btns.forEach(b => b.setAttribute("aria-pressed", b.dataset.set === t));
+  };
+  btns.forEach(b => b.addEventListener("click", () => {
+    const t = b.dataset.set;
+    if (t === "system") delete root.dataset.theme; else root.dataset.theme = t;
+    try {
+      if (t === "system") localStorage.removeItem("lab-theme"); else localStorage.setItem("lab-theme", t);
+    } catch (e) {}
+    show();
+  }));
+  show();
+})();
+</script>
+</body>
+</html>

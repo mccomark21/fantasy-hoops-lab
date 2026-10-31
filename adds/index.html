@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weekly adds plan</title>
+<script>if (/^#(fa|waivers)$/.test(location.hash)) location.replace("../free-agents/" + location.search + location.hash);</script>
+<script>try { const t = localStorage.getItem("lab-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="preload" href="fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face {
+  font-family: Archivo; font-style: normal; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url(fonts/archivo-latin.woff2) format("woff2");
+}
+:root {
+  --lab-stock: #ffffff; --lab-ink: #14171c; --lab-mute: #5b6270; --lab-rule: #e7e9ee; --lab-blue: #1d4f91; --lab-blue-deep: #163f75; --lab-on-blue: #ffffff; --lab-red: #c8102e; --lab-on-red: #ffffff; --lab-green: #17743a; --mark: #1d4f91; --zebra: #eff3f8; --qcol: #e0e8f4; --qcol-z: #dae3f1; --vrule: #d2d9e4; --lamp-off: #6f7889; --lab-scrim: rgb(8 16 32 / .5); color-scheme: light;
+  --lab-face: Archivo, "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+::selection { background: var(--lab-blue); color: var(--lab-on-blue); }
+</style>
+<style>
+/* Card Back: the site menu. A royal-blue side panel on a desktop, a top bar with a drawer on a phone. */
+:root { --lab-menu-w: 216px; --z-menu: 30; --z-scrim: 20; --z-bar: 10; }
+body.lab { margin: 0; background: var(--lab-stock); color: var(--lab-ink); }
+body.lab-locked { overflow: hidden; }
+.lab-menu {
+  position: fixed; inset: 0 auto 0 0; width: var(--lab-menu-w); z-index: var(--z-menu);
+  display: flex; flex-direction: column; background: var(--lab-blue); color: var(--lab-on-blue);
+  font: 600 14px/1.3 var(--lab-face); padding: 22px 0 18px; overflow-y: auto;
+}
+.lab-site {
+  display: block; color: inherit; text-decoration: none; padding: 0 20px 16px; margin: 0 0 10px;
+  font-weight: 900; font-stretch: 68%; text-transform: uppercase; font-size: 24px; line-height: .95;
+  border-bottom: 3px solid var(--lab-on-blue);
+}
+.lab-site small { display: block; margin-top: 7px; font-size: 12px; font-weight: 600; font-stretch: 100%;
+  text-transform: none; line-height: 1.2; }
+.lab-menu ul { list-style: none; margin: 0; padding: 0; }
+.lab-menu li a {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 20px;
+  color: inherit; text-decoration: none; font-size: 15px;
+}
+.lab-menu li a::before { content: ""; width: 9px; height: 9px; flex: none; }
+.lab-menu li a:hover { background: var(--lab-blue-deep); }
+.lab-menu li a[aria-current] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 800; }
+.lab-menu li a[aria-current]::before { background: var(--lab-red); }
+.lab-menu a:focus-visible, .lab-open:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: -4px; }
+.lab-menu li a[aria-current]:focus-visible { outline-color: var(--lab-ink); }
+.lab-bar, .lab-close { display: none; }
+.lab-main { display: block; margin-left: var(--lab-menu-w); min-width: 0; }
+@media (max-width: 899px) {
+  .lab-bar {
+    position: sticky; top: 0; z-index: var(--z-bar); display: flex; align-items: center;
+    justify-content: space-between; min-height: 48px;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    background: var(--lab-blue); color: var(--lab-on-blue); font: 900 18px/1 var(--lab-face);
+  }
+  .lab-name { color: inherit; text-decoration: none; font-stretch: 68%; text-transform: uppercase; font-size: 20px; }
+  .lab-name:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-open {
+    min-height: 40px; padding: 0 14px; border: 2px solid var(--lab-on-blue); border-radius: 0; background: transparent;
+    color: inherit; font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-menu { transform: translateX(-100%); visibility: hidden;
+    transition: transform .28s cubic-bezier(.16, 1, .3, 1), visibility 0s .28s; }
+  .lab-menu.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.16, 1, .3, 1); }
+  .lab-main { margin-left: 0; }
+  .lab-close {
+    display: block; align-self: flex-end; margin: -10px 12px 10px 0; min-height: 40px; padding: 0 14px;
+    border: 2px solid var(--lab-on-blue); background: transparent; color: var(--lab-on-blue);
+    font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-close:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-scrim { position: fixed; inset: 0; z-index: var(--z-scrim); background: var(--lab-scrim); }
+}
+.lab-scrim[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .lab-menu, .lab-menu.open { transition: none; } }
+.lab-theme { margin: auto 0 0; padding: 16px 20px 0; font-size: 12px; font-weight: 600; }
+.lab-theme > span { display: block; margin-bottom: 6px; }
+.lab-seg { display: flex; border: 2px solid var(--lab-on-blue); }
+.lab-seg button {
+  flex: 1; min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--lab-on-blue);
+  font: 700 13px/1 var(--lab-face); cursor: pointer;
+}
+.lab-seg button + button { border-left: 2px solid var(--lab-on-blue); }
+.lab-seg button:hover { background: var(--lab-blue-deep); }
+.lab-seg button[aria-pressed="true"] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 900; }
+.lab-seg button:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; position: relative;
+  z-index: 1; }
+</style>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="icon" href="../icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="theme-color" content="#1d4f91" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16305a" media="(prefers-color-scheme: dark)">
+<meta name="description" content="How to use the 5 adds of the current fantasy week.">
+<meta property="og:site_name" content="Fantasy Hoops Lab">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Weekly adds plan">
+<meta property="og:description" content="How to use the 5 adds of the current fantasy week.">
+<meta property="og:url" content="https://mccomark21.github.io/fantasy-hoops-lab/adds/">
+<meta property="og:image" content="https://mccomark21.github.io/fantasy-hoops-lab/card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Fantasy Hoops Lab: a white basketball on a royal-blue tile.">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. Below 900px,
+   the phone row of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that
+   a class rule of a page wins over them. */
+table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+:where(.lab-t) thead th, :where(.lab-t) thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right;
+  padding: 0 6px 6px; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+:where(.lab-t) thead .l { text-align: left; }
+:where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px;
+  text-align: right; vertical-align: middle; font-weight: 400; }
+:where(.lab-t) tbody tr:nth-child(even) > * { background: var(--zebra); }
+.lab-t .s1 { border-left: 1px solid var(--vrule); }
+.lab-t td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+.lab-t td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
+.lab-t th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
+.lab-t .pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
+.lab-t .pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
+.lab-t td.n { font-size: 14px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lab-t td.band, :root:not([data-theme="light"]) .m-p .band {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+}
+:root[data-theme="dark"] .lab-t td.band, :root[data-theme="dark"] .m-p .band {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+/* Phone: the sizes of the phone row of the Roster. */
+@media (max-width: 899px) {
+  :where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 52px; }
+  .lab-t td.band { font-size: 17px; }
+  .lab-t td.rk { font-size: 19px; }
+  .lab-t .pl b { font-size: 18px; }
+  .m-p .band { background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
+  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; }
+  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
+}
+/* Short names for the shared tokens of core/tokens.py. The page has no colors of its own. */
+:root { --bg: var(--lab-stock); --fg: var(--lab-ink); --muted: var(--lab-mute); --line: var(--lab-rule);
+        --bad: var(--lab-red); --good: var(--lab-green); --q: var(--mark); }
+* { box-sizing: border-box; }
+body { font: 400 14px/1.4 var(--lab-face); }
+.sheet { max-width: 776px; padding: 24px max(28px, env(safe-area-inset-right)) 32px max(28px, env(safe-area-inset-left)); }
+@media (max-width: 599px) {
+  .sheet { padding: 16px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left)); }
+}
+h1 { margin: 0 0 10px; padding-bottom: 10px; border-bottom: 3px solid var(--mark); color: var(--mark);
+     font-weight: 900; font-stretch: 66%; font-size: clamp(30px, 4vw, 40px); line-height: .9;
+     text-transform: uppercase; text-wrap: balance; }
+h2 { margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--mark); font-weight: 900;
+     font-stretch: 75%; font-size: 19px; line-height: 1.1; text-transform: uppercase; }
+h3 { font-size: 15px; font-weight: 800; margin: 0 0 4px; }
+p { margin: 0 0 8px; color: var(--muted); }
+a { color: var(--q); text-underline-offset: 3px; }
+.muted { color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 0; margin: 12px 0; }
+.stat { display: flex; flex-direction: column-reverse; padding: 0 16px; border-left: 1px solid var(--line); }
+.stat:first-child { padding-left: 0; border-left: 0; }
+.stat b { font-size: 24px; font-weight: 900; font-stretch: 75%; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+.warning { border: 2px solid var(--bad); padding: 6px 12px; margin: 8px 0; }
+.warning ul { margin: 0; padding-left: 18px; color: var(--bad); font-weight: 700; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 4px; text-align: right; border-bottom: 1px solid var(--line); }
+thead th { font-size: 11px; font-weight: 800; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+tbody tr:nth-child(even) > * { background: var(--zebra); }
+th.name, td.name { text-align: left; overflow-wrap: anywhere; }
+td.name.sub { padding-left: 20px; color: var(--muted); }
+i { font-style: normal; font-weight: 900; }
+sup.b2b { font-size: 9px; font-weight: 800; color: var(--bad); margin-left: 1px; }
+/* The team plan (issue 140): the C3 heat week grid. The games of the day shade the whole column (--h). */
+.tp-lede { color: var(--fg); font-size: 14px; margin: 0 0 10px; }
+.tp-lede b { font-weight: 800; }
+.tp-note { font-size: 12px; margin: 4px 0 0; }
+.week { table-layout: fixed; font-size: 13px; }
+.week th, .week td { text-align: center; padding: 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.week col.lab { width: 64px; }
+.week thead th { padding: 0 0 2px; border-bottom: 0; font-size: 13px; }
+.week thead th:first-child { text-align: left; vertical-align: bottom; }
+.week thead b { display: block; font-size: 15px; font-weight: 900; font-stretch: 75%; text-transform: uppercase;
+                line-height: 1; }
+.week thead small { display: block; margin-top: 3px; font-size: 11px; color: var(--fg); font-weight: 400; }
+.week thead .short { display: none; }
+.week thead th.past, .week thead th.plain { padding: 4px 0 6px; }
+.week thead a.dayc { display: block; color: var(--fg); text-decoration: none; width: 100%; min-height: 40px;
+                     padding: 4px 0; }
+.week thead a.dayc:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.week thead a.dayc:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px; }
+.week tbody th { text-align: left; padding: 8px 4px 8px 0; font-size: 12px; font-weight: 800; }
+.week td { padding: 8px 2px; }
+.week tbody tr > * { background: transparent; }
+.week td, .week thead th + th { background: color-mix(in srgb, var(--q) var(--h, 0%), var(--bg)); }
+.week tbody tr > td { background: color-mix(in srgb, var(--q) var(--h, 0%), var(--bg)); }
+.week tbody tr > td.past, .week thead th.past { background: color-mix(in srgb, var(--muted) 10%, var(--bg));
+  color: var(--muted); }
+.week thead th.past small { color: var(--muted); }
+.week td + td, .week th + th { border-left: 2px solid var(--bg); }
+/* The chart audit (issue 190): regular games numbers and a 1px lamp-off rule below the Games row. */
+.week tr.games td { font-size: 15px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.week tr.games td, .week tr.games th { border-bottom: var(--lab-c-sw-rule, 1px) solid var(--lamp-off); }
+.week tr.add td { padding: 3px 2px; height: auto; }
+.week tr.add th small { display: block; color: var(--muted); font-weight: 600; font-size: 11px; }
+.addc { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; height: auto;
+        min-height: 58px; min-width: 0; max-width: 100%; padding: 6px 2px; font: inherit; color: var(--fg);
+        background: var(--bg); border: var(--lab-c-sw-rule, 1px) solid var(--lamp-off); }
+a.addc { text-decoration: none; }
+.addc b { font-size: 15px; font-weight: 900; font-stretch: 75%; line-height: 1; overflow-wrap: anywhere; }
+.addc .who { display: flex; flex-direction: column; max-width: 100%; font-size: 12px; font-weight: 700;
+             line-height: 1.2; }
+.addc .who span { overflow-wrap: anywhere; }
+a.addc .who { color: var(--q); text-decoration: underline; text-underline-offset: 2px; }
+/* The states of an add cell. Each state sets the text color and the background together, so each pair has 4.5:1
+   or more in both themes. Hover: the zebra ground. Focus: a 2px ink outline. */
+a.addc:hover { color: var(--fg); background: var(--zebra); }
+a.addc:hover .who { color: var(--q); text-decoration-thickness: 2px; }
+a.addc:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.addc.was { color: var(--muted); background: var(--bg); border: var(--lab-c-sw-rule, 1px) dashed var(--lamp-off); }
+.addc.was b { font-weight: 800; }
+.addc.was .who { font-weight: 600; }
+/* The span of an add: a band through each later day that the new player holds the spot. A filled square on the band
+   marks a start. The band has the width of the hero line of the shared chart style (issue 190). */
+.week td.band { position: relative; padding: 0; vertical-align: middle; }
+.week td.band .bar { position: relative; display: block; height: 58px; }
+.week td.band .bar::before { content: ""; position: absolute; left: -2px; right: 0; top: 50%;
+  height: var(--lab-c-sw-hero, 2px); margin-top: -1px; background: var(--fg); }
+.week td.band .mk { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  background: var(--fg); outline: var(--lab-c-sw-ring, 2px) solid var(--bg); }
+.week td.band.past .bar::before { background: var(--muted); }
+.week td.band.past .mk { background: var(--muted); width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+.heatkey { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.heatkey i { display: inline-block; width: 18px; height: 12px;
+             background: color-mix(in srgb, var(--q) var(--h, 0%), var(--bg)); }
+.spankey { gap: 6px 10px; flex-wrap: wrap; }
+.spankey .kbar { position: relative; display: inline-block; width: 30px; height: 14px; }
+.spankey .kbar::before { content: ""; position: absolute; left: 0; right: 0; top: 6px;
+  height: var(--lab-c-sw-hero, 2px); background: var(--fg); }
+.spankey .kmk { position: absolute; left: 10px; top: 2px; width: 10px; height: 10px; background: var(--fg);
+                outline: var(--lab-c-sw-ring, 2px) solid var(--bg); }
+.from { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--fg);
+        border: 1.5px solid var(--q); padding: 5px 10px; margin: 0 0 8px; }
+.from[hidden] { display: none; }
+.from a { font-weight: 700; }
+#fa, #plan { scroll-margin-top: 8px; }
+@media (max-width: 899px) { #fa, #plan { scroll-margin-top: 56px; } }
+#team-chips button.chip { font-size: 12px; padding: 3px 6px; min-height: 28px; }
+@media (max-width: 599px) {
+  .week col.lab { width: 44px; }
+  .week { font-size: 12px; }
+  .week thead .long { display: none; }
+  .week thead .short { display: inline; }
+  .week thead b { font-size: 14px; }
+  .week tbody th { font-size: 11px; }
+  .week tr.add th small { display: none; }
+  .week tr.games td { font-size: 14px; }
+  .addc { padding: 5px 1px; }
+  .addc b { font-size: 13px; }
+  .addc .who { font-size: 11px; }
+  .week td.band .mk { width: 8px; height: 8px; margin: -4px 0 0 -4px; }
+}
+.legend { font-size: 12px; margin-top: 6px; max-width: 75ch; }
+.skip { font-size: 13px; color: var(--fg); border: 1.5px solid var(--lamp-off); padding: 4px 8px; width: fit-content; }
+.key { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; margin: 0 0 6px; }
+.key > span { white-space: nowrap; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 0 0 8px; }
+.tools label.toggle { margin: 0; }
+.empty { border: 1.5px solid var(--lamp-off); padding: 10px 12px; margin: 0 0 8px; }
+.empty p { color: var(--fg); font-weight: 700; }
+.empty[hidden], .fa[hidden], .empty button[hidden] { display: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.filters .label { width: 100%; font-size: 12px; font-weight: 700; color: var(--muted); }
+button.chip { font: inherit; font-size: 13px; font-weight: 700; padding: 4px 9px; border: 1.5px solid var(--lamp-off);
+              border-radius: 0; background: var(--bg); color: var(--fg); cursor: pointer; line-height: 1.2;
+              min-height: 28px; }
+button.chip small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; }
+button.chip:hover { border-color: var(--fg); }
+/* A day with no open slot: a dashed chip. This rule comes before the pressed rule, so that a pressed chip
+   has stock text on the blue fill. */
+button.chip.none { color: var(--muted); border-style: dashed; }
+button.chip[aria-pressed="true"] { background: var(--q); border-color: var(--q); color: var(--bg); }
+button.chip[aria-pressed="true"] small { color: var(--bg); }
+button.chip.act { min-height: 32px; }
+label.toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 0 0 8px; min-height: 28px;
+               cursor: pointer; }
+label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q); }
+.count { font-size: 12px; margin: 0 0 4px; }
+/* The free-agent table and the waiver table (issue 143): publish.TABLE_STYLE gives the look of the Roster table.
+   These rules add the sort buttons, the day columns and the role line. */
+.fa, .wv { font-size: 13px; }
+.fa td.band, .wv td.band { width: 44px; }
+/* A long name wraps inside its cell. The name is an inline block, so that its glyph box stays inside the line. */
+.fa th.pl, .wv th.pl { overflow-wrap: anywhere; }
+.fa .pl b, .wv .pl b { display: inline-block; }
+.lab-t .pl .status, .lab-t .pl .flag { vertical-align: 3px; margin-left: 2px; }
+.fa th.pl small + small { font-size: 11px; }
+.fa th.sort { white-space: nowrap; padding: 0; }
+.fa th.sort button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; width: 100%;
+                     min-height: 28px; padding: 0 6px 6px; display: flex; align-items: flex-end;
+                     justify-content: flex-end; }
+.fa th.sort[aria-sort] { box-shadow: inset 0 -3px var(--q); }
+.fa th.day, .fa td.day { text-align: center; width: 26px; padding: 0 0 6px; }
+.fa td.day { padding: 0; }
+.fa th.day.sel { box-shadow: inset 0 -3px var(--q); }
+.fa td.sel { background: color-mix(in srgb, var(--q) 12%, var(--bg)); }
+.fa th.day small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+.wv td { white-space: nowrap; }
+/* Below 600px, the free-agent table has 4 number columns and up to 7 day columns next to the name. A smaller
+   band and name keep a long name such as VALANCIUNAS on one line. */
+@media (max-width: 599px) {
+  .fa th.day, .fa td.day { width: 18px; }
+  .fa td.n, .wv td { padding: 0 4px; }
+  .fa th.sort button { padding: 0 4px 6px; }
+  .fa td.band { width: 36px; font-size: 15px; }
+  .fa th.pl { padding-left: 6px; }
+  .fa .pl b { font-size: 15px; }
+}
+/* At 320px, the value cells and the sort buttons get less padding, so that a wide fallback font also fits. */
+@media (max-width: 359px) {
+  .fa td.n { padding: 0 2px; font-size: 13px; }
+  .fa th.sort button { padding: 0 2px 6px; }
+  .fa td.band { font-size: 13px; }
+}
+.dot { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; }
+.dot.fit { background: var(--fg); }
+.dot.game { border: 1.5px solid var(--muted); }
+.flag { display: inline-block; padding: 0 3px; border: 1.5px solid var(--fg); color: var(--fg);
+        font-size: 11px; font-weight: 800; line-height: 1.25; }
+.flag.next { background: var(--fg); color: var(--bg); }
+.neg { color: var(--muted); }
+.wide { display: none; }
+@media (min-width: 600px) { .fa .wide { display: table-cell; } }
+.status { display: inline-block; padding: 0 4px; background: var(--bad); color: var(--lab-on-red);
+          font-size: 11px; font-weight: 800; line-height: 1.4; }
+.ranking { font-size: 13px; }
+/* The matchup table (issue 144): one column for each category. The fixed layout keeps the 6 columns inside 320px. */
+.mu { font-size: 13px; table-layout: fixed; }
+.mu .name { width: 62px; }
+.mu th.name { font-size: 12px; font-weight: 800; }
+.mu thead th { text-align: right; }
+/* The chart audit (issue 190): no zebra rows and a 1px lab-rule under the head. */
+.mu thead th, .mu thead td { border-bottom: var(--lab-c-sw-rule) solid var(--line); }
+.mu tbody tr > * { background: transparent; }
+.lead { color: var(--good); }
+.trail { color: var(--bad); }
+.big { font-weight: 800; }
+.w0 { color: var(--fg); font-weight: 800; }
+.w1 { color: var(--fg); }
+.w2 { color: color-mix(in srgb, var(--fg) 50%, var(--muted)); }
+.w3 { color: var(--muted); }
+details.notes { margin: 16px 0 8px; color: var(--muted); }
+details.notes summary { cursor: pointer; color: var(--fg); font-weight: 700; width: fit-content; padding: 4px 0;
+                         min-height: 28px; }
+:focus-visible { outline: 2px solid var(--q); outline-offset: 2px; }
+.vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+details.notes p, details.notes table { margin: 6px 0 0; }
+/* The shared chart style (issue 185): the DESIGN.md "Charts" rules. The sizes come from core/tokens.py. */
+:root { --lab-c-sw-hero: 2px; --lab-c-sw-ring: 2px; --lab-c-sw-second: 1.25px; --lab-c-sw-rule: 1px; --lab-c-sw-empty: 1.5px; --lab-c-op-second: 0.8; --lab-c-op-game: 0.9; --lab-c-op-conn: 0.7; --lab-c-fs-small: 10.5px; --lab-c-fs-label: 11px; --lab-c-fw-small: 400; --lab-c-fw-label: 700; --lab-c-fw-exit: 800; }
+svg.lab-chart { display: block; width: 100%; height: auto; font-variant-numeric: tabular-nums; }
+.lab-c-hero { fill: none; stroke: var(--mark); stroke-width: var(--lab-c-sw-hero); stroke-linejoin: round;
+  stroke-linecap: round; }
+.lab-c-hero-dot { fill: var(--mark); stroke: var(--lab-stock); stroke-width: var(--lab-c-sw-ring); }
+.lab-c-second { fill: none; stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-second); stroke-linejoin: round;
+  opacity: var(--lab-c-op-second); }
+.lab-c-game { fill: var(--lamp-off); opacity: var(--lab-c-op-game); }
+.lab-c-dud { fill: var(--lab-red); }
+.lab-c-spike { fill: var(--lab-ink); }
+.lab-c-band { fill: var(--zebra); }
+.lab-c-ref, .lab-c-track { stroke: var(--lab-rule); stroke-width: var(--lab-c-sw-rule); }
+.lab-c-conn { stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-second); opacity: var(--lab-c-op-conn); }
+.lab-c-proj { fill: var(--lab-stock); stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-second); }
+.lab-c-cross { stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-rule); }
+.lab-c-hit { fill: transparent; }
+.lab-c-hit:focus-visible { outline: none; stroke: var(--lamp-off); stroke-width: var(--lab-c-sw-rule); }
+.lab-c-tick { fill: var(--lab-mute); font-size: var(--lab-c-fs-small); font-weight: var(--lab-c-fw-small); }
+.lab-c-label { fill: var(--lab-ink); font-size: var(--lab-c-fs-label); font-weight: var(--lab-c-fw-label); }
+.lab-c-exit { fill: var(--lab-red); font-size: var(--lab-c-fs-label); font-weight: var(--lab-c-fw-exit); }
+.lab-c-state { color: var(--lab-mute); font-size: var(--lab-c-fs-label); font-weight: var(--lab-c-fw-small); }
+.lab-c-state b { color: var(--lab-ink); font-weight: var(--lab-c-fw-exit); }
+.lab-c-empty { border: var(--lab-c-sw-empty) dashed var(--lamp-off); color: var(--lab-mute); text-align: center; }
+h2 { border-bottom-width: var(--lab-c-sw-rule); }
+</style>
+</head>
+<body class="lab">
+<header class="lab-bar"><a class="lab-name" href="../">Fantasy Hoops Lab</a>
+<button class="lab-open" type="button" aria-controls="lab-menu" aria-expanded="false">Menu</button></header>
+<nav class="lab-menu" id="lab-menu" aria-label="Site">
+<button class="lab-close" type="button">Close</button>
+<a class="lab-site" href="../">Fantasy<br>Hoops Lab<small>2026–27 · 14-team league</small></a>
+<ul>
+<li><a href="../">Home</a></li>
+<li><a href="../roster/">Roster</a></li>
+<li><a href="../adds/" aria-current="page">Adds plan</a></li>
+<li><a href="../free-agents/">Free agents</a></li>
+<li><a href="../trade/">Trades</a></li>
+<li><a href="../players/">Players</a></li>
+</ul>
+<div class="lab-theme" role="group" aria-labelledby="lab-theme-l">
+<span id="lab-theme-l">Theme</span>
+<div class="lab-seg"><button type="button" data-set="system" aria-pressed="true">Auto</button><button type="button" data-set="light" aria-pressed="false">Light</button><button type="button" data-set="dark" aria-pressed="false">Dark</button></div>
+</div>
+</nav>
+<div class="lab-scrim" hidden></div>
+<main class="lab-main"><div class="sheet">
+<h1>Weekly adds plan</h1>
+<p>Week 2: Mon 10/26 to Sun 11/1. Planning window: Sat 10/31 to Sun 11/1. Made on Sat 10/31.</p>
+<div class="stats"><div class="stat"><b>1 of 5</b><span>adds left</span></div><div class="stat"><b>3</b><span>stream spots</span></div></div>
+<p>Out (does not play): Coby White (O), Paolo Banchero (O).</p>
+<section id="matchup"><h2>Matchup</h2>
+<p>The category totals of your team and your opponent in this matchup.</p>
+<table class="mu"><thead><tr><td class="name"></td><th scope="col">PTS</th><th scope="col">REB</th><th scope="col">AST</th><th scope="col">3PTM</th><th scope="col">BLK</th><th scope="col">ST</th></tr></thead><tbody><tr><th scope="row" class="name">You</th><td>403</td><td>151</td><td>99</td><td>38</td><td>17</td><td>33</td></tr><tr><th scope="row" class="name">Opp</th><td>341</td><td>148</td><td>82</td><td>28</td><td>10</td><td>19</td></tr><tr><th scope="row" class="name">Margin</th><td class="lead big">+62</td><td>+3</td><td class="lead big">+17</td><td class="lead big">+10</td><td class="lead big">+7</td><td class="lead big">+14</td></tr><tr><th scope="row" class="name">Weight</th><td class="w3">0.50</td><td class="w0">1.00</td><td class="w3">0.50</td><td class="w3">0.50</td><td class="w3">0.50</td><td class="w3">0.50</td></tr></tbody></table>
+<p class="key" id="mu-key"><span>Margin: <span class="lead">+12</span> a lead</span><span><span class="trail">-12</span> a deficit</span><span>+2 close</span><span><span class="lead big">+30</span> bold: a large margin</span><span>Weight: <span class="w0">1.00</span> full, a lighter weight counts less</span></p>
+<p class="legend">Weight: the matchup weight of the category. A close category keeps weight 1. A large lead or deficit lowers the weight. Match in the free-agent table uses these weights.</p></section>
+<section id="plan"><h2>Team plan</h2>
+<p class="tp-lede">The plan uses <b>1 of the 1 adds</b> that are left. Tap an add to see the free agents who fit it.</p>
+<table class="week"><colgroup><col class="lab"><col><col><col><col><col><col><col></colgroup><thead><tr><th scope="col"><span class="vh">Row</span></th><th scope="col" class="past" aria-label="Mon 10/26, past"><b><span class="long">Mon</span><span class="short">M</span></b><small><span class="long">10/26</span><span class="short">26</span></small></th><th scope="col" class="past" aria-label="Tue 10/27, past"><b><span class="long">Tue</span><span class="short">T</span></b><small><span class="long">10/27</span><span class="short">27</span></small></th><th scope="col" class="past" aria-label="Wed 10/28, past"><b><span class="long">Wed</span><span class="short">W</span></b><small><span class="long">10/28</span><span class="short">28</span></small></th><th scope="col" class="past" aria-label="Thu 10/29, past"><b><span class="long">Thu</span><span class="short">T</span></b><small><span class="long">10/29</span><span class="short">29</span></small></th><th scope="col" class="past" aria-label="Fri 10/30, past"><b><span class="long">Fri</span><span class="short">F</span></b><small><span class="long">10/30</span><span class="short">30</span></small></th><th scope="col" style="--h: 23%"><a class="dayc" href="../free-agents/?days=2026-10-31&amp;pos=&amp;teams=&amp;from=Sat+10%2F31" aria-label="Show free agents who play Sat 10/31"><b><span class="long">Sat</span><span class="short">S</span></b><small><span class="long">10/31</span><span class="short">31</span></small></a></th><th scope="col" style="--h: 13%"><a class="dayc" href="../free-agents/?days=2026-11-01&amp;pos=&amp;teams=&amp;from=Sun+11%2F1" aria-label="Show free agents who play Sun 11/1"><b><span class="long">Sun</span><span class="short">S</span></b><small><span class="long">11/1</span><span class="short">1</span></small></a></th></tr></thead><tbody><tr class="games"><th scope="row">Games</th><td class="past">9</td><td class="past">4</td><td class="past">12</td><td class="past">3</td><td class="past">10</td><td style="--h: 23%">7</td><td style="--h: 13%">4</td></tr><tr class="add"><th scope="row">Add 1<small>1 add</small></th><td class="past"></td><td class="past"></td><td class="past"></td><td class="past"></td><td class="past"></td><td></td><td class="add" style="--h: 13%"><a class="addc" href="../free-agents/?days=2026-11-01&amp;pos=&amp;teams=BKN,BOS,LAL&amp;from=Add+1,+Sun%3A+%2BUtil+BKN+BOS+LAL" aria-label="Add 1, Sun: add any position from BKN, BOS or LAL. Starts Sun. Show these free agents." title="Starts Sun."><b>+Util</b><span class="who"><span>BKN</span><span>BOS</span><span>LAL</span></span></a></td></tr><tr class="add"><th scope="row">Add 2</th><td class="past"></td><td class="past"></td><td class="past"></td><td class="past"></td><td class="past"></td><td></td><td></td></tr></tbody></table>
+<p class="heatkey">Fewer <i style="--h: 8%"></i><i style="--h: 22%"></i><i style="--h: 40%"></i> more NBA games</p><p class="heatkey spankey"><span class="kbar"><span class="kmk"></span></span> holds the spot and starts<span class="kbar"></span> holds the spot, no start</p><p class="muted tp-note">No saved plan for Mon, Tue and Fri.</p>
+<details class="notes" id="plan-notes"><summary>How to read the plan</summary>
+<p class="legend">Games: the NBA games of the day. A deeper shade: more games. An add sits on its add day: the slots that the new player can fill, then the NBA teams that fit equally. With 6 teams or more, the cell gives the count. Util: any position. A later add in a row drops the player of the earlier add. A band after an add shows the days that the new player holds the spot, up to the next add in the row or Sunday. A square on the band marks a day that he starts: his team plays, and an open slot takes him. Each add also starts on its add day. A click on an add or a day opens the Free agents page with the filters of the add or the day. A past day is muted. A dashed cell shows the add that the last run on or before that day recommended for it.</p></details>
+</section>
+<details class="notes"><summary>NBA teams by open days</summary>
+<table class="ranking"><thead><tr><th class="name">Team</th><th>Days</th><th>Slots</th><th class="name">Open days</th></tr></thead><tbody><tr><td class="name">*BKN</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*BOS</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*GS</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*IND</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*LAC</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*LAL</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*ORL</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*TOR</td><td>1</td><td>4</td><td class="name">Sun</td></tr><tr><td class="name">*ATL</td><td>1</td><td>3</td><td class="name">Sat</td></tr><tr><td class="name">CHA</td><td>1</td><td>3</td><td class="name">Sat</td></tr><tr><td class="name">CLE</td><td>1</td><td>3</td><td class="name">Sat</td></tr><tr><td class="name">HOU</td><td>1</td><td>3</td><td class="name">Sat</td></tr></tbody></table>
+<p class="muted">* = the planner read the free agents of this team.</p><p class="muted">10 more teams play on an open day.</p></details>
+<details class="notes" id="run-time"><summary>Run time</summary>
+<p class="legend" id="market-read">Market: 3 of 3 pages (the limit).</p>
+<p class="legend" id="cache-read">Transaction Trends: 2 pages of earlier days from the cache.</p>
+<table class="ranking"><thead><tr><th class="name">Step</th><th>Seconds</th><th>Calls</th><th>States</th><th>Pages</th></tr></thead><tbody><tr><td class="name">schedule read</td><td>0.00</td><td></td><td></td><td></td></tr><tr><td class="name">season values</td><td>0.02</td><td></td><td></td><td></td></tr><tr><td class="name">Yahoo reads</td><td>17.32</td><td></td><td></td><td>46</td></tr><tr><td class="name sub">browser start</td><td>1.12</td><td></td><td></td><td>0</td></tr><tr><td class="name sub">league and matchup pages</td><td>3.12</td><td></td><td></td><td>2</td></tr><tr><td class="name sub">projected pass</td><td>2.11</td><td></td><td></td><td>9</td></tr><tr><td class="name sub">recent pass</td><td>1.78</td><td></td><td></td><td>9</td></tr><tr><td class="name sub">market pages</td><td>2.21</td><td></td><td></td><td>6</td></tr><tr><td class="name sub">waiver list</td><td>0.76</td><td></td><td></td><td>2</td></tr><tr><td class="name sub">trends</td><td>1.88</td><td></td><td></td><td>4</td></tr><tr><td class="name sub">rostered list</td><td>3.98</td><td></td><td></td><td>14</td></tr><tr><td class="name">absence read</td><td>0.20</td><td></td><td></td><td></td></tr><tr><td class="name">value options</td><td>0.19</td><td></td><td></td><td></td></tr><tr><td class="name">team plan</td><td>0.00</td><td>9</td><td>7</td><td></td></tr><tr><td class="name">role read</td><td>0.25</td><td></td><td></td><td></td></tr><tr><td class="name">roster page</td><td>0.56</td><td></td><td></td><td></td></tr></tbody></table>
+<p class="muted">Calls: the calls of the plan search, cache hits included. States: the unique states that the search computed. A step with no search has no counts. Pages: the Yahoo pages that the step opened. The indented rows are the sub-steps of the Yahoo reads. Their seconds do not include the work between them or the browser close. The page write is not in the table. output/adds/timings.csv has all the steps.</p></details>
+<details class="notes"><summary>How the plan works</summary>
+<p>This is one team in a Yahoo fantasy basketball league. Each day, the team starts up to 6 players. A player scores only on a day when his NBA team plays and he is in a starting slot.</p>
+<p>The team keeps its core players all season. The other roster spots are stream spots. The league gives 5 adds each week, so the team can change the players in the stream spots.</p>
+<p>The planner finds the days with open starting slots. For each stream spot, it finds the NBA teams whose games fill the most open slots with the fewest adds. You pick the player in the free-agent table.</p>
+<p>The value of a player is his value per game in the 6 categories that this league counts, above a replacement free agent: 0 is the value of the free agent at rank 15.</p></details>
+</div></main>
+<script>
+(() => {
+  const btn = document.querySelector(".lab-open"), nav = document.getElementById("lab-menu");
+  const scrim = document.querySelector(".lab-scrim");
+  if (!btn || !nav) return;
+  const behind = [...document.querySelectorAll(".lab-main, .lab-bar")];
+  const set = open => {
+    nav.classList.toggle("open", open); btn.setAttribute("aria-expanded", open);
+    document.body.classList.toggle("lab-locked", open);
+    scrim.hidden = !open; behind.forEach(el => el.inert = open);
+    if (open) nav.querySelector(".lab-close").focus();
+  };
+  nav.querySelector(".lab-close").addEventListener("click", () => { set(false); btn.focus(); });
+  btn.addEventListener("click", () => set(!nav.classList.contains("open")));
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && nav.classList.contains("open")) { set(false); btn.focus(); }
+  });
+  scrim.addEventListener("click", () => set(false));
+})();
+(() => {
+  const root = document.documentElement, btns = [...document.querySelectorAll(".lab-seg button")];
+  const show = () => {
+    const t = root.dataset.theme || "system";
+    btns.forEach(b => b.setAttribute("aria-pressed", b.dataset.set === t));
+  };
+  btns.forEach(b => b.addEventListener("click", () => {
+    const t = b.dataset.set;
+    if (t === "system") delete root.dataset.theme; else root.dataset.theme = t;
+    try {
+      if (t === "system") localStorage.removeItem("lab-theme"); else localStorage.setItem("lab-theme", t);
+    } catch (e) {}
+    show();
+  }));
+  show();
+})();
+</script>
+</body>
+</html>

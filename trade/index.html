@@ -1,0 +1,925 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trades</title>
+<script>try { const t = localStorage.getItem("lab-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="preload" href="fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face {
+  font-family: Archivo; font-style: normal; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url(fonts/archivo-latin.woff2) format("woff2");
+}
+:root {
+  --lab-stock: #ffffff; --lab-ink: #14171c; --lab-mute: #5b6270; --lab-rule: #e7e9ee; --lab-blue: #1d4f91; --lab-blue-deep: #163f75; --lab-on-blue: #ffffff; --lab-red: #c8102e; --lab-on-red: #ffffff; --lab-green: #17743a; --mark: #1d4f91; --zebra: #eff3f8; --qcol: #e0e8f4; --qcol-z: #dae3f1; --vrule: #d2d9e4; --lamp-off: #6f7889; --lab-scrim: rgb(8 16 32 / .5); color-scheme: light;
+  --lab-face: Archivo, "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+}
+:root[data-theme="dark"] { --lab-stock: #0e1a2e; --lab-ink: #eef2f8; --lab-mute: #a7b2c4; --lab-rule: #23334d; --lab-blue: #16305a; --lab-blue-deep: #1f3f73; --lab-on-blue: #ffffff; --lab-red: #ff7d8d; --lab-on-red: #0e1a2e; --lab-green: #6fd08c; --mark: #8fb3ff; --zebra: #142540; --qcol: #1c3254; --qcol-z: #223a60; --vrule: #2e4264; --lamp-off: #7d8eab; --lab-scrim: rgb(8 16 32 / .5); color-scheme: dark; }
+::selection { background: var(--lab-blue); color: var(--lab-on-blue); }
+</style>
+<style>
+/* Card Back: the site menu. A royal-blue side panel on a desktop, a top bar with a drawer on a phone. */
+:root { --lab-menu-w: 216px; --z-menu: 30; --z-scrim: 20; --z-bar: 10; }
+body.lab { margin: 0; background: var(--lab-stock); color: var(--lab-ink); }
+body.lab-locked { overflow: hidden; }
+.lab-menu {
+  position: fixed; inset: 0 auto 0 0; width: var(--lab-menu-w); z-index: var(--z-menu);
+  display: flex; flex-direction: column; background: var(--lab-blue); color: var(--lab-on-blue);
+  font: 600 14px/1.3 var(--lab-face); padding: 22px 0 18px; overflow-y: auto;
+}
+.lab-site {
+  display: block; color: inherit; text-decoration: none; padding: 0 20px 16px; margin: 0 0 10px;
+  font-weight: 900; font-stretch: 68%; text-transform: uppercase; font-size: 24px; line-height: .95;
+  border-bottom: 3px solid var(--lab-on-blue);
+}
+.lab-site small { display: block; margin-top: 7px; font-size: 12px; font-weight: 600; font-stretch: 100%;
+  text-transform: none; line-height: 1.2; }
+.lab-menu ul { list-style: none; margin: 0; padding: 0; }
+.lab-menu li a {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 20px;
+  color: inherit; text-decoration: none; font-size: 15px;
+}
+.lab-menu li a::before { content: ""; width: 9px; height: 9px; flex: none; }
+.lab-menu li a:hover { background: var(--lab-blue-deep); }
+.lab-menu li a[aria-current] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 800; }
+.lab-menu li a[aria-current]::before { background: var(--lab-red); }
+.lab-menu a:focus-visible, .lab-open:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: -4px; }
+.lab-menu li a[aria-current]:focus-visible { outline-color: var(--lab-ink); }
+.lab-bar, .lab-close { display: none; }
+.lab-main { display: block; margin-left: var(--lab-menu-w); min-width: 0; }
+@media (max-width: 899px) {
+  .lab-bar {
+    position: sticky; top: 0; z-index: var(--z-bar); display: flex; align-items: center;
+    justify-content: space-between; min-height: 48px;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    background: var(--lab-blue); color: var(--lab-on-blue); font: 900 18px/1 var(--lab-face);
+  }
+  .lab-name { color: inherit; text-decoration: none; font-stretch: 68%; text-transform: uppercase; font-size: 20px; }
+  .lab-name:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-open {
+    min-height: 40px; padding: 0 14px; border: 2px solid var(--lab-on-blue); border-radius: 0; background: transparent;
+    color: inherit; font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-menu { transform: translateX(-100%); visibility: hidden;
+    transition: transform .28s cubic-bezier(.16, 1, .3, 1), visibility 0s .28s; }
+  .lab-menu.open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.16, 1, .3, 1); }
+  .lab-main { margin-left: 0; }
+  .lab-close {
+    display: block; align-self: flex-end; margin: -10px 12px 10px 0; min-height: 40px; padding: 0 14px;
+    border: 2px solid var(--lab-on-blue); background: transparent; color: var(--lab-on-blue);
+    font: 800 14px/1 var(--lab-face); text-transform: uppercase; cursor: pointer;
+  }
+  .lab-close:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; }
+  .lab-scrim { position: fixed; inset: 0; z-index: var(--z-scrim); background: var(--lab-scrim); }
+}
+.lab-scrim[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .lab-menu, .lab-menu.open { transition: none; } }
+.lab-theme { margin: auto 0 0; padding: 16px 20px 0; font-size: 12px; font-weight: 600; }
+.lab-theme > span { display: block; margin-bottom: 6px; }
+.lab-seg { display: flex; border: 2px solid var(--lab-on-blue); }
+.lab-seg button {
+  flex: 1; min-height: 36px; padding: 0 4px; border: 0; background: transparent; color: var(--lab-on-blue);
+  font: 700 13px/1 var(--lab-face); cursor: pointer;
+}
+.lab-seg button + button { border-left: 2px solid var(--lab-on-blue); }
+.lab-seg button:hover { background: var(--lab-blue-deep); }
+.lab-seg button[aria-pressed="true"] { background: var(--lab-stock); color: var(--lab-ink); font-weight: 900; }
+.lab-seg button:focus-visible { outline: 2px solid var(--lab-on-blue); outline-offset: 2px; position: relative;
+  z-index: 1; }
+</style>
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="icon" href="../icon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<meta name="theme-color" content="#1d4f91" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16305a" media="(prefers-color-scheme: dark)">
+<meta name="description" content="Trades that raise your playoff starts and keep your season value.">
+<meta property="og:site_name" content="Fantasy Hoops Lab">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Trades">
+<meta property="og:description" content="Trades that raise your playoff starts and keep your season value.">
+<meta property="og:url" content="https://mccomark21.github.io/fantasy-hoops-lab/trade/">
+<meta property="og:image" content="https://mccomark21.github.io/fantasy-hoops-lab/card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Fantasy Hoops Lab: a white basketball on a royal-blue tile.">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+/* The shared tables (issue 143): the look of the Roster table, for each table with the class lab-t. Below 900px,
+   the phone row of the Roster (.m-p) gets the same band, rank and name. The head and row rules use :where(), so that
+   a class rule of a page wins over them. */
+table.lab-t { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+:where(.lab-t) thead th, :where(.lab-t) thead td { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right;
+  padding: 0 6px 6px; vertical-align: bottom; border-bottom: 2px solid var(--mark); }
+:where(.lab-t) thead .l { text-align: left; }
+:where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 46px; border-bottom: 1px solid var(--lab-rule); padding: 0 6px;
+  text-align: right; vertical-align: middle; font-weight: 400; }
+:where(.lab-t) tbody tr:nth-child(even) > * { background: var(--zebra); }
+.lab-t .s1 { border-left: 1px solid var(--vrule); }
+.lab-t td.band { padding: 0; text-align: center; background: var(--team) !important; color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 19px; border-bottom: 1px solid var(--lab-stock); }
+.lab-t td.rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 21px; padding-right: 8px; }
+.lab-t th.pl { text-align: left; padding: 3px 6px 3px 10px; line-height: 1; }
+.lab-t .pl b { font-weight: 900; font-stretch: 66%; font-size: 20px; text-transform: uppercase; line-height: 1; }
+.lab-t .pl small { display: block; font-size: 12px; line-height: 1.2; color: var(--lab-mute); margin-top: 2px; }
+.lab-t td.n { font-size: 14px; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lab-t td.band, :root:not([data-theme="light"]) .m-p .band {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+}
+:root[data-theme="dark"] .lab-t td.band, :root[data-theme="dark"] .m-p .band {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lab-ink) 22%, transparent); }
+/* Phone: the sizes of the phone row of the Roster. */
+@media (max-width: 899px) {
+  :where(.lab-t) tbody td, :where(.lab-t) tbody th { height: 52px; }
+  .lab-t td.band { font-size: 17px; }
+  .lab-t td.rk { font-size: 19px; }
+  .lab-t .pl b { font-size: 18px; }
+  .m-p .band { background: var(--team); color: var(--team-ink); font-weight: 900; font-stretch: 70%; font-size: 17px; }
+  .m-p .rk { color: var(--lab-red); font-weight: 900; font-stretch: 75%; font-size: 19px; }
+  .m-p .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; }
+}
+* { box-sizing: border-box; }
+body { font: 400 14px/1.4 var(--lab-face); }
+.trade { container-type: inline-size; color: var(--lab-ink); font: 400 13px/1.25 var(--lab-face);
+  font-variant-numeric: tabular-nums; padding-block: 16px 40px; padding-left: max(28px, env(safe-area-inset-left));
+  padding-right: max(28px, env(safe-area-inset-right)); max-width: 1240px; }
+@media (max-width: 899px) { .trade { padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right)); } }
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+
+/* Header: the Roster header, with the deadline, the starts now and the time of the run. */
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 28px; padding-bottom: 12px;
+  border-bottom: 3px solid var(--mark); }
+.head h1 { margin: 0; color: var(--mark); font-weight: 900; font-stretch: 66%; font-size: clamp(32px, 4vw, 44px);
+  line-height: .9; text-transform: uppercase; }
+.meta { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 0; margin: 0; font-size: 13px; }
+.meta div { padding: 0 16px; border-left: 1px solid var(--lab-rule); }
+.meta dt { color: var(--lab-mute); font-size: 12px; margin-bottom: 3px; }
+.meta dd { margin: 0; }
+.meta strong { font-weight: 800; font-size: 15px; }
+.meta .dl strong { font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1; }
+@media (max-width: 599px) { .meta div:first-child { padding-left: 0; border-left: 0; }
+  .meta { display: grid; grid-template-columns: auto 1fr; row-gap: 8px; }
+  .meta .dl { grid-row: span 2; align-self: center; padding-right: 16px; } }
+
+h2 { margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--mark); color: var(--lab-ink);
+  font-weight: 900; font-stretch: 75%; font-size: 19px; line-height: 1.1; text-transform: uppercase; }
+.foot { margin: 8px 0 0; font-size: 12px; color: var(--lab-mute); max-width: 72ch; }
+.foot b { color: var(--lab-ink); font-weight: 800; }
+
+/* Chips: the filter chips of the Free agents table. */
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.filters .label { width: 100%; font-size: 12px; font-weight: 700; color: var(--lab-mute); }
+button.chip { font: inherit; font-size: 13px; font-weight: 700; padding: 4px 9px; border: 1.5px solid var(--lamp-off);
+  border-radius: 0; background: var(--lab-stock); color: var(--lab-ink); cursor: pointer; line-height: 1.2;
+  min-height: 32px; text-align: left; }
+button.chip small { display: block; color: var(--lab-mute); font-size: 11px; font-weight: 400; }
+button.chip:hover { border-color: var(--lab-ink); }
+button.chip[aria-pressed="true"] { background: var(--mark); border-color: var(--mark); color: var(--lab-stock); }
+button.chip[aria-pressed="true"] small { color: var(--lab-stock); }
+.count { font-size: 12px; margin: 0 0 4px; color: var(--lab-mute); }
+/* The offered players and the players with no suggestion (#170), above the filter row. */
+.offer { margin: 0 0 10px; font-size: 13px; max-width: 100ch; overflow-wrap: anywhere; }
+.offer p { margin: 0; font-weight: 700; }
+.offer .miss { list-style: none; margin: 4px 0 0; padding: 0; color: var(--lab-mute); }
+.offer .miss li + li { margin-top: 2px; }
+
+/* The suggestions table: the lab-t table of the Roster. Desktop at 940px of content and more, a row list below. */
+.sg { table-layout: fixed; font-size: 13px; }
+.sg col.c-rk { width: 36px; } .sg col.c-band { width: 40px; } .sg col.c-pt { width: 124px; }
+.sg col.c-w { width: var(--wk-w, 64px); } .sg col.c-t { width: var(--t-w, 74px); } .sg col.c-v { width: 76px; }
+.sg col.c-v2 { width: 64px; }
+.sg thead tr.grp th { border-bottom: 0; padding-bottom: 4px; font-size: 12px; }
+.sg thead tr.grp th.fine { background: var(--lab-blue); color: var(--lab-on-blue); text-align: center; padding: 5px 0; }
+.sg th.pl { overflow-wrap: anywhere; padding-block: 6px; }
+.sg td.band { font-size: 15px; }
+.lab-t td.band.b4, .ms .band.b4 { font-size: 12px; }  /* a team code of 4 letters, for example UTAH */
+.sg .pl b { display: inline; }
+.lab-t .pl small + small { font-size: 11px; margin-top: 1px; }
+.lab-t .pl small i, .ms .nm small i { font-style: normal; font-weight: 700; color: var(--lab-ink); }
+.pre { font-weight: 700; color: var(--lab-ink); }
+.sg td.pt { text-align: left; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
+.s1 { border-left: 1px solid var(--vrule); }
+td.v { font-size: 14px; white-space: nowrap; }
+td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
+.minus { color: var(--lab-red); }
+.status { display: inline-block; padding: 0 4px; background: var(--lab-red); color: var(--lab-on-red);
+  font-size: 11px; font-weight: 800; line-height: 1.4; vertical-align: 3px; margin-left: 4px; font-stretch: 100%; }
+.desk { display: none; } .mob { display: block; }
+@container (min-width: 940px) { .desk { display: table; } .mob { display: none; } }
+[hidden] { display: none !important; }
+
+/* The row list (below 940px of content): one item for each trade. */
+.mob { margin: 4px -16px 0; border-top: 2px solid var(--mark); }
+@container (min-width: 600px) { .mob { margin: 4px 0 0; } }
+.ml { list-style: none; margin: 0; padding: 0; }
+.ms { display: grid; grid-template-columns: 34px 40px minmax(0, 1fr); border-bottom: 1px solid var(--lab-rule);
+  background: var(--lab-stock); color: var(--lab-ink); }
+.ml .ms:nth-of-type(even) { background: var(--zebra); }
+.ms .rk { grid-row: span 2; align-self: center; text-align: right; padding-right: 6px; color: var(--lab-red);
+  font-weight: 900; font-stretch: 75%; font-size: 19px; }
+.ms .band { display: flex; align-items: center; justify-content: center; background: var(--team); color: var(--team-ink);
+  font-weight: 900; font-stretch: 70%; font-size: 15px; min-height: 46px; border-bottom: 1px solid var(--lab-stock); }
+.ms .nm { padding: 6px 4px 6px 10px; line-height: 1; min-width: 0; align-self: center; }
+.ms .nm b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; overflow-wrap: anywhere; }
+.ms .nm small { display: block; font-size: 12px; line-height: 1.25; color: var(--lab-mute); margin-top: 3px; }
+.ms .nums { grid-column: 1 / -1; display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)) minmax(min-content, 1.1fr) minmax(min-content, .9fr);
+  padding: 6px 6px 8px 8px; border-top: 1px solid var(--lab-rule); }
+.ms .nums > span { padding: 0 4px; text-align: right; min-width: 0; }
+.ms .nums > span + span { border-left: 1px solid var(--vrule); }
+.ms .nums em { display: block; font-style: normal; font-size: 11px; font-weight: 800; color: var(--mark); margin-bottom: 2px; }
+.ms .nums .v { font-size: 14px; }
+.ms .nums .v small { display: block; font-size: 11px; color: var(--lab-mute); }
+.mnow { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)) minmax(0, 2fr); align-items: center;
+  background: var(--lab-blue); color: var(--lab-on-blue); padding: 6px 6px 6px 8px; font-weight: 900; font-size: 15px; }
+.mnow span { text-align: right; padding: 0 4px; }
+.mnow span:last-child { text-align: left; font-size: 12px; font-weight: 700; padding-left: 12px; }
+.empty { border: 1.5px solid var(--lamp-off); padding: 10px 12px; margin: 8px 0; color: var(--lab-ink); }
+.empty p { margin: 0; font-weight: 700; }
+/* The warning lines of the run (#153), under the header. */
+.warn { list-style: none; margin: 12px 0 0; padding: 8px 12px; border-left: 4px solid var(--lab-red);
+  background: var(--lab-stock); color: var(--lab-ink); font-size: 13px; max-width: 100ch; overflow-wrap: anywhere; }
+.warn li + li { margin-top: 4px; }
+
+/* Look 3 (#149): the starts now in one blue row. Each week cell has the new count, the change and a small bar.
+   The bar: a tick at 0, 8px for each start, blue to the right for a gain, red with a gap to the left for a loss. */
+.wk { white-space: nowrap; }
+.wk b { font-size: 15px; font-weight: 800; }
+.wk.eq b { font-weight: 400; }
+.wk small { font-size: 12px; font-weight: 800; color: var(--mark); margin-left: 3px; }
+.wk.dn small { color: var(--lab-red); }
+.wk.eq small { color: var(--lab-mute); font-weight: 600; }
+.cb { position: relative; display: block; width: 50px; height: 8px; margin: 4px 0 0 auto; }
+.cb::before { content: ""; position: absolute; left: 16px; top: -2px; bottom: -2px; width: 2px; background: var(--lab-ink); }
+.cb i { position: absolute; top: 1px; height: 6px; }
+.cb i.up { left: 18px; width: calc(var(--d) * 8px - 1px); max-width: calc(100% - 18px); background: var(--mark); }
+.cb i.dn { right: calc(100% - 15px); width: calc(var(--d) * 8px - 1px); max-width: 15px;
+  background: repeating-linear-gradient(90deg, var(--lab-red) 0 6px, transparent 6px 8px); }
+.wk.t .cb { width: 60px; }
+.sg thead tr.now > * { background: var(--lab-blue) !important; color: var(--lab-on-blue); border-bottom: 0; }
+.sg thead tr.now th, .sg thead tr.now td { font-size: 15px; font-weight: 900; padding: 6px; vertical-align: middle; }
+.sg thead tr.now th.l { font-size: 12px; font-weight: 800; text-align: left; padding-left: 10px; }
+.ms .nums .cb { width: 100%; max-width: 50px; }
+/* With 4 playoff weeks or more, a narrow week cell puts the change under the count (#160). */
+.ms .nums .wk { white-space: normal; }
+.ms .nums .wk small { display: inline-block; }
+.key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--lab-mute); margin: 8px 0 0;
+  align-items: center; }
+.key .cb { display: inline-block; margin: 0 4px 0 0; vertical-align: middle; }
+
+/* The partner starts of a suggestion (an estimate) and the button that loads a suggestion into the builder. */
+.sg td.pt small.pe { display: block; margin-top: 4px; font-size: 11px; color: var(--lab-ink); }
+.sg td.pt small.pe b { font-weight: 800; }
+.sg td.pt small.pe span { display: block; white-space: nowrap; }
+.ms .pst { grid-column: 1 / -1; padding: 0 8px 8px; font-size: 12px; color: var(--lab-ink); overflow-wrap: anywhere; }
+.ms .pst em { font-style: normal; font-weight: 800; color: var(--mark); margin-right: 6px; }
+.ms .pst b { font-weight: 800; }
+button.ld { font: inherit; color: inherit; background: none; border: 0; padding: 0; min-width: 28px; min-height: 32px;
+  cursor: pointer; text-align: right; }
+.ms .rk button.ld { font-size: 19px; }
+#sg-desk tbody tr, #sg-mob li.ms { cursor: pointer; }
+#sg-desk tbody tr:hover > *:not(.band), #sg-mob li.ms:hover { background: var(--qcol); }
+#sg-desk tbody tr[aria-current="true"] > *:not(.band), #sg-mob li.ms[aria-current="true"] { background: var(--qcol); }
+#sg-desk tbody tr[aria-current="true"] > * { box-shadow: inset 0 2px var(--mark), inset 0 -2px var(--mark); }
+#sg-mob li.ms[aria-current="true"] { box-shadow: inset 4px 0 var(--mark); }
+
+/* The trade builder (#152): the partner pick, a table of the players of each side, the drops and the result. */
+.lede { margin: 0 0 10px; font-size: 13px; color: var(--lab-mute); max-width: 72ch; }
+h3 { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: var(--lab-ink); overflow-wrap: anywhere; }
+.pick { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; margin: 0 0 12px; }
+.pick label { display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: var(--lab-mute); max-width: 100%; }
+.pick select { font: inherit; font-size: 15px; font-weight: 800; color: var(--lab-ink); background: var(--lab-stock);
+  border: 1.5px solid var(--lab-ink); border-radius: 0; min-height: 40px; padding: 0 8px; max-width: 100%; }
+.pick select:hover { border-color: var(--mark); }
+.sides { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 760px) { .sides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; } }
+.pk { table-layout: fixed; font-size: 13px; }
+.pk col.c-ck { width: 38px; } .pk col.c-band { width: 40px; } .pk col.c-n { width: 54px; }
+:where(.pk) tbody td, :where(.pk) tbody th { height: 44px; }
+.pk th.pl { overflow-wrap: anywhere; } .pk .pl b { display: inline; font-size: 17px; }
+.pk td.ck { padding: 0; text-align: center; }
+.pk input { width: 20px; height: 20px; margin: 0; accent-color: var(--mark); cursor: pointer; vertical-align: middle; }
+.pk tbody tr { cursor: pointer; }
+.pk tbody tr.off { cursor: default; }
+.pk tbody tr:not(.off):hover > *:not(.band) { background: var(--qcol); }
+.pk tbody tr.on > *:not(.band) { background: var(--qcol); }
+.pk tbody tr.on > * { box-shadow: inset 0 2px var(--mark), inset 0 -2px var(--mark); }
+.pk td.n { font-size: 13px; }
+.pk td.band { font-size: 15px; }
+@container (max-width: 599px) { .pk col.c-band { width: 0; } .pk td.band { font-size: 0 !important; }
+  .pk col.c-n { width: 50px; } }
+.line { font-size: 13px; color: var(--lab-ink); border: 1.5px solid var(--lamp-off); padding: 6px 10px; margin: 10px 0 0;
+  width: fit-content; max-width: 100%; }
+.line b { font-weight: 800; }
+.drop { margin: 14px 0 0; padding: 10px 0 0; border-top: 1px solid var(--lab-rule); }
+.res { margin-top: 18px; }
+.rt { table-layout: fixed; font-size: 13px; max-width: 860px; }
+.rt col.c-w { width: 64px; } .rt col.c-t { width: 74px; } .rt col.c-v { width: 104px; }
+.rt th.sd { text-align: left; padding: 5px 6px 5px 10px; line-height: 1.15; overflow-wrap: anywhere; }
+.rt th.sd b { font-weight: 900; font-stretch: 66%; font-size: 18px; text-transform: uppercase; display: block; }
+.rt th.sd small { display: block; font-size: 12px; color: var(--lab-mute); font-weight: 400; margin-top: 2px; }
+.rt tr.now th.sd small { color: var(--lab-on-blue); }
+.rt th.sd small.rv { display: none; }
+.rt td.v small { white-space: normal; }
+.rt tbody tr.now > * { background: var(--lab-blue) !important; color: var(--lab-on-blue); font-weight: 900; }
+@container (max-width: 599px) { .rt col.c-v { width: 0; } .rt td.v, .rt thead th.cv { font-size: 0; padding: 0;
+  border-left: 0; } .rt td.v small { font-size: 0; } .rt th.sd small.rv { display: block; }
+  .rt col.c-w { width: 44px; } .rt col.c-t { width: 54px; } .rt th.sd b { font-size: 16px; }
+  .rt .wk .cb { display: none; } .rt td.wk, .rt thead th { padding: 0 4px; }
+  .rt .wk small { display: block; margin-left: 0; } }
+.res .line { margin-top: 8px; }
+.mv { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 10px 0 0; font-size: 12px; color: var(--lab-mute); }
+.mv b { color: var(--lab-ink); font-weight: 800; }
+</style>
+</head>
+<body class="lab">
+<header class="lab-bar"><a class="lab-name" href="../">Fantasy Hoops Lab</a>
+<button class="lab-open" type="button" aria-controls="lab-menu" aria-expanded="false">Menu</button></header>
+<nav class="lab-menu" id="lab-menu" aria-label="Site">
+<button class="lab-close" type="button">Close</button>
+<a class="lab-site" href="../">Fantasy<br>Hoops Lab<small>2026–27 · 14-team league</small></a>
+<ul>
+<li><a href="../">Home</a></li>
+<li><a href="../roster/">Roster</a></li>
+<li><a href="../adds/">Adds plan</a></li>
+<li><a href="../free-agents/">Free agents</a></li>
+<li><a href="../trade/" aria-current="page">Trades</a></li>
+</ul>
+<div class="lab-theme" role="group" aria-labelledby="lab-theme-l">
+<span id="lab-theme-l">Theme</span>
+<div class="lab-seg"><button type="button" data-set="system" aria-pressed="true">Auto</button><button type="button" data-set="light" aria-pressed="false">Light</button><button type="button" data-set="dark" aria-pressed="false">Dark</button></div>
+</div>
+</nav>
+<div class="lab-scrim" hidden></div>
+<main class="lab-main trade">
+<header class="head">
+<h1>Trades</h1>
+<dl class="meta">
+<div class="dl"><dt>Trade deadline</dt><dd><strong>Thu Mar 4</strong> · 126 days</dd></div>
+<div><dt>Your playoff starts</dt><dd><strong>30 · 27 · 26</strong> = 83, Wk19–21</dd></div>
+<div><dt>Made</dt><dd><strong>Thu 10/29</strong> 17:11</dd></div>
+</dl>
+</header>
+<ul class="warn" id="warnings" aria-label="Warnings"><li>Warning: these players have no rank and go last in the lineup order: Alex Sarr and Nic Claxton.</li><li>Warning: these players are not in the [risk] file and get rests_b2b 0: 11 players, such as Precious Achiuwa, Alex Sarr and Brandon Ingram.</li><li>Warning: these players are not in the projections file and have no Pre value: Alex Sarr and Nic Claxton.</li></ul>
+<section id="sugg" aria-labelledby="sugg-h">
+<h2 id="sugg-h">Suggested trades</h2>
+<div class="offer" id="offer"><p>Offered: Matas Buzelis, Rudy Gobert, Coby White (config [trade] offer).</p><ul class="miss" id="offer-miss"><li>No suggestion for Matas Buzelis: he is not in your 8 kept players, so a trade does not change your playoff starts.</li><li>No suggestion for Rudy Gobert: he is not in your 8 kept players, so a trade does not change your playoff starts.</li></ul></div><div class="filters" id="give-chips"><span class="label">You give (any)</span><button type="button" class="chip" aria-pressed="false" data-n="Coby White">Coby White<small>3 trades</small></button></div><p class="count" id="sg-count" aria-live="polite">3 of 3 trades</p><table class="sg desk lab-t" id="sg-desk"><caption class="vh">Suggested 1-for-1 trades, the best gain in playoff starts first.</caption><colgroup><col class="c-rk"><col class="c-band"><col><col class="c-band"><col><col class="c-pt"><col class="c-w" span="3"><col class="c-t"><col class="c-v"><col class="c-v2"></colgroup><thead><tr class="grp"><td colspan="6"></td><th colspan="4" scope="colgroup" class="fine s1">Playoff starts</th><th colspan="2" scope="colgroup" class="s1">Value change</th></tr><tr><th scope="col">#</th><th scope="col" class="l" colspan="2">You give</th><th scope="col" class="l" colspan="2">You get</th><th scope="col" class="l">Partner, est. starts</th><th scope="col" class="s1">Wk19</th><th scope="col">Wk20</th><th scope="col">Wk21</th><th scope="col">Total</th><th scope="col" class="s1">You</th><th scope="col">Them</th></tr><tr class="now"><th colspan="6" class="l" scope="row">Your starts now</th><td>30</td><td>27</td><td>26</td><td>83</td><td colspan="2"></td></tr></thead><tbody><tr data-give="Coby White" data-k="0"><td class="rk"><button type="button" class="ld" aria-label="Load trade 1 in the builder">1</button></td><td class="band" style="--team:#00788c;--team-ink:#ffffff">CHA</td><th class="pl" scope="row"><b>Coby White</b><span class="status">IL</span><small>CHA · PG/SG</small><small>Val <i>−1.89</i> · Pre <i>−0.52</i></small></th><td class="band" style="--team:#00538c;--team-ink:#ffffff">DAL</td><th class="pl" scope="row"><b>P.J. Washington</b><small>DAL · PF/C</small><small>Val <i>−1.89</i> · Pre <i>−2.43</i></small></th><td class="pt">Doncic Go Breaking My Heart<small class="pe eq" aria-hidden="true"><span>Est. 24·26·28 = 78</span><span>→ 24·26·28 = <b>78</b> ±0</span></small><span class="vh">Partner starts, an estimate: 78, no change from 78. Weeks: 24 · 26 · 28 before, 24 · 26 · 28 after.</span></td><td class="wk up s1"><span aria-hidden="true"><b>31</b><small>+1</small><span class="cb"><i class="up" style="--d:1"></i></span></span><span class="vh">31 starts, up 1 from 30</span></td><td class="wk up"><span aria-hidden="true"><b>29</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">29 starts, up 2 from 27</span></td><td class="wk up"><span aria-hidden="true"><b>28</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">28 starts, up 2 from 26</span></td><td class="wk up t"><span aria-hidden="true"><b>88</b><small>+5</small><span class="cb"><i class="up" style="--d:5"></i></span></span><span class="vh">88 starts, up 5 from 83</span></td><td class="v s1">±0.00<small>0%</small></td><td class="v">±0.00</td></tr><tr data-give="Coby White" data-k="1"><td class="rk"><button type="button" class="ld" aria-label="Load trade 2 in the builder">2</button></td><td class="band" style="--team:#00788c;--team-ink:#ffffff">CHA</td><th class="pl" scope="row"><b>Coby White</b><span class="status">IL</span><small>CHA · PG/SG</small><small>Val <i>−1.89</i> · Pre <i>−0.52</i></small></th><td class="band" style="--team:#0077c0;--team-ink:#ffffff">ORL</td><th class="pl" scope="row"><b>Wendell Carter Jr.</b><small>ORL · C</small><small>Val <i>−1.95</i> · Pre <i>−3.85</i></small></th><td class="pt">FatherOfTWO<small class="pe dn" aria-hidden="true"><span>Est. 26·25·25 = 76</span><span>→ 25·24·25 = <b>74</b> −2</span></small><span class="vh">Partner starts, an estimate: 74, down 2 from 76. Weeks: 26 · 25 · 25 before, 25 · 24 · 25 after.</span></td><td class="wk eq s1"><span aria-hidden="true"><b>30</b><small>±0</small><span class="cb"></span></span><span class="vh">30 starts, no change from 30</span></td><td class="wk up"><span aria-hidden="true"><b>29</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">29 starts, up 2 from 27</span></td><td class="wk up"><span aria-hidden="true"><b>28</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">28 starts, up 2 from 26</span></td><td class="wk up t"><span aria-hidden="true"><b>87</b><small>+4</small><span class="cb"><i class="up" style="--d:4"></i></span></span><span class="vh">87 starts, up 4 from 83</span></td><td class="v s1 minus">−0.06<small>−3%</small></td><td class="v">+0.06</td></tr><tr data-give="Coby White" data-k="2"><td class="rk"><button type="button" class="ld" aria-label="Load trade 3 in the builder">3</button></td><td class="band" style="--team:#00788c;--team-ink:#ffffff">CHA</td><th class="pl" scope="row"><b>Coby White</b><span class="status">IL</span><small>CHA · PG/SG</small><small>Val <i>−1.89</i> · Pre <i>−0.52</i></small></th><td class="band" style="--team:#1d1160;--team-ink:#ffffff">PHX</td><th class="pl" scope="row"><b>Jalen Green</b><small>PHX · SG/SF</small><small>Val <i>−1.73</i> · Pre <i>−0.79</i></small></th><td class="pt">Doncic Go Breaking My Heart<small class="pe eq" aria-hidden="true"><span>Est. 24·26·28 = 78</span><span>→ 24·26·28 = <b>78</b> ±0</span></small><span class="vh">Partner starts, an estimate: 78, no change from 78. Weeks: 24 · 26 · 28 before, 24 · 26 · 28 after.</span></td><td class="wk up s1"><span aria-hidden="true"><b>31</b><small>+1</small><span class="cb"><i class="up" style="--d:1"></i></span></span><span class="vh">31 starts, up 1 from 30</span></td><td class="wk up"><span aria-hidden="true"><b>29</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">29 starts, up 2 from 27</span></td><td class="wk eq"><span aria-hidden="true"><b>26</b><small>±0</small><span class="cb"></span></span><span class="vh">26 starts, no change from 26</span></td><td class="wk up t"><span aria-hidden="true"><b>86</b><small>+3</small><span class="cb"><i class="up" style="--d:3"></i></span></span><span class="vh">86 starts, up 3 from 83</span></td><td class="v s1">+0.16<small>+8%</small></td><td class="v">−0.16</td></tr></tbody></table><div class="mob" id="sg-mob" style="--cols:4"><div class="mnow"><span>30</span><span>27</span><span>26</span><span>83</span><span>Your starts now</span></div><ol class="ml"><li class="ms" data-give="Coby White" data-k="0"><span class="rk"><button type="button" class="ld" aria-label="Load trade 1 in the builder">1</button></span><span class="band" style="--team:#00788c;--team-ink:#ffffff">CHA</span><span class="nm"><b>Coby White</b><span class="status">IL</span><small>You give · PG/SG · Val <i>−1.89</i> · Pre <i>−0.52</i></small></span><span class="band" style="--team:#00538c;--team-ink:#ffffff">DAL</span><span class="nm"><b>P.J. Washington</b><small>You get from Doncic Go Breaking My Heart · PF/C · Val <i>−1.89</i> · Pre <i>−2.43</i></small></span><span class="nums"><span class="wk up"><em>Wk19</em><span aria-hidden="true"><b>31</b><small>+1</small><span class="cb"><i class="up" style="--d:1"></i></span></span><span class="vh">31 starts, up 1 from 30</span></span><span class="wk up"><em>Wk20</em><span aria-hidden="true"><b>29</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">29 starts, up 2 from 27</span></span><span class="wk up"><em>Wk21</em><span aria-hidden="true"><b>28</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">28 starts, up 2 from 26</span></span><span class="wk up t"><em>Total</em><span aria-hidden="true"><b>88</b><small>+5</small><span class="cb"><i class="up" style="--d:5"></i></span></span><span class="vh">88 starts, up 5 from 83</span></span><span class="v"><em>You</em>±0.00<small>0%</small></span><span class="v"><em>Them</em>±0.00</span></span><span class="pst"><em>Them, est.</em>24 · 26 · 28 = 78 → 24 · 26 · 28 = 78 <b>±0</b></span></li><li class="ms" data-give="Coby White" data-k="1"><span class="rk"><button type="button" class="ld" aria-label="Load trade 2 in the builder">2</button></span><span class="band" style="--team:#00788c;--team-ink:#ffffff">CHA</span><span class="nm"><b>Coby White</b><span class="status">IL</span><small>You give · PG/SG · Val <i>−1.89</i> · Pre <i>−0.52</i></small></span><span class="band" style="--team:#0077c0;--team-ink:#ffffff">ORL</span><span class="nm"><b>Wendell Carter Jr.</b><small>You get from FatherOfTWO · C · Val <i>−1.95</i> · Pre <i>−3.85</i></small></span><span class="nums"><span class="wk eq"><em>Wk19</em><span aria-hidden="true"><b>30</b><small>±0</small><span class="cb"></span></span><span class="vh">30 starts, no change from 30</span></span><span class="wk up"><em>Wk20</em><span aria-hidden="true"><b>29</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">29 starts, up 2 from 27</span></span><span class="wk up"><em>Wk21</em><span aria-hidden="true"><b>28</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">28 starts, up 2 from 26</span></span><span class="wk up t"><em>Total</em><span aria-hidden="true"><b>87</b><small>+4</small><span class="cb"><i class="up" style="--d:4"></i></span></span><span class="vh">87 starts, up 4 from 83</span></span><span class="v minus"><em>You</em>−0.06<small>−3%</small></span><span class="v"><em>Them</em>+0.06</span></span><span class="pst"><em>Them, est.</em>26 · 25 · 25 = 76 → 25 · 24 · 25 = 74 <b>−2</b></span></li><li class="ms" data-give="Coby White" data-k="2"><span class="rk"><button type="button" class="ld" aria-label="Load trade 3 in the builder">3</button></span><span class="band" style="--team:#00788c;--team-ink:#ffffff">CHA</span><span class="nm"><b>Coby White</b><span class="status">IL</span><small>You give · PG/SG · Val <i>−1.89</i> · Pre <i>−0.52</i></small></span><span class="band" style="--team:#1d1160;--team-ink:#ffffff">PHX</span><span class="nm"><b>Jalen Green</b><small>You get from Doncic Go Breaking My Heart · SG/SF · Val <i>−1.73</i> · Pre <i>−0.79</i></small></span><span class="nums"><span class="wk up"><em>Wk19</em><span aria-hidden="true"><b>31</b><small>+1</small><span class="cb"><i class="up" style="--d:1"></i></span></span><span class="vh">31 starts, up 1 from 30</span></span><span class="wk up"><em>Wk20</em><span aria-hidden="true"><b>29</b><small>+2</small><span class="cb"><i class="up" style="--d:2"></i></span></span><span class="vh">29 starts, up 2 from 27</span></span><span class="wk eq"><em>Wk21</em><span aria-hidden="true"><b>26</b><small>±0</small><span class="cb"></span></span><span class="vh">26 starts, no change from 26</span></span><span class="wk up t"><em>Total</em><span aria-hidden="true"><b>86</b><small>+3</small><span class="cb"><i class="up" style="--d:3"></i></span></span><span class="vh">86 starts, up 3 from 83</span></span><span class="v"><em>You</em>+0.16<small>+8%</small></span><span class="v"><em>Them</em>−0.16</span></span><span class="pst"><em>Them, est.</em>24 · 26 · 28 = 78 → 24 · 26 · 28 = 78 <b>±0</b></span></li></ol></div><p class="key" aria-hidden="true"><span><span class="cb"><i class="up" style="--d:2"></i></span>2 more starts</span><span><span class="cb"><i class="dn" style="--d:1"></i></span>1 start lost</span></p>
+<p class="foot" id="sg-foot"><b>Starts count your 8 kept players.</b> The player you get takes the spot of the player you give. Val: blended value per game. Pre: preseason value per game. No blend: the player has no blended value, so his Val is his preseason value (Pre). At most 3 trades for each player you give. 432 pairs, 20 in the value band, 5 with a gain. Est.: the partner starts are an estimate, because the rostered list does not show the IL slots of a partner.</p>
+<p class="foot" id="sg-read">Rosters: 15 pages from the cache of 2026-10-29 11:07.</p>
+</section>
+<section id="builder" aria-labelledby="builder-h">
+<h2 id="builder-h">Trade builder</h2>
+<p class="lede">Pick a partner team, then the players to give and to get. A click on a suggestion loads it here.</p>
+<div class="pick"><label>Partner team<select id="partner"><option value="6">A Team Has No Name</option><option value="7">AntMan and the WASP</option><option value="3">Doncic Go Breaking My Heart</option><option value="11">FatherOfTWO</option><option value="2">Freaks &amp; Greeks</option><option value="12">Load Management</option><option value="4">No beef just lamb chops</option><option value="8">Papa Squat</option><option value="9">Protect Ya Net</option><option value="1">Shady McGrady</option><option value="13">The Jokić’s on You</option><option value="5">Wagner my Ball in yo face</option><option value="14">WNBA Revenge Tour</option></select></label>
+<button type="button" class="chip" id="clear">Clear the players</button></div>
+<p class="vh" id="live" aria-live="polite"></p>
+<div class="sides">
+<div><h3>You give</h3><table class="pk lab-t" id="pk-give"></table>
+<p class="line" id="open-me" hidden></p></div>
+<div><h3 id="get-h">You get</h3><table class="pk lab-t" id="pk-get"></table></div>
+</div>
+<p class="foot" id="pk-note">No blend: the player has no blended value, so his Val is his preseason value (Pre).</p>
+<div class="drop" id="drop" hidden><div class="filters" id="drop-chips"></div></div>
+<div class="res" id="res"></div>
+</section>
+</main>
+<script>
+(() => {
+  const btn = document.querySelector(".lab-open"), nav = document.getElementById("lab-menu");
+  const scrim = document.querySelector(".lab-scrim");
+  if (!btn || !nav) return;
+  const behind = [...document.querySelectorAll(".lab-main, .lab-bar")];
+  const set = open => {
+    nav.classList.toggle("open", open); btn.setAttribute("aria-expanded", open);
+    document.body.classList.toggle("lab-locked", open);
+    scrim.hidden = !open; behind.forEach(el => el.inert = open);
+    if (open) nav.querySelector(".lab-close").focus();
+  };
+  nav.querySelector(".lab-close").addEventListener("click", () => { set(false); btn.focus(); });
+  btn.addEventListener("click", () => set(!nav.classList.contains("open")));
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && nav.classList.contains("open")) { set(false); btn.focus(); }
+  });
+  scrim.addEventListener("click", () => set(false));
+})();
+(() => {
+  const root = document.documentElement, btns = [...document.querySelectorAll(".lab-seg button")];
+  const show = () => {
+    const t = root.dataset.theme || "system";
+    btns.forEach(b => b.setAttribute("aria-pressed", b.dataset.set === t));
+  };
+  btns.forEach(b => b.addEventListener("click", () => {
+    const t = b.dataset.set;
+    if (t === "system") delete root.dataset.theme; else root.dataset.theme = t;
+    try {
+      if (t === "system") localStorage.removeItem("lab-theme"); else localStorage.setItem("lab-theme", t);
+    } catch (e) {}
+    show();
+  }));
+  show();
+})();
+</script>
+<script>
+(() => {
+  const chips = [...document.querySelectorAll("#give-chips button")];
+  if (!chips.length) return;
+  const rows = [...document.querySelectorAll("#sg-desk tbody tr, #sg-mob li.ms")];
+  const count = document.getElementById("sg-count"), all = document.querySelectorAll("#sg-desk tbody tr").length;
+  const on = new Set();
+  const show = () => {
+    chips.forEach(b => b.setAttribute("aria-pressed", on.has(b.dataset.n)));
+    rows.forEach(r => { r.hidden = on.size > 0 && !on.has(r.dataset.give); });
+    const n = [...document.querySelectorAll("#sg-desk tbody tr")].filter(r => !r.hidden).length;
+    count.textContent = `${n} of ${all} trades`;
+  };
+  chips.forEach(b => b.addEventListener("click", () => {
+    on.has(b.dataset.n) ? on.delete(b.dataset.n) : on.add(b.dataset.n);
+    show();
+  }));
+})();
+</script>
+<script type="application/json" id="trade-data">{"me": [{"id": "m0", "name": "Dejounte Murray", "team": "NO", "pos": ["PG"], "slot": "PG", "status": "", "val": 2.250202894273876, "mark": "", "pg": 1.6445479095213447, "rank": 28, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "m1", "name": "Ajay Mitchell", "team": "OKC", "pos": ["PG", "SG"], "slot": "SG", "status": "", "val": -0.8661158006357628, "mark": "", "pg": -2.4537909678093803, "rank": 128, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007ac1;--team-ink:#ffffff"}, {"id": "m2", "name": "Brandon Miller", "team": "CHA", "pos": ["SF", "PF"], "slot": "SF", "status": "", "val": 2.06416930625834, "mark": "", "pg": 1.250167723812436, "rank": 38, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00788c;--team-ink:#ffffff"}, {"id": "m3", "name": "Precious Achiuwa", "team": "SAC", "pos": ["PF", "C"], "slot": "PF", "status": "", "val": -1.9990487535431645, "mark": "", "pg": -4.17892181959214, "rank": 188, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#5a2d81;--team-ink:#ffffff"}, {"id": "m4", "name": "Onyeka Okongwu", "team": "ATL", "pos": ["C"], "slot": "C", "status": "", "val": -1.0385768496406804, "mark": "", "pg": -0.17503278369678624, "rank": 60, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "m5", "name": "Cooper Flagg", "team": "DAL", "pos": ["SG", "SF", "PF"], "slot": "Util", "status": "", "val": 3.070951028057891, "mark": "", "pg": 2.2671437838147597, "rank": 12, "rests_b2b": 0, "il": false, "untouchable": true, "style": "--team:#00538c;--team-ink:#ffffff"}, {"id": "m6", "name": "Matas Buzelis", "team": "CHI", "pos": ["SF", "PF"], "slot": "BN", "status": "", "val": -1.3394994788531087, "mark": "", "pg": 0.840309565758187, "rank": 39, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "m7", "name": "Rudy Gobert", "team": "MIN", "pos": ["C"], "slot": "BN", "status": "", "val": -2.608105542891202, "mark": "", "pg": -0.3623092025737486, "rank": 69, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "m8", "name": "Derrick White", "team": "BOS", "pos": ["PG", "SG"], "slot": "BN", "status": "", "val": -0.1409790959544605, "mark": "", "pg": 1.1503307915856682, "rank": 31, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007a33;--team-ink:#ffffff"}, {"id": "m9", "name": "Immanuel Quickley", "team": "TOR", "pos": ["PG", "SG"], "slot": "BN", "status": "", "val": -1.1166862747001582, "mark": "", "pg": -0.6666682495989483, "rank": 78, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "m10", "name": "Coby White", "team": "CHA", "pos": ["PG", "SG"], "slot": "IL", "status": "O", "val": -1.8926393705773266, "mark": "", "pg": -0.5208277557285491, "rank": 77, "rests_b2b": 1, "il": true, "untouchable": false, "style": "--team:#00788c;--team-ink:#ffffff"}, {"id": "m11", "name": "Paolo Banchero", "team": "ORL", "pos": ["PF"], "slot": "IL", "status": "O", "val": 1.8667418963638767, "mark": "", "pg": 1.1783204397483769, "rank": 30, "rests_b2b": 0, "il": true, "untouchable": false, "style": "--team:#0077c0;--team-ink:#ffffff"}], "teams": [{"id": 6, "name": "A Team Has No Name", "roster": [{"id": "t24", "name": "Jalen Brunson", "team": "NY", "pos": ["PG"], "slot": "", "status": "", "val": 1.0436208325969225, "mark": "", "pg": 1.2545368248827946, "rank": 29, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t25", "name": "Evan Mobley", "team": "CLE", "pos": ["PF", "C"], "slot": "", "status": "", "val": 1.3614989896148888, "mark": "", "pg": 0.8477511513129808, "rank": 45, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#860038;--team-ink:#ffffff"}, {"id": "t36", "name": "Jaylen Brown", "team": "PHI", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": 1.1359083121789195, "mark": "", "pg": 1.7032432285861896, "rank": 21, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t42", "name": "Bam Adebayo", "team": "MIA", "pos": ["PF", "C"], "slot": "", "status": "", "val": 0.9563891864001985, "mark": "", "pg": 1.9989626921171881, "rank": 17, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#98002e;--team-ink:#ffffff"}, {"id": "t79", "name": "Derik Queen", "team": "NO", "pos": ["PF", "C"], "slot": "", "status": "", "val": -1.482018491633982, "mark": "", "pg": -2.5994990439676773, "rank": 134, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t92", "name": "Zach LaVine", "team": "SAC", "pos": ["PG", "SG", "SF"], "slot": "", "status": "", "val": 0.07663795268725526, "mark": "", "pg": -1.5401828858719568, "rank": 101, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#5a2d81;--team-ink:#ffffff"}, {"id": "t94", "name": "Darius Acuff Jr.", "team": "SAC", "pos": ["PG"], "slot": "", "status": "", "val": -0.3112425285314428, "mark": "", "pg": -2.277744797075642, "rank": 120, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#5a2d81;--team-ink:#ffffff"}, {"id": "t97", "name": "Jaime Jaquez Jr.", "team": "MIL", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": -3.7073408436022106, "mark": "", "pg": -2.9468374712661127, "rank": 147, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00471b;--team-ink:#ffffff"}, {"id": "t100", "name": "Toumani Camara", "team": "POR", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -2.503318496154476, "mark": "", "pg": -1.8415876140409981, "rank": 106, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t115", "name": "Jimmy Butler III", "team": "GS", "pos": ["SF", "PF"], "slot": "", "status": "O", "val": -2.2329406556203146, "mark": "pre", "pg": -2.2329406556203146, "rank": 142, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d428a;--team-ink:#ffffff"}, {"id": "t137", "name": "Bobby Portis Jr.", "team": "MIA", "pos": ["PF", "C"], "slot": "", "status": "", "val": -3.1817737503475354, "mark": "", "pg": -4.20605253926772, "rank": 189, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#98002e;--team-ink:#ffffff"}]}, {"id": 7, "name": "AntMan and the WASP", "roster": [{"id": "t5", "name": "Tyrese Maxey", "team": "PHI", "pos": ["PG"], "slot": "", "status": "", "val": 2.6759448212862655, "mark": "", "pg": 1.8008885809565878, "rank": 18, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t7", "name": "Cade Cunningham", "team": "DET", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 3.6927224349568424, "mark": "", "pg": 4.80672031590048, "rank": 6, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d42ba;--team-ink:#ffffff"}, {"id": "t16", "name": "Alperen Şengün", "team": "HOU", "pos": ["PF", "C"], "slot": "", "status": "Q", "val": 2.681773729522546, "mark": "", "pg": 1.3196331194987936, "rank": 27, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t57", "name": "Joel Embiid", "team": "PHI", "pos": ["C"], "slot": "", "status": "", "val": 1.8947940941396872, "mark": "", "pg": 1.6342881931384725, "rank": 64, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t84", "name": "Jalen Suggs", "team": "ORL", "pos": ["PG", "SG"], "slot": "", "status": "O", "val": -1.6085774020636288, "mark": "", "pg": 0.04470083643913392, "rank": 72, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#0077c0;--team-ink:#ffffff"}, {"id": "t96", "name": "Kyshawn George", "team": "WSH", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": -1.3548878186639455, "mark": "", "pg": -2.0938078115187073, "rank": 116, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t99", "name": "Andrew Wiggins", "team": "MIA", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": -3.5180965006207523, "mark": "", "pg": -1.8959591500802413, "rank": 108, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#98002e;--team-ink:#ffffff"}, {"id": "t108", "name": "Miles Bridges", "team": "PHX", "pos": ["PF"], "slot": "", "status": "", "val": -1.4139564108202685, "mark": "", "pg": -2.3212138716559307, "rank": 121, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d1160;--team-ink:#ffffff"}, {"id": "t114", "name": "Collin Gillespie", "team": "PHX", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -1.673645182937611, "mark": "", "pg": -2.801085979512694, "rank": 141, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d1160;--team-ink:#ffffff"}, {"id": "t121", "name": "Quentin Grimes", "team": "LAL", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -3.662819923380866, "mark": "", "pg": -4.028058302426932, "rank": 181, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#552583;--team-ink:#ffffff"}]}, {"id": 3, "name": "Doncic Go Breaking My Heart", "roster": [{"id": "t2", "name": "Luka Dončić", "team": "LAL", "pos": ["PG", "SG"], "slot": "", "status": "Q", "val": 7.282072827274751, "mark": "", "pg": 8.282997410001785, "rank": 3, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#552583;--team-ink:#ffffff"}, {"id": "t13", "name": "Karl-Anthony Towns", "team": "NY", "pos": ["PF", "C"], "slot": "", "status": "", "val": 2.5218540869789665, "mark": "", "pg": 1.7339702694607433, "rank": 20, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t17", "name": "Trae Young", "team": "WSH", "pos": ["PG"], "slot": "", "status": "", "val": 1.5925746376948848, "mark": "", "pg": 2.1591398161003927, "rank": 15, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t59", "name": "Julius Randle", "team": "BKN", "pos": ["PF"], "slot": "", "status": "", "val": 0.3025521289892321, "mark": "", "pg": -0.3108503781077411, "rank": 65, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t82", "name": "Fred VanVleet", "team": "HOU", "pos": ["PG"], "slot": "", "status": "", "val": -1.4895579562326462, "mark": "", "pg": -1.2599521653727055, "rank": 92, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t86", "name": "Josh Hart", "team": "NY", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -0.1470349789593084, "mark": "", "pg": -1.9345047805894917, "rank": 109, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t88", "name": "Brandon Ingram", "team": "LAC", "pos": ["SG", "SF", "PF"], "slot": "", "status": "O", "val": -0.1766359039806512, "mark": "pre", "pg": -0.1766359039806512, "rank": 102, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t103", "name": "RJ Barrett", "team": "TOR", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": -1.1260910540325844, "mark": "", "pg": -1.9809856925736504, "rank": 111, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t116", "name": "Yves Missi", "team": "NO", "pos": ["C"], "slot": "", "status": "O", "val": -3.3935436634943095, "mark": "", "pg": -3.4460399759108125, "rank": 165, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t117", "name": "Jalen Green", "team": "PHX", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -1.7329031357025255, "mark": "", "pg": -0.7891372683116025, "rank": 75, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d1160;--team-ink:#ffffff"}, {"id": "t123", "name": "P.J. Washington", "team": "DAL", "pos": ["PF", "C"], "slot": "", "status": "", "val": -1.8895029686633482, "mark": "", "pg": -2.42526267003272, "rank": 129, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00538c;--team-ink:#ffffff"}, {"id": "t135", "name": "Kyle Kuzma", "team": "MIL", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -4.044481055826585, "mark": "", "pg": -4.7188289720551495, "rank": 214, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00471b;--team-ink:#ffffff"}]}, {"id": 11, "name": "FatherOfTWO", "roster": [{"id": "t8", "name": "Tyrese Haliburton", "team": "IND", "pos": ["PG", "SG"], "slot": "", "status": "O", "val": 3.7297350231583417, "mark": "", "pg": 2.824279371291443, "rank": 22, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#002d62;--team-ink:#ffffff"}, {"id": "t23", "name": "Stephen Curry", "team": "GS", "pos": ["PG"], "slot": "", "status": "", "val": 1.3707310466448825, "mark": "", "pg": 2.319520842599055, "rank": 33, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#1d428a;--team-ink:#ffffff"}, {"id": "t33", "name": "Kyrie Irving", "team": "DAL", "pos": ["PG"], "slot": "", "status": "", "val": -0.23135793425677967, "mark": "", "pg": 2.251064622247793, "rank": 26, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#00538c;--team-ink:#ffffff"}, {"id": "t38", "name": "Desmond Bane", "team": "ORL", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -0.42237605976520814, "mark": "", "pg": -1.1329363337645773, "rank": 85, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0077c0;--team-ink:#ffffff"}, {"id": "t63", "name": "Caleb Wilson", "team": "CHI", "pos": ["PF"], "slot": "", "status": "", "val": 0.6129323467494374, "mark": "", "pg": -0.36800959087998797, "rank": 66, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t81", "name": "Wendell Carter Jr.", "team": "ORL", "pos": ["C"], "slot": "", "status": "", "val": -1.9501015983627936, "mark": "", "pg": -3.8450693037494914, "rank": 174, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0077c0;--team-ink:#ffffff"}, {"id": "t89", "name": "Mikal Bridges", "team": "NY", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -3.5446721971589246, "mark": "", "pg": -2.3948558167121723, "rank": 123, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t90", "name": "AJ Dybantsa", "team": "WSH", "pos": ["SF"], "slot": "", "status": "", "val": -3.42182067898983, "mark": "", "pg": -2.985972795049199, "rank": 148, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t101", "name": "Keegan Murray", "team": "SAC", "pos": ["SF", "PF"], "slot": "", "status": "O", "val": -7.3819266038734925, "mark": "", "pg": -1.1703341907246658, "rank": 86, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#5a2d81;--team-ink:#ffffff"}, {"id": "t125", "name": "Jared McCain", "team": "OKC", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -3.405422554822588, "mark": "", "pg": -5.760919754166551, "rank": 260, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007ac1;--team-ink:#ffffff"}, {"id": "t131", "name": "Mitchell Robinson", "team": "BOS", "pos": ["C"], "slot": "", "status": "", "val": -4.487790316885271, "mark": "", "pg": -2.7357322776321453, "rank": 139, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#007a33;--team-ink:#ffffff"}, {"id": "t133", "name": "Jonathan Kuminga", "team": "MIN", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -1.057561403341523, "mark": "", "pg": -2.5615424204043244, "rank": 133, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t136", "name": "Kristaps Porziņģis", "team": "GS", "pos": ["C"], "slot": "", "status": "O", "val": -1.6044288807055385, "mark": "pre", "pg": -1.6044288807055385, "rank": 125, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d428a;--team-ink:#ffffff"}]}, {"id": 2, "name": "Freaks & Greeks", "roster": [{"id": "t4", "name": "Giannis Antetokounmpo", "team": "MIA", "pos": ["PF", "C"], "slot": "", "status": "", "val": 3.4888514881708947, "mark": "", "pg": 5.5465161286019296, "rank": 4, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#98002e;--team-ink:#ffffff"}, {"id": "t19", "name": "Amen Thompson", "team": "HOU", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -0.17528229206192864, "mark": "", "pg": 1.0217805049844428, "rank": 36, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t22", "name": "Josh Giddey", "team": "CHI", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -0.4628157333074222, "mark": "", "pg": 2.6897370656136417, "rank": 14, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t51", "name": "Tyler Herro", "team": "MIL", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 0.4012799239981165, "mark": "", "pg": -0.7254503837117752, "rank": 89, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00471b;--team-ink:#ffffff"}, {"id": "t55", "name": "Kel'el Ware", "team": "MIL", "pos": ["C"], "slot": "", "status": "", "val": -3.3215634667591103, "mark": "", "pg": -0.867775290229845, "rank": 79, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00471b;--team-ink:#ffffff"}, {"id": "t72", "name": "Norman Powell", "team": "CHI", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -1.3691894649530674, "mark": "", "pg": -0.9551649803229978, "rank": 84, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t83", "name": "Day'Ron Sharpe", "team": "BKN", "pos": ["C"], "slot": "", "status": "", "val": -1.5104961024510764, "mark": "", "pg": -1.6329228922112677, "rank": 99, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t107", "name": "Jalen Smith", "team": "CHI", "pos": ["PF", "C"], "slot": "", "status": "", "val": -2.2449265773639313, "mark": "", "pg": -3.608723135870892, "rank": 168, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t109", "name": "Rui Hachimura", "team": "LAC", "pos": ["SF", "PF"], "slot": "", "status": "Q", "val": -1.574763642085365, "mark": "", "pg": -2.904374816632593, "rank": 145, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t118", "name": "Nic Claxton", "team": "CHI", "pos": ["C"], "slot": "", "status": "O", "val": -2.926746817184108, "mark": "", "pg": null, "rank": null, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t128", "name": "Saddiq Bey", "team": "NO", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -4.003396013917809, "mark": "", "pg": -4.024575206097008, "rank": 180, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t132", "name": "Devin Vassell", "team": "SA", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -1.8643462880437536, "mark": "", "pg": -3.6542000660827676, "rank": 169, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}]}, {"id": 12, "name": "Load Management", "roster": [{"id": "t1", "name": "Victor Wembanyama", "team": "SA", "pos": ["C"], "slot": "", "status": "", "val": 7.21558475394312, "mark": "", "pg": 8.312319939499805, "rank": 2, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t52", "name": "Alex Sarr", "team": "WSH", "pos": ["C"], "slot": "", "status": "", "val": -2.0498290571225195, "mark": "", "pg": null, "rank": null, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t70", "name": "Brandin Podziemski", "team": "GS", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -1.3146502334702375, "mark": "", "pg": -1.3559230523025498, "rank": 90, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d428a;--team-ink:#ffffff"}, {"id": "t76", "name": "Cedric Coward", "team": "MEM", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -0.860652244700612, "mark": "", "pg": -1.7483374318779006, "rank": 103, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#5d76a9;--team-ink:#ffffff"}, {"id": "t78", "name": "Jabari Smith Jr.", "team": "HOU", "pos": ["PF", "C"], "slot": "", "status": "", "val": -2.0457589830000398, "mark": "", "pg": -1.5459258209533702, "rank": 96, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t111", "name": "Aaron Gordon", "team": "DEN", "pos": ["PF", "C"], "slot": "", "status": "", "val": -2.3595756295035044, "mark": "", "pg": -2.57162888096825, "rank": 137, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#0e2240;--team-ink:#ffffff"}, {"id": "t112", "name": "Peyton Watson", "team": "CLE", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -1.5463398291827883, "mark": "", "pg": -1.3802063361323724, "rank": 95, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#860038;--team-ink:#ffffff"}, {"id": "t120", "name": "Dennis Schröder", "team": "CHA", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -4.435965723733942, "mark": "", "pg": -4.728059527932343, "rank": 215, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00788c;--team-ink:#ffffff"}, {"id": "t126", "name": "Paul Reed", "team": "DET", "pos": ["PF", "C"], "slot": "", "status": "", "val": -0.3979807934899444, "mark": "", "pg": -3.1743202642280823, "rank": 155, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d42ba;--team-ink:#ffffff"}, {"id": "t139", "name": "Keaton Wagler", "team": "LAC", "pos": ["SG"], "slot": "", "status": "", "val": -3.0428425205703022, "mark": "", "pg": -2.804910245135184, "rank": 143, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}]}, {"id": 4, "name": "No beef just lamb chops", "roster": [{"id": "t6", "name": "Jayson Tatum", "team": "BOS", "pos": ["SF", "PF"], "slot": "", "status": "", "val": 3.490204267025285, "mark": "", "pg": 4.318671940242716, "rank": 5, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007a33;--team-ink:#ffffff"}, {"id": "t10", "name": "Donovan Mitchell", "team": "CLE", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 2.9514160410286467, "mark": "", "pg": 1.508757847985637, "rank": 25, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#860038;--team-ink:#ffffff"}, {"id": "t46", "name": "Ivica Zubac", "team": "IND", "pos": ["C"], "slot": "", "status": "D", "val": -3.0064713478393053, "mark": "", "pg": -1.215250927349441, "rank": 87, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002d62;--team-ink:#ffffff"}, {"id": "t65", "name": "Jaren Jackson Jr.", "team": "UTAH", "pos": ["PF", "C"], "slot": "", "status": "O", "val": -2.706367384451468, "mark": "", "pg": 0.519177932450221, "rank": 49, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t67", "name": "Stephon Castle", "team": "SA", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 1.3695108681103647, "mark": "", "pg": 0.4696845338595657, "rank": 51, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t74", "name": "Yaxel Lendeborg", "team": "GS", "pos": ["PF"], "slot": "", "status": "", "val": 0.9990245640292867, "mark": "", "pg": -1.6091189224711868, "rank": 98, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d428a;--team-ink:#ffffff"}, {"id": "t98", "name": "Kris Dunn", "team": "LAC", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -1.1474646634110999, "mark": "", "pg": -3.9385374492564877, "rank": 176, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t105", "name": "Darryn Peterson", "team": "UTAH", "pos": ["SG"], "slot": "", "status": "", "val": -2.0298755402082613, "mark": "", "pg": -2.0117514546163306, "rank": 112, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t119", "name": "Ace Bailey", "team": "UTAH", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -2.8068264825941567, "mark": "", "pg": -2.3957700506080033, "rank": 127, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t138", "name": "Robert Williams III", "team": "POR", "pos": ["C"], "slot": "", "status": "", "val": -6.146397100341019, "mark": "", "pg": -4.255042621497381, "rank": 194, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t141", "name": "Jay Huff", "team": "IND", "pos": ["C"], "slot": "", "status": "", "val": -7.774106581659075, "mark": "", "pg": -5.174808741003803, "rank": 230, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002d62;--team-ink:#ffffff"}]}, {"id": 8, "name": "Papa Squat", "roster": [{"id": "t11", "name": "Kevin Durant", "team": "HOU", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": 0.4813407338936989, "mark": "", "pg": 1.5777327555255443, "rank": 24, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t12", "name": "Scottie Barnes", "team": "TOR", "pos": ["SF", "PF", "C"], "slot": "", "status": "", "val": 0.9638949660761066, "mark": "", "pg": 2.0806768846737285, "rank": 16, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t40", "name": "Darius Garland", "team": "LAC", "pos": ["PG"], "slot": "", "status": "", "val": 0.8341647287177287, "mark": "", "pg": 1.637711666106456, "rank": 32, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t41", "name": "Deni Avdija", "team": "POR", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": 1.0729266574327503, "mark": "", "pg": 1.0242852078625149, "rank": 41, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t53", "name": "Naz Reid", "team": "CHA", "pos": ["PF", "C"], "slot": "", "status": "", "val": -0.7464556549619595, "mark": "", "pg": 0.18454168911296126, "rank": 50, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00788c;--team-ink:#ffffff"}, {"id": "t60", "name": "Jaden McDaniels", "team": "MIN", "pos": ["SF"], "slot": "", "status": "", "val": -1.5105471507859838, "mark": "", "pg": -1.1140520110797174, "rank": 83, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t62", "name": "Kon Knueppel", "team": "CHA", "pos": ["SG", "SF"], "slot": "", "status": "O", "val": 0.1414541271826516, "mark": "", "pg": 0.16072208544446231, "rank": 56, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00788c;--team-ink:#ffffff"}, {"id": "t64", "name": "Ausar Thompson", "team": "DET", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": -1.6307561029309245, "mark": "", "pg": -0.1415506909666424, "rank": 67, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d42ba;--team-ink:#ffffff"}, {"id": "t66", "name": "Paul George", "team": "BOS", "pos": ["SF", "PF"], "slot": "", "status": "", "val": 0.6941972361313165, "mark": "", "pg": 1.5789578573234961, "rank": 57, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#007a33;--team-ink:#ffffff"}, {"id": "t110", "name": "Reed Sheppard", "team": "HOU", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -3.6429636740756046, "mark": "", "pg": -2.2812763549597954, "rank": 122, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t140", "name": "Alex Caruso", "team": "OKC", "pos": ["SG", "SF"], "slot": "", "status": "O", "val": -1.077324115516955, "mark": "", "pg": -5.780240612704618, "rank": 262, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007ac1;--team-ink:#ffffff"}, {"id": "t143", "name": "Cason Wallace", "team": "OKC", "pos": ["PG", "SG", "SF"], "slot": "", "status": "O", "val": -4.522129215096529, "mark": "", "pg": -2.1568521560252267, "rank": 115, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007ac1;--team-ink:#ffffff"}]}, {"id": 9, "name": "Protect Ya Net", "roster": [{"id": "t18", "name": "Jamal Murray", "team": "DEN", "pos": ["PG"], "slot": "", "status": "", "val": 2.1977152198852994, "mark": "", "pg": 2.2814892043774226, "rank": 11, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0e2240;--team-ink:#ffffff"}, {"id": "t20", "name": "Devin Booker", "team": "PHX", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 0.6542142045425426, "mark": "", "pg": 0.6219795361199726, "rank": 47, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d1160;--team-ink:#ffffff"}, {"id": "t29", "name": "Anthony Davis", "team": "WSH", "pos": ["PF", "C"], "slot": "", "status": "", "val": 1.7972096588662665, "mark": "", "pg": 1.8279475711681872, "rank": 44, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t44", "name": "Donovan Clingan", "team": "POR", "pos": ["C"], "slot": "", "status": "", "val": -0.6520209250173066, "mark": "", "pg": 0.4639003305616495, "rank": 46, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t45", "name": "Ty Jerome", "team": "MEM", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 1.8714602713631159, "mark": "", "pg": 0.006771827826196508, "rank": 61, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#5d76a9;--team-ink:#ffffff"}, {"id": "t47", "name": "Ty Jerome", "team": "MEM", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 1.8714602713631159, "mark": "", "pg": 0.006771827826196508, "rank": 61, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#5d76a9;--team-ink:#ffffff"}, {"id": "t48", "name": "Kawhi Leonard", "team": "TOR", "pos": ["SG", "SF", "PF"], "slot": "", "status": "O", "val": 3.517940807199557, "mark": "", "pg": 2.5446442220696674, "rank": 43, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t54", "name": "Dyson Daniels", "team": "ATL", "pos": ["SG", "SF"], "slot": "", "status": "", "val": 0.36959973694285697, "mark": "", "pg": 1.0243298396445142, "rank": 35, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t77", "name": "Collin Murray-Boyles", "team": "TOR", "pos": ["PF", "C"], "slot": "", "status": "", "val": -5.201728423644308, "mark": "", "pg": -2.155391249981453, "rank": 114, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#ce1141;--team-ink:#ffffff"}, {"id": "t93", "name": "Davion Mitchell", "team": "MIA", "pos": ["PG"], "slot": "", "status": "", "val": -1.7092344648012687, "mark": "", "pg": -3.990136332477525, "rank": 177, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#98002e;--team-ink:#ffffff"}, {"id": "t130", "name": "Pelle Larsson", "team": "MIA", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -3.8247577264575177, "mark": "", "pg": -4.288119344886263, "rank": 195, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#98002e;--team-ink:#ffffff"}, {"id": "t142", "name": "Obi Toppin", "team": "IND", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -3.2724190980775796, "mark": "", "pg": -5.19830212175036, "rank": 232, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002d62;--team-ink:#ffffff"}]}, {"id": 1, "name": "Shady McGrady", "roster": [{"id": "t3", "name": "Shai Gilgeous-Alexander", "team": "OKC", "pos": ["PG"], "slot": "", "status": "", "val": 3.348996830895556, "mark": "", "pg": 2.834674709275212, "rank": 10, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007ac1;--team-ink:#ffffff"}, {"id": "t9", "name": "Jalen Johnson", "team": "ATL", "pos": ["SF", "PF"], "slot": "", "status": "", "val": 4.325633839440037, "mark": "", "pg": 3.35998253111556, "rank": 8, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t32", "name": "Domantas Sabonis", "team": "SAC", "pos": ["PF", "C"], "slot": "", "status": "", "val": 3.6057794097812432, "mark": "", "pg": 2.2299822681026487, "rank": 13, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#5a2d81;--team-ink:#ffffff"}, {"id": "t71", "name": "Jarrett Allen", "team": "CLE", "pos": ["C"], "slot": "", "status": "", "val": -2.0265588519006865, "mark": "", "pg": -1.762857495785562, "rank": 104, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#860038;--team-ink:#ffffff"}, {"id": "t73", "name": "Zion Williamson", "team": "NO", "pos": ["PF", "C"], "slot": "", "status": "", "val": 0.3802409368884636, "mark": "", "pg": -2.1862315768304637, "rank": 119, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t75", "name": "Dylan Harper", "team": "SA", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -1.3756114943846613, "mark": "", "pg": -0.9453649025163147, "rank": 82, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t85", "name": "John Collins", "team": "DET", "pos": ["PF", "C"], "slot": "", "status": "", "val": -2.812522035185656, "mark": "", "pg": -2.7930765594615448, "rank": 140, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d42ba;--team-ink:#ffffff"}, {"id": "t104", "name": "Myles Turner", "team": "MIL", "pos": ["C"], "slot": "", "status": "", "val": -2.6225932829085714, "mark": "", "pg": -1.437412309240944, "rank": 91, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00471b;--team-ink:#ffffff"}, {"id": "t106", "name": "Andrew Nembhard", "team": "IND", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -0.9968850534722133, "mark": "", "pg": -2.5017495945944153, "rank": 131, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002d62;--team-ink:#ffffff"}, {"id": "t124", "name": "Christian Braun", "team": "DEN", "pos": ["SG", "SF", "PF"], "slot": "", "status": "", "val": -2.5736398527500013, "mark": "", "pg": -4.490443761076464, "rank": 203, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0e2240;--team-ink:#ffffff"}, {"id": "t129", "name": "Grayson Allen", "team": "CHA", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -3.039572233684495, "mark": "", "pg": -1.6306132097499542, "rank": 107, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00788c;--team-ink:#ffffff"}]}, {"id": 13, "name": "The Jokić’s on You", "roster": [{"id": "t0", "name": "Nikola Jokić", "team": "DEN", "pos": ["C"], "slot": "", "status": "", "val": 6.937329355048832, "mark": "", "pg": 8.153563112337965, "rank": 1, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0e2240;--team-ink:#ffffff"}, {"id": "t26", "name": "Trey Murphy III", "team": "NO", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -0.15182639483424917, "mark": "", "pg": 0.9005608308504014, "rank": 42, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t58", "name": "Payton Pritchard", "team": "BOS", "pos": ["PG"], "slot": "", "status": "", "val": -2.5508223063439273, "mark": "", "pg": -1.5805113804955055, "rank": 94, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007a33;--team-ink:#ffffff"}, {"id": "t68", "name": "Ja Morant", "team": "POR", "pos": ["PG"], "slot": "", "status": "", "val": -1.693895914183742, "mark": "", "pg": -0.9663207842561485, "rank": 93, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t69", "name": "De'Aaron Fox", "team": "SA", "pos": ["PG"], "slot": "", "status": "", "val": 0.13521624354061468, "mark": "", "pg": -0.5137660231565838, "rank": 71, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t80", "name": "VJ Edgecombe", "team": "PHI", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -2.472569550366955, "mark": "", "pg": -0.6035873813921124, "rank": 70, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t95", "name": "Moussa Diabaté", "team": "CHA", "pos": ["C"], "slot": "", "status": "", "val": -2.6726151610813873, "mark": "", "pg": -3.180553068563021, "rank": 156, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00788c;--team-ink:#ffffff"}, {"id": "t113", "name": "DeMar DeRozan", "team": "DEN", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -4.212060267745265, "mark": "", "pg": -4.484077169696564, "rank": 202, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0e2240;--team-ink:#ffffff"}, {"id": "t134", "name": "Terrence Shannon Jr.", "team": "MIN", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -4.014055198033103, "mark": "", "pg": -6.07198350354119, "rank": 281, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}]}, {"id": 5, "name": "Wagner my Ball in yo face", "roster": [{"id": "t15", "name": "LaMelo Ball", "team": "MIN", "pos": ["PG"], "slot": "", "status": "", "val": 2.08469931649074, "mark": "", "pg": 3.448736613532371, "rank": 9, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t30", "name": "Jalen Duren", "team": "DET", "pos": ["C"], "slot": "", "status": "O", "val": -2.480323642699563, "mark": "", "pg": -0.7205091210861814, "rank": 81, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#1d42ba;--team-ink:#ffffff"}, {"id": "t34", "name": "Franz Wagner", "team": "ORL", "pos": ["SF", "PF"], "slot": "", "status": "", "val": 0.5930141124174945, "mark": "", "pg": -0.2859109234752819, "rank": 74, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0077c0;--team-ink:#ffffff"}, {"id": "t35", "name": "Keyonte George", "team": "UTAH", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 0.5371431228842913, "mark": "", "pg": 0.06015439713705487, "rank": 55, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t37", "name": "Nickeil Alexander-Walker", "team": "ATL", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 0.00264876227131855, "mark": "", "pg": 0.14804900830057371, "rank": 52, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t39", "name": "Damian Lillard", "team": "POR", "pos": ["PG"], "slot": "", "status": "", "val": 0.4257399014351694, "mark": "", "pg": 1.641938359663183, "rank": 37, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t43", "name": "LeBron James", "team": "PHI", "pos": ["SF", "PF"], "slot": "", "status": "", "val": 0.8913529297391509, "mark": "", "pg": 2.4795531373476134, "rank": 19, "rests_b2b": 1, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t56", "name": "Ryan Rollins", "team": "MIL", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -1.2965194470278982, "mark": "", "pg": 0.7582022197073495, "rank": 40, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00471b;--team-ink:#ffffff"}, {"id": "t61", "name": "OG Anunoby", "team": "NY", "pos": ["SF", "PF"], "slot": "", "status": "", "val": -0.8630557536734957, "mark": "", "pg": -0.6179176435557068, "rank": 76, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#006bb6;--team-ink:#ffffff"}, {"id": "t87", "name": "Isaiah Hartenstein", "team": "OKC", "pos": ["C"], "slot": "", "status": "", "val": -2.969572344973652, "mark": "", "pg": -1.4693777449321541, "rank": 97, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007ac1;--team-ink:#ffffff"}, {"id": "t127", "name": "Jaylen Wells", "team": "MEM", "pos": ["SG", "SF"], "slot": "", "status": "", "val": -2.650574759363666, "mark": "", "pg": -4.750033100942511, "rank": 216, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#5d76a9;--team-ink:#ffffff"}]}, {"id": 14, "name": "WNBA Revenge Tour", "roster": [{"id": "t14", "name": "Austin Reaves", "team": "LAL", "pos": ["PG", "SG", "SF"], "slot": "", "status": "", "val": 1.3994011447775083, "mark": "", "pg": 1.641888235299217, "rank": 23, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#552583;--team-ink:#ffffff"}, {"id": "t21", "name": "Walker Kessler", "team": "LAL", "pos": ["C"], "slot": "", "status": "", "val": 0.37372569427677205, "mark": "", "pg": -0.01163355099746799, "rank": 62, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#552583;--team-ink:#ffffff"}, {"id": "t27", "name": "Lauri Markkanen", "team": "UTAH", "pos": ["SF", "PF"], "slot": "", "status": "Q", "val": -0.17530903990172841, "mark": "", "pg": 0.21618326470777158, "rank": 59, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002b5c;--team-ink:#ffffff"}, {"id": "t28", "name": "Chet Holmgren", "team": "OKC", "pos": ["PF", "C"], "slot": "", "status": "Q", "val": 0.48436047043627484, "mark": "", "pg": 0.39592632477027356, "rank": 53, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#007ac1;--team-ink:#ffffff"}, {"id": "t31", "name": "James Harden", "team": "CLE", "pos": ["PG", "SG"], "slot": "", "status": "", "val": 0.9514414400142267, "mark": "", "pg": 1.416655724969513, "rank": 34, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#860038;--team-ink:#ffffff"}, {"id": "t49", "name": "Pascal Siakam", "team": "IND", "pos": ["PF", "C"], "slot": "", "status": "", "val": 0.4973018424017936, "mark": "", "pg": -0.04052893365118164, "rank": 63, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#002d62;--team-ink:#ffffff"}, {"id": "t50", "name": "Michael Porter Jr.", "team": "BKN", "pos": ["SF", "PF"], "slot": "", "status": "", "val": 1.2151137529658722, "mark": "", "pg": 0.36914911312258036, "rank": 54, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#000000;--team-ink:#ffffff"}, {"id": "t91", "name": "CJ McCollum", "team": "ATL", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -2.2374936650746666, "mark": "", "pg": -0.39608314736951555, "rank": 68, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#c8102e;--team-ink:#ffffff"}, {"id": "t102", "name": "Ayo Dosunmu", "team": "MIN", "pos": ["PG", "SG"], "slot": "", "status": "", "val": -2.311075907742553, "mark": "", "pg": -2.6601929782837423, "rank": 136, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#0c2340;--team-ink:#ffffff"}, {"id": "t122", "name": "Daniel Gafford", "team": "DAL", "pos": ["C"], "slot": "", "status": "", "val": -3.177384183807195, "mark": "", "pg": -4.803342696935759, "rank": 217, "rests_b2b": 0, "il": false, "untouchable": false, "style": "--team:#00538c;--team-ink:#ffffff"}]}], "sugg": [{"team": 3, "give": ["m10"], "get": ["t123"]}, {"team": 11, "give": ["m10"], "get": ["t81"]}, {"team": 3, "give": ["m10"], "get": ["t117"]}], "engine": {"slots": ["PG", "SG", "SF", "PF", "C"], "util": 1, "weeks": ["wk19", "wk20", "wk21"], "days": [{"date": "2027-03-08", "week": "wk19", "quality": false, "teams": ["ATL", "CHA", "DAL", "DEN", "HOU", "IND", "LAC", "MEM", "MIA", "MIN", "NO", "OKC", "PHI", "PHX", "SAC", "UTAH"], "b2b": ["DEN", "HOU", "MIN", "PHI"]}, {"date": "2027-03-09", "week": "wk19", "quality": false, "teams": ["BKN", "BOS", "CHI", "CLE", "DAL", "DET", "GS", "MEM", "MIL", "ORL", "PHX", "POR", "SA", "WSH"], "b2b": ["DAL", "MEM", "PHX"]}, {"date": "2027-03-10", "week": "wk19", "quality": false, "teams": ["ATL", "CHA", "DEN", "GS", "HOU", "LAC", "MIA", "MIN", "NO", "NY", "OKC", "ORL", "POR", "SAC", "TOR", "UTAH"], "b2b": ["GS", "ORL", "POR"]}, {"date": "2027-03-11", "week": "wk19", "quality": false, "teams": ["ATL", "BKN", "BOS", "CHA", "CHI", "CLE", "DAL", "DET", "IND", "LAC", "LAL", "MEM", "MIL", "NY", "PHI", "PHX", "SA", "WSH"], "b2b": ["ATL", "CHA", "LAC", "NY"]}, {"date": "2027-03-12", "week": "wk19", "quality": true, "teams": ["BOS", "CLE", "DEN", "GS", "LAL", "MIA", "MIL", "NO", "OKC", "SAC", "TOR", "UTAH"], "b2b": ["BOS", "CLE", "LAL", "MIL"]}, {"date": "2027-03-13", "week": "wk19", "quality": false, "teams": ["ATL", "BKN", "CHA", "CHI", "DAL", "DET", "HOU", "IND", "LAC", "MEM", "MIN", "NO", "ORL", "PHI", "PHX", "POR"], "b2b": ["NO"]}, {"date": "2027-03-14", "week": "wk19", "quality": false, "teams": ["BOS", "CLE", "DEN", "DET", "GS", "LAL", "MIA", "MIN", "NY", "OKC", "SA", "SAC", "TOR", "WSH"], "b2b": ["DET", "MIN"]}, {"date": "2027-03-15", "week": "wk20", "quality": true, "teams": ["ATL", "BKN", "CHI", "DAL", "IND", "MEM", "ORL", "PHI", "PHX", "TOR"], "b2b": ["TOR"]}, {"date": "2027-03-16", "week": "wk20", "quality": false, "teams": ["BOS", "CHA", "CLE", "DEN", "DET", "GS", "HOU", "IND", "LAC", "LAL", "MIL", "MIN", "NO", "NY", "OKC", "ORL", "POR", "SA", "SAC", "WSH"], "b2b": ["IND", "ORL"]}, {"date": "2027-03-17", "week": "wk20", "quality": false, "teams": ["ATL", "BKN", "CHI", "DAL", "GS", "HOU", "LAL", "MEM", "MIA", "NY", "OKC", "PHI", "PHX", "POR", "SAC", "UTAH"], "b2b": ["GS", "HOU", "LAL", "NY", "OKC", "POR", "SAC"]}, {"date": "2027-03-18", "week": "wk20", "quality": false, "teams": ["BKN", "BOS", "CHA", "CLE", "DEN", "DET", "IND", "LAC", "MEM", "MIL", "MIN", "NO", "ORL", "PHI", "SA", "TOR", "UTAH", "WSH"], "b2b": ["BKN", "MEM", "PHI", "UTAH"]}, {"date": "2027-03-19", "week": "wk20", "quality": true, "teams": ["ATL", "DAL", "GS", "HOU", "LAL", "MIA", "NO", "PHX", "POR", "SA", "SAC", "TOR"], "b2b": ["NO", "SA", "TOR"]}, {"date": "2027-03-20", "week": "wk20", "quality": false, "teams": ["ATL", "CHA", "CHI", "CLE", "DEN", "DET", "IND", "LAC", "MEM", "MIL", "NY", "OKC", "ORL", "WSH"], "b2b": ["ATL"]}, {"date": "2027-03-21", "week": "wk20", "quality": false, "teams": ["BKN", "BOS", "DAL", "DEN", "LAL", "MIA", "NO", "PHI", "PHX", "POR", "SA", "SAC", "TOR", "UTAH"], "b2b": ["DEN"]}, {"date": "2027-03-22", "week": "wk21", "quality": false, "teams": ["ATL", "CHA", "CHI", "CLE", "DAL", "DET", "GS", "HOU", "IND", "LAC", "MEM", "MIL", "MIN", "ORL", "SAC", "WSH"], "b2b": ["DAL", "SAC"]}, {"date": "2027-03-23", "week": "wk21", "quality": true, "teams": ["BKN", "BOS", "LAL", "MIA", "NO", "NY", "OKC", "PHI", "PHX", "POR", "TOR", "UTAH"], "b2b": []}, {"date": "2027-03-24", "week": "wk21", "quality": false, "teams": ["ATL", "BOS", "CHA", "CHI", "DAL", "DEN", "DET", "GS", "HOU", "IND", "LAC", "MEM", "MIL", "MIN", "NY", "OKC", "ORL", "PHI", "PHX", "SA", "SAC", "WSH"], "b2b": ["BOS", "NY", "OKC", "PHI", "PHX"]}, {"date": "2027-03-25", "week": "wk21", "quality": false, "teams": ["BKN", "CHI", "CLE", "DEN", "DET", "GS", "HOU", "IND", "LAL", "MEM", "MIA", "SA", "TOR", "UTAH"], "b2b": ["CHI", "DEN", "DET", "GS", "HOU", "IND", "MEM", "SA"]}, {"date": "2027-03-26", "week": "wk21", "quality": true, "teams": ["CHA", "DAL", "LAC", "MIL", "MIN", "NO", "NY", "OKC", "ORL", "PHI", "PHX", "POR"], "b2b": []}, {"date": "2027-03-27", "week": "wk21", "quality": false, "teams": ["ATL", "BOS", "CHI", "DET", "GS", "LAC", "MIA", "MIL", "POR", "SA", "SAC", "TOR", "UTAH", "WSH"], "b2b": ["LAC", "MIL", "POR"]}, {"date": "2027-03-28", "week": "wk21", "quality": false, "teams": ["BKN", "BOS", "CHA", "DAL", "DEN", "HOU", "LAL", "MEM", "MIN", "NO", "NY", "OKC", "ORL", "PHI", "PHX", "TOR", "UTAH", "WSH"], "b2b": ["BOS", "TOR", "UTAH", "WSH"]}], "kept": 8, "band": [0.95, 1.1]}}</script>
+<script>
+// Team builder engine: the game counts of your core in the fantasy playoffs (issue #8, Rules and Contracts).
+//
+//   1. Each playoff day, the core players whose teams play go into the position slots (data.slots) and Util.
+//      The engine adds them in value order, highest first. It accepts a player only when the slots and Util can
+//      still hold all accepted players (bipartite matching). This is best_lineup() in core/lineup.py.
+//   2. A player with rests_b2b = 1 does not play on the second night of a back-to-back (day.b2b).
+//   3. Started = the accepted players. Lost = the players who play but get no slot.
+//      Holes = the empty starting slots on quality days. The engine counts no streamers.
+//
+// core/lineup.py is the one source of the lineup-fit rules (#133). The page data from board.py gives the Util count
+// (data.util), the percent bands (data.bands) and the ideal games (data.ideal) from core/lineup.py.
+// The matching and the rest rule stay here, because the board scores the core that the user picks in the browser.
+// tests/draft/test_team_builder.py shows that they give the same results as core/lineup.py and core/home.py.
+//
+// The file has no DOM code. board.py inlines it in the page as a plain script, and Node loads it with require().
+// The page gets the globals scoreCore, fit, slotRoster, footerWeeks, band and TeamBuilder. The helpers stay inside
+// the closure.
+
+const TeamBuilder = (() => {
+  // Per-day team sets for each data object, so that a call does not make them again.
+  const _daySets = new WeakMap();
+
+  function _sets(data) {
+    let sets = _daySets.get(data);
+    if (!sets) {
+      sets = data.days.map(d => ({ teams: new Set(d.teams), b2b: new Set(d.b2b || []) }));
+      _daySets.set(data, sets);
+    }
+    return sets;
+  }
+
+  function _utilNames(data) {
+    const n = data.util === undefined ? 1 : data.util;
+    return Array.from({ length: n }, (_, i) => (i === 0 ? "Util" : "Util" + (i + 1)));
+  }
+
+  // Maximum matching of players to position slots (_match in core/lineup.py).
+  // Returns holder: slot -> index in lineup. A player with no slot goes to Util.
+  function _match(lineup, slots) {
+    const holder = {};
+    function place(i, tried) {
+      for (const slot of slots) {
+        if (lineup[i].pos.includes(slot) && !tried.has(slot)) {
+          tried.add(slot);
+          if (!(slot in holder) || place(holder[slot], tried)) {
+            holder[slot] = i;
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+    for (let i = 0; i < lineup.length; i++) place(i, new Set());
+    return holder;
+  }
+
+  // One playoff day. ordered: the core in value order, highest first.
+  function _day(ordered, day, sets, data) {
+    const slots = data.slots, utils = _utilNames(data);
+    const lineup = [], sat = [], rested = [];
+    for (const p of ordered) {
+      if (!sets.teams.has(p.team)) continue;
+      if (p.rests_b2b && sets.b2b.has(p.team)) {
+        rested.push(p.name);
+        continue;
+      }
+      const trial = lineup.concat([p]);
+      const placed = Object.keys(_match(trial, slots)).length;
+      // The players with no position slot go to Util
+      if (trial.length - placed <= utils.length) lineup.push(p);
+      else sat.push(p.name);
+    }
+
+    const holder = _match(lineup, slots), starters = {}, empty = [], inSlot = new Set();
+    for (const slot of slots) {
+      if (slot in holder) {
+        starters[slot] = lineup[holder[slot]].name;
+        inSlot.add(holder[slot]);
+      } else {
+        empty.push(slot);
+      }
+    }
+    const util = lineup.filter((_, i) => !inSlot.has(i));
+    utils.forEach((name, i) => {
+      if (i < util.length) starters[name] = util[i].name;
+      else empty.push(name);
+    });
+    return {
+      date: day.date, week: day.week, quality: !!day.quality, starters, sat, rested, empty,
+      started: lineup.length, holes: day.quality ? empty.length : 0,
+    };
+  }
+
+  function _ordered(core) {
+    // A stable sort: two players with the same value keep the order of core
+    return core.slice().sort((a, b) => b.value - a.value);
+  }
+
+  function _totals(dayResults, data) {
+    const weeks = {}, total = { started: 0, lost: 0, holes: 0 };
+    for (const w of data.weeks) weeks[w] = { started: 0, lost: 0, lost_by: {}, holes: 0 };
+    for (const d of dayResults) {
+      const w = weeks[d.week] || (weeks[d.week] = { started: 0, lost: 0, lost_by: {}, holes: 0 });
+      w.started += d.started;
+      w.lost += d.sat.length;
+      w.holes += d.holes;
+      for (const name of d.sat) w.lost_by[name] = (w.lost_by[name] || 0) + 1;
+    }
+    for (const w of Object.values(weeks)) {
+      total.started += w.started;
+      total.lost += w.lost;
+      total.holes += w.holes;
+    }
+    const last = weeks[data.weeks[data.weeks.length - 1]];
+    const finals = { started: last.started, lost: last.lost, holes: last.holes };
+    return { weeks, total, finals };
+  }
+
+  // The engine result in #8: weeks, total, finals and days. core is a list of players from data.players.
+  function scoreCore(core, data) {
+    const ordered = _ordered(core), sets = _sets(data);
+    const days = data.days.map((day, i) => _day(ordered, day, sets[i], data));
+    const result = _totals(days, data);
+    result.days = days.map(d => ({
+      date: d.date, quality: d.quality, starters: d.starters, sat: d.sat, rested: d.rested, empty: d.empty,
+    }));
+    return result;
+  }
+
+  // The last base score, so that fit() for each row of the board scores the core one time only.
+  let _base = null;
+
+  function _baseDays(core, data) {
+    const key = core.map(p => p.id + ":" + p.value + ":" + p.team + ":" + p.rests_b2b + ":" + p.pos.join("/")).join("|");
+    if (!_base || _base.data !== data || _base.key !== key) {
+      const ordered = _ordered(core), sets = _sets(data);
+      _base = { data, key, ordered, days: data.days.map((day, i) => _day(ordered, day, sets[i], data)) };
+    }
+    return _base;
+  }
+
+  // Δ against scoreCore(core, data) when player joins the core:
+  // {started, finals, holes_removed, games, quality, quality_started}.
+  // games and quality: the games and quality-day games that the player can play (no rest nights).
+  // quality_started: Δ started games on quality days. started < games means that his games push out other players
+  // or that he sits, so the ratio started / games shows a logjam.
+  // Only the days on which the team of the player plays can change, so fit() scores those days again.
+  function fit(core, player, data) {
+    const base = _baseDays(core, data), sets = _sets(data);
+    const finalsWeek = data.weeks[data.weeks.length - 1];
+    const ordered = _ordered(base.ordered.concat([player]));
+    let started = 0, finals = 0, holes = 0, games = 0, quality = 0, qualityStarted = 0;
+    data.days.forEach((day, i) => {
+      if (!sets[i].teams.has(player.team)) return;
+      if (!(player.rests_b2b && sets[i].b2b.has(player.team))) {
+        games += 1;
+        if (day.quality) quality += 1;
+      }
+      const before = base.days[i], after = _day(ordered, day, sets[i], data);
+      const delta = after.started - before.started;
+      started += delta;
+      if (day.week === finalsWeek) finals += delta;
+      if (day.quality) qualityStarted += delta;
+      holes += before.holes - after.holes;
+    });
+    return { started, finals, holes_removed: holes, games, quality, quality_started: qualityStarted };
+  }
+
+  // Season slots for the team table: {slots: {slot: player}, bench: [players]}. players is in priority order
+  // (the page sorts by value, highest first). The same matching as a playoff day fills the position slots and Util.
+  // A player who does not fit goes to the bench. Legal lineups are a matroid, so this order gives the starting
+  // slots the highest-value legal lineup: a bench player can start only in place of a higher-value player.
+  function slotRoster(players, data) {
+    const slots = data.slots, utils = _utilNames(data), lineup = [], bench = [];
+    for (const p of players) {
+      const trial = lineup.concat([p]);
+      if (trial.length - Object.keys(_match(trial, slots)).length <= utils.length) lineup.push(p);
+      else bench.push(p);
+    }
+    const holder = _match(lineup, slots), out = {}, inSlot = new Set();
+    for (const slot of slots) {
+      if (slot in holder) {
+        out[slot] = lineup[holder[slot]];
+        inSlot.add(holder[slot]);
+      }
+    }
+    lineup.filter((_, i) => !inSlot.has(i)).forEach((p, i) => { out[utils[i]] = p; });
+    return { slots: out, bench };
+  }
+
+  // The band level of a ratio: "good", "warn" or "bad", from data.bands (lineup.BANDS in core/lineup.py).
+  function band(ratio, data) {
+    const b = data.bands.find(([low]) => ratio >= low);
+    return (b || data.bands[data.bands.length - 1])[1];
+  }
+
+  // The footer numbers of each week (Fit.team_week in core/home.py), with the result of scoreCore(core, data):
+  // [{started, lost, lost_by, holes, games, ideal, days}] in the order of data.weeks.
+  // games: the games of the core, with no rest nights. ideal: data.ideal (lineup.ideal_games() in core/lineup.py).
+  function footerWeeks(core, result, data) {
+    const sets = _sets(data);
+    return data.weeks.map(w => {
+      let games = 0, days = 0;
+      data.days.forEach((day, i) => {
+        if (day.week !== w) return;
+        days += 1;
+        games += core.filter(p => sets[i].teams.has(p.team) && !(p.rests_b2b && sets[i].b2b.has(p.team))).length;
+      });
+      return { ...result.weeks[w], games, ideal: data.ideal[w][core.length], days };
+    });
+  }
+
+  return { scoreCore, fit, slotRoster, footerWeeks, band };
+})();
+
+const { scoreCore, fit, slotRoster, footerWeeks, band } = TeamBuilder;
+
+if (typeof module !== "undefined") module.exports = TeamBuilder;
+
+// Trade builder engine (#152): the playoff starts and the value change of a custom trade, for both teams.
+//
+//   1. The kept set of a team: the untouchable and IL players, then the highest values, data.kept in all.
+//   2. The players that a team gives (and drops) leave its kept set. The players that it gets take the freed spots,
+//      the highest value first. The kept set is not ranked again (Decision comment of 2026-10-28 on #150).
+//   3. When you get more players than you give, you pick your drops. When you give more, the spot stays empty.
+//   4. When the partner gets more players than he gives, he drops his lowest value players that are not on IL.
+//   5. The starts come from scoreCore() of draft/team_builder.js. The engine gets value = -rank, so its value sort
+//      gives the lineup order of the Roster page (core/roster.py rank_order()). A player with no rank goes last.
+//
+// trade/builder.py has the same rules in Python. tests/trade/test_parity.py shows that both give the same results.
+// The file has no DOM code. trade/page.py inlines it after team_builder.js. Node loads it with require(), after it
+// sets globalThis.TeamBuilder. A player is {id, name, team, pos, rank, rests_b2b, val, il, untouchable}.
+// val is the value of the trade tool (the blended value, else the preseason value), or null.
+
+const TradeBuilder = (() => {
+  const NO_RANK = -1e9; // the engine value of a player with no rank: after all players with a rank
+
+  const num = p => (p.val == null ? 0 : p.val);
+
+  // The players by value, highest first. A player with no value goes last. Equal values keep their order.
+  function byValue(players) {
+    return players.slice().sort((a, b) => (a.val == null) - (b.val == null) || num(b) - num(a));
+  }
+
+  function keptSet(players, kept) {
+    const always = players.filter(p => p.untouchable || p.il);
+    const rest = byValue(players.filter(p => !always.includes(p)));
+    const chosen = new Set(always.concat(rest.slice(0, Math.max(0, kept - always.length))));
+    return players.filter(p => chosen.has(p));
+  }
+
+  function keptAfter(kept, out, incoming) {
+    const gone = new Set(out), queue = byValue(incoming), after = [];
+    for (const p of kept) {
+      if (!gone.has(p)) after.push(p);
+      else if (queue.length) after.push(queue.shift());
+    }
+    return after;
+  }
+
+  function partnerDrops(team, out, n) {
+    if (n <= 0) return [];
+    const gone = new Set(out);
+    const left = team.filter(p => !gone.has(p) && !p.il);
+    return left.sort((a, b) => (a.val != null) - (b.val != null) || num(a) - num(b)).slice(0, n);
+  }
+
+  function engineValue(p) {
+    return p.rank == null ? NO_RANK : -p.rank;
+  }
+
+  // The team starts of each week of data.weeks, with scoreCore() of team_builder.js.
+  function weekStarts(players, data) {
+    const core = players.map(p => ({ ...p, value: engineValue(p) }));
+    const result = TeamBuilder.scoreCore(core, data);
+    return data.weeks.map(w => result.weeks[w].started);
+  }
+
+  function inBand(give, get, band) {
+    const low = give - (1 - band[0]) * Math.abs(give), high = give + (band[1] - 1) * Math.abs(give);
+    return low - 1e-9 <= get && get <= high + 1e-9;
+  }
+
+  const sum = list => list.reduce((s, p) => s + num(p), 0);
+
+  // A custom trade. mine, team: the players of both teams. give, get, drops: lists of players.
+  // data: {slots, util, weeks, days, kept, band}. The result has mine and partner, each {before, after, dv, drops,
+  // open}, and band: "in", "below" or "above" for equal counts, else "".
+  function trade(mine, team, give, get, drops, data) {
+    const kept = keptSet(mine, data.kept);
+    const me = {
+      before: weekStarts(kept, data),
+      after: weekStarts(keptAfter(kept, give.concat(drops), get), data),
+      dv: sum(get) - sum(give) - sum(drops),
+      drops,
+      open: Math.max(0, give.length - get.length),
+    };
+    const theirs = partnerDrops(team, get, give.length - get.length);
+    const pkept = keptSet(team, data.kept);
+    const partner = {
+      before: weekStarts(pkept, data),
+      after: weekStarts(keptAfter(pkept, get.concat(theirs), give), data),
+      dv: sum(give) - sum(get) - sum(theirs),
+      drops: theirs,
+      open: Math.max(0, get.length - give.length),
+    };
+    let band = "";
+    if (give.length === get.length) {
+      const g = sum(give), r = sum(get);
+      band = inBand(g, r, data.band) ? "in" : r < g ? "below" : "above";
+    }
+    return { mine: me, partner, band };
+  }
+
+  return { keptSet, keptAfter, partnerDrops, engineValue, weekStarts, trade };
+})();
+
+if (typeof module !== "undefined") module.exports = TradeBuilder;
+
+</script>
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById("trade-data").textContent);
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const M = "−", sum = a => a.reduce((x, y) => x + y, 0), plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const signed = n => (n > 0 ? "+" : n < 0 ? M : "±") + Math.abs(n);
+  const val = v => (v == null ? "–" : (v < 0 ? M : "") + Math.abs(v).toFixed(2));
+  const change = v => { const r = Math.round(v * 100) / 100; return (r > 0 ? "+" : r < 0 ? M : "±") + Math.abs(r).toFixed(2); };
+  const label = w => w.charAt(0).toUpperCase() + w.slice(1);
+  const byId = new Map(D.me.map(p => [p.id, p]));
+  D.teams.forEach(t => t.roster.forEach(p => byId.set(p.id, p)));
+  const st = {team: D.teams.length ? D.teams[0].id : null, give: new Set(), get: new Set(), drops: [], row: null};
+  const team = () => D.teams.find(t => t.id === st.team);
+  const flag = p => (p.il ? '<span class="status">IL</span>' : p.status ? `<span class="status">${esc(p.status)}</span>` : "");
+  const band = p => `<td class="band${p.team.length > 3 ? " b4" : ""}" style="${p.style}">${esc(p.team)}</td>`;
+
+  function bar(d, total) {
+    if (d > 0) return `<i class="up" style="--d:${Math.min(d, total ? 6 : 4)}"></i>`;
+    if (d < 0) return `<i class="dn" style="--d:${Math.min(-d, 2)}"></i>`;
+    return "";
+  }
+  function cell(before, after, total, extra) {
+    const d = after - before, kind = d > 0 ? "up" : d < 0 ? "dn" : "eq";
+    const said = d === 0 ? "no change" : `${d > 0 ? "up" : "down"} ${Math.abs(d)}`;
+    return `<td class="wk ${kind}${total ? " t" : ""}${extra ? " " + extra : ""}"><span aria-hidden="true"><b>${after}</b>`
+      + `<small>${signed(d)}</small><span class="cb">${bar(d, total)}</span></span>`
+      + `<span class="vh">${after} starts, ${said} from ${before}</span></td>`;
+  }
+
+  function pickTable(id, players, set, mine) {
+    const kept = new Set(TradeBuilder.keptSet(players, D.engine.kept).map(p => p.id));
+    const rows = players.map(p => {
+      const off = mine && p.untouchable, on = set.has(p.id);
+      const line = [p.team, p.pos.join("/")].concat(kept.has(p.id) ? ["kept"] : [], off ? ["untouchable"] : []);
+      return `<tr class="${off ? "off" : ""}${on ? " on" : ""}" data-id="${p.id}">`
+        + `<td class="ck"><input type="checkbox" aria-label="${mine ? "Give" : "Get"} ${esc(p.name)}"${on ? " checked" : ""}`
+        + `${off ? " disabled" : ""}></td>${band(p)}<th class="pl" scope="row"><b>${esc(p.name)}</b>${flag(p)}`
+        + `<small>${esc(line.join(" · "))}</small></th>`
+        + `<td class="n s1">${val(p.val)}${p.mark ? " no blend" : ""}</td><td class="n">${val(p.pg)}</td></tr>`;
+    }).join("");
+    $(id).innerHTML = '<colgroup><col class="c-ck"><col class="c-band"><col><col class="c-n" span="2"></colgroup>'
+      + `<thead><tr><th scope="col"><span class="vh">${mine ? "Give" : "Get"}</span></th>`
+      + '<th scope="col" class="l" colspan="2">Player</th><th scope="col" class="s1">Val</th><th scope="col">Pre</th></tr></thead>'
+      + `<tbody>${rows}</tbody>`;
+    $(id).querySelectorAll("tbody tr").forEach(tr => {
+      const box = tr.querySelector("input");
+      const flip = () => {
+        const n = tr.dataset.id;
+        set.has(n) ? set.delete(n) : set.add(n);
+        st.row = null;
+        draw();
+        $(id).querySelector(`tr[data-id="${n}"] input`).focus();
+      };
+      box.addEventListener("change", flip);
+      tr.addEventListener("click", ev => { if (ev.target !== box && !box.disabled) flip(); });
+    });
+  }
+
+  function pickDrops(more) {
+    const options = D.me.filter(p => !st.give.has(p.id) && !p.untouchable);
+    const ok = new Set(options.map(p => p.id));
+    st.drops = st.drops.filter(id => ok.has(id)).slice(-more);
+    const low = options.slice().sort((a, b) => (a.val != null) - (b.val != null) || (a.val || 0) - (b.val || 0));
+    for (const p of low) if (st.drops.length < more && !st.drops.includes(p.id)) st.drops.push(p.id);
+    $("drop-chips").innerHTML = `<span class="label">You get ${plural(more, "more player")} than you give. `
+      + `Pick ${more === 1 ? "your drop" : `${more} drops`}.</span>` + options.map(p =>
+        `<button type="button" class="chip" aria-pressed="${st.drops.includes(p.id)}" data-id="${p.id}">${esc(p.name)}`
+        + `<small>Val ${val(p.val)}</small></button>`).join("");
+    $("drop-chips").querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      if (!st.drops.includes(b.dataset.id)) { st.drops.push(b.dataset.id); st.drops = st.drops.slice(-more); }
+      st.row = null;
+      draw();
+      $("drop-chips").querySelector(`[data-id="${b.dataset.id}"]`).focus();
+    }));
+  }
+
+  function sideRows(name, side, est, verdict) {
+    const bt = sum(side.before), at = sum(side.after);
+    const tag = est ? ", est." : "", minus = side.dv < 0 ? " minus" : "";
+    const note = verdict ? `<small>${verdict === "in" ? "In the band" : verdict === "below" ? "Below the band" : "Above the band"}</small>` : "";
+    const now = side.before.map((b, i) => `<td class="${i ? "" : "s1"}">${b}</td>`).join("");
+    return `<tr class="now"><th class="sd" scope="row"><b>${esc(name)}</b><small>Now${tag}</small></th>${now}<td>${bt}</td>`
+      + '<td class="v s1"></td></tr>'
+      + `<tr><th class="sd" scope="row"><b>${esc(name)}</b><small>After the trade${tag}</small>`
+      + `<small class="rv">Value ${change(side.dv)}</small></th>`
+      + side.before.map((b, i) => cell(b, side.after[i], false, i ? "" : "s1")).join("") + cell(bt, at, true)
+      + `<td class="v s1${minus}">${change(side.dv)}${note}</td></tr>`;
+  }
+
+  function result(give, get, drops) {
+    const t = team();
+    const r = TradeBuilder.trade(D.me, t.roster, give, get, drops, D.engine);
+    const weeks = D.engine.weeks;
+    const head = '<colgroup><col><col class="c-w" span="' + weeks.length + '"><col class="c-t"><col class="c-v"></colgroup>'
+      + '<thead><tr><th scope="col" class="l">Team</th>'
+      + weeks.map((w, i) => `<th scope="col"${i ? "" : ' class="s1"'}>${label(w)}</th>`).join("")
+      + '<th scope="col">Total</th><th scope="col" class="s1 cv">Value</th></tr></thead>';
+    const lines = [];
+    if (r.partner.open) lines.push(`<p class="line" id="open-them"><b>${esc(t.name)}: ${plural(r.partner.open, "open roster spot")}:</b> a free agent can fill ${r.partner.open === 1 ? "it" : "them"}.</p>`);
+    r.partner.drops.forEach(p => lines.push(`<p class="line" id="drop-them"><b>${esc(t.name)} drops ${esc(p.name)}</b> (Val ${val(p.val)}): his lowest value player who is not on IL.</p>`));
+    const moved = give.map(p => `<span>You give <b>${esc(p.name)}</b> Val ${val(p.val)} · Pre ${val(p.pg)}</span>`)
+      .concat(get.map(p => `<span>You get <b>${esc(p.name)}</b> Val ${val(p.val)} · Pre ${val(p.pg)}</span>`))
+      .concat(drops.map(p => `<span>You drop <b>${esc(p.name)}</b> Val ${val(p.val)} · Pre ${val(p.pg)}</span>`));
+    $("res").innerHTML = '<h3>Result</h3><table class="rt lab-t" id="rt"><caption class="vh">Playoff starts before and after '
+      + 'the trade, and the value change, for both teams.</caption>' + head + "<tbody>"
+      + sideRows("Your team", r.mine, false, r.band) + sideRows(t.name, r.partner, true, "") + "</tbody></table>"
+      + lines.join("")
+      + '<p class="mv" id="est-note">Est.: the partner starts are an estimate, because the rostered list does not show the IL slots of a partner.</p>'
+      + `<p class="mv">${moved.join("")}</p>`;
+  }
+
+  function draw() {
+    const t = team();
+    $("partner").value = String(st.team);
+    $("get-h").textContent = `You get from ${t.name}`;
+    const own = new Set(t.roster.map(p => p.id));
+    [...st.get].forEach(id => { if (!own.has(id)) st.get.delete(id); });
+    pickTable("pk-give", D.me, st.give, true);
+    pickTable("pk-get", t.roster, st.get, false);
+    const more = st.get.size - st.give.size, open = st.give.size - st.get.size;
+    $("drop").hidden = !(more > 0);
+    if (more > 0) pickDrops(more); else st.drops = [];
+    $("open-me").hidden = !(open > 0 && st.get.size > 0);
+    $("open-me").innerHTML = `<b>${plural(open, "open roster spot")}:</b> a free agent can fill ${open === 1 ? "it" : "them"}.`;
+    document.querySelectorAll("#sg-desk tbody tr, #sg-mob li.ms").forEach(r => {
+      if (st.row !== null && Number(r.dataset.k) === st.row) r.setAttribute("aria-current", "true");
+      else r.removeAttribute("aria-current");
+    });
+    if (!st.give.size || !st.get.size) {
+      $("res").innerHTML = '<div class="empty"><p>Pick at least 1 player to give and 1 player to get.</p></div>';
+      return;
+    }
+    result(D.me.filter(p => st.give.has(p.id)), t.roster.filter(p => st.get.has(p.id)), st.drops.map(id => byId.get(id)));
+  }
+
+  function load(k) {
+    const s = D.sugg[k];
+    st.team = s.team; st.give = new Set(s.give); st.get = new Set(s.get); st.drops = []; st.row = k;
+    draw();
+    $("live").textContent = `Trade ${k + 1} is in the builder.`;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    $("builder").scrollIntoView({behavior: reduce ? "auto" : "smooth", block: "start"});
+  }
+
+  if (!st.team) return;
+  document.querySelectorAll("#sg-desk tbody tr, #sg-mob li.ms").forEach(r =>
+    r.addEventListener("click", () => load(Number(r.dataset.k))));
+  $("partner").addEventListener("change", e => {
+    st.team = Number(e.target.value); st.get.clear(); st.row = null; draw();
+  });
+  $("clear").addEventListener("click", () => { st.give.clear(); st.get.clear(); st.row = null; draw(); });
+  draw();
+})();
+</script>
+</body>
+</html>
