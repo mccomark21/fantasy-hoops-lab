@@ -29,8 +29,7 @@ METHODS = r"""(p, d) => {
   const ks = c.rows.map(r => `${LabCard.esc(r.cat)} ${r.k}`).join(", ");
   return `<li><b>Categories.</b> The percentile of each category in the pool: the top ${c.pool} players by projected `
     + "value. proj ranks the projection per game. now ranks the season line, shrunk toward the projection: "
-    + `(n × season + k × projection) / (n + k), with n games and k in games: ${ks}. `
-    + "The k values are agent defaults that the owner did not approve yet.</li>";
+    + `(n × season + k × projection) / (n + k), with n games and k in games: ${ks}.</li>`;
 }"""
 
 _SCRIPT = r"""(() => {

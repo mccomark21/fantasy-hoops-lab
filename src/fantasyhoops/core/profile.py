@@ -30,7 +30,7 @@ QUADRANTS = (
     ("comps", "Comps", "No comps yet."),
 )
 QUADRANT_KEYS = tuple(key for key, _, _ in QUADRANTS)
-# The quadrant fills (#187 to #189). Each module has STYLE, script() and METHODS. Its script sets
+# The quadrant fills (#187 to #189). Each module must have STYLE, script() and METHODS. Its script sets
 # LabCard.fill.<quadrant> and runs after the card script. METHODS is a JS function (player, file) that gives the
 # <li> of the quadrant in the methods note, or "". modal() and card_script() add each fill. A quadrant issue adds one
 # entry.
@@ -259,7 +259,8 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
     tip.style.left = Math.round(x) + "px";
     tip.style.top = Math.round(y) + "px";
   };
-  // The one tooltip function of the quadrant fills. target: a chart target (class lab-c-hit) in the card root.
+  // The one tooltip function of the quadrant fills. target: a chart target in the card root. The target must have the
+  // class lab-c-hit (core/chart.py): the tap rule below hides the card on a tap outside each lab-c-hit element.
   // spec: {ctx, value, label, rows: [[name, value]]}. markAt(): the viewport box {left, right, top, bottom} of the
   // marks of the target. A mouse shows the card on enter and hides it on leave. A tap shows it and keeps it. The focus
   // shows it.

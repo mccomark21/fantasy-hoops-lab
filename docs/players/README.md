@@ -19,7 +19,7 @@ The Categories quadrant (#188) shows the percentile of each weighted category (P
 - **proj** (the hollow dot): the per-game projection of the player, ranked among the projections of the pool.
 - **now** (the filled dot): his season line, shrunk toward his projection, ranked among the shrunk lines of the pool.
 - **Pool:** the valuation pool of `core/valuation.py`, the top 140 players by projected value (14 teams x 10 spots). A pool player with no game has his projection as his shrunk line.
-- **Shrinkage:** now = (n x season + k x projection) / (n + k). n is the number of games that he played in `data/box_scores.csv`. k is in `[players.categories] shrink` of `config.toml`: PTS, REB, AST 4. 3PM, BLK 10. STL 15. These values are agent defaults that the owner did not approve yet.
+- **Shrinkage:** now = (n x season + k x projection) / (n + k). n is the number of games that he played in `data/box_scores.csv`. k is in `[players.categories] shrink` of `config.toml`: PTS, REB, AST 4. 3PM, BLK 10. STL 15. The owner approved these values on 2026-10-30.
 - **Percentile:** 100 x (pool players below + half of the pool players equal) / 140.
 - **Row:** the category, its punt weight from `[weights]` (for example ×0.70), the season per game and "proj" with the projection per game. A mouse, a tap or the focus on a row shows its tooltip card.
 - **Projection gap:** a header signal when a category has 5 or more games and a gap of 25 or more percentile points between now and proj (`gap_games` and `gap_points`). The largest gap gives the chip, for example "REB above projection: percentile 63 vs 25".
