@@ -11,6 +11,8 @@ builder. The partner starts are an estimate ("est."), because the rostered list 
 Warning lines (no trade deadline, players with no match in the data files) sit under the header (#153).
 After the trade deadline, render_deadline() gives a short page with only the header and the deadline line.
 Each player name of the suggestions and of the builder tables opens the player modal of core/profile.py (#186).
+The page template has __CHART_CSS__ (#194): publish.shell() puts the shared chart style of core/chart.py (#185) in the
+page head, so the player modal does not add its own copy. The page draws no chart, so its look does not change.
 render() and render_deadline() take their data from the caller. write() writes output/trade/index.html with
 publish.write_page().
 """
@@ -836,6 +838,7 @@ PAGE = (
 __HEAD__
 <style>
 __TABLE_CSS__
+__CHART_CSS__
 """
     + STYLE
     + """
