@@ -5,11 +5,41 @@ from datetime import date
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.core import chart, common, profile
 from fantasyhoops.core import publish as site
-from fantasyhoops.players import data, page
+from fantasyhoops.players import categories, data, page
 from fantasyhoops.players.data import Played, Projected
 from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
 
 CFG = {"league": {"teams": 14}}
+# The cats of Ace Bailey on the data of 2026-10-29 (players/categories.py), with the REB gap.
+CATS = {
+    "n": 5,
+    "pool": 140,
+    "rows": [
+        {
+            "cat": "PTS",
+            "w": 1.0,
+            "k": 4,
+            "proj": 33.2,
+            "now": 35.4,
+            "line": 15.56,
+            "raw": 14.2,
+            "shrunk": 14.81,
+            "nw": 0.56,
+        },
+        {
+            "cat": "REB",
+            "w": 1.0,
+            "k": 4,
+            "proj": 25.4,
+            "now": 63.2,
+            "line": 4.01,
+            "raw": 8.0,
+            "shrunk": 6.23,
+            "nw": 0.56,
+        },
+    ],
+    "gap": {"cat": "REB", "now": 63, "proj": 25},
+}
 OWNERS = [
     RosteredPlayer(Player("Ace Bailey", "UTAH", ("SF", "PF")), 0, {}, 1, "Lamb Chops"),
     RosteredPlayer(Player("Karl-Anthony Towns", "NY", ("PF", "C")), 0, {}, 3, "Doncic Go"),
@@ -21,6 +51,7 @@ def write(monkeypatch):
     monkeypatch.setattr(data, "read_projected", lambda cfg: (projected, "Projections_2026-10-12.csv"))
     played = {"fa five": Played("Fa Five", "BOS", 5)}
     monkeypatch.setattr(data, "read_played", lambda: (played, "2026-10-20", "2026-10-28"))
+    monkeypatch.setattr(categories, "read_categories", lambda cfg: {"ace bailey": CATS})
     read = RosteredRead(OWNERS, [], {}, [], True)
     return page.write_site(read, 1, CFG, date(2026, 10, 30), replacement=None)
 
@@ -41,6 +72,11 @@ def test_write_site_writes_the_page_the_player_file_and_the_font(monkeypatch):
         "has_val": False,
     }
     assert [p["slug"] for p in content["players"]] == ["ace-bailey", "fa-five", "karl-anthony-towns"]
+    ace = content["players"][0]
+    assert ace["cats"] == CATS and "cats" not in content["players"][1]
+    assert ace["signals"] == [
+        {"kind": "Projection gap", "quadrant": "cats", "up": True, "text": "REB above projection: percentile 63 vs 25"}
+    ]
     assert content["bands"]["UTAH"] == site.band_style("UTAH") and content["bands"][""] == site.band_style(None)
     assert (index.parent / "fonts" / "archivo-latin.woff2").exists()
     html = index.read_text(encoding="utf-8")

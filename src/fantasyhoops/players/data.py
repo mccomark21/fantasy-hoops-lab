@@ -25,6 +25,7 @@ from fantasyhoops.core.identity import YAHOO_COLS, link_players, yahoo_keys
 from fantasyhoops.core.rotation import read_log
 from fantasyhoops.core.valuation import value_players
 from fantasyhoops.draft.rankings import STATS
+from fantasyhoops.players import categories
 
 MIN_GAMES = 5  # a free agent with this many games in the rotation log or more is on the page
 OVERRIDE_COLUMNS = ["player_id", "name", "espn_name", "yahoo_name", "team"]
@@ -75,7 +76,7 @@ class Signal:
 
 
 # The signal rules. Each rule takes a player record and gives a Signal or None. #187 to #189 add their rules.
-SIGNAL_RULES = ()
+SIGNAL_RULES = (categories.projection_gap,)
 
 
 def signals(record, rules=SIGNAL_RULES):
@@ -209,11 +210,13 @@ def market_values(rostered, options, replacement, scale, cfg):
     return out
 
 
-def player_records(owned, projected, played, values, rules=SIGNAL_RULES):
+def player_records(owned, projected, played, values, rules=SIGNAL_RULES, extras=None):
     """The players of the page and the file, as dicts, by Val (no Val last), then by name.
 
     owned, projected, played: {name_key: Owned}, {name_key: Projected} and {name_key: Played}.
     values: {name_key: Valued} of market_values(). A player with no entry has no Val.
+    extras: {name_key: {field: value}}, the quadrant fields of a player, for example "cats" (#188). The fields go into
+    the record before the signal rules.
     The list has each owned player, and each other player (a free agent) with a Val above 0 (above the replacement
     free agent) or with MIN_GAMES or more games in played (owner decision of 2026-10-30).
     A record has slug, name, team, pos, owner (None for a free agent), mine, val, games and signals.
@@ -246,6 +249,7 @@ def player_records(owned, projected, played, values, rules=SIGNAL_RULES):
         if not record["slug"] or record["slug"] in slugs:
             continue
         slugs.add(record["slug"])
+        record.update((extras or {}).get(key, {}))
         record["signals"] = signals(record, rules)
         records.append(record)
     return sorted(records, key=lambda r: (r["val"] is None, -(r["val"] or 0), r["name"]))

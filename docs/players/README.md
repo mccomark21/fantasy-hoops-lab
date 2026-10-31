@@ -8,9 +8,23 @@ The card has a header and 4 quadrants. It is not a scrolling page: at 1440 x 900
 
 - **Header:** the NBA team band, the name, the positions, the owner (or FA), Val and up to 3 signal chips.
   - Val is the Val of the Free agents page (owner decision of 2026-10-30): the blended value per game above a replacement free agent (0 = the free agent at rank 15 by value). The value and the replacement come from the same planning run as the Free agents page. A free agent gets his Val from the free-agent lists of the run. A rostered player gets it from the rostered list, with the same blend. A player with no Yahoo line in the run has no Val ("–").
-  - A signal comes from a rule of a quadrant, for example a band exit, a projection gap or consistency. Each chip links to its quadrant. With no signal, the header says "No signals: playing to projection". No rule exists yet. #187 to #189 add their rules to `SIGNAL_RULES` in `players/data.py`.
+  - A signal comes from a rule of a quadrant, for example a band exit, a projection gap or consistency. Each chip links to its quadrant. With no signal, the header says "No signals: playing to projection". The rules are in `SIGNAL_RULES` in `players/data.py`. The Categories quadrant gives the projection-gap rule (#188).
 - **Quadrants:** Role (top left), Categories (top right), Value (bottom left) and Comps (bottom right). A quadrant with no chart shows a dashed box that says what is missing.
 - **Methods:** the "i" icon in the header opens the methods and data notes.
+
+## The Categories quadrant
+
+The Categories quadrant (#188) shows the percentile of each weighted category (PTS, REB, AST, 3PM, BLK, STL) as a dot-on-track bar (`players/categories.py`, `core/card_cats.py`).
+
+- **proj** (the hollow dot): the per-game projection of the player, ranked among the projections of the pool.
+- **now** (the filled dot): his season line, shrunk toward his projection, ranked among the shrunk lines of the pool.
+- **Pool:** the valuation pool of `core/valuation.py`, the top 140 players by projected value (14 teams x 10 spots). A pool player with no game has his projection as his shrunk line.
+- **Shrinkage:** now = (n x season + k x projection) / (n + k). n is the number of games that he played in `data/box_scores.csv`. k is in `[players.categories] shrink` of `config.toml`: PTS, REB, AST 4. 3PM, BLK 10. STL 15. The owner approved these values on 2026-10-30.
+- **Percentile:** 100 x (pool players below + half of the pool players equal) / 140.
+- **Row:** the category, its punt weight from `[weights]` (for example ×0.70), the season per game and "proj" with the projection per game. A mouse, a tap or the focus on a row shows its tooltip card.
+- **Projection gap:** a header signal when a category has 5 or more games and a gap of 25 or more percentile points between now and proj (`gap_games` and `gap_points`). The largest gap gives the chip, for example "REB above projection: percentile 63 vs 25".
+- A player with no projection shows the box "No projection: no category ranks."
+- The methods note (the "i" icon) gives the pool and the k values.
 
 ## The players
 
@@ -55,4 +69,7 @@ A player name on the Roster, Free agents and Trades pages is a link. The Adds pl
 - `core/profile.py`: the one shared card and modal (CSS and JS), `slug()` and `name_link()`. `publish.shell()` puts the modal in place of `__PLAYER_MODAL__` in a page template. The card styles have the scope `.lab-card`, so the rules of a page do not change the card.
 - `players/data.py`: the player rule, Val, the games and the signal rules.
 - `players/page.py`: the Players page and the player file.
+- `players/categories.py`: the percentiles of the Categories quadrant and its signal rule. `core/card_cats.py`: the chart of the quadrant (`LabCard.fill.cats`).
+- `profile.FILLS` lists the quadrant fills. Each fill module has `STYLE`, `script()` (it sets `LabCard.fill.<quadrant>`) and `METHODS` (its line of the methods note). A quadrant adds one entry.
+- `LabCard.bindTip(target, root, spec, markAt)` in `core/profile.py` is the one tooltip function of the fills. It shows the tooltip card of DESIGN.md "Tooltips" on a mouse, a tap or the focus.
 - The card uses the shared chart style of `core/chart.py` (DESIGN.md "Charts").

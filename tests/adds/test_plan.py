@@ -872,6 +872,7 @@ def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_
     )
     monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
     monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    monkeypatch.setattr(command.players_page.categories, "read_categories", lambda cfg: {})
     run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)
     players = (common.OUT / "players" / "index.html", (common.OUT / "players" / "players.json",))
     assert published[0][3] == {"free-agents": page.free_agents_path(), "players": players}
@@ -934,6 +935,7 @@ def test_the_owner_read_takes_the_recent_view_only_when_the_run_reads_the_free_a
     monkeypatch.setattr(rostered, "read_rostered", fake)
     monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
     monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    monkeypatch.setattr(command.players_page.categories, "read_categories", lambda cfg: {})
     league = command.LeagueData(roster=[], adds=Adds(used, 5), week=Week(12, tuple(WEEK[:2])))
     run_command(monkeypatch, tmp_path, [], publish=True, owners="read", league=league)
     assert views == [recent]
