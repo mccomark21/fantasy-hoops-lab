@@ -33,3 +33,5 @@ On 2026-11-01, the owner asked for a "playoffs" page: "I need the ability to pla
 - Weakest link: Quickley, Adds +22.2. Top fit: "C – NO, PHX, TOR: +11 starts (4 light)". C fits lead because the core has one C.
 - `scoreCore()` and `fit()` of `draft/team_builder.js` ran unchanged with value = Val. `trade_builder.js` adds only its own wrapper.
 - Problems found: `players.json` keeps no replacement value, so the sample guessed the projection Val (decision 14) from a median gap. The real build needs the replacement value of the run. Reset kept the R switches and the added players, which the decisions did not settle. On a phone, the grid scrolls sideways and does not use the Roster accordion.
+- On 2026-11-01, the owner said: "sample looks good". The owner did not answer two open points, so the chief of staff took its recommendations: Reset clears everything back to the roster's best core (added players and rester switches too), and on a phone the grid uses the Roster page's tap-to-open rows.
+- Next: split the work into issues, with the shared engine first (the lesson of 2026-11-01 in [Run of 2026-10-30](run-2026-10-30.md)).
