@@ -38,8 +38,9 @@ One planning run:
     at /adds/ and /free-agents/ in one publish. --no-publish: no publish.
     Before the plan page, build_roster() writes the Roster page in output/roster/ (adds/roster.py, #120). The publish
     puts it at /roster/ and writes the Home page at / (core/home.py, #172). --no-publish also skips the Roster page.
-    The Players page and its player file (players/page.py, #186) go to /players/ in the same publish. The Yahoo reads
-    step reads the rostered list of all teams for them, in the views of the free-agent lists, through the same-day
+    The Players page and its player file (players/page.py, #186) go to /players/ in the same publish. The Playoffs
+    page (playoffs/page.py, #214) takes its pool from the player file and goes to /playoffs/ in the same publish.
+    The Yahoo reads step reads the rostered list of all teams for them, in the views of the free-agent lists, through the same-day
     cache of the trade run. The Val of the Players page is the Val of the Free agents page. --no-publish skips that read and the Players page.
     The page shows how many pages came from the cache (PageCache.line()).
     The terminal prints a short summary (#130): the page path, one line for each add of the team plan, the URL or
@@ -84,10 +85,12 @@ from fantasyhoops.adds.team_plan import team_plan
 from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import projection_scale, replacement_value
 from fantasyhoops.core import publish as site
+from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
 from fantasyhoops.players import page as players_page
+from fantasyhoops.playoffs import page as playoffs_page
 
 URL = site.URL + "adds/"
 
@@ -224,7 +227,7 @@ def save_week(week, today, plan, spots):
     return record
 
 
-def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, players=None):
+def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, players=None, playoffs=None):
     """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
     roster: the Roster page (adds/roster.py), or None. The same publish puts it at /roster/ (#172). With None, the
@@ -232,6 +235,8 @@ def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, 
     free_agents: the Free agents page (page.render_free_agents(), #165). The same publish puts it at /free-agents/.
     players: the Players page and the player file (players_page.write_site(), #186), or None. The same publish puts
     them at /players/. With None, the publish keeps the /players/ folder of gh-pages.
+    playoffs: the Playoffs page (playoffs_page.write_site(), #214), or None. The same publish puts it at /playoffs/.
+    With None, the publish keeps the /playoffs/ folder of gh-pages.
     The publish also writes the Home page at / (core/home.py).
     """
     print()
@@ -243,7 +248,8 @@ def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, 
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
-    more = {name: p for name, p in (("free-agents", free_agents), ("roster", roster), ("players", players)) if p}
+    pages = (("free-agents", free_agents), ("roster", roster), ("players", players), ("playoffs", playoffs))
+    more = {name: p for name, p in pages if p}
     site.publish(ROOT, "adds", path, cfg=cfg, more_tools=more)
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
 
@@ -371,12 +377,14 @@ def main(today=None, publish=True, timed=True, cache=True):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
         free_agents = page.write_free_agents(page.render_free_agents(run))
-        players = None
+        players = playoffs = None
         if owners is not None:
             # The Val of the Players page is the Val of the Free agents page: the same values and replacement.
             team = cfg["adds"]["team"]
             players = players_page.write_site(owners, team, cfg, today, run.options, run.replacement, scale)
-        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players)
+            # The Playoffs page takes its pool from the player file of the Players page (#214).
+            playoffs = playoffs_page.write_site(players[1][0], roster_page.playoff_days(sched, cfg), cfg)
+        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players, playoffs)
     print_summary(run)
 
 

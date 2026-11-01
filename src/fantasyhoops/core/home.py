@@ -337,6 +337,13 @@ deadline. Under the table, a trade builder checks a custom trade, for example 2-
 <figcaption>Example suggestion. My playoff starts go from 83 to 88.</figcaption>
 </figure>
 </article>
+
+<article class="pg">
+<div class="pg-text">
+<h3><a href="playoffs/">Playoffs__ARROW__</a></h3>
+<p class="pg-job">My playoff core: the value that it starts in weeks __WEEKS__ and the open slots for streams.</p>
+</div>
+</article>
 </section>
 
 <section class="hm-sec hm-about" aria-labelledby="about-h">

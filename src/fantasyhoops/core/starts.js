@@ -14,6 +14,7 @@
 //   slotRoster(players, data)         the season slots and the bench of the team table.
 //   valueStarted(core, data, resters) the value started, the starts, the starts lost and the open slots (playoffs).
 // A player is {id, name, team, pos, value, rests_b2b}. pos: the position slots, for example ["PG", "SG"].
+// value must be a number, because a null value gives NaN. The playoffs page gives val, else proj_val, else 0 (#214).
 // data: {slots, util, weeks, days}. A day is {date, week, quality, teams, b2b}. valueStarted() also reads
 // data.quality_bonus, the bonus of [quality_games] in config.toml.
 //
