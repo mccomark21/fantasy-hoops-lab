@@ -26,9 +26,12 @@ QUADRANT = "role"  # the quadrant key of profile.QUADRANTS
 SIGNAL_KIND = "Minutes"  # the kind of the band-exit signal chip
 
 
-def settings(cfg):
-    """The [players.role] settings of cfg as a dict: window, band_min, flag_min, prior_games and band_sd."""
-    role = cfg["players"]["role"]
+def settings(cfg, section="role"):
+    """The [players.<section>] settings of cfg as a dict: window, band_min, flag_min, prior_games and band_sd.
+
+    section: "role", or "value" for the Value quadrant (players/value.py), which uses the same trend functions.
+    """
+    role = cfg["players"][section]
     return {k: role[k] for k in ("window", "band_min", "flag_min", "prior_games", "band_sd")}
 
 
@@ -54,13 +57,13 @@ def league_spread(minutes_by_player):
     return math.sqrt(squares / dof) if dof else None
 
 
-def band(values, prior_sd, cfg):
+def band(values, prior_sd, cfg, section="role"):
     """(low, high) of the normal range of values, or None with fewer than band_min values or no prior_sd.
 
     The spread: the square root of (the sum of the squared deviations + prior_games x prior_sd²) /
     (games - 1 + prior_games). The range: the mean ± band_sd x the spread / the square root of window.
     """
-    s = settings(cfg)
+    s = settings(cfg, section)
     n = len(values)
     if n < s["band_min"] or prior_sd is None:
         return None
@@ -71,20 +74,20 @@ def band(values, prior_sd, cfg):
     return mean - half, mean + half
 
 
-def exits(roll, low_high, games, cfg):
+def exits(roll, low_high, games, cfg, section="role"):
     """The range exits: [(index, "up" or "down")] of each rolling point outside the band.
 
     No band, or fewer than flag_min games, gives [].
     """
-    if low_high is None or games < settings(cfg)["flag_min"]:
+    if low_high is None or games < settings(cfg, section)["flag_min"]:
         return []
     low, high = low_high
     return [(i, "up" if v > high else "down") for i, v in enumerate(roll) if v is not None and (v > high or v < low)]
 
 
-def state(games, low_high, cfg):
+def state(games, low_high, cfg, section="role"):
     """The state line under the chart as (lead words in bold, the rest), DESIGN.md "Thin data"."""
-    s = settings(cfg)
+    s = settings(cfg, section)
     if low_high is None:
         return "Too few games for a range:", f"{games} of {s['band_min']}."
     half = f"{(low_high[1] - low_high[0]) / 2:.1f}"

@@ -75,8 +75,15 @@ class Signal:
     text: str
 
 
+def _consistency(record):
+    """The Consistency signal of the Value quadrant (players/value.py, #189)."""
+    from fantasyhoops.players.value import consistency_signal
+
+    return consistency_signal(record)
+
+
 # The signal rules. Each rule takes a player record and gives a Signal or None. #187 to #189 add their rules.
-SIGNAL_RULES = (role.band_exit, categories.projection_gap)
+SIGNAL_RULES = (role.band_exit, categories.projection_gap, _consistency)
 
 
 def signals(record, rules=SIGNAL_RULES):

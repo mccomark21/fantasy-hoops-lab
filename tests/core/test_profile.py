@@ -170,3 +170,27 @@ def test_on_close_the_focus_goes_to_the_name_that_a_page_script_drew_again(modal
         "karl-anthony-towns",
         "1",
     ]
+
+
+def test_a_tap_on_another_chart_target_hides_the_crosshair_of_the_last_one(modal_site):
+    """#208 review nit: bindTip() stops a tap, so the tap rule did not hide the crosshair of the last game column."""
+    from fantasyhoops.players import page
+    from tests.players.test_page import CATS, CFG, quadrant_records
+
+    found = quadrant_records()
+    found[0]["cats"] = CATS
+    pg = modal_site.open("players", page.render(CFG, {"rostered": 1, "free_agents": 4}), records=found)
+    pg.locator("#pc-name").wait_for()
+    cross = pg.locator("#pc-q-value .lab-c-cross")
+    tap = {"pointerType": "touch", "bubbles": True, "isPrimary": True}
+    pg.locator("#pc-q-value .lab-c-hit").nth(2).dispatch_event("pointerdown", tap)
+    assert cross.get_attribute("visibility") == "visible"
+    assert float(cross.get_attribute("x1")) > 0
+    pg.locator("#pc-q-cats .lab-c-hit").first.dispatch_event("pointerdown", tap)
+    assert pg.locator("#lab-tt-page .lab-tt-ctx").inner_text().startswith("PTS")
+    assert cross.get_attribute("visibility") == "hidden"
+    # A tap on a comps row hides it too, and a tap on a game column shows it again.
+    pg.locator("#pc-q-value .lab-c-hit").nth(1).dispatch_event("pointerdown", tap)
+    assert cross.get_attribute("visibility") == "visible"
+    pg.locator("#pc-q-comps tbody tr").first.dispatch_event("pointerdown", tap)
+    assert cross.get_attribute("visibility") == "hidden"
