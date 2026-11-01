@@ -58,10 +58,7 @@ const TradeBuilder = (() => {
     return data.weeks.map(w => result.weeks[w].started);
   }
 
-  function inBand(give, get, band) {
-    const low = give - (1 - band[0]) * Math.abs(give), high = give + (band[1] - 1) * Math.abs(give);
-    return low - 1e-9 <= get && get <= high + 1e-9;
-  }
+  const inBand = S.inBand; // in_band() of trade/suggest.py, in core/starts.js (#215)
 
   const sum = list => list.reduce((s, p) => s + num(p), 0);
 

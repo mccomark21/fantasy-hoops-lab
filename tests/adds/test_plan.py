@@ -457,6 +457,7 @@ def run_command(
         "weights": {"pts": 1.0},
         "playoffs": {"core": 8},  # the Playoffs page (#214)
         "quality_games": {"bonus": 0.1},
+        "trade": {"untouchable": [], "value_band": [0.95, 1.10]},  # the Best swaps list (#215)
     }
     playoff_days = [Day(date(2027, 3, 8), "wk19", False, frozenset({"PHI", "BOS"}))]
     monkeypatch.setattr(command.roster_page, "playoff_days", lambda sched, cfg: playoff_days)

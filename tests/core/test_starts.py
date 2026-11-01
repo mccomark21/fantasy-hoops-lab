@@ -249,3 +249,80 @@ def test_value_started_gives_the_games_and_the_ideal_of_each_week():
     assert (week["starts"], week["lost"], week["games"]) == (6, 2, 8)  # the rest night is not a game
     assert week["ideal"] == ideal_games(4, [d["teams"] for d in days], SLOTS) == 12
     assert (got["total"]["games"], got["total"]["ideal"]) == (8, 12)
+
+
+# argv: core/starts.js. stdin: {fn, args}. Writes the result of Starts[fn](...args).
+CALL_DRIVER = """
+const Starts = require(process.argv[1]);
+let text = "";
+process.stdin.on("data", c => (text += c));
+process.stdin.on("end", () => {
+  const { fn, args } = JSON.parse(text);
+  process.stdout.write(JSON.stringify(Starts[fn](...args)));
+});
+"""
+
+
+def call(fn, *args):
+    out = subprocess.run(
+        ["node", "-e", CALL_DRIVER, str(ENGINE_JS)],
+        input=json.dumps({"fn": fn, "args": args}),
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    )
+    return json.loads(out.stdout)
+
+
+# One week of two days. A and B play both days, C plays the first day. The second day is a light night (+10%).
+SWAP_DAYS = engine_data(
+    [day("2027-03-08", "wk19", ["A", "B", "C"]), day("2027-03-09", "wk19", ["A", "B"], quality=True)], bonus=0.1
+)
+# x: 5 + 5.5 = 10.5. y: 2 + 2.2 = 4.2. z has a value below 0 and still starts (review nit 3 of #216): -1.
+SWAP_CORE = [player("x", "A", "PG", 5.0), player("y", "B", "C", 2.0), player("z", "C", "SF", -1.0)]
+SWAP_POOL = [
+    player("p1", "A", "SF", 0.5),  # for z: gain 1.05 + 1 = 2.05, schedule 2.05 - 1.5 x 1 = 0.55
+    player("p2", "C", "C", 6.0),  # other team: no core player has a value band that holds 6
+    player("p3", "B", "PF", 2.1),  # other team, in the band of y: gain 4.41 - 4.2 = 0.21, schedule 0.21 - 0.1 x 2
+    player("p4", "A", "PG", -2.0),  # each swap lowers the value started
+    player("p6", "C", "PF", 4.0),  # for z: gain 4 + 1 = 5, schedule 5 - 5 x 1 = 0
+]
+BAND = [0.95, 1.10]
+
+
+def swaps(**opts):
+    rows = call("bestSwaps", SWAP_CORE, SWAP_POOL, SWAP_DAYS, {"band": BAND, "banded": ["p2", "p3"], **opts})
+    return [(r["in"], r["out"]) for r in rows], rows
+
+
+def test_adds_is_the_value_started_with_the_player_minus_without_him():
+    """Decision 9 of the playoffs page design (#215). A core player with a value below 0 has Adds below 0."""
+    got = call("adds", SWAP_CORE, SWAP_DAYS, None, [player("w", "A", "SG", 1.0)])
+    assert got == pytest.approx({"x": 10.5, "y": 4.2, "z": -1.0, "w": 2.1})
+
+
+def test_best_swaps_keep_a_gain_above_0_and_rank_by_schedule_gain():
+    """Decisions 16 and 17: the best swap of each pool player, the highest schedule gain first, gain above 0 only."""
+    pairs, rows = swaps()
+    # p6 has the largest gain (5.0) but the lowest schedule gain (0.0), so he is last.
+    assert pairs == [("p1", "z"), ("p3", "y"), ("p6", "z")]
+    assert [r["gain"] for r in rows] == pytest.approx([2.05, 0.21, 5.0])
+    assert [r["schedule"] for r in rows] == pytest.approx([0.55, 0.01, 0.0], abs=1e-9)
+    assert (rows[0]["starts"], rows[0]["light"]) == (1, 1)  # p1 plays both days, z plays one
+    assert all(r["gain"] > 0 for r in rows)
+    assert swaps(limit=1)[0] == [("p1", "z")]
+
+
+def test_best_swaps_never_swap_out_an_untouchable_player():
+    """Decision 18: an untouchable player is never a swap-out. p1 and p6 had a gain only in place of z."""
+    pairs, _ = swaps(untouchable=["z"])
+    assert pairs == [("p3", "y")]
+
+
+def test_best_swaps_keep_a_banded_player_in_the_value_band_of_the_player_out():
+    """Decision 18: the band holds only for the banded players (other teams). Free agents have no band."""
+    assert ("p2", "z") not in swaps()[0]
+    assert ("p2", "z") in swaps(banded=["p3"])[0]
+    assert call("inBand", 2.0, 2.2, BAND) and not call("inBand", 2.0, 2.21, BAND)
+    assert call("inBand", -1.0, -1.05, BAND) and not call("inBand", -1.0, -0.89, BAND)
