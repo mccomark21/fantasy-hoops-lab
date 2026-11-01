@@ -5,15 +5,19 @@ his positions allow. Util takes any player. A player without a slot sits on the 
 
 This module is the one source of the lineup-fit rules (#133): the best lineup, the Util count, the ideal games of a
 week and the percent bands. core/roster.py and draft/team_score.py call these functions. draft/board.py puts UTIL,
-BANDS and an ideal_games() table in the page data, and draft/team_builder.js reads them. team_builder.js keeps a
-copy of the matching and of the rest rule, because the board scores the core that the user picks in the browser.
-tests/draft/test_team_builder.py shows that the copy gives the same results as this module.
+BANDS and an ideal_games() table in the page data, and draft/team_builder.js reads them. The browser engine
+core/starts.js (ENGINE_JS, #213) keeps a copy of the matching and of the rest rule, because the draft, trade and
+playoffs pages score the core that the user picks in the browser. tests/draft/test_team_builder.py and
+tests/core/test_starts.py show that the copy gives the same results as this module and core/roster.py.
 The module writes no file.
 """
 
 from collections import Counter
+from pathlib import Path
 
 UTIL = 1  # the Util slots of a lineup
+# The shared lineup-and-starts engine of the browser (#213). A page inlines it before the script of its tool.
+ENGINE_JS = Path(__file__).parent / "starts.js"
 # The percent bands of the lineup fit: (lowest ratio, level, text for a screen reader), highest band first.
 BANDS = [(0.9, "good", "90% or more"), (0.7, "warn", "70% to 89%"), (0.0, "bad", "less than 70%")]
 

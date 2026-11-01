@@ -6,7 +6,7 @@ and the suggestions table. Each playoff week cell shows the new count, the chang
 Below 940px of content, a row list replaces the table. The page gets the site shell from publish.shell() and the
 table look from publish.TABLE_STYLE (the lab-t table) and publish.band_style().
 Under the table, the trade builder (#152) computes a custom trade in the browser. The page inlines
-draft/team_builder.js and trade/trade_builder.js, as draft/board.py does. A click on a suggestion loads it into the
+core/starts.js (#213) and trade/trade_builder.js, as draft/board.py does. A click on a suggestion loads it into the
 builder. The partner starts are an estimate ("est."), because the rostered list does not show the IL slots.
 Warning lines (no trade deadline, players with no match in the data files) sit under the header (#153).
 After the trade deadline, render_deadline() gives a short page with only the header and the deadline line.
@@ -21,12 +21,11 @@ import html
 import json
 from pathlib import Path
 
-from fantasyhoops import draft
 from fantasyhoops.core import common, profile
 from fantasyhoops.core import publish as site
-from fantasyhoops.core.lineup import UTIL
+from fantasyhoops.core.lineup import ENGINE_JS, UTIL
 
-ENGINE = Path(draft.__file__).parent / "team_builder.js"
+ENGINE = ENGINE_JS  # the shared lineup-and-starts engine, core/starts.js (#213)
 TRADE_ENGINE = Path(__file__).parent / "trade_builder.js"
 MINUS = "−"
 CURRENT = "trade"  # the page in the site menu and its folder on the site: the Trades tab of publish.TOOLS (#151)
@@ -360,7 +359,7 @@ def builder_section(data):
 
 
 def builder_script(data):
-    """The scripts of the builder: the page data, team_builder.js, trade_builder.js and the page script."""
+    """The scripts of the builder: the page data, core/starts.js, trade_builder.js and the page script."""
     text = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     return (
         f'<script type="application/json" id="trade-data">{text}</script>\n'

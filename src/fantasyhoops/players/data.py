@@ -7,7 +7,9 @@ The rule (owner decision of 2026-10-30): each rostered player of the league, and
 - Val is the Val of the Free agents page (owner decision of 2026-10-30): the blended value per game (adds/blend.py)
   above the replacement free agent of the planning run (adds/value.py). market_values() gives it. A free agent comes
   from the free-agent lists of the run, a rostered player from the rostered list. A player with no Yahoo line in the
-  run has no Val.
+  run has no Val. Such a player gets the projection-based Val (proj_val, #213): the per-game value of his projection
+  minus the same replacement value. projection_values() gives it.
+- rests_b2b is the rests_b2b column of the [risk] file of config.toml (read_resters(), #213).
 - The games are the ESPN games of a player in data/rotation_log.csv.
 The names match after common.name_key(). data/name_overrides.csv gives the Yahoo name of a projection or ESPN name
 that does not match (core/identity.py).
@@ -47,12 +49,15 @@ class Projected:
     """A player of the projections file: the name, the NBA team, the Yahoo positions and pg_var (core/valuation.py).
 
     pg_var chooses between two rows with one name key. It is not the Val of the page.
+    pg_value: the per-game value of the projection on the category scale of the run (value.projection_scale()), or
+    None. projection_values() gives the projection-based Val from it (#213).
     """
 
     name: str
     team: str
     positions: tuple
     value: float
+    pg_value: float | None = None
 
 
 @dataclass(frozen=True)
@@ -143,7 +148,7 @@ def projected_players(projections, rosters, yahoo, overrides, cfg):
         name = yahoo_names.get(str(row.player_id)) or row.name
         team = row.team if isinstance(row.team, str) else ""
         positions = tuple(row.pos.split("/")) if row.pos and row.pos != "—" else ()
-        out.setdefault(name_key(name), Projected(name, team, positions, float(row.pg_var)))
+        out.setdefault(name_key(name), Projected(name, team, positions, float(row.pg_var), float(row.pg_value)))
     return out
 
 
@@ -217,17 +222,47 @@ def market_values(rostered, options, replacement, scale, cfg):
     return out
 
 
-def player_records(owned, projected, played, values, rules=SIGNAL_RULES, extras=None):
+def projection_values(projected, replacement):
+    """{name_key: the projection-based Val} (#213): the per-game value of the projection minus the replacement value.
+
+    projected: {name_key: Projected}. replacement: the replacement value of the run (value.replacement_value()).
+    The formula is the formula of market_values(), on the projection line in place of the blended line.
+    A player with no pg_value is not in the result. replacement None gives {}.
+    """
+    from fantasyhoops.adds.value import market_value
+
+    out = {}
+    for key, p in projected.items():
+        found = market_value(p.pg_value, replacement)
+        if found is not None:
+            out[key] = found
+    return out
+
+
+def read_resters(cfg):
+    """The name keys of the players with rests_b2b = 1 in the [risk] file (adds/rest.py). An empty set with no file."""
+    from fantasyhoops.adds.rest import read_rest_names
+
+    return read_rest_names(cfg) if "risk" in cfg else set()
+
+
+def player_records(owned, projected, played, values, rules=SIGNAL_RULES, extras=None, resters=(), proj_values=None):
     """The players of the page and the file, as dicts, by Val (no Val last), then by name.
 
     owned, projected, played: {name_key: Owned}, {name_key: Projected} and {name_key: Played}.
     values: {name_key: Valued} of market_values(). A player with no entry has no Val.
     extras: {name_key: {field: value}}, the quadrant fields of a player, for example "cats" (#188). The fields go into
     the record before the signal rules.
+    resters: the name keys of the players with rests_b2b = 1 (read_resters()).
+    proj_values: {name_key: the projection-based Val} of projection_values(), or None.
     The list has each owned player, and each other player (a free agent) with a Val above 0 (above the replacement
     free agent) or with MIN_GAMES or more games in played (owner decision of 2026-10-30).
-    A record has slug, name, team, pos, owner (None for a free agent), mine, val, games and signals.
+    A record has slug, name, team, pos, owner (None for a free agent), mine, val, games, rests_b2b, proj_val and
+    signals. pos: the positions, for example "PG/SG". rests_b2b: 1 if the player rests on back-to-backs, else 0.
+    proj_val: the projection-based Val of a player with no Val (the "proj" mark of the playoffs page), else None.
+    The proj_val does not change the order of the list or the Val of the card (#213).
     """
+    resters, proj_values = set(resters), proj_values or {}
     keys = list(owned)
     others = dict.fromkeys([*values, *played])
     keys += [k for k in others if k not in owned and _qualifies(k, values, played)]
@@ -252,6 +287,8 @@ def player_records(owned, projected, played, values, rules=SIGNAL_RULES, extras=
             "mine": bool(own and own.mine),
             "val": values[key].val if key in values else None,
             "games": play.games if play else 0,
+            "rests_b2b": int(key in resters),
+            "proj_val": None if key in values else proj_values.get(key),
         }
         if not record["slug"] or record["slug"] in slugs:
             continue

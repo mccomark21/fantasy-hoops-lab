@@ -161,7 +161,7 @@ The result table shows both teams: the playoff starts of each week and the total
 
 The suggestions table shows the partner starts too, marked "Est.", under the partner name: the starts of each week and the total, before (first line) and after (second line). The row list on a phone shows the same numbers on one line.
 
-The page inlines `draft/team_builder.js` and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `team_builder.js` with value = −rank. So the engine starts the players in the lineup order of the Roster page. `team_builder.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
+The page inlines `core/starts.js` (the shared lineup-and-starts engine, #213) and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `core/starts.js` with value = −rank. So the engine starts the players in the lineup order of the Roster page. `core/starts.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
 
 ## Edge states
 

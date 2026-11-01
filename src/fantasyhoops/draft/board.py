@@ -21,7 +21,7 @@ import pandas as pd
 
 from fantasyhoops.core.common import load_config, weeks
 from fantasyhoops.core.console import use_utf8_output
-from fantasyhoops.core.lineup import BANDS, UTIL, ideal_games
+from fantasyhoops.core.lineup import BANDS, ENGINE_JS, UTIL, ideal_games
 from fantasyhoops.core.schedule import playoff_schedule, read_schedule
 from fantasyhoops.draft import out_dir
 from fantasyhoops.draft.category_data import category_data, load_benchmark
@@ -627,7 +627,8 @@ def team_data(df, days, cfg, benchmark=None):
 
 # The team engine (#8 Contracts): scoreCore(core, data), fit(core, player, data), slotRoster(players, data),
 # footerWeeks(core, result, data) and band(ratio, data).
-# The page inlines team_builder.js (#36) when the file is there. Else it uses STUB_ENGINE.
+# The page inlines core/starts.js (the shared lineup-and-starts engine, #213) and then team_builder.js (#36) when
+# team_builder.js is there. Else it uses STUB_ENGINE.
 ENGINE = Path(__file__).parent / "team_builder.js"
 STUB_ENGINE = """// Stub engine: the result shapes of #8 with zeros, until team_builder.js is there.
 function scoreCore(core, data) {
@@ -656,8 +657,10 @@ module.exports = {scoreCore, fit, slotRoster, footerWeeks, band};
 
 
 def engine_js():
-    """The JavaScript of the team engine: team_builder.js, or STUB_ENGINE if the file is not there."""
-    return ENGINE.read_text(encoding="utf-8") if ENGINE.exists() else STUB_ENGINE
+    """The JavaScript of the team engine: core/starts.js, then team_builder.js. STUB_ENGINE without team_builder.js."""
+    if not ENGINE.exists():
+        return STUB_ENGINE
+    return ENGINE_JS.read_text(encoding="utf-8") + "\n" + ENGINE.read_text(encoding="utf-8")
 
 
 # The category engine (#39): categoryGap(roster, data) and need(roster, candidate, data). The page inlines it

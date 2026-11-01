@@ -61,6 +61,12 @@ The names match after `name_key()`. `data/name_overrides.csv` gives the Yahoo na
 
 The players are in one file, `/players/players.json`. The Players page and the modal read it. The modal reads it on the first open. No page holds its own copy of the players.
 
+Each player has these fields for the playoffs page (#213):
+
+- `team` and `pos`: the NBA team and the positions, for example `"PG/SG"`.
+- `rests_b2b`: 1 if the player rests on the second night of a back-to-back, from the `[risk]` file of `config.toml`. Else 0.
+- `proj_val`: for a player with no Val, the projection-based Val: the per-game value of his projection minus the replacement value of the run. The playoffs page shows it with a "proj" mark. A player with a Val, or with no projection, has `null`. The Players page and the modal do not show it.
+
 The planning run (`python -m fantasyhoops.adds.plan`) writes the page and the file in `output/players/` and publishes them at `/players/`:
 
 - The planning run reads the rostered list in its Yahoo reads step, after the free-agent lists, in the same views as those lists. A run that reads no free-agent list has no Val, so it reads the projected view only. The read uses the same-day cache of the trade run. With `--no-publish`, the run skips the read and the page.

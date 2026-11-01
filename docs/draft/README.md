@@ -88,7 +88,7 @@ The draft modules are in `src/fantasyhoops/draft/`. They also use the shared mod
 rankings.py         Writes output/draft/rankings.csv and output/draft/playoff_schedule.csv
 market.py           League price: Yahoo's order of players with the prices of past drafts
 board.py            Writes output/draft/draft_board.html and output/draft/draft_board.md
-team_builder.js     Team builder engine that board.py inlines in the page
+team_builder.js     Draft-only parts of the team builder (footer weeks, bands). board.py inlines it after core/starts.js
 category_data.py    Data for the category balance panel on the board
 category_need.js    Category gap and Need engine that board.py inlines in the page
 auction.py          Simulates the auction many times for each keeper candidate
@@ -133,7 +133,7 @@ The draft tools write these files. Do not edit them.
 | Change the limits for draft board flags | `[flags]` in [`config.toml`](../../config.toml) |
 | Change how player value is calculated | [`core/valuation.py`](../../src/fantasyhoops/core/valuation.py) |
 | Change a playoff-week rule (week value, quality days, schedule score, short weeks) | [`core/schedule.py`](../../src/fantasyhoops/core/schedule.py) |
-| Change a lineup-fit rule (best lineup, Util count, ideal games, percent bands) | [`core/lineup.py`](../../src/fantasyhoops/core/lineup.py). The board gets the rules in its page data. `draft/team_builder.js` keeps a copy of the matching and the rest rule. Change both. |
+| Change a lineup-fit rule (best lineup, Util count, ideal games, percent bands) | [`core/lineup.py`](../../src/fantasyhoops/core/lineup.py). The board gets the rules in its page data. `core/starts.js` (the shared browser engine of the draft, trade and playoffs pages, #213) keeps a copy of the matching and the rest rule. Change both. |
 | Add a column to the rankings | [`draft/rankings.py`](../../src/fantasyhoops/draft/rankings.py) |
 | Change the layout or the columns of the draft board | [`draft/board.py`](../../src/fantasyhoops/draft/board.py) |
 | Fix a player with no team or no Yahoo data | `data/name_overrides.csv`. See [Players who do not match](#players-who-do-not-match). |
