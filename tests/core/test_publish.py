@@ -46,16 +46,16 @@ def test_publish_adds_writes_its_folder_the_home_page_and_the_font(repo, remote_
     publish(repo, "adds", page(repo, "adds/plan.html", "<p>plan</p>"), cfg=CFG)
     pages = remote_pages(repo)
     assert pages["adds/index.html"] == "<p>plan</p>"
-    font = tokens.FONT_HREF
+    font, ext = tokens.FONT_HREF, tokens.FONT_EXT_HREF
     ofl = "fonts/OFL.txt"
     icons = set(site.ICON_FILES)
-    assert (
-        set(pages) == {".nojekyll", "index.html", "adds/index.html", font, f"adds/{font}", ofl, f"adds/{ofl}"} | icons
-    )
+    fonts = {f"{folder}{f}" for folder in ("", "adds/") for f in (font, ext, ofl)}  # #211: both font files
+    assert set(pages) == {".nojekyll", "index.html", "adds/index.html"} | fonts | icons
     assert (
         "Copyright 2020 The Archivo Project Authors" in pages[ofl] and "SIL OPEN FONT LICENSE" in pages[f"adds/{ofl}"]
     )
     assert git(repo, "rev-parse", f"FETCH_HEAD:{font}") == git(repo, "hash-object", str(tokens.FONT))
+    assert git(repo, "rev-parse", f"FETCH_HEAD:adds/{ext}") == git(repo, "hash-object", str(tokens.FONT_EXT))
 
 
 def test_publish_replaces_only_its_own_folder(repo, remote_pages):
@@ -185,8 +185,8 @@ def test_write_page_writes_the_page_and_the_font_next_to_it(tmp_path):
     path = write_page(tmp_path / "tool" / "index.html", "<p>page</p>")
     assert path == tmp_path / "tool" / "index.html" and path.read_text(encoding="utf-8") == "<p>page</p>"
     fonts = path.parent / "fonts"
-    assert (fonts / tokens.FONT.name).read_bytes() == tokens.FONT.read_bytes()
-    assert (fonts / tokens.LICENSE.name).read_bytes() == tokens.LICENSE.read_bytes()
+    for f in (*tokens.FONTS, tokens.LICENSE):
+        assert (fonts / f.name).read_bytes() == f.read_bytes()
 
 
 def test_a_trade_publish_writes_the_home_page_and_keeps_the_other_folders(repo, remote_pages):
