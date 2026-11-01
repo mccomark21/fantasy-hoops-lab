@@ -54,13 +54,13 @@ const Playoffs = (() => {
     return m.mine.slice().sort((a, b) => solo[b] - solo[a]).slice(0, n);
   }
 
-  // The light nights of a player (decision 6): the quality days with a game that he does not rest.
+  // The light nights of a player (decision 6): his games on quality days, from the marks of valueStarted().
+  // A rest night is not a game.
   function lightNights(m, st, id) {
-    const p = m.byId[id], rest = isRest(m, st, id);
-    return m.data.days.filter(d => d.quality && d.teams.includes(p.team) && !(rest && d.b2b.includes(p.team))).length;
+    return count(m, score(m, st, [id]).marks[id], weekDays(m, null))[2];
   }
 
-  // The core in value order, highest first: the lineup order of valueStarted().
+  // The display order of the core: Val, highest first.
   const ordered = (m, st) => st.core.slice().sort((a, b) => m.byId[b].value - m.byId[a].value);
 
   const owner = p => (p.mine ? "Mine" : p.owner || "FA");
@@ -205,6 +205,10 @@ const Playoffs = (() => {
     return h;
   }
 
+  // The columns of the Players table: the class of each <col>. The colgroup and the separator rows use this list.
+  // #215 adds the Adds column here.
+  const PLAYER_COLS = ["c-in", "", "c-v", "c-q", "c-r", "c-x"];
+
   // The Players table: the core, then the players outside the core (your other players and the added players).
   // #215 adds the Adds column and the weakest-link flag here.
   function players(m, st) {
@@ -220,12 +224,14 @@ const Playoffs = (() => {
         `<td><button type="button" class="rb" data-rest="${esc(id)}" aria-pressed="${r}" aria-label="${esc(p.name)} rests on back-to-backs" title="Rests on back-to-backs">R</button></td>` +
         `<td>${p.mine ? "" : `<button type="button" class="x" data-drop="${esc(id)}" aria-label="Remove ${esc(p.name)} from the page" title="Remove">×</button>`}</td></tr>`;
     };
+    const cols = PLAYER_COLS.map(c => (c ? `<col class="${c}">` : "<col>")).join("");
     return (
+      `<colgroup>${cols}</colgroup>` +
       '<thead><tr><th scope="col" class="l"><span class="vh">In core</span></th><th scope="col" class="l">Player</th>' +
       '<th scope="col">Val</th><th scope="col" title="Games on light nights">Light</th><th scope="col" title="Rests on back-to-backs">R</th>' +
       '<th scope="col"><span class="vh">Remove</span></th></tr></thead><tbody>' +
-      `<tr class="sep"><td colspan="6">Core · ${coreRows.length}</td></tr>` + coreRows.map(id => row(id, true)).join("") +
-      `<tr class="sep"><td colspan="6">Outside the core · ${outRows.length}</td></tr>` + outRows.map(id => row(id, false)).join("") +
+      `<tr class="sep"><td colspan="${PLAYER_COLS.length}">Core · ${coreRows.length}</td></tr>` + coreRows.map(id => row(id, true)).join("") +
+      `<tr class="sep"><td colspan="${PLAYER_COLS.length}">Outside the core · ${outRows.length}</td></tr>` + outRows.map(id => row(id, false)).join("") +
       "</tbody>"
     );
   }
@@ -304,9 +310,7 @@ const Playoffs = (() => {
       $("wk").innerHTML = v.weeks;
       $("grid").innerHTML = v.grid;
       $("mob").innerHTML = v.phone;
-      $("pt").querySelector("thead")?.remove();
-      $("pt").querySelector("tbody")?.remove();
-      $("pt").insertAdjacentHTML("beforeend", v.players);
+      $("pt").innerHTML = v.players;
       $("reset").textContent = v.reset;
       $("saved").textContent = v.saved;
       $("n").value = st.n;

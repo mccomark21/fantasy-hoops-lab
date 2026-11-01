@@ -316,8 +316,7 @@ __MENU__
 <input id="q" type="search" autocomplete="off" placeholder="Name" role="combobox" aria-expanded="false" \
 aria-controls="res" aria-autocomplete="list">
 <ul class="res" id="res" role="listbox" aria-label="Players" hidden></ul></div>
-<table class="pt" id="pt"><colgroup><col class="c-in"><col><col class="c-v"><col class="c-q"><col class="c-r">\
-<col class="c-x"></colgroup></table>
+<table class="pt" id="pt"></table>
 </section>
 </div>
 <p class="foot">__FOOT__</p>

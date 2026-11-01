@@ -199,6 +199,16 @@ def test_each_player_shows_a_light_night_count():
 
 
 @needs_node
+def test_the_players_table_writes_its_colgroup_and_the_separator_rows_span_each_column():
+    """Review nit of #217: the column count of the Players table is in one place (PLAYER_COLS of playoffs.js)."""
+    (v,) = run([["open", None]])
+    players = v["html"]["players"]
+    cols = re.search(r"<colgroup>(.*?)</colgroup>", players).group(1).count("<col")
+    assert cols == 6 and players.count(f'<tr class="sep"><td colspan="{cols}">') == 2
+    assert players.count('<th scope="col"') == cols
+
+
+@needs_node
 def test_the_r_switch_changes_the_starts_on_the_second_night_of_a_back_to_back():
     off, on = run([["rest", "bo-no"], ["rest", "al-dal"]])
     assert off["marks"]["bo-no"] == ["s", "s", "s", "n"] and off["light"]["bo-no"] == 1
