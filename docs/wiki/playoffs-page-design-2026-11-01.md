@@ -16,3 +16,8 @@ On 2026-11-01, the owner asked for a "playoffs" page: "I need the ability to pla
 3. The pool is every player of `players.json` (all rostered players of the league and the listed free agents), with an owner tag. A name opens the player modal.
 4. The headline number is value started: the sum of the per-game Val (the Free agents Val) of each started core game in weeks 19 to 21. Starts lost and open slots (heavy and light days) show beside it.
 5. When more core players have games than slots, the higher per-game Val starts, within the position rules. This holds for added free agents and other teams' players.
+6. Value started gives light-night starts (6 or fewer NBA games) the `quality_games` bonus of `config.toml` (+10%), the same as the Roster page. Each player shows a light-night count.
+7. Today's injuries are ignored. No per-week "out" switch. The owner said: "if a player is labeled as someone who rests back-to-backs then I want to account for that in playoffs."
+8. A player on the rest list (`rests_b2b` = 1 in the `[risk]` file) always sits the second night of a back-to-back, as on the Roster grid, with an "R" tag. A switch on the page marks any player as a rester or not. The switch does not change the file.
+9. Each player has an "Adds" value: the core's value started with the player minus without the player. The lowest is flagged as the weakest link. The owner changed the suggestion part: "instead of listing the 5 best players lets just list the best teams & positions", for example "PF/C - SAC" or "SG - ORL,ATL,MEM".
+10. The team-and-position fits rank by the open starting slots a player there would fill in weeks 19 to 21 with the weakest link out, with the light-night bonus. Teams with the same score share a row. The page shows the top 5 rows.
