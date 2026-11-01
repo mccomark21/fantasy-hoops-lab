@@ -80,6 +80,7 @@ def test_no_page_keeps_its_own_copy_of_the_modal():
         "core/publish.py",
         "core/roster.py",
         "players/page.py",
+        "playoffs/page.py",
         "trade/page.py",
     ]
 

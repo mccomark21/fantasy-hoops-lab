@@ -18,7 +18,7 @@ import pytest
 from fantasyhoops import draft
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import load_config
-from fantasyhoops.core.lineup import ENGINE_JS
+from fantasyhoops.core.lineup import ENGINE_JS, ideal_games
 from fantasyhoops.draft import board
 from fantasyhoops.trade import page as trade_page
 
@@ -143,7 +143,8 @@ def test_the_pages_run_the_inlined_engines_with_no_require():
         f"((require, module) => {{\n{s}\n}})();\n" for s in (draft_page, trade_script)
     )
     script += "process.stdout.write(out.join(' '));"
-    got = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True, encoding="utf-8").stdout
+    # The script goes on stdin, because it is longer than a Windows command line.
+    got = subprocess.run(["node"], input=script, capture_output=True, text=True, check=True, encoding="utf-8").stdout
     assert got == "function function function function"
 
 
@@ -198,3 +199,53 @@ def test_value_started_counts_the_starts_lost_and_the_open_slots_of_each_day():
     assert got["marks"]["c3"] == ["b", "n", "n"]
     week = got["weeks"]["wk19"]
     assert (week["lost"], week["open_light"], week["open_heavy"]) == (1, 4, 6)
+
+
+# argv: core/starts.js. Reads {"data", "cases"} on stdin, cases [[size, week], ...]. Writes idealGames() of each case.
+IDEAL_DRIVER = """
+const Starts = require(process.argv[1]);
+let text = "";
+process.stdin.on("data", c => (text += c));
+process.stdin.on("end", () => {
+  const { data, cases } = JSON.parse(text);
+  process.stdout.write(JSON.stringify(cases.map(([size, week]) => Starts.idealGames(size, data, week))));
+});
+"""
+
+
+def test_ideal_games_of_the_engine_equals_ideal_games_of_core_lineup():
+    """#214: the Starts row of the playoffs page gets the ideal of the Roster page from the engine."""
+    teams = ["BOS", "NY", "LAL", "DEN", "MIA", "PHX"]
+    days = []
+    for i in range(14):
+        playing = [t for k, t in enumerate(teams) if (i + k) % 3 != 0 and (i * k) % 5 != 1]
+        days.append(day(f"2027-03-{8 + i:02d}", "wk19" if i < 7 else "wk20", playing if i != 3 else []))
+    data = {"slots": SLOTS, "util": 1, "weeks": ["wk19", "wk20"], "days": days}
+    cases = [[size, week] for size in range(0, 11) for week in ("wk19", "wk20")]
+    out = subprocess.run(
+        ["node", "-e", IDEAL_DRIVER, str(ENGINE_JS)],
+        input=json.dumps({"data": data, "cases": cases}),
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    )
+    want = [ideal_games(size, [d["teams"] for d in days if d["week"] == week], SLOTS) for size, week in cases]
+    assert json.loads(out.stdout) == want
+    assert len(set(want)) > 5  # the cases reach both limits: the team games and the slots of the game days
+
+
+def test_value_started_gives_the_games_and_the_ideal_of_each_week():
+    # 3 C players of BOS: 2 start and 1 sits on each BOS day. "r" rests on the back-to-back.
+    days = [
+        day("2027-03-08", "wk19", ["BOS", "NY"]),
+        day("2027-03-09", "wk19", ["BOS", "NY"], b2b=["BOS", "NY"]),
+        day("2027-03-10", "wk19", ["NY"]),
+    ]
+    core = [player("c1", "BOS", "C", 3.0), player("c2", "BOS", "C", 2.0), player("c3", "BOS", "C", 1.0)]
+    core.append(player("r", "NY", "PG", 0.5, rests_b2b=True))
+    got = value_started(core, engine_data(days))
+    week = got["weeks"]["wk19"]
+    assert (week["starts"], week["lost"], week["games"]) == (6, 2, 8)  # the rest night is not a game
+    assert week["ideal"] == ideal_games(4, [d["teams"] for d in days], SLOTS) == 12
+    assert (got["total"]["games"], got["total"]["ideal"]) == (8, 12)

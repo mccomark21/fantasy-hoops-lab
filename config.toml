@@ -194,6 +194,8 @@ weeks = [
   { name = "wk20", start = 2027-03-15, end = 2027-03-21 },
   { name = "wk21", start = 2027-03-22, end = 2027-03-28 },
 ]
+# The Playoffs page (#214): the default core size. The page opens on this number of core players.
+core = 8
 # Other playoff windows, for public leagues. draft/board.py writes one more page for each window:
 # draft_board_<first week>-<last week>.html. The page has no simulator columns and keeps its own team.
 # A list on the board switches between the pages. The weeks above stay the default.

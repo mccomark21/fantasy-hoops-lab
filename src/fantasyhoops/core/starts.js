@@ -13,7 +13,9 @@
 //   fit(core, player, data)           the change of scoreCore() when player joins the core.
 //   slotRoster(players, data)         the season slots and the bench of the team table.
 //   valueStarted(core, data, resters) the value started, the starts, the starts lost and the open slots (playoffs).
+//   idealGames(size, data, week)      the ideal started games of a core of size players in a week (ideal_games()).
 // A player is {id, name, team, pos, value, rests_b2b}. pos: the position slots, for example ["PG", "SG"].
+// value must be a number, because a null value gives NaN. The playoffs page gives val, else proj_val, else 0 (#214).
 // data: {slots, util, weeks, days}. A day is {date, week, quality, teams, b2b}. valueStarted() also reads
 // data.quality_bonus, the bonus of [quality_games] in config.toml.
 //
@@ -196,6 +198,21 @@ const Starts = (() => {
     return { slots: out, bench };
   }
 
+  // The ideal started games of a core of size players in one week: ideal_games() of core/lineup.py (#214).
+  // Each player gets the most games of any NBA team that week. Each game day has at most the starting slots
+  // (the position slots + Util).
+  function idealGames(size, data, week) {
+    const counts = {};
+    let gameDays = 0;
+    for (const d of data.days) {
+      if (d.week !== week) continue;
+      if (d.teams.length) gameDays += 1;
+      for (const t of d.teams) counts[t] = (counts[t] || 0) + 1;
+    }
+    const most = Math.max(0, ...Object.values(counts));
+    return Math.min(size * most, (data.slots.length + _utilNames(data).length) * gameDays);
+  }
+
   // The value started of a core (playoffs page, decisions 2, 4 to 8, 13 and 15 of the playoffs page design).
   // core: players with value = the per-game Val. The value is the value of one started game and the lineup order.
   // data.quality_bonus: the light-night bonus. A started game on a quality day counts value x (1 + bonus).
@@ -205,8 +222,9 @@ const Starts = (() => {
   //   days: [{date, week, quality, starts, lost, open, value}] in the order of data.days.
   //     starts: the started core games. lost: the core games that sit. open: the empty starting slots that a
   //     stream player can fill, 0 on a day with no NBA games. value: the value started of the day.
-  //   weeks: {week: {value, starts, light_starts, lost, open_heavy, open_light}}. light: on quality days.
-  //   total: the same fields as a week, for all weeks.
+  //   weeks: {week: {value, starts, light_starts, lost, open_heavy, open_light, games, ideal}}. light: on quality
+  //     days. games: the core games with no rest nights, starts + lost. ideal: idealGames() of the core size (#214).
+  //   total: the same fields as a week, for all weeks. Its ideal is the sum of the ideals of the weeks.
   //   marks: {player id: one mark for each day}: "s" starts, "b" game but sits, "r" rests, "n" no game.
   //     The marks of lineup_fit() in core/roster.py.
   function valueStarted(core, data, resters) {
@@ -216,7 +234,7 @@ const Starts = (() => {
       players = core.map(p => ({ ...p, rests_b2b: set.has(p.id) }));
     }
     const bonus = data.quality_bonus || 0, ordered = _ordered(players), sets = _sets(data);
-    const zero = () => ({ value: 0, starts: 0, light_starts: 0, lost: 0, open_heavy: 0, open_light: 0 });
+    const zero = () => ({ value: 0, starts: 0, light_starts: 0, lost: 0, open_heavy: 0, open_light: 0, games: 0, ideal: 0 });
     const weeks = {}, total = zero(), marks = {}, days = [];
     for (const w of data.weeks) weeks[w] = zero();
     for (const p of players) marks[p.id] = [];
@@ -230,6 +248,7 @@ const Starts = (() => {
         t.value += value;
         t.starts += d.started;
         t.lost += d.sat.length;
+        t.games += d.started + d.sat.length;
         if (day.quality) {
           t.light_starts += d.started;
           t.open_light += open;
@@ -243,10 +262,14 @@ const Starts = (() => {
         marks[p.id].push(mark);
       }
     });
+    for (const [w, t] of Object.entries(weeks)) {
+      t.ideal = idealGames(core.length, data, w);
+      total.ideal += t.ideal;
+    }
     return { days, weeks, total, marks };
   }
 
-  return { scoreCore, fit, slotRoster, valueStarted };
+  return { scoreCore, fit, slotRoster, valueStarted, idealGames };
 })();
 
 if (typeof module !== "undefined") module.exports = Starts;

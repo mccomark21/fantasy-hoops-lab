@@ -72,6 +72,7 @@ def test_only_the_pages_that_adopted_the_chart_style_have_the_chart_placeholder(
 
     #186: the Players page has __CHART_CSS__. The player modal (core/profile.py) brings the chart style to a page
     with no __CHART_CSS__. #192: the Roster page (core/roster.py). #194: the Trade page (trade/page.py).
+    #214: the Playoffs page (playoffs/page.py).
     """
     src = Path(chart.__file__).parents[1]
     users = [p for p in src.rglob("*.py") if "__CHART_CSS__" in p.read_text(encoding="utf-8")]
@@ -82,6 +83,7 @@ def test_only_the_pages_that_adopted_the_chart_style_have_the_chart_placeholder(
         "core/publish.py",
         "core/roster.py",
         "players/page.py",
+        "playoffs/page.py",
         "trade/page.py",
     ]
 

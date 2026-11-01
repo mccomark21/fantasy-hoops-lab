@@ -136,7 +136,7 @@ def test_the_page_uses_the_shared_tokens_the_menu_and_no_colors_of_its_own():
     text = page()
     assert tokens.TOKENS in text
     assert (
-        text.split("</nav>")[0].count('<li><a href="') == 6
+        text.split("</nav>")[0].count('<li><a href="') == len(publish.TOOLS) + 1
         and '<a href="../roster/" aria-current="page">Roster</a>' in text
     )
     assert 'href="../adds/">Adds plan</a>' in text and '<a href="../">Home</a>' in text  # #172: /roster/

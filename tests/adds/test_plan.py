@@ -18,6 +18,7 @@ from fantasyhoops.adds import week_file
 from fantasyhoops.adds.role_up import Absence
 from fantasyhoops.core import common, tokens
 from fantasyhoops.core.common import name_key
+from fantasyhoops.core.roster import Day
 from tests.adds.test_page import SKIP_LINE, WEEK, option, run_time, text
 
 MON = date(2027, 1, 4)
@@ -454,7 +455,11 @@ def run_command(
         "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10, "teams": 14},
         "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
         "weights": {"pts": 1.0},
+        "playoffs": {"core": 8},  # the Playoffs page (#214)
+        "quality_games": {"bonus": 0.1},
     }
+    playoff_days = [Day(date(2027, 3, 8), "wk19", False, frozenset({"PHI", "BOS"}))]
+    monkeypatch.setattr(command.roster_page, "playoff_days", lambda sched, cfg: playoff_days)
     monkeypatch.setattr(command, "read_rest_names", lambda cfg: set(rests or ()))
     monkeypatch.setattr(command, "load_config", lambda: cfg)
     monkeypatch.setattr(command, "read_schedule", lambda: sched)
@@ -862,7 +867,8 @@ def test_read_league_reads_the_record_from_the_team_page():
 
 
 def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_list(monkeypatch, tmp_path):
-    """#186: the planning run puts the Players page and the player file at /players/ in its publish."""
+    """#186, #214: the planning run puts the Players page and the player file at /players/ in its publish, and the
+    Playoffs page with the same players at /playoffs/."""
     from fantasyhoops.adds.readers import Player
     from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
 
@@ -875,9 +881,12 @@ def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_
     monkeypatch.setattr(command.players_page.categories, "read_categories", lambda cfg: {})
     run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)
     players = (common.OUT / "players" / "index.html", (common.OUT / "players" / "players.json",))
-    assert published[0][3] == {"free-agents": page.free_agents_path(), "players": players}
+    playoffs = common.OUT / "playoffs" / "index.html"
+    assert published[0][3] == {"free-agents": page.free_agents_path(), "players": players, "playoffs": playoffs}
     file = json.loads(players[1][0].read_text(encoding="utf-8"))
     assert file["players"][0]["owner"] == "Lamb Chops" and file["players"][0]["mine"] is True
+    html = playoffs.read_text(encoding="utf-8")
+    assert '"id":"ace-bailey","name":"Ace Bailey"' in html and '<a href="../playoffs/" aria-current="page">' in html
 
 
 @pytest.mark.parametrize("error", ["timeout", "network"])
@@ -900,7 +909,7 @@ def test_a_failed_owner_read_keeps_the_players_page_and_the_plan_publishes(monke
     assert published == [(command.ROOT, "adds", page.page_path(), {"free-agents": page.free_agents_path()})]
     assert "Warning: the run could not read the rostered list for the Players page (" in out
     assert "The publish keeps the old Players page." in out
-    assert not (common.OUT / "players").exists()
+    assert not (common.OUT / "players").exists() and not (common.OUT / "playoffs").exists()
 
 
 def test_a_yahoo_block_in_the_owner_read_stops_the_planning_run(monkeypatch, tmp_path):
