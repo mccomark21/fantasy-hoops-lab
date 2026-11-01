@@ -15,3 +15,4 @@ On 2026-11-01, the owner asked for a "playoffs" page: "I need the ability to pla
 2. The page models only the core (8 by default, changeable). The other spots are stream spots. Each day shows core starts lost (a core game that sits) and open slots for streams.
 3. The pool is every player of `players.json` (all rostered players of the league and the listed free agents), with an owner tag. A name opens the player modal.
 4. The headline number is value started: the sum of the per-game Val (the Free agents Val) of each started core game in weeks 19 to 21. Starts lost and open slots (heavy and light days) show beside it.
+5. When more core players have games than slots, the higher per-game Val starts, within the position rules. This holds for added free agents and other teams' players.
