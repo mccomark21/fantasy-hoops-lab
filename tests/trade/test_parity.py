@@ -1,4 +1,4 @@
-"""Node runs trade_builder.js with team_builder.js on fixture rosters. The results equal the Python rules (#152)."""
+"""Node runs trade_builder.js with core/starts.js on fixture rosters. The results equal the Python rules (#152)."""
 
 import json
 import random
@@ -25,7 +25,7 @@ POSITIONS = [("PG",), ("SG",), ("SF",), ("PF",), ("C",), ("PG", "SG"), ("SF", "P
 # Reads {"data", "cases", "order"} on stdin. Each case is {team, give, get, drops} with the player ids.
 # Writes {"trades": [TradeBuilder.trade() with the drops as ids], "order": [engine values], "starters": [...]}.
 DRIVER = """
-globalThis.TeamBuilder = require(process.argv[1]);
+const Starts = require(process.argv[1]);
 const TradeBuilder = require(process.argv[2]);
 let text = "";
 process.stdin.on("data", c => (text += c));
@@ -41,7 +41,7 @@ process.stdin.on("end", () => {
     return { mine: ids(r.mine), partner: ids(r.partner), band: r.band };
   });
   const core = pick(order).map(p => ({ ...p, value: TradeBuilder.engineValue(p) }));
-  const score = TeamBuilder.scoreCore(core, data.engine);
+  const score = Starts.scoreCore(core, data.engine);
   process.stdout.write(JSON.stringify({
     trades,
     order: core.map(p => p.value),

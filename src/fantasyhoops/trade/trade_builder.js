@@ -5,15 +5,16 @@
 //      the highest value first. The kept set is not ranked again (Decision comment of 2026-10-28 on #150).
 //   3. When you get more players than you give, you pick your drops. When you give more, the spot stays empty.
 //   4. When the partner gets more players than he gives, he drops his lowest value players that are not on IL.
-//   5. The starts come from scoreCore() of draft/team_builder.js. The engine gets value = -rank, so its value sort
+//   5. The starts come from scoreCore() of core/starts.js (#213). The engine gets value = -rank, so its value sort
 //      gives the lineup order of the Roster page (core/roster.py rank_order()). A player with no rank goes last.
 //
 // trade/builder.py has the same rules in Python. tests/trade/test_parity.py shows that both give the same results.
-// The file has no DOM code. trade/page.py inlines it after team_builder.js. Node loads it with require(), after it
-// sets globalThis.TeamBuilder. A player is {id, name, team, pos, rank, rests_b2b, val, il, untouchable}.
+// The file has no DOM code. trade/page.py inlines it after core/starts.js. Node loads it with require(), and it
+// loads core/starts.js itself. A player is {id, name, team, pos, rank, rests_b2b, val, il, untouchable}.
 // val is the value of the trade tool (the blended value, else the preseason value), or null.
 
 const TradeBuilder = (() => {
+  const S = typeof Starts !== "undefined" ? Starts : require("../core/starts.js");
   const NO_RANK = -1e9; // the engine value of a player with no rank: after all players with a rank
 
   const num = p => (p.val == null ? 0 : p.val);
@@ -50,10 +51,10 @@ const TradeBuilder = (() => {
     return p.rank == null ? NO_RANK : -p.rank;
   }
 
-  // The team starts of each week of data.weeks, with scoreCore() of team_builder.js.
+  // The team starts of each week of data.weeks, with scoreCore() of core/starts.js.
   function weekStarts(players, data) {
     const core = players.map(p => ({ ...p, value: engineValue(p) }));
-    const result = TeamBuilder.scoreCore(core, data);
+    const result = S.scoreCore(core, data);
     return data.weeks.map(w => result.weeks[w].started);
   }
 

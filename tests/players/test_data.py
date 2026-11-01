@@ -56,6 +56,8 @@ def test_the_list_has_each_rostered_player_and_each_free_agent_above_replacement
         "mine": True,
         "val": 0.52,
         "games": 5,
+        "rests_b2b": 0,
+        "proj_val": None,
         "signals": [],
     }
     assert by_slug["karl-anthony-towns"]["mine"] is False and by_slug["karl-anthony-towns"]["owner"] == "Doncic Go"
@@ -69,9 +71,52 @@ def test_the_list_has_each_rostered_player_and_each_free_agent_above_replacement
         "mine": False,
         "val": None,
         "games": 5,
+        "rests_b2b": 0,
+        "proj_val": None,
         "signals": [],
     }
     assert by_slug["fa-plus"]["pos"] == "C" and by_slug["fa-plus"]["team"] == "BOS"
+
+
+def test_each_record_has_rests_b2b_and_a_player_with_no_val_has_the_projection_based_val():
+    """#213: the playoffs page needs the team, the positions, rests_b2b and the "proj" Val (decision 14)."""
+    projected = {
+        "ace bailey": Projected("Ace Bailey", "UTAH", ("SF",), 0.52, 3.0),
+        "karl anthony towns": Projected("Karl-Anthony Towns", "NY", ("C",), 4.65, 6.25),
+        "no data guy": Projected("No Data Guy", "BOS", ("PG",), 1.0, None),
+    }
+    proj = data.projection_values(projected, 2.5)
+    assert proj == {"ace bailey": 0.5, "karl anthony towns": 3.75}  # the per-game value minus the replacement value
+    assert data.projection_values(projected, None) == {}
+
+    records = data.player_records(OWNED, projected, PLAYED, VALUES, resters={"karl anthony towns"}, proj_values=proj)
+    by_slug = {r["slug"]: r for r in records}
+    for r in records:
+        assert {"team", "pos", "rests_b2b", "val", "proj_val"} <= set(r)
+    kat = by_slug["karl-anthony-towns"]
+    assert (kat["team"], kat["pos"], kat["rests_b2b"], kat["val"], kat["proj_val"]) == ("NY", "PF/C", 1, None, 3.75)
+    # A player with a Val keeps it and gets no proj_val. A player with no projection value gets none.
+    assert (by_slug["ace-bailey"]["val"], by_slug["ace-bailey"]["proj_val"], by_slug["ace-bailey"]["rests_b2b"]) == (
+        0.52,
+        None,
+        0,
+    )
+    assert by_slug["no-data-guy"]["proj_val"] is None
+    # The proj_val does not change the order: a player with no Val stays last.
+    assert [r["slug"] for r in records][-2:] == ["karl-anthony-towns", "no-data-guy"]
+
+
+def test_the_rester_set_is_the_rests_b2b_column_of_the_risk_file(monkeypatch, tmp_path):
+    from fantasyhoops.adds import rest
+
+    monkeypatch.setattr(rest, "ROOT", tmp_path)
+    cfg = {"risk": {"file": "data/projection_risk.csv"}}
+    assert data.read_resters(cfg) == set() and data.read_resters({}) == set()
+    (tmp_path / "data").mkdir()
+    pd.DataFrame({"name": ["Karl-Anthony Towns", "Ace Bailey"], "rests_b2b": [1, 0]}).to_csv(
+        tmp_path / "data" / "projection_risk.csv", index=False
+    )
+    assert data.read_resters(cfg) == {"karl anthony towns"}
 
 
 def test_the_val_is_the_val_of_the_free_agents_page():
@@ -151,7 +196,10 @@ def test_a_projection_and_a_log_name_find_the_yahoo_name_of_an_override():
     )
     projected = data.projected_players(projections(), rosters, yahoo, OVERRIDES, CFG)
     assert set(projected) == {"yahoo name", "big star", "mid guy", "low guy"}  # no row with 0 games
-    assert projected["yahoo name"] == Projected("Yahoo Name", "MIA", ("SG", "SF"), projected["yahoo name"].value)
+    found = projected["yahoo name"]
+    assert found == Projected("Yahoo Name", "MIA", ("SG", "SF"), found.value, found.pg_value)
+    # pg_value is the per-game value before the replacement tier: pg_var + one number for all players (#213).
+    assert len({round(p.pg_value - p.value, 9) for p in projected.values()}) == 1
     # The value is per game above the replacement tier (Mid Guy), so the replacement player is at 0.
     assert (
         projected["mid guy"].value == pytest.approx(0) and projected["big star"].value > projected["yahoo name"].value

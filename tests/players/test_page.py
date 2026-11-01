@@ -96,6 +96,32 @@ def test_write_site_writes_the_page_the_player_file_and_the_font(monkeypatch):
     assert '"min_games"' not in html  # the page reads the shared file, it does not hold the players
 
 
+def test_the_player_file_has_the_team_the_positions_rests_b2b_and_the_proj_val(monkeypatch):
+    """#213: the fields of the playoffs page. A player with no Val has the projection-based Val of the run."""
+    root = common.OUT / "no-data"
+    monkeypatch.setattr(common, "ROOT", root)
+    monkeypatch.setattr(common, "DATA", root / "data")
+    projected = {
+        "ace bailey": Projected("Ace Bailey", "UTAH", ("SF",), 0.52, 2.0),
+        "karl anthony towns": Projected("Karl-Anthony Towns", "NY", ("C",), 4.65, 4.0),
+    }
+    monkeypatch.setattr(data, "read_projected", lambda cfg: (projected, "Projections_2026-10-12.csv"))
+    monkeypatch.setattr(data, "read_played", lambda: ({}, None, None))
+    monkeypatch.setattr(data, "read_resters", lambda cfg: {"karl anthony towns"})
+    ace = data.Valued(Player("Ace Bailey", "UTAH", ("SF", "PF")), 0.52)
+    monkeypatch.setattr(data, "market_values", lambda *args: {"ace bailey": ace})
+    monkeypatch.setattr(page, "add_quadrants", lambda *args: None)
+    monkeypatch.setattr(categories, "read_categories", lambda cfg: {})
+    read = RosteredRead(OWNERS, [], {}, [], True)
+    _, files = page.write_site(read, 1, CFG, date(2026, 10, 30), replacement=1.5, scale=None)
+    players = {p["slug"]: p for p in json.loads(files[0].read_text(encoding="utf-8"))["players"]}
+    got = {s: (p["team"], p["pos"], p["rests_b2b"], p["val"], p["proj_val"]) for s, p in players.items()}
+    assert got == {
+        "ace-bailey": ("UTAH", "SF/PF", 0, 0.52, None),
+        "karl-anthony-towns": ("NY", "PF/C", 1, None, 2.5),  # 4.0 - the replacement value 1.5
+    }
+
+
 def test_the_menu_and_the_page_head_describe_the_players_page():
     assert site.TOOLS["players"][0] == "Players" and "report card" in site.TOOLS["players"][1]
     html = page.render(CFG, {"rostered": 1, "free_agents": 0})

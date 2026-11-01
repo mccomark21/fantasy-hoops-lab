@@ -5,7 +5,8 @@ The page is a 4-quadrant report card of one player, not a scrolling page. A sear
 hash keeps the pick (/players/#<slug>). The card comes from core/profile.py, the same card as the player modal of the
 Roster, Free agents and Trades pages. The page reads the shared player file, profile.DATA_FILE, as the modal does.
 The player file holds the players of players/data.py: each rostered player of the league, and each free agent with a
-projected value or 5 or more games. Each player has the "role" field of players/role.py (#187).
+projected value or 5 or more games. Each player has the "role" field of players/role.py (#187), and the rests_b2b
+and proj_val fields of the playoffs page (players/data.py, #213).
 add_quadrants() adds the data of the Value and Comps quadrants (players/value.py and players/comps.py, #189) to
 each player. They read data/box_scores.csv, the rotation log and the newest projections file.
 The planning run (adds/plan.py) calls write_site() and publishes the folder at /players/ with its own folders.
@@ -123,7 +124,13 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
     for key, found in role.read_roles(cfg, data.read_overrides()).items():
         extras.setdefault(key, {})["role"] = found
     records = data.player_records(
-        data.owned_players(rostered.projected, own_team), projected, played, values, extras=extras
+        data.owned_players(rostered.projected, own_team),
+        projected,
+        played,
+        values,
+        extras=extras,
+        resters=data.read_resters(cfg),
+        proj_values={} if replacement is None else data.projection_values(projected, replacement),
     )
     value_meta = add_quadrants(records, cfg, made, scale, replacement)
     content = player_file(records, made, projections, first, last, replacement)

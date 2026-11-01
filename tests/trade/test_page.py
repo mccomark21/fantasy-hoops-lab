@@ -404,7 +404,7 @@ def test_the_builder_data_has_both_rosters_the_suggestions_and_the_engine_data()
     assert BUILDER["engine"]["util"] == 1 and BUILDER["engine"]["kept"] == 8 and len(BUILDER["engine"]["days"]) == 9
     html = render_builder()
     assert '<script type="application/json" id="trade-data">' in html
-    assert "const TeamBuilder = " in html and "const TradeBuilder = " in html
+    assert "const Starts = " in html and "const TradeBuilder = " in html
 
 
 def test_the_builder_allows_a_player_who_is_not_on_the_offer_list():
