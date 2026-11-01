@@ -133,7 +133,7 @@ All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-r
 
 ## Typography
 
-**Font:** Archivo (Omnibus-Type, SIL Open Font License 1.1). One variable file, `archivo-latin.woff2`, with the weights 400 to 900 and the widths 62% to 125%. The fallback is Arial Narrow, then system-ui.
+**Font:** Archivo (Omnibus-Type, SIL Open Font License 1.1). Two variable files from Google Fonts (Archivo v25), each with the weights 400 to 900 and the widths 62% to 125%. `archivo-latin.woff2` holds the Latin letters. `archivo-latin-ext.woff2` holds the Latin Extended letters, such as the č and ć of Dončić (#211). A `unicode-range` loads the second file only on a page with such a letter. The fallback is Arial Narrow, then system-ui.
 
 ### Hierarchy
 - **Display** (900, width 66%, uppercase, 30–44px): the page title, with a 3px `mark` rule below it.

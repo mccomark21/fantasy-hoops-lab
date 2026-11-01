@@ -152,12 +152,14 @@ def test_the_page_is_the_html_before_the_page_shell():
     load_config(). #172 moved the page to /roster/ and changed the site menu, so the test compares the page with no
     site menu. #186 made each name a link to the player modal and added the modal, so the test removes both.
     #192 put the shared chart style in the page head, so the test removes it too.
+    #211 added a second @font-face for the Latin Extended letters, so the test removes it too.
     """
     meta = "\n" + publish.page_meta("roster", "Roster · Fantasy Hoops Lab")  # #166 added the icon and preview tags
     before = (Path(__file__).parent / "fixtures" / "home_before_132.html").read_text(encoding="utf-8")
     menu = re.compile(r'<header class="lab-bar">.*?<div class="lab-scrim" hidden></div>', re.S)
     now = re.sub(r'<a class="lab-pname" [^>]*>([^<]*)</a>', r"\1", page().replace(meta, ""))
     now = now.replace(profile.modal(chart_css=False) + "\n", "").replace(chart.CHART_STYLE + "\n", "")
+    now = re.sub(r"@font-face \{[^}]*archivo-latin-ext[^}]*\}\n", "", now)
     assert menu.sub("", now) == menu.sub("", before)
     assert publish.site_menu("roster", 14) in page()
 

@@ -91,8 +91,8 @@ def published_folders(site):
 
 
 def font_folder(repo):
-    """The fonts/ folder of the site, as a tree entry (mode, type, sha): the font and its license (OFL.txt)."""
-    files = {f.name: ("100644", "blob", write_blob(repo, f.read_bytes())) for f in (tokens.FONT, tokens.LICENSE)}
+    """The fonts/ folder of the site, as a tree entry (mode, type, sha): the font files and their license (OFL.txt)."""
+    files = {f.name: ("100644", "blob", write_blob(repo, f.read_bytes())) for f in (*tokens.FONTS, tokens.LICENSE)}
     return ("040000", "tree", make_tree(repo, files))
 
 

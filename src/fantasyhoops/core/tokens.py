@@ -5,6 +5,7 @@ Each color token has a light value (white stock) and a dark value (navy card bac
 The dark values follow prefers-color-scheme. The attribute data-theme="light" or "dark" on <html> overrides
 the system theme. A script in HEAD sets that attribute from localStorage before the first paint.
 Each page loads the font from fonts/archivo-latin.woff2 next to the page. copy_font() writes that file.
+Letters such as č, ć, ņ and š come from fonts/archivo-latin-ext.woff2 (#211). A page loads that file only when it has such a letter.
 The font is Archivo (Omnibus-Type), under the SIL Open Font License 1.1. Each copy of the font has OFL.txt next to it.
 """
 
@@ -14,6 +15,14 @@ from pathlib import Path
 FONT = Path(__file__).parent / "fonts" / "archivo-latin.woff2"
 LICENSE = FONT.with_name("OFL.txt")  # the OFL text with the Archivo copyright. It goes with each copy of the font.
 FONT_HREF = "fonts/archivo-latin.woff2"  # the font file, relative to each page
+FONT_EXT = FONT.with_name("archivo-latin-ext.woff2")  # the Latin Extended letters, such as the č of Dončić (#211)
+FONT_EXT_HREF = "fonts/archivo-latin-ext.woff2"
+FONTS = (FONT, FONT_EXT)  # the font files that go in each fonts/ folder, with LICENSE
+# The letters of FONT_EXT: the Latin Extended range of Google Fonts, the source of both files (Archivo v25).
+LATIN_EXT_RANGE = (
+    "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, "
+    "U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF"
+)
 THEME_KEY = "lab-theme"  # the localStorage key of the theme choice: "light" or "dark". No key: the system theme.
 
 # Light: white coated stock with royal-blue and card-red ink.
@@ -93,6 +102,11 @@ TOKENS = f"""@font-face {{
   font-family: Archivo; font-style: normal; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
   src: url({FONT_HREF}) format("woff2");
 }}
+@font-face {{
+  font-family: Archivo; font-style: normal; font-weight: 400 900; font-stretch: 62% 125%; font-display: swap;
+  src: url({FONT_EXT_HREF}) format("woff2");
+  unicode-range: {LATIN_EXT_RANGE};
+}}
 :root {{
   {_declarations(LIGHT, "light")}
   --lab-face: Archivo, "Arial Narrow", system-ui, sans-serif;
@@ -117,13 +131,14 @@ HEAD = (
 
 
 def copy_font(folder):
-    """Copy the font file and its license (OFL.txt) to folder/fonts/, where the pages in folder load the font.
+    """Copy the font files (FONTS) and their license (OFL.txt) to folder/fonts/, where the pages in folder load the font.
 
-    Return the path of the font copy.
+    Return the path of the copy of the Latin font file.
     """
     target = Path(folder) / FONT_HREF
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(FONT, target)
+    for font in FONTS:
+        shutil.copyfile(font, target.with_name(font.name))
     shutil.copyfile(LICENSE, target.with_name(LICENSE.name))
     return target
 
