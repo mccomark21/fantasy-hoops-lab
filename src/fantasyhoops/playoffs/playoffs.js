@@ -1,14 +1,16 @@
-// The Playoffs page (#214): the value started of your playoff core, in the browser.
+// The Playoffs page (#214, #215): the value started of your playoff core, in the browser.
 //
 // playoffs/page.py inlines core/starts.js, then this file, then start(). The page data is the JSON of page_data()
-// in playoffs/page.py. valueStarted() of core/starts.js gives each number of the page. This file has no lineup math.
+// in playoffs/page.py. valueStarted(), adds() and bestSwaps() of core/starts.js give each number of the page. This
+// file has no lineup math.
 // The part before start() has no DOM code, so Node loads the file with require() and tests the HTML of the page
 // (tests/playoffs/test_page.py). Node loads core/starts.js itself.
 //
-// The state of the page: {n, core, added, rest, saved}.
+// The state of the page: {n, core, added, rest, saved, filter}.
 //   n: the core size. core: the ids of the core players. added: the ids of the players that the search added.
 //   rest: {id: true or false}, the R switches that differ from rests_b2b of the player file.
-//   saved: the time of the last save (ISO), or null.
+//   saved: the time of the last save (ISO), or null. filter: the owner filter of the Best swaps list, "fa", "other"
+//   or "all". Save does not keep it.
 // Save keeps the state in localStorage (data.key). Reset clears the added players, the R switches and the save.
 
 const Playoffs = (() => {
@@ -18,9 +20,14 @@ const Playoffs = (() => {
   const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MARK_TEXT = { s: "starts", b: "game, sits", r: "rests on back-to-back", n: "no game" };
   const MAX_HITS = 8; // the search shows this many players at most
+  const SWAP_ROWS = 10; // the Best swaps list shows this many rows at most (decision 16)
+  const FILTERS = [["fa", "Free agents"], ["other", "Other teams"], ["all", "All"]]; // decision 17
+  const FILTER_NOUN = { fa: "free agents", other: "other teams' players", all: "players" };
 
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const f1 = v => (v < -0.05 ? "−" : "") + Math.abs(v).toFixed(1);
+  const sgn = v => (v >= 0.05 ? "+" : "") + f1(v);
+  const sgnInt = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v);
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const wkLabel = w => w[0].toUpperCase() + w.slice(1);
   const dayDate = d => new Date(d.date + "T12:00:00");
@@ -38,7 +45,7 @@ const Playoffs = (() => {
   }
 
   function newState(m) {
-    return { n: m.data.core, core: [], added: [], rest: {}, saved: null };
+    return { n: m.data.core, core: [], added: [], rest: {}, saved: null, filter: "all" };
   }
 
   const isRest = (m, st, id) => (id in st.rest ? st.rest[id] : !!m.byId[id].rests_b2b);
@@ -46,6 +53,36 @@ const Playoffs = (() => {
   // valueStarted() of the players ids. The R switches of the state give the rester set.
   function score(m, st, ids = st.core) {
     return S.valueStarted(ids.map(id => m.byId[id]), m.engine, ids.filter(id => isRest(m, st, id)));
+  }
+
+  // The ids of all pool players who rest on back-to-backs, for the swap search: the R switches, else rests_b2b.
+  const resters = (m, st) => new Set(m.data.players.filter(p => isRest(m, st, p.id)).map(p => p.id));
+
+  // The Adds of each listed player and the weakest link (decision 9): adds() of core/starts.js. The weakest link is
+  // the core player with the lowest Adds, if the core has 2 or more players. A core player with a Val below 0 still
+  // starts (review nit 3 of #216), so his Adds is below 0, and he is the weakest link.
+  function addsOf(m, st, listed) {
+    const inCore = new Set(st.core), pl = ids => ids.map(id => m.byId[id]);
+    const adds = S.adds(pl(st.core), m.engine, resters(m, st), pl(listed.filter(id => !inCore.has(id))));
+    const weak = st.core.length > 1 ? st.core.reduce((a, b) => (adds[b] < adds[a] ? b : a)) : null;
+    return { adds, weak };
+  }
+
+  // The pool of the Best swaps list for an owner filter: the players who are not yours and not in the core.
+  function swapPool(m, st, filter) {
+    const inCore = new Set(st.core);
+    const keep = p => filter === "all" || (filter === "fa" ? !p.owner : !!p.owner);
+    return m.data.players.filter(p => !p.mine && !inCore.has(p.id) && keep(p));
+  }
+
+  // The Best swaps (decisions 16 to 18): bestSwaps() of core/starts.js. The players of other teams have the value
+  // band of [trade] value_band. Free agents have no band. A [trade] untouchable player is never a swap-out.
+  function swaps(m, st, filter = st.filter) {
+    const pool = swapPool(m, st, filter);
+    return S.bestSwaps(st.core.map(id => m.byId[id]), pool, m.engine, {
+      resters: resters(m, st), band: m.data.band, banded: pool.filter(p => p.owner).map(p => p.id),
+      untouchable: m.data.untouchable, limit: SWAP_ROWS,
+    });
   }
 
   // The best core of n players (decision 11): your n players with the highest value started alone.
@@ -213,21 +250,27 @@ const Playoffs = (() => {
   }
 
   // The columns of the Players table: the class of each <col>. The colgroup and the separator rows use this list.
-  // #215 adds the Adds column here.
-  const PLAYER_COLS = ["c-in", "", "c-v", "c-q", "c-r", "c-x"];
+  const PLAYER_COLS = ["c-in", "", "c-v", "c-q", "c-a", "c-r", "c-x"];
+
+  // The Adds cell (decision 9): the Adds, the weakest-link flag, and "if added" for a player outside the core.
+  function addsCell(a, weak, inside) {
+    return `<td class="a"><span${a < -0.05 ? ' class="neg"' : ""}>${sgn(a)}</span>` +
+      (weak ? '<br><em class="tag weak" title="The core player with the lowest Adds">Weakest</em>' : "") +
+      (inside ? "" : "<small>if added</small>") + "</td>";
+  }
 
   // The Players table: the core, then the players outside the core (your other players and the added players).
-  // #215 adds the Adds column and the weakest-link flag here.
   function players(m, st) {
     const inCore = new Set(st.core);
     const listed = [...new Set([...st.core, ...m.mine, ...st.added])];
+    const { adds, weak } = addsOf(m, st, listed);
     const byVal = l => l.sort((a, b) => m.byId[b].value - m.byId[a].value);
     const coreRows = byVal(st.core.slice()), outRows = byVal(listed.filter(id => !inCore.has(id)));
     const row = (id, inside) => {
       const p = m.byId[id], r = isRest(m, st, id);
       return `<tr class="${inside ? "in" : "out"}"><td><input type="checkbox" data-core="${esc(id)}"${inside ? " checked" : ""} aria-label="${esc(p.name)} in the core"></td>` +
         `<th scope="row"><b>${link(p)}</b>${restTag(m, st, id)}<small>${esc(p.team)} · ${esc(pos(p))} · ${esc(owner(p))}</small></th>` +
-        `<td>${valText(p)}${projTag(p)}</td><td>${lightNights(m, st, id)}</td>` +
+        `<td>${valText(p)}${projTag(p)}</td><td>${lightNights(m, st, id)}</td>${addsCell(adds[id], id === weak, inside)}` +
         `<td><button type="button" class="rb" data-rest="${esc(id)}" aria-pressed="${r}" aria-label="${esc(p.name)} rests on back-to-backs" title="Rests on back-to-backs">R</button></td>` +
         `<td>${p.mine ? "" : `<button type="button" class="x" data-drop="${esc(id)}" aria-label="Remove ${esc(p.name)} from the page" title="Remove">×</button>`}</td></tr>`;
     };
@@ -235,12 +278,50 @@ const Playoffs = (() => {
     return (
       `<colgroup>${cols}</colgroup>` +
       '<thead><tr><th scope="col" class="l"><span class="vh">In core</span></th><th scope="col" class="l">Player</th>' +
-      '<th scope="col">Val</th><th scope="col" title="Games on light nights">Light</th><th scope="col" title="Rests on back-to-backs">R</th>' +
+      '<th scope="col">Val</th><th scope="col" title="Games on light nights">Light</th>' +
+      '<th scope="col" title="The value started of the core with the player minus without him">Adds</th>' +
+      '<th scope="col" title="Rests on back-to-backs">R</th>' +
       '<th scope="col"><span class="vh">Remove</span></th></tr></thead><tbody>' +
       `<tr class="sep"><td colspan="${PLAYER_COLS.length}">Core · ${coreRows.length}</td></tr>` + coreRows.map(id => row(id, true)).join("") +
       `<tr class="sep"><td colspan="${PLAYER_COLS.length}">Outside the core · ${outRows.length}</td></tr>` + outRows.map(id => row(id, false)).join("") +
       "</tbody>"
     );
+  }
+
+  // The Best swaps list (decisions 16 to 18): the owner filter, the band rule, then the rows. A row loads the swap.
+  function swapList(m, st) {
+    const chips = FILTERS.map(([k, label]) =>
+      `<button type="button" class="chip" data-filter="${k}" aria-pressed="${st.filter === k}">${label}</button>`).join("");
+    const band = m.data.band, never = m.data.untouchable.map(id => esc(m.byId[id] ? m.byId[id].name : id)).join(", ");
+    let h = "<p>Each free agent and player of another team, swapped with each core player. The best swap of each " +
+      "player, top 10 by schedule gain: the value gain minus (Val in − Val out) × the starts of the player out. " +
+      "Only swaps that raise value started. Click a row to load the swap.</p>" +
+      `<div class="chips" role="group" aria-label="Owner">${chips}</div>` +
+      `<p class="band">Other teams: Val in ${band[0].toFixed(2)} to ${band[1].toFixed(2)} × the Val of the player out. ` +
+      `${never ? `Never swapped out: ${never}. ` : ""}Free agents: no band.</p>`;
+    if (!st.core.length) return h + "<p>The core needs 1 or more players.</p>";
+    const rows = swaps(m, st);
+    h += '<table class="sw"><thead><tr><th scope="col" class="l">Player</th><th scope="col" class="l">Owner</th>' +
+      '<th scope="col" class="l">Swap out</th><th scope="col" title="Schedule gain">Schedule</th>' +
+      '<th scope="col" title="Value gain">Value</th><th scope="col" title="Starts gain (light nights)">Starts</th></tr></thead><tbody>';
+    if (rows.length < SWAP_ROWS) {
+      h += `<tr class="few"><td colspan="6">Only ${rows.length} ${FILTER_NOUN[st.filter]} have a swap that raises value started.</td></tr>`;
+    }
+    for (const r of rows) {
+      const p = m.byId[r.in], o = m.byId[r.out];
+      h += `<tr tabindex="0" data-swap="${esc(r.in)}" data-out="${esc(r.out)}" aria-label="Load the swap: ${esc(p.name)} in, ${esc(o.name)} out">` +
+        `<th scope="row"><b>${link(p)}</b>${projTag(p)}<small>${esc(p.team)} · ${esc(pos(p))} · Val ${valText(p)}</small></th>` +
+        `<td class="l">${esc(owner(p))}</td><td class="l">${esc(o.name)}</td>` +
+        `<td class="g${r.schedule < -0.05 ? " neg" : ""}">${sgn(r.schedule)}</td><td>${sgn(r.gain)}</td>` +
+        `<td>${sgnInt(r.starts)} <small>(${sgnInt(r.light)} light)</small></td></tr>`;
+    }
+    return h + "</tbody></table>";
+  }
+
+  // Load a swap (decision 16): the player in takes the place of the player out in the core.
+  function swap(m, st, id, out) {
+    st.core = st.core.map(c => (c === out ? id : c));
+    if (!m.byId[id].mine && !st.added.includes(id)) st.added.push(id);
   }
 
   // The search (decision 3): the pool players whose name has the text, accents ignored. The text needs 2 letters.
@@ -298,7 +379,7 @@ const Playoffs = (() => {
     const sc = score(m, st);
     return {
       stats: headline(m, st, sc), weeks: weeksTable(m, sc), grid: grid(m, st, sc), phone: phone(m, st, sc),
-      players: players(m, st), reset: `Reset to best ${st.n}`, saved: savedText(st), score: sc,
+      players: players(m, st), swaps: swapList(m, st), reset: `Reset to best ${st.n}`, saved: savedText(st), score: sc,
     };
   }
 
@@ -318,6 +399,7 @@ const Playoffs = (() => {
       $("grid").innerHTML = v.grid;
       $("mob").innerHTML = v.phone;
       $("pt").innerHTML = v.players;
+      $("sw").innerHTML = v.swaps;
       $("reset").textContent = v.reset;
       $("saved").textContent = v.saved;
       $("n").value = st.n;
@@ -355,6 +437,24 @@ const Playoffs = (() => {
         const id = x.dataset.drop;
         st.core = st.core.filter(c => c !== id);
         st.added = st.added.filter(c => c !== id);
+        draw();
+      }
+    });
+    $("sw").addEventListener("click", e => {
+      const c = e.target.closest("[data-filter]"), tr = e.target.closest("tr[data-swap]");
+      if (c) {
+        st.filter = c.dataset.filter;
+        $("sw").innerHTML = swapList(m, st);
+      } else if (tr && !e.target.closest("a")) {
+        swap(m, st, tr.dataset.swap, tr.dataset.out);
+        draw();
+      }
+    });
+    $("sw").addEventListener("keydown", e => {
+      const tr = e.target.closest("tr[data-swap]");
+      if (tr && e.target === tr && (e.key === "Enter" || e.key === " ")) {
+        e.preventDefault();
+        swap(m, st, tr.dataset.swap, tr.dataset.out);
         draw();
       }
     });
@@ -405,7 +505,7 @@ const Playoffs = (() => {
     draw();
   }
 
-  return { model, newState, open, reset, bestCore, score, lightNights, search, pick, view, start };
+  return { model, newState, open, reset, bestCore, score, lightNights, addsOf, swaps, swap, search, pick, view, start };
 })();
 
 if (typeof module !== "undefined") module.exports = Playoffs;

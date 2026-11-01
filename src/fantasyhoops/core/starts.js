@@ -14,6 +14,9 @@
 //   slotRoster(players, data)         the season slots and the bench of the team table.
 //   valueStarted(core, data, resters) the value started, the starts, the starts lost and the open slots (playoffs).
 //   idealGames(size, data, week)      the ideal started games of a core of size players in a week (ideal_games()).
+//   adds(core, data, resters, others) the Adds of each player: the change of value started with him (#215).
+//   bestSwaps(core, pool, data, opts) the best swap of each pool player into the core, best schedule gain first (#215).
+//   inBand(give, get, band)           true if the value get is in the value band of the value give ([trade] value_band).
 // A player is {id, name, team, pos, value, rests_b2b}. pos: the position slots, for example ["PG", "SG"].
 // value must be a number, because a null value gives NaN. The playoffs page gives val, else proj_val, else 0 (#214).
 // data: {slots, util, weeks, days}. A day is {date, week, quality, teams, b2b}. valueStarted() also reads
@@ -269,7 +272,69 @@ const Starts = (() => {
     return { days, weeks, total, marks };
   }
 
-  return { scoreCore, fit, slotRoster, valueStarted, idealGames };
+  // The value band of [trade] value_band in config.toml: give - (1 - band[0]) x |give| to give + (band[1] - 1) x |give|.
+  // in_band() of trade/suggest.py. A value on an edge is in the band, also with a rounding error of the float math.
+  function inBand(give, get, band) {
+    const low = give - (1 - band[0]) * Math.abs(give), high = give + (band[1] - 1) * Math.abs(give);
+    return low - 1e-9 <= get && get <= high + 1e-9;
+  }
+
+  const _ids = x => (x instanceof Set ? x : new Set(x || []));
+
+  // The Adds of each player (decision 9 of the playoffs page design, #215). resters: as in valueStarted().
+  // A core player: the value started of the core minus the value started of the core without him.
+  // A player of others (not in the core): the value started of the core with him minus the value started of the core.
+  // A core player with a value below 0 still starts when his team plays (review nit 3 of #216). The core without him
+  // starts higher, so his Adds is below 0.
+  // The result: {player id: Adds}.
+  function adds(core, data, resters, others = []) {
+    const value = list => valueStarted(list, data, resters).total.value;
+    const base = value(core), out = {};
+    for (const p of core) out[p.id] = base - value(core.filter(q => q.id !== p.id));
+    for (const p of others) out[p.id] = value(core.concat([p])) - base;
+    return out;
+  }
+
+  // The best swaps of the playoffs page (decisions 16 to 18 of the playoffs page design, #215).
+  // For each pool player who is not in the core, try him in place of each core player. Keep his best swap.
+  //   gain: the change of value started. The result keeps only a swap with a gain above 0.
+  //   schedule: the schedule gain, gain - (value in - value out) x the starts of the player out in the core.
+  //     It is the part of the gain that does not come from the value of the player alone. The rank uses it.
+  //   starts, light: the change of the starts and of the light-night starts.
+  // opts: {resters, band, banded, untouchable, limit}.
+  //   resters: as in valueStarted(). It must hold the pool players who rest too.
+  //   band and banded: a player of banded (ids) is listed only if his value is in the value band (inBand()) of the
+  //     player out. The playoffs page gives the players of other teams. Free agents have no band.
+  //   untouchable: the ids of the core players who are never a swap-out.
+  //   limit: the number of rows, 10 if not given.
+  // The result: [{in, out, gain, schedule, starts, light}], the highest schedule gain first. in and out: player ids.
+  function bestSwaps(core, pool, data, opts = {}) {
+    const resters = opts.resters, limit = opts.limit === undefined ? 10 : opts.limit;
+    const banded = _ids(opts.banded), untouchable = _ids(opts.untouchable), inCore = new Set(core.map(p => p.id));
+    const now = valueStarted(core, data, resters), base = now.total, startsOf = {};
+    for (const p of core) startsOf[p.id] = now.marks[p.id].filter(k => k === "s").length;
+    const rows = [];
+    for (const p of pool) {
+      if (inCore.has(p.id)) continue;
+      let best = null;
+      for (const o of core) {
+        if (untouchable.has(o.id)) continue;
+        if (opts.band && banded.has(p.id) && !inBand(o.value, p.value, opts.band)) continue;
+        const t = valueStarted(core.map(c => (c.id === o.id ? p : c)), data, resters).total;
+        const gain = t.value - base.value;
+        if (gain <= 1e-9) continue;
+        const schedule = gain - (p.value - o.value) * startsOf[o.id];
+        if (!best || schedule > best.schedule) {
+          best = { in: p.id, out: o.id, gain, schedule, starts: t.starts - base.starts, light: t.light_starts - base.light_starts };
+        }
+      }
+      if (best) rows.push(best);
+    }
+    rows.sort((a, b) => b.schedule - a.schedule);
+    return rows.slice(0, limit);
+  }
+
+  return { scoreCore, fit, slotRoster, valueStarted, idealGames, adds, bestSwaps, inBand };
 })();
 
 if (typeof module !== "undefined") module.exports = Starts;

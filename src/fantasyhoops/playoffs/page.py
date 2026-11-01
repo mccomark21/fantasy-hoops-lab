@@ -1,7 +1,7 @@
-"""The Playoffs page at /playoffs/ (#214): model the playoff core of your team. It writes output/playoffs/index.html
+"""The Playoffs page at /playoffs/ (#214, #215): model the playoff core of your team. It writes output/playoffs/index.html
 and the font in output/playoffs/fonts/.
 
-The design is in docs/wiki/playoffs-page-design-2026-11-01.md (decisions 1 to 15). The page opens on the best core of
+The design is in docs/wiki/playoffs-page-design-2026-11-01.md (decisions 1 to 18). The page opens on the best core of
 your roster, the [playoffs] core players with the highest value started (config.toml). A search adds any player of
 the pool, the players of the shared player file (players.json, players/page.py). An R switch marks a player as a
 rester. Save keeps the core and the R switches in the browser (localStorage). Reset goes back to the best core.
@@ -9,6 +9,9 @@ The page data (page_data()) holds the playoff days and a short record of each po
 page in the browser. valueStarted() of core/starts.js (#213) gives each number. The page inlines both scripts.
 The value of a player is his Val, else his proj_val with the "proj" mark (decision 14), else 0 with no Val ("–").
 So no null value goes to valueStarted().
+The Players table has the Adds of each player and flags the weakest link (#215). The "Best swaps" list gives the best
+swaps of the free agents and the players of other teams, by schedule gain. The page data has [trade] value_band and
+the ids of [trade] untouchable (config.toml), so the Trades page and this page use the same rules (decision 18).
 The planning run (adds/plan.py) calls write_site() after the Players page and publishes the folder at /playoffs/.
 The trade run does not write the page. Its publish keeps /playoffs/.
 """
@@ -81,6 +84,7 @@ def page_data(records, days, cfg, made):
     made: the date of the player file, for example "2026-10-31".
     """
     players = pool(records)
+    untouchable = {common.name_key(n) for n in cfg["trade"]["untouchable"]}
     teams = sorted({p["team"] for p in players} | {""})
     return {
         "made": made,
@@ -103,6 +107,8 @@ def page_data(records, days, cfg, made):
             for d in days
         ],
         "players": players,
+        "band": list(cfg["trade"]["value_band"]),
+        "untouchable": [r["slug"] for r in records if common.name_key(r["name"]) in untouchable],
         "bands": {t: site.band_style(t or None) for t in teams},
     }
 
@@ -157,7 +163,9 @@ FOOT = (
     "Val order, highest first, in __SLOTS__ slots. Value started: the sum of the Val of each started game, with "
     "__BONUS__ more on a light night (6 or fewer NBA games). Starts lost: core games that sit because the lineup is "
     "full. Open slots: the empty slots that a stream player can fill. A player with the R tag rests on the second "
-    "night of each back-to-back. The R switch does not change the rest list. Save keeps the core in this browser."
+    "night of each back-to-back. The R switch does not change the rest list. Adds: the value started of the core with "
+    "the player minus without him. Best swaps: the schedule gain is the value gain minus (Val in − Val out) × the "
+    "starts of the player out. Save keeps the core in this browser."
 )
 
 STYLE = """/* The Playoffs page (#214): the controls, the headline, the week totals, the core grid and the Players table. */
@@ -222,11 +230,16 @@ table.pt { border-collapse: collapse; width: 100%; font-variant-numeric: tabular
 .pt th[scope=row] b { font-weight: 900; font-stretch: 66%; font-size: 17px; text-transform: uppercase; }
 .pt th[scope=row] small { display: block; font-size: 11px; color: var(--lab-mute); margin-top: 2px; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; }
-.pt col.c-in { width: 30px; } .pt col.c-v { width: 64px; } .pt col.c-q { width: 40px; }
+.pt col.c-in { width: 30px; } .pt col.c-v { width: 52px; } .pt col.c-q { width: 36px; } .pt col.c-a { width: 64px; }
 .pt col.c-r { width: 34px; } .pt col.c-x { width: 28px; }
 .pt tr.sep > td { height: 26px; text-align: left; font-size: 11px; font-weight: 800; color: var(--mark);
   background: var(--lab-stock) !important; border-bottom: 2px solid var(--mark); padding-top: 10px; vertical-align: bottom; }
 .pt tr.out th[scope=row] b { font-weight: 800; }
+.pt td.a { font-weight: 800; }
+.pt td.a .neg { color: var(--lab-red); }
+.pt td.a small { display: block; font-size: 10px; font-weight: 600; color: var(--lab-mute); }
+.tag.weak { background: var(--lab-red); border-color: var(--lab-red); color: var(--lab-on-red); }
+.pt td.a .tag.weak { display: inline-block; margin: 2px 0 0; vertical-align: 0; }
 .pt input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--mark); margin: 0; }
 .rb { width: 26px; height: 24px; font: 800 12px/1 var(--lab-face); border: 1.5px solid var(--lamp-off); border-radius: 0;
   background: var(--lab-stock); color: var(--lab-mute); cursor: pointer; padding: 0; }
@@ -245,6 +258,39 @@ table.pt { border-collapse: collapse; width: 100%; font-variant-numeric: tabular
 .res button:hover, .res button.on { background: var(--zebra); }
 .res b { font-weight: 800; } .res span { color: var(--lab-mute); font-size: 12px; } .res em { margin-left: auto;
   font-style: normal; font-weight: 800; }
+/* The Best swaps list (#215) */
+.fits { margin-top: 22px; max-width: 760px; }
+.fits p { margin: 6px 0 8px; font-size: 13px; color: var(--lab-mute); line-height: 1.4; }
+.fits p.band { margin: 0 0 10px; font-size: 12px; }
+.chips { display: flex; gap: 6px; margin: 0 0 6px; }
+.chip { font: 800 12px/1 var(--lab-face); border: 1.5px solid var(--lamp-off); border-radius: 0; background: var(--lab-stock);
+  color: var(--lab-ink); padding: 7px 10px; min-height: 32px; cursor: pointer; }
+.chip:hover { background: var(--zebra); }
+.chip[aria-pressed=true] { background: var(--mark); border-color: var(--mark); color: var(--lab-stock); }
+.chip:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+table.sw { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: 13px; }
+.sw thead th { font-size: 11px; font-weight: 800; color: var(--mark); text-align: right; padding: 0 6px 6px;
+  border-bottom: 2px solid var(--mark); }
+.sw .l { text-align: left; }
+.sw td, .sw th[scope=row] { border-bottom: 1px solid var(--lab-rule); padding: 4px 6px; height: 40px; text-align: right; }
+.sw th[scope=row] { text-align: left; font-weight: 400; line-height: 1.05; }
+.sw th[scope=row] b { font-weight: 900; font-stretch: 66%; font-size: 17px; text-transform: uppercase; }
+.sw th[scope=row] small { display: block; font-size: 11px; color: var(--lab-mute); margin-top: 2px; }
+.sw tbody tr { cursor: pointer; }
+.sw tbody tr.few { cursor: default; }
+.sw tr.few td { text-align: left; color: var(--lab-mute); background: var(--lab-stock) !important; }
+.sw tbody tr:nth-child(even) > * { background: var(--zebra); }
+.sw tbody tr:hover > * { background: var(--qcol); }
+.sw tbody tr:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: -2px; }
+.sw td.g { font-weight: 800; } .sw td.neg { color: var(--lab-red); }
+.sw td small { color: var(--lab-mute); }
+@media (max-width: 599px) {
+  .sw td:nth-child(2) { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sw th[scope=row] b { font-size: 14px; }
+  #sw { overflow-x: auto; } .sw td:nth-child(3) { min-width: 64px; }
+  .sw td, .sw th, .sw thead th { padding-left: 4px; padding-right: 4px; }
+  .sw td:last-child { white-space: nowrap; } .sw td:last-child small { display: block; font-size: 10px; }
+}
 /* Phone: the tap-to-open rows of the Roster page, with St (starts) and Gms (games) in the row. */
 @media (max-width: 899px) {
   .po .meta div { padding-left: 0; border-left: 0; padding-right: 16px; }
@@ -311,6 +357,7 @@ __MENU__
 <span><span class="q-key">2 q</span>Games on light nights</span>
 <span><em class="tag">R</em>Rests on back-to-backs</span>
 <span><em class="tag">proj</em>Val from the projection</span>
+<span><em class="tag weak">Weakest</em>The core player with the lowest Adds</span>
 </div>
 </section>
 <section aria-labelledby="h-pl">
@@ -322,6 +369,10 @@ aria-controls="res" aria-autocomplete="list">
 <table class="pt" id="pt"></table>
 </section>
 </div>
+<section class="fits" aria-labelledby="h-sw">
+<h2 id="h-sw">Best swaps</h2>
+<div id="sw"></div>
+</section>
 <p class="foot">__FOOT__</p>
 </main>
 __PLAYER_MODAL__

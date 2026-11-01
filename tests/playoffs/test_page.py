@@ -25,6 +25,8 @@ from tests.core.test_roster import browser_page
 CFG = copy.deepcopy(common.load_config())
 CFG["playoffs"]["core"] = 3
 CFG["quality_games"]["bonus"] = 0.1
+CFG["trade"]["untouchable"] = ["Al Dal"]
+CFG["trade"]["value_band"] = [0.95, 1.10]
 
 # Two weeks of two days. 3/9 and 3/16 are light nights and the second night of a back-to-back of their teams.
 DAYS = [
@@ -54,8 +56,18 @@ RECORDS = [
 ]
 
 
-def data():
-    return page.page_data(RECORDS, DAYS, CFG, "2026-10-31")
+# The pool of the Best swaps tests (#215), with the core of the page: Al Dal (untouchable), Cy Orl and Bo No.
+# Value started alone: Al Dal 21.7, Cy Orl 12.4, Bo No 10 (2 starts, he rests on 3/9).
+SWAP_RECORDS = RECORDS + [
+    record("Ivy Bos", "BOS", "PG", 5.2, owner="Lamb Chops"),  # in the band of Bo No: gain 6.12, schedule 5.72
+    record("Jo Free", "BOS", "PF", 4.5),  # for Bo No: gain 3.95, schedule 3.95 + 0.5 x 2 = 4.95
+    record("Lu Bos", "BOS", "C", 9.0, owner="Lamb Chops"),  # in no value band of the core: no row
+    record("Kai Free", "BOS", "C", 9.0),  # a free agent has no band. For Bo No: gain 17.9, schedule 17.9 - 4 x 2
+]
+
+
+def data(records=RECORDS):
+    return page.page_data(records, DAYS, CFG, "2026-10-31")
 
 
 def test_each_pool_player_gets_a_number_value_with_its_mark():
@@ -83,6 +95,8 @@ def test_the_page_data_has_the_days_the_settings_of_the_config_and_the_bands():
         "b2b": ["DAL", "NO"],
     }
     assert d["bands"]["DAL"] == site.band_style("DAL") and d["bands"][""] == site.band_style(None)
+    # Decision 18: [trade] value_band and untouchable of config.toml, the same settings as the Trades page.
+    assert d["band"] == [0.95, 1.10] and d["untouchable"] == ["al-dal"]
 
 
 def test_the_page_has_the_menu_item_the_controls_and_the_scripts():
@@ -97,6 +111,7 @@ def test_the_page_has_the_menu_item_the_controls_and_the_scripts():
     assert "<strong>Wk19–20</strong> · Mar 8–16" in html and "Data: the planning run of Sat 10/31" in html
     assert ENGINE_JS.read_text(encoding="utf-8") in html and page.SCRIPT.read_text(encoding="utf-8") in html
     assert html.count('id="lab-pmodal"') == 1 and 'id="grid"' in html and 'id="mob"' in html
+    assert '<h2 id="h-sw">Best swaps</h2>\n<div id="sw"></div>' in html
     assert not re.findall(r"__[A-Z0-9_]+__", html)
 
 
@@ -109,7 +124,8 @@ def test_write_site_reads_the_player_file_and_writes_the_page(tmp_path):
 
 
 # The page script in Node: argv the page script. stdin: {data, steps}. Each step changes the state, then the
-# driver keeps the view. A step is ["open", saved], ["n", n], ["rest", id], ["pick", id], ["core", ids] or ["reset"].
+# driver keeps the view. A step is ["open", saved], ["n", n], ["rest", id], ["pick", id], ["core", ids], ["reset"],
+# ["filter", owner filter] or ["swap", [id in, id out]]. swaps: the rows of the Best swaps list of each filter.
 DRIVER = """
 const P = require(process.argv[1]);
 let text = "";
@@ -126,10 +142,13 @@ process.stdin.on("end", () => {
     if (kind === "pick") P.pick(m, st, arg);
     if (kind === "core") st.core = arg;
     if (kind === "reset") P.reset(m, st);
+    if (kind === "filter") st.filter = arg;
+    if (kind === "swap") P.swap(m, st, arg[0], arg[1]);
     if (kind === "search") { out.push(P.search(m, arg).map(p => p.id)); continue; }
     const v = P.view(m, st);
     out.push({ state: { ...st }, total: v.score.total, marks: v.score.marks, days: v.score.days, html: v,
-      light: Object.fromEntries(st.core.map(id => [id, P.lightNights(m, st, id)])) });
+      light: Object.fromEntries(st.core.map(id => [id, P.lightNights(m, st, id)])),
+      swaps: Object.fromEntries(["fa", "other", "all"].map(f => [f, P.swaps(m, st, f)])) });
   }
   process.stdout.write(JSON.stringify(out));
 });
@@ -222,7 +241,7 @@ def test_the_players_table_writes_its_colgroup_and_the_separator_rows_span_each_
     (v,) = run([["open", None]])
     players = v["html"]["players"]
     cols = re.search(r"<colgroup>(.*?)</colgroup>", players).group(1).count("<col")
-    assert cols == 6 and players.count(f'<tr class="sep"><td colspan="{cols}">') == 2
+    assert cols == 7 and players.count(f'<tr class="sep"><td colspan="{cols}">') == 2
     assert players.count('<th scope="col"') == cols
 
 
@@ -263,7 +282,103 @@ def test_reset_clears_the_added_players_the_r_switches_and_the_save():
     opened, reset = run([["open", saved], ["reset"]])
     assert opened["state"]["core"] == ["fa-bos", "ed-dal"] and opened["state"]["rest"] == {"al-dal": True}
     assert opened["html"]["saved"].startswith("Saved Sun 11/1") and opened["html"]["reset"] == "Reset to best 2"
-    assert reset["state"] == {"n": 2, "core": ["al-dal", "cy-orl"], "added": [], "rest": {}, "saved": None}
+    assert reset["state"] == {
+        "n": 2,
+        "core": ["al-dal", "cy-orl"],
+        "added": [],
+        "rest": {},
+        "saved": None,
+        "filter": "all",
+    }
+
+
+@needs_node
+def test_the_players_table_shows_the_adds_of_each_player_and_flags_the_weakest_link():
+    """Decision 9: Adds = the value started of the core with the player minus without him."""
+    (v,) = run([["open", None]])
+    players = v["html"]["players"]
+    assert (
+        '<th scope="col" title="The value started of the core with the player minus without him">Adds</th>' in players
+    )
+    # The core has no slot clash, so the Adds of a core player is his value started alone.
+    assert '<td class="a"><span>+21.7</span></td>' in players and '<td class="a"><span>+12.4</span></td>' in players
+    weak = '<td class="a"><span>+10.0</span><br><em class="tag weak" title="The core player with the lowest Adds">'
+    assert players.count('class="tag weak"') == 1 and weak in players
+    assert players.index('data-core="bo-no"') < players.index(weak) < players.index('data-core="di-orl"')
+    # Di Orl outside the core: 3 x 2 + 3 x 1.1 = 9.3 if added
+    assert '<td class="a"><span>+9.3</span><small>if added</small></td>' in players
+
+
+@needs_node
+def test_a_core_player_with_a_val_below_0_has_adds_below_0():
+    """Review nit 3 of #216: a core player with a Val below 0 still starts. His Adds is below 0, so he is the weakest."""
+    given = data([*RECORDS, record("Neg Dal", "DAL", "PF", -2.0, owner="Me", mine=True)])
+    (v,) = run([["core", ["al-dal", "cy-orl", "neg-dal"]]], given)
+    assert v["marks"]["neg-dal"] == ["s", "s", "s", "n"]
+    assert '<td class="a"><span class="neg">−6.2</span><br><em class="tag weak"' in v["html"]["players"]
+
+
+@needs_node
+def test_the_best_swaps_rank_by_schedule_gain_with_an_owner_filter():
+    """Decisions 16 to 18 on the pool of SWAP_RECORDS: the rows of each owner filter, gain above 0 only."""
+    (v,) = run([["open", None]], data(SWAP_RECORDS))
+    pairs = {
+        f: [(r["in"], r["out"], round(r["schedule"], 2), round(r["gain"], 2)) for r in rows]
+        for f, rows in v["swaps"].items()
+    }
+    assert pairs["all"] == [
+        ("kai-free", "bo-no", 9.9, 17.9),
+        ("ivy-bos", "bo-no", 5.72, 6.12),
+        ("jo-free", "bo-no", 4.95, 3.95),
+    ]
+    assert pairs["fa"] == [pairs["all"][0], pairs["all"][2]] and pairs["other"] == [pairs["all"][1]]
+    assert all(r["gain"] > 0 for rows in v["swaps"].values() for r in rows)
+    html = v["html"]["swaps"]
+    assert '<button type="button" class="chip" data-filter="all" aria-pressed="true">All</button>' in html
+    assert '<tr class="few"><td colspan="6">Only 3 players have a swap that raises value started.</td></tr>' in html
+    row = '<tr tabindex="0" data-swap="kai-free" data-out="bo-no" aria-label="Load the swap: Kai Free in, Bo No out">'
+    assert row in html and '<td class="g">+9.9</td><td>+17.9</td><td>+1 <small>(+1 light)</small></td>' in html
+    assert "Never swapped out: Al Dal. Free agents: no band." in html
+    (fa,) = run([["filter", "fa"]], data(SWAP_RECORDS))
+    assert "Only 2 free agents have a swap" in fa["html"]["swaps"] and 'data-swap="ivy-bos"' not in fa["html"]["swaps"]
+
+
+@needs_node
+def test_no_swap_takes_out_an_untouchable_player_for_any_owner():
+    """Decision 18: Al Dal is [trade] untouchable. Kai Free for Al Dal raises value started (27.9 - 21.7), but no row
+    has it."""
+    (v, alone) = run([["open", None], ["core", ["al-dal"]]], data(SWAP_RECORDS))
+    assert all(r["out"] != "al-dal" for s in (v, alone) for rows in s["swaps"].values() for r in rows)
+    assert alone["swaps"]["all"] == [] and "Only 0 players have a swap" in alone["html"]["swaps"]
+    cfg = copy.deepcopy(CFG)
+    cfg["trade"]["untouchable"] = []
+    (free,) = run([["core", ["al-dal"]]], page.page_data(SWAP_RECORDS, DAYS, cfg, "2026-10-31"))
+    assert ("kai-free", "al-dal") in [(r["in"], r["out"]) for r in free["swaps"]["fa"]]
+
+
+@needs_node
+def test_no_other_team_row_has_a_val_outside_the_value_band_of_the_player_out():
+    """Decision 18: a player of another team is listed only in the value band of the player out. Free agents: no band."""
+    given = data(SWAP_RECORDS)
+    (v,) = run([["open", None]], given)
+    value = {p["id"]: p["value"] for p in given["players"]}
+    owned = {p["id"] for p in given["players"] if p["owner"]}
+    band = given["band"]
+    for r in v["swaps"]["all"]:
+        if r["in"] in owned:
+            give = value[r["out"]]
+            assert give - (1 - band[0]) * abs(give) <= value[r["in"]] <= give + (band[1] - 1) * abs(give)
+    assert "lu-bos" not in {r["in"] for r in v["swaps"]["all"]}  # Lu Bos (Val 9) is in no band of the core
+    assert "kai-free" in {r["in"] for r in v["swaps"]["fa"]}  # the free agent with the same Val has no band
+
+
+@needs_node
+def test_a_swap_loads_into_the_core_and_the_grid_and_the_headline_show_the_new_core():
+    (before, after) = run([["open", None], ["swap", ["kai-free", "bo-no"]]], data(SWAP_RECORDS))
+    assert after["state"]["core"] == ["al-dal", "cy-orl", "kai-free"] and after["state"]["added"] == ["kai-free"]
+    assert after["total"]["value"] == pytest.approx(before["total"]["value"] + 17.9)
+    assert 'data-player="kai-free"' in after["html"]["grid"] and 'data-player="bo-no"' not in after["html"]["grid"]
+    assert f"<dd>{after['total']['value']:.1f}</dd>" in after["html"]["stats"]
 
 
 def test_the_page_in_chromium_has_no_sideways_scroll_on_a_phone_and_save_and_reset_work(tmp_path):
@@ -286,3 +401,23 @@ def test_the_page_in_chromium_has_no_sideways_scroll_on_a_phone_and_save_and_res
         assert pg.locator('[data-rest="al-dal"]').get_attribute("aria-pressed") == "false"
         assert pg.evaluate("localStorage.getItem('fhl-playoffs')") is None
         assert pg.locator("#saved").inner_text() == "Not saved" and not errors
+
+
+def test_in_chromium_a_filter_changes_the_best_swaps_and_a_click_on_a_row_loads_the_swap(tmp_path):
+    path = common.OUT / "playoffs" / "index.html"
+    site.write_page(path, page.render(data(SWAP_RECORDS), CFG))
+    with browser_page(1440) as pg:
+        errors = []
+        pg.on("pageerror", lambda e: errors.append(str(e)))
+        pg.goto(path.as_uri())
+        pg.evaluate("localStorage.clear()")
+        pg.reload()
+        assert pg.locator("#sw tr[data-swap]").count() == 3
+        pg.locator('#sw [data-filter="other"]').click()
+        assert pg.locator("#sw tr[data-swap]").count() == 1
+        assert pg.locator('#sw [data-filter="other"]').get_attribute("aria-pressed") == "true"
+        pg.locator('#sw [data-filter="all"]').click()
+        pg.locator('#sw tr[data-swap="kai-free"] td').first.click()
+        assert pg.locator("#stats .hero dd").inner_text() == "62.0"  # 44.1 + 17.9
+        assert pg.locator('#grid [data-player="kai-free"]').count() == 1
+        assert pg.locator('#grid [data-player="bo-no"]').count() == 0 and not errors
