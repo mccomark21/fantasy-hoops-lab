@@ -20,31 +20,10 @@ import pandas as pd
 from fantasyhoops.core.common import latest_projections, name_key
 from fantasyhoops.core.identity import yahoo_keys
 from fantasyhoops.draft.rankings import STATS
+from fantasyhoops.players.categories import LABELS, projected_lines
 
 COUNT = 5  # the comps of a player
 RECENT_DAYS = 14  # the days of the ESPN line, as the recent line of adds/blend.py
-LABELS = {"pts": "PTS", "reb": "REB", "ast": "AST", "threes": "3PM", "stl": "STL", "blk": "BLK"}
-
-
-def projected_lines(projections, overrides):
-    """{Yahoo name key: per-game line} of the rows of a projections table with games > 0.
-
-    overrides: data/name_overrides.csv, for the Yahoo name of a projection row. Two rows with one key: the row
-    with more minutes is in the result.
-    """
-    df = projections[projections.games > 0].copy()
-    if df.empty:
-        return {}
-    yahoo_names = dict(zip(overrides.player_id, overrides.yahoo_name))
-    to_yahoo = yahoo_keys(overrides)
-    for cat, calc in STATS.items():
-        df[cat] = calc(df) / df.games
-    out = {}
-    for row in df.sort_values("minutes", ascending=False).itertuples():
-        name = yahoo_names.get(str(row.player_id)) or f"{row.first_name} {row.last_name}"
-        key = name_key(name)
-        out.setdefault(to_yahoo.get(key, key), {cat: float(getattr(row, cat)) for cat in STATS})
-    return out
 
 
 def recent_line(games, today, days=RECENT_DAYS):
@@ -59,7 +38,7 @@ def recent_line(games, today, days=RECENT_DAYS):
 def blended_lines(projected, games, today):
     """{key: blended line} for each key with a projected line or ESPN games in the last RECENT_DAYS days.
 
-    projected: projected_lines(). games: value.read_games().
+    projected: {key: per-game line} of categories.projected_lines(). games: value.read_games().
     """
     from fantasyhoops.adds.blend import blend_line
 
@@ -78,7 +57,8 @@ def read_lines(cfg, overrides, games, today):
         projections = pd.read_csv(latest_projections(cfg))
     except FileNotFoundError:
         projections = None
-    projected = {} if projections is None else projected_lines(projections, overrides)
+    lines = pd.DataFrame() if projections is None else projected_lines(projections, overrides, cfg)[0]
+    projected = {key: row.to_dict() for key, row in lines.iterrows()}
     return blended_lines(projected, games, today)
 
 

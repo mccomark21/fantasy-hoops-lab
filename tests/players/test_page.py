@@ -207,15 +207,18 @@ def test_a_yahoo_block_in_the_owner_read_is_not_caught():
 
 
 STAT_KEYS = ["pts", "reb", "ast", "threes", "stl", "blk"]
-QUAD_CFG = {**CFG, "weights": dict.fromkeys(STAT_KEYS, 1.0)}
-QUAD_CFG["players"] = {
-    "value": {"window": 3, "band_min": 3, "flag_min": 5, "prior_games": 4, "band_sd": 2, "consistency_min_games": 5}
-}
+# The config of the repo (the valuation pool of categories.projected_lines() needs all of it), with the Consistency
+# signal from 5 games.
+QUAD_CFG = common.load_config()
+QUAD_CFG["players"] = {**QUAD_CFG["players"], "value": {**QUAD_CFG["players"]["value"], "consistency_min_games": 5}}
 SCALE = pd.DataFrame({c: [1.0, 1.0] for c in STAT_KEYS}, index=["mean", "std"])
 
 
 def quadrant_data(root, names, games):
-    """data/box_scores.csv with games games of each name, and a projections file with each name."""
+    """data/box_scores.csv with games games of each name, and a projections file with each name and 200 more rows.
+
+    The more rows fill the valuation pool (140 players) of categories.projected_lines().
+    """
     (root / "data").mkdir(parents=True)
     box = [
         {
@@ -236,6 +239,10 @@ def quadrant_data(root, names, games):
     rows = [
         {"player_id": i, "first_name": n.split()[0], "last_name": n.split()[1], "games": 10, "minutes": 300 - i}
         for i, n in enumerate(names)
+    ]
+    rows += [
+        {"player_id": 1000 + i, "first_name": "Filler", "last_name": f"P{i}", "games": 10, "minutes": 100}
+        for i in range(200)
     ]
     stats = {"field_goals": 40, "threes": 10, "free_throws": 10, "offensive_rebounds": 10, "defensive_rebounds": 10}
     stats |= {"assists": 10, "steals": 10, "blocks": 10}
@@ -275,6 +282,7 @@ def test_with_no_val_the_value_quadrant_says_so_and_the_comps_stay(monkeypatch, 
 def quadrant_records():
     """The records() players and 2 more, each with a Value block and comps. Ace Bailey has 4 games, the others 5."""
     from tests.players.test_value import ACE, ACE_SD, games
+    from tests.players.test_value import CFG as VALUE_CFG
 
     extra = [("bo-two", "Bo Two"), ("cy-three", "Cy Three")]
     out = records() + [
@@ -283,7 +291,7 @@ def quadrant_records():
     ]
     for i, r in enumerate(out):
         n = 4 if i == 0 else 5
-        r["value"] = value.value_block(games(n), ACE[:n], ACE_SD, 4.0)
+        r["value"] = value.value_block(games(n), ACE[:n], ACE_SD, 4.0, VALUE_CFG)
         others = [o for o in out if o is not r]
         r["comps"] = [{"slug": o["slug"], "dist": 0.5 + j, "cat": "REB", "diff": -1.19} for j, o in enumerate(others)]
     return out

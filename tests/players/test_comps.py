@@ -50,30 +50,6 @@ def test_the_blended_line_moves_the_projection_toward_the_espn_games_of_14_days(
     assert comps.recent_line([old], date(2026, 10, 29)) == ({}, 0)
 
 
-def test_projected_lines_use_the_yahoo_name_of_an_override():
-    projections = pd.DataFrame(
-        [
-            {"player_id": 7, "first_name": "Luguentz", "last_name": "Dort", "games": 2, "minutes": 60},
-            {"player_id": 8, "first_name": "No", "last_name": "Games", "games": 0, "minutes": 0},
-        ]
-    ).assign(
-        field_goals=10,
-        threes=4,
-        free_throws=2,
-        offensive_rebounds=2,
-        defensive_rebounds=6,
-        assists=4,
-        steals=2,
-        blocks=0,
-    )
-    overrides = pd.DataFrame(
-        [{"player_id": "7", "name": "Lu Dort", "espn_name": "Luguentz Dort", "yahoo_name": "Lu Dort", "team": "OKC"}]
-    )
-    lines = comps.projected_lines(projections, overrides)
-    assert list(lines) == ["lu dort"]
-    assert lines["lu dort"] == {"pts": 13.0, "reb": 4.0, "ast": 2.0, "threes": 2.0, "stl": 1.0, "blk": 0.0}
-
-
 def test_attach_links_5_comps_by_slug_and_leaves_out_the_player_himself():
     names = ["Ace Bailey", "B One", "C Two", "D Three", "E Four", "F Five", "G Six"]
     records = [{"slug": n.lower().replace(" ", "-"), "name": n} for n in names] + [

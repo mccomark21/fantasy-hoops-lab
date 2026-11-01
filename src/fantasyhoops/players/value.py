@@ -4,12 +4,10 @@
   the planning run. So 0 is the replacement free agent, as for the Val of the header (players/data.py).
 - A dud: a game with a value below 0 (below the replacement free agent).
 - A spike: a game with a value at the top-30 level or more. The top-30 level is the Val of the player at rank
-  SPIKE_RANK by Val on the page.
-- The hero line is the window-game average. The normal-range band is the mean of his games plus or minus
-  band_sd standard deviations of a window-game average. The standard deviation mixes his own spread with the league
-  spread (league_sd()), which counts as prior_games games. A band needs band_min games. A range exit needs flag_min.
-  The values are in [players.value] in config.toml (settings()).
-- consistency_signal() gives the "Consistency" chip of the header when the duds or the spikes are RATE_FLAG of his
+  spike_rank by Val on the page.
+- The hero line, the normal-range band, the range exits and the state line come from the trend functions of
+  players/role.py, with the settings of [players.value] in config.toml in place of [players.role].
+- consistency_signal() gives the "Consistency" chip of the header when the duds or the spikes are rate_flag of his
   games or more, from consistency_min_games games (owner decision of 2026-10-30: 10).
 value_chart() draws the chart with core/chart.py, as the DESIGN.md "Charts" rules say. attach() adds the "value" block
 of each player of the player file. The browser script of the quadrant is core/card_value.py.
@@ -25,11 +23,10 @@ from fantasyhoops.core import chart, common
 from fantasyhoops.core.common import name_key
 from fantasyhoops.core.identity import yahoo_keys
 from fantasyhoops.core.rotation import close_games, read_log, read_scores
+from fantasyhoops.players import role
+from fantasyhoops.players.categories import BOX_COLUMNS
 
-SPIKE_RANK = 30  # a spike: a game at the Val of the player at this rank, or more
-RATE_FLAG = 0.4  # a dud rate or a spike rate of this share or more gives the Consistency signal
-# The stat keys of core/valuation.py and their columns in data/box_scores.csv.
-BOX_COLUMNS = {"pts": "pts", "reb": "reb", "ast": "ast", "threes": "fg3m", "stl": "stl", "blk": "blk"}
+SECTION = "value"  # the settings of the quadrant: [players.value] in config.toml
 
 # The chart: a 580px viewBox, the plot from L to W - R and from T to H - B (the sample "After + tooltips").
 W, H, L, R, T, B = 580, 268, 30, 104, 12, 22
@@ -37,24 +34,10 @@ DATE_W = 40  # a date under a game needs this many px. With less room, only ever
 MINUS = "−"
 
 
-@dataclass(frozen=True)
-class Settings:
-    """[players.value] of config.toml: window, band_min, flag_min, prior_games, band_sd, consistency_min_games."""
-
-    window: int = 3
-    band_min: int = 3
-    flag_min: int = 5
-    prior_games: float = 4
-    band_sd: float = 2
-    consistency_min_games: int = 10
-
-
-DEFAULT = Settings()  # the agent defaults of the first sample, the values of config.toml today
-
-
 def settings(cfg):
-    """The Settings of [players.value] in cfg."""
-    return Settings(**cfg["players"]["value"])
+    """[players.value] of config.toml as a dict: the trend settings of role.settings(), spike_rank, rate_flag and
+    consistency_min_games."""
+    return cfg["players"][SECTION]
 
 
 @dataclass(frozen=True)
@@ -120,7 +103,7 @@ def game_values(games, scale, replacement, cfg):
     return [round(line_value(g.line, scale, cfg) - replacement, 2) for g in games]
 
 
-def spike_level(vals, rank=SPIKE_RANK):
+def spike_level(vals, rank):
     """The top-30 level: the Val at rank (1 = best) of vals. With fewer Vals, the last one. None with no Val."""
     found = sorted((v for v in vals if v is not None), reverse=True)
     return found[min(rank, len(found)) - 1] if found else None
@@ -131,25 +114,6 @@ def kind(value, spike):
     if value < 0:
         return "dud"
     return "spike" if spike is not None and value >= spike else "normal"
-
-
-def rolling(values, window=DEFAULT.window):
-    """The window-game average at each game. None until the game that completes the first window."""
-    return [None if i < window - 1 else sum(values[i - window + 1 : i + 1]) / window for i in range(len(values))]
-
-
-def league_sd(series):
-    """The pooled spread of the games around the mean of each player. series: the game values of each player.
-
-    Only players with 2 or more games count. None if no player has 2 games.
-    """
-    ss, df = 0.0, 0
-    for values in series:
-        if len(values) >= 2:
-            mean = sum(values) / len(values)
-            ss += sum((v - mean) ** 2 for v in values)
-            df += len(values) - 1
-    return math.sqrt(ss / df) if df else None
 
 
 @dataclass(frozen=True)
@@ -163,30 +127,18 @@ class Trend:
     exits: list
 
 
-def trend(values, sd_league, s=DEFAULT):
-    """The Trend of the game values of one player. s: the Settings.
+def trend(values, sd_league, cfg):
+    """The Trend of the game values of one player, with role.rolling(), role.band() and role.exits().
 
-    The band: mean +- band_sd x sd / sqrt(window). sd^2 = (his squared deviations + prior_games x sd_league^2) /
-    (games - 1 + prior_games). With no sd_league, his own spread only. No band under band_min games.
-    A range exit: a point of the hero line outside the band, from flag_min games.
+    sd_league: role.league_spread() of the game values of all players. None: no band.
     """
-    window, band_min, flag_min = s.window, s.band_min, s.flag_min
+    s = role.settings(cfg, SECTION)
     n = len(values)
-    roll = rolling(values, window)
-    mean = sum(values) / n if n else 0.0
-    lo = hi = None
-    if n >= band_min:
-        ss = sum((v - mean) ** 2 for v in values)
-        if sd_league is None:
-            var = ss / (n - 1)
-        else:
-            var = (ss + s.prior_games * sd_league**2) / (n - 1 + s.prior_games)
-        half = s.band_sd * math.sqrt(var) / math.sqrt(window)
-        lo, hi = mean - half, mean + half
-    exits = []
-    if lo is not None and n >= flag_min:
-        exits = [i for i, r in enumerate(roll) if r is not None and not lo <= r <= hi]
-    return Trend(roll, mean, lo, hi, exits)
+    roll = role.rolling(values, s["window"])
+    low_high = role.band(values, sd_league, cfg, SECTION)
+    lo, hi = low_high or (None, None)
+    exits = [i for i, _ in role.exits(roll, low_high, n, cfg, SECTION)]
+    return Trend(roll, sum(values) / n if n else 0.0, lo, hi, exits)
 
 
 def f1(value):
@@ -235,7 +187,7 @@ def _hit(x, y, width, height, index):
     return f'<rect class="lab-c-hit" x="{x:g}" y="{y:g}" width="{width:g}" height="{height:g}" data-i="{index}"/>'
 
 
-def value_chart(games, values, tr, spike, window=DEFAULT.window):
+def value_chart(games, values, tr, spike, window):
     """(The SVG of the Value chart, the tooltip of each game) for the games, their values and their Trend.
 
     spike: the top-30 level, or None. A tooltip is a dict: ctx, value, label and rows (DESIGN.md "Tooltips"), and x, y0
@@ -325,35 +277,31 @@ def value_chart(games, values, tr, spike, window=DEFAULT.window):
     return chart.chart_svg(W, H, "".join(parts), label), tips
 
 
-def state(n, tr, s=DEFAULT):
-    """The state line under the chart (DESIGN.md "Thin data"), as HTML. s: the Settings."""
-    band_min, flag_min = s.band_min, s.flag_min
-    if n < band_min:
-        text = f"<b>Too few games for a range:</b> {n} of {band_min}."
-    else:
-        width = f"Range = mean ± {f1((tr.hi - tr.lo) / 2)}"
-        prior = ", mostly the league prior" if n - 1 <= s.prior_games else ""
-        if n < flag_min:
-            text = f"<b>Too few games for a flag:</b> {n} of {flag_min}. {width}{prior}."
-        else:
-            text = f"{width}{prior} at {n} games."
-    if n < flag_min:
+def state(n, tr, cfg):
+    """The state line under the chart (DESIGN.md "Thin data"), as HTML: role.state(), and under flag_min games
+    "One game moves a rate <n> points."."""
+    lead, rest = role.state(n, None if tr.lo is None else (tr.lo, tr.hi), cfg, SECTION)
+    text = f"<b>{lead}</b> {rest}" if lead else rest
+    if n < role.settings(cfg, SECTION)["flag_min"]:
         text += f" One game moves a rate {round(100 / n)} points."
     return text
 
 
-def value_block(games, values, sd_league, spike, s=DEFAULT):
-    """The "value" block of a player in the player file: n, consistency_min, duds, spikes, svg, state and tips."""
-    tr = trend(values, sd_league, s)
-    svg, tips = value_chart(games, values, tr, spike, s.window)
+def value_block(games, values, sd_league, spike, cfg):
+    """The "value" block of a player in the player file: n, consistency_min, rate_flag, duds, spikes, svg, state and
+    tips."""
+    s = settings(cfg)
+    tr = trend(values, sd_league, cfg)
+    svg, tips = value_chart(games, values, tr, spike, s["window"])
     kinds = [kind(v, spike) for v in values]
     return {
         "n": len(values),
-        "consistency_min": s.consistency_min_games,
+        "consistency_min": s["consistency_min_games"],
+        "rate_flag": s["rate_flag"],
         "duds": kinds.count("dud"),
         "spikes": kinds.count("spike"),
         "svg": svg,
-        "state": state(len(values), tr, s),
+        "state": state(len(values), tr, cfg),
         "tips": tips,
     }
 
@@ -380,40 +328,34 @@ def attach(records, games, overrides, scale, replacement, cfg):
         mine = games.get(to_yahoo.get(key, key)) or games.get(key)
         if mine:
             found[r["slug"]] = (mine, game_values(mine, scale, replacement, cfg))
-    sd = league_sd([v for _, v in found.values()])
-    spike = spike_level([r["val"] for r in records])
+    sd = role.league_spread([v for _, v in found.values()])
+    spike = spike_level([r["val"] for r in records], s["spike_rank"])
     for r in records:
         if r["slug"] in found:
-            r["value"] = value_block(*found[r["slug"]], sd, spike, s)
+            r["value"] = value_block(*found[r["slug"]], sd, spike, cfg)
         else:
             r["value"] = {"n": 0, "empty": NO_GAMES}
     return {
         "spike": spike,
-        "spike_rank": SPIKE_RANK,
         "league_sd": None if sd is None else round(sd, 2),
-        "window": s.window,
-        "band_min": s.band_min,
-        "flag_min": s.flag_min,
-        "prior_games": s.prior_games,
-        "band_sd": s.band_sd,
-        "consistency_min_games": s.consistency_min_games,
-        "rate_flag": RATE_FLAG,
+        **s,
     }
 
 
 def consistency_signal(record):
     """The Consistency signal of a record with a "value" block, or None.
 
-    From consistency_min games (of the block): the duds (an alert) when they are RATE_FLAG of the games or more, else the spikes.
+    From the consistency_min games of the block: the duds (an alert) when they are rate_flag of the games or more,
+    else the spikes.
     """
     from fantasyhoops.players.data import Signal
 
     block = record.get("value") or {}
     n = block.get("n", 0)
-    if n < block.get("consistency_min", DEFAULT.consistency_min_games):
+    if not n or n < block["consistency_min"]:
         return None
-    if block["duds"] >= RATE_FLAG * n:
+    if block["duds"] >= block["rate_flag"] * n:
         return Signal("Consistency", "value", False, f"Duds: {block['duds']} of {n} games")
-    if block["spikes"] >= RATE_FLAG * n:
+    if block["spikes"] >= block["rate_flag"] * n:
         return Signal("Consistency", "value", True, f"Spikes: {block['spikes']} of {n} games")
     return None

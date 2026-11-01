@@ -86,7 +86,7 @@ _SCRIPT = r"""(() => {
       r.setAttribute("tabindex", "0");
       r.setAttribute("aria-label", aria(t));
       C.bindTip(r, body, t, () => svgBox(svg, t.x, t.y0, t.y1, 8));
-      C.bindCrosshair(r, cross, t.x);
+      C.bindCrosshair(r, cross, t.x);  // after bindTip(): see the order note of bindCrosshair()
     });
   };
   C.fill.comps = (body, p, d) => {

@@ -283,6 +283,8 @@ CARD_SCRIPT = r"""window.LabCard = (() => {
   // visibility="hidden". x: the x of the game column in the units of the SVG. The line follows the show and hide rules of
   // bindTip(): a mouse shows it on enter and hides it on leave, a tap or the focus shows it, and a blur, a tap outside
   // each lab-c-hit element, a scroll or Escape hides it.
+  // Order: call bindTip() on a target before bindCrosshair(). The show of bindTip() hides the crosshair of the last
+  // target first, and this function then shows the line of this target.
   let crossShown = null;
   const hideCross = () => { if (crossShown) crossShown.setAttribute("visibility", "hidden"); crossShown = null; };
   out.bindCrosshair = (target, cross, x) => {

@@ -281,3 +281,5 @@ prior_games = 4            # the weight of the league spread, in games
 band_sd = 2                # the half width of the band, in spreads of a window average
 # The Consistency signal: duds or spikes in 40% or more of the games, from this number of games (owner, 2026-10-30).
 consistency_min_games = 10
+rate_flag = 0.4            # the Consistency signal: the share of duds or of spikes in his games
+spike_rank = 30            # a spike: a game at the Val of the player at this rank by Val, or more (the top-30 level)
