@@ -57,3 +57,11 @@ Dated observations of what the repo did not have. Each item names the date of th
 - A reviewer wrote to the owner's `data/` folder on 2026-10-30. The ticket-pipeline reviewer role says a reviewer "changes nothing in the repo", but `data/` is untracked, and the brief did not name it. Briefs must say that `data/` in the main checkout is read-only.
 - On 2026-11-01, a sample agent reported that Windows Application Control blocked pandas in its Python, so its generator script could not run. The cause and the scope (one interpreter or all) were not checked. If it hits the project venv, the planning run fails.
 - On 2026-11-01, the chief of staff checked the project venv: `import pandas` failed with "DLL load failed while importing strptime: An Application Control policy has blocked this file." The planning run of 2026-10-31 had used the same venv with no error. The planning run cannot run until the owner clears the block. The chief of staff did not try a workaround.
+
+## 2026-11-01: pandas 3.1.0 blocked, 3.0.2 allowed
+
+- On 2026-11-01, the owner said "go for it" to a reinstall of pandas in `.venv` (Python 3.14.3).
+- A clean reinstall of pandas 3.1.0 still failed: "DLL load failed while importing strptime: An Application Control policy has blocked this file." So the block is on the 3.1.0 wheel's DLL, not on a damaged file.
+- pandas 3.0.2 (the version in the system Python 3.11) imports in `.venv`, and `fantasyhoops.players` and `fantasyhoops.adds` import with it.
+- The local, untracked `uv.lock` now pins pandas 3.0.2 (`uv lock --upgrade-package "pandas==3.0.2"`), so `uv sync` does not bring back 3.1.0. `pyproject.toml` still says `pandas>=3.0`. CI on Linux is not affected.
+- If a later `uv lock --upgrade` picks 3.1.x again, the block comes back.
