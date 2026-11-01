@@ -29,6 +29,8 @@ The planning run (`python -m fantasyhoops.adds.plan`) writes `output/playoffs/in
 - **Value started:** the sum of the Val of each started game in weeks 19 to 21. A game on a light night (6 or fewer NBA games) counts `[quality_games] bonus` more (10%).
 - **Starts lost:** the core games that sit because the lineup is full. A rest night is not a start lost.
 - **Open slots:** the empty starting slots that a stream player can fill. A day with no NBA games has none.
+- **Starts / games:** the starts of the core against its games (the core games less the rest nights, so starts + starts lost). "N lost to slot clashes" is games − starts.
+- **Ideal:** the ideal of the Roster page, `ideal_games()` of `core/lineup.py` (`idealGames()` of `core/starts.js`): min(core size × the most games of any NBA team that week, 6 × the game days). "N below ideal" is ideal − games. The headline, the week table, the Starts row of the grid and the phone totals show both (owner decision of 2026-11-01).
 
 ## Later
 

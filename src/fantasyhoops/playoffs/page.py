@@ -179,11 +179,13 @@ STYLE = """/* The Playoffs page (#214): the controls, the headline, the week tot
 .stats dd { margin: 0; font-weight: 900; font-stretch: 75%; font-size: 24px; line-height: 1.05; }
 .stats dd small { font-size: 12px; font-weight: 600; font-stretch: 100%; color: var(--lab-mute); margin-left: 3px; }
 .stats .hero dd { font-size: 34px; }
+.stats dd.sub { margin-top: 3px; font-size: 12px; font-weight: 600; font-stretch: 100%; color: var(--lab-mute); }
 table.wk { border-collapse: collapse; margin-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
 table.wk th, table.wk td { padding: 4px 10px; text-align: right; border-bottom: 1px solid var(--lab-rule); }
 table.wk thead th { font-size: 11px; font-weight: 800; color: var(--mark); border-bottom: 2px solid var(--mark); }
 table.wk th.l { text-align: left; padding-left: 0; }
 table.wk tr.t > * { font-weight: 800; border-bottom: 2px solid var(--mark); }
+table.wk td small { display: block; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
 .lay { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 24px; margin-top: 18px; align-items: start; }
 @media (min-width: 1380px) { .lay { grid-template-columns: minmax(0, 1fr) 380px; } }
 .po h2 { margin: 0 0 6px; padding-bottom: 4px; border-bottom: 2px solid var(--mark); font-weight: 900; font-stretch: 75%;
@@ -200,6 +202,7 @@ table.desk.pg { min-width: 724px; }
 .pg tfoot tr.st > * { border-top: 2px solid var(--mark); }
 .pg tfoot tr.st td.d { line-height: 1; }
 .pg tfoot tr.st td.d small { display: block; font-size: 9px; font-weight: 600; color: var(--lab-mute); }
+.pg tfoot tr.st td.w small { white-space: nowrap; }
 .pg tfoot tr.og > * { border-bottom: 2px solid var(--mark); }
 .pg tfoot td.w { font-size: 13px; font-weight: 800; color: var(--mark); text-align: right; padding-right: 6px; }
 .pg tfoot td.w small { display: block; font-size: 10px; font-weight: 600; color: var(--lab-mute); }

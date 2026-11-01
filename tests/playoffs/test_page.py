@@ -167,7 +167,15 @@ def test_the_headline_and_the_grid_come_from_value_started():
     # Al Dal: 3/8, 3/9 (light), 3/15. Cy Orl: 3/8, 3/15, 3/16 (light). Bo No: 3/8, 3/15, and he rests on 3/9.
     total = v["total"]
     assert total.pop("value") == pytest.approx(21.7 + 12.4 + 10)
-    assert total == {"starts": 8, "light_starts": 2, "lost": 0, "open_heavy": 12 - 6, "open_light": 12 - 2}
+    assert total == {
+        "starts": 8,
+        "light_starts": 2,
+        "lost": 0,
+        "open_heavy": 12 - 6,
+        "open_light": 12 - 2,
+        "games": 8,
+        "ideal": 12,
+    }
     assert v["marks"]["bo-no"] == ["s", "r", "s", "n"]
     html = v["html"]
     assert "<dt>Value started</dt><dd>44.1</dd>" in html["stats"]
@@ -184,8 +192,18 @@ def test_the_headline_and_the_grid_come_from_value_started():
         "Open slots",
         "NBA games",
     ]
-    assert '<td class="w t">8<small>of 24</small></td>' in foot  # 4 game days x 6 slots
-    assert '<tr class="t"><th class="l" scope="row">Total</th><td>44.1</td><td>8</td>' in html["weeks"]
+    # Owner decision of 2026-11-01: starts of the core games, and the ideal of the Roster page (2 games x 3 players
+    # each week).
+    said = "8 starts of 8 games, ideal 12: 0 lost to slot clashes, 4 below ideal"
+    assert (
+        f'<td class="w t"><span aria-hidden="true" title="{said}">8<small>of 8</small><small>ideal 12</small>' in foot
+    )
+    assert f'<span class="vh">{said}</span>' in foot
+    assert "<td>4 / 4<small>0 lost to slot clashes</small></td><td>6<small>2 below ideal</small></td>" in html["weeks"]
+    assert '<tr class="t"><th class="l" scope="row">Total</th><td>44.1</td><td>8 / 8<small>' in html["weeks"]
+    assert "<dd>8<small>/ 8 games · ideal 12</small></dd>" in html["stats"]
+    assert '<dd class="sub">0 lost to slot clashes · 4 below ideal</dd>' in html["stats"]
+    assert "<small>of 8 games</small><small>ideal 12</small>" in html["phone"]
     assert html["phone"].count('<details class="m-p">') == 3 and "Starts each day, of 6" in html["phone"]
     assert html["reset"] == "Reset to best 3" and html["saved"] == "Not saved"
 

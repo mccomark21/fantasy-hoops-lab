@@ -77,7 +77,6 @@ const Playoffs = (() => {
   }
 
   const dayLabel = d => { const dt = dayDate(d); return `${MONTH[dt.getMonth()]} ${dt.getDate()}`; };
-  const playDays = (m, week) => m.data.days.filter(d => (week === null || d.week === week) && d.teams.length).length;
   const slotCount = m => m.data.slots.length + m.data.util;
 
   // (starts, games, games on light nights) of the marks of a player on the days idx. A rest night is not a game.
@@ -96,18 +95,26 @@ const Playoffs = (() => {
       `<div><dt>Core</dt><dd>${st.core.length}<small>players</small></dd></div>` +
       `<div><dt>Starts lost</dt><dd>${t.lost}</dd></div>` +
       `<div><dt>Open slots</dt><dd>${t.open_heavy + t.open_light}<small>${t.open_heavy} heavy · ${t.open_light} light</small></dd></div>` +
-      `<div><dt>Starts</dt><dd>${t.starts}</dd></div>`
+      `<div><dt>Starts</dt><dd>${t.starts}<small>/ ${plural(t.games, "game")} · ideal ${t.ideal}</small></dd>` +
+      `<dd class="sub">${clashes(t)} · ${belowIdeal(t)}</dd></div>`
     );
   }
+
+  // The starts of a week or of all weeks against the games of the core and the ideal of the Roster page (owner
+  // decision of 2026-11-01 on #214). games = starts + lost. ideal: idealGames() of core/starts.js.
+  const clashes = t => `${t.games - t.starts} lost to slot clashes`;
+  const belowIdeal = t => `${Math.max(0, t.ideal - t.games)} below ideal`;
+  const startsText = t => `${t.starts} starts of ${plural(t.games, "game")}, ideal ${t.ideal}: ${clashes(t)}, ${belowIdeal(t)}`;
 
   // The totals of each week, then the total.
   function weeksTable(m, sc) {
     const row = (label, w, cls) =>
       `<tr${cls ? ` class="${cls}"` : ""}><th class="l" scope="row">${label}</th><td>${f1(w.value)}</td>` +
-      `<td>${w.starts}</td><td>${w.lost}</td><td>${w.open_heavy}</td><td>${w.open_light}</td></tr>`;
+      `<td>${w.starts} / ${w.games}<small>${clashes(w)}</small></td><td>${w.ideal}<small>${belowIdeal(w)}</small></td>` +
+      `<td>${w.open_heavy}</td><td>${w.open_light}</td></tr>`;
     return (
-      '<thead><tr><th class="l" scope="col">Week</th><th scope="col">Value started</th><th scope="col">Starts</th>' +
-      '<th scope="col">Lost</th><th scope="col">Open heavy</th><th scope="col">Open light</th></tr></thead><tbody>' +
+      '<thead><tr><th class="l" scope="col">Week</th><th scope="col">Value started</th><th scope="col">Starts / games</th>' +
+      '<th scope="col">Ideal</th><th scope="col">Open heavy</th><th scope="col">Open light</th></tr></thead><tbody>' +
       m.data.weeks.map(w => row(wkLabel(w), sc.weeks[w])).join("") + row("Total", sc.total, "t") + "</tbody>"
     );
   }
@@ -153,7 +160,7 @@ const Playoffs = (() => {
     }
     const weekTotals = f => D.weeks.map((w, i) => `<td class="${wCls(i)}">${f(sc.weeks[w], w)}</td>`).join("") + `<td class="w t">${f(sc.total, null)}</td>`;
     h += "</tbody><tfoot>" +
-      `<tr class="st"><th class="lab" colspan="2" scope="row">Starts</th>${weekTotals((t, w) => `${t.starts}<small>of ${playDays(m, w) * slots}</small>`)}` +
+      `<tr class="st"><th class="lab" colspan="2" scope="row">Starts</th>${weekTotals(t => `<span aria-hidden="true" title="${startsText(t)}">${t.starts}<small>of ${t.games}</small><small>ideal ${t.ideal}</small></span><span class="vh">${startsText(t)}</span>`)}` +
       sc.days.map((d, i) => `<td class="${dayClass(m, i, "d")}">${D.days[i].teams.length ? `${d.starts}<small>/${slots}</small><span class="vh"> of ${slots} slots start</span>` : ""}</td>`).join("") + "</tr>" +
       `<tr class="os"><th class="lab" colspan="2" scope="row">Open slots</th>${weekTotals(t => `${t.open_heavy + t.open_light}<small>${t.open_light} light</small>`)}` +
       sc.days.map((d, i) => `<td class="${dayClass(m, i, "d")}">${d.open || ""}</td>`).join("") + "</tr>" +
@@ -196,7 +203,7 @@ const Playoffs = (() => {
     const row = (label, f) => `<p class="ul">${label}</p><div class="m-row">${D.days.map((d, i) => {
       const cls = dayClass(m, i, ""); return `<span${cls ? ` class="${cls}"` : ""}>${f(d, i)}</span>`; }).join("")}</div>`;
     h += '<div class="m-tot"><b>Core starts</b>' +
-      `<dl>${weekDl((t, w) => `${t.starts}<small>of ${playDays(m, w) * slots}</small>`)}</dl>` +
+      `<dl>${weekDl(t => `${t.starts}<small>of ${plural(t.games, "game")}</small><small>ideal ${t.ideal}</small><small>${clashes(t)}</small><small>${belowIdeal(t)}</small>`)}</dl>` +
       `<p class="ul">Open slots</p><dl class="u">${weekDl(t => `<b>${t.open_heavy + t.open_light}</b><small>${t.open_light} light</small>`)}</dl>` +
       `<div class="m-row hd">${head}</div>` +
       row(`Starts each day, of ${slots}`, (d, i) => (d.teams.length ? sc.days[i].starts : "")) +
