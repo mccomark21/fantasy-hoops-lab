@@ -55,3 +55,4 @@ Dated observations of what the repo did not have. Each item names the date of th
 - The venv of the main checkout had no pytest. The #185 builder ran the tests with the system Python 3.11 and `PYTHONPATH=src`.
 - No test checked that the font URLs in committed HTML files exist. `docs/design/players-sample.html` loaded a missing font (see [Run of 2026-10-30](run-2026-10-30.md)).
 - A reviewer wrote to the owner's `data/` folder on 2026-10-30. The ticket-pipeline reviewer role says a reviewer "changes nothing in the repo", but `data/` is untracked, and the brief did not name it. Briefs must say that `data/` in the main checkout is read-only.
+- On 2026-11-01, a sample agent reported that Windows Application Control blocked pandas in its Python, so its generator script could not run. The cause and the scope (one interpreter or all) were not checked. If it hits the project venv, the planning run fails.
