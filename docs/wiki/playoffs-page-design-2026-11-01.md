@@ -25,3 +25,11 @@ On 2026-11-01, the owner asked for a "playoffs" page: "I need the ability to pla
 12. Save keeps the core and the rester switches in the browser (localStorage). The page opens on the saved core, shows the save date, and has a "Reset to best 8" button. No share link and no repo save.
 13. The page has the Roster grid for the core (one row per player, the same marks), plus an "open slots" row and an "NBA games" row with light nights shaded. Above it: the headline and the totals of each week. Beside it: the player table with "Adds" and the weakest-link flag. Below it: the team-and-position fits.
 14. A player with no Val (on 2026-10-31: 29 free agents with no Yahoo line, and Brandon Ingram, Jimmy Butler III and Kristaps Porziņģis) gets the projection-based Val with a "proj" tag.
+
+## First sample (2026-11-01)
+
+- An agent wrote `.impeccable/review/playoffs-sample.html` (untracked) from the 10/31 `players.json`, with working browser code.
+- Best core of 8: Flagg, Murray, Banchero, Miller, Mitchell, White, Okongwu, Quickley. Value started 394.6, 85 starts, 4 starts lost, 41 open slots (30 heavy, 11 light). A search of all 1287 cores of 8 found the same core.
+- Weakest link: Quickley, Adds +22.2. Top fit: "C – NO, PHX, TOR: +11 starts (4 light)". C fits lead because the core has one C.
+- `scoreCore()` and `fit()` of `draft/team_builder.js` ran unchanged with value = Val. `trade_builder.js` adds only its own wrapper.
+- Problems found: `players.json` keeps no replacement value, so the sample guessed the projection Val (decision 14) from a median gap. The real build needs the replacement value of the run. Reset kept the R switches and the added players, which the decisions did not settle. On a phone, the grid scrolls sideways and does not use the Roster accordion.
