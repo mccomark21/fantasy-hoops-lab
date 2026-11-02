@@ -75,6 +75,7 @@ class FakePage:
         ("players?status=W&pos=P&count=0", (PLAYERS,), ()),
         ("players?status=T&pos=P&stat1=S_PS7&count=0", (PLAYERS,), ()),
         ("settings", (), ("table tbody tr",)),
+        ("", ("table#standingstable tbody tr",), ()),  # the league home page: the standings of #218
         ("buzzindex?date=2026-10-21&pos=ALL&src=combined&bimtab=A&trendtab=O&sort=BI_A&sdir=1", (TRENDS,), ()),
     ],
 )
@@ -82,7 +83,7 @@ def test_ready_selectors_name_the_elements_that_the_reader_needs(path, required,
     assert ready_selectors(path) == (required, optional)
 
 
-@pytest.mark.parametrize("path", ["", "transactions", "standings"])
+@pytest.mark.parametrize("path", ["transactions", "standings"])
 def test_ready_selectors_of_a_page_with_no_known_kind_raise_an_error_that_names_the_path(path):
     with pytest.raises(UnknownPage) as error:
         ready_selectors(path)

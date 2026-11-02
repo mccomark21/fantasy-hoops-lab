@@ -18,7 +18,7 @@ import pytest
 from fantasyhoops import draft
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import load_config
-from fantasyhoops.core.lineup import ENGINE_JS, ideal_games
+from fantasyhoops.core.lineup import ENGINE_JS, best_lineup, ideal_games
 from fantasyhoops.draft import board
 from fantasyhoops.trade import page as trade_page
 
@@ -326,3 +326,82 @@ def test_best_swaps_keep_a_banded_player_in_the_value_band_of_the_player_out():
     assert ("p2", "z") in swaps(banded=["p3"])[0]
     assert call("inBand", 2.0, 2.2, BAND) and not call("inBand", 2.0, 2.21, BAND)
     assert call("inBand", -1.0, -1.05, BAND) and not call("inBand", -1.0, -0.89, BAND)
+
+
+def test_best_core_takes_the_players_with_the_highest_value_started_alone():
+    """#214, #218: the Playoffs page and the League page pick the best core with bestCore()."""
+    days = [day("2027-03-08", "wk19", ["A", "B"]), day("2027-03-09", "wk19", ["A"])]
+    players = [player("b", "B", "PG", 3.0), player("a", "A", "C", 2.0), player("c", "C", "SF", 9.0)]
+    # Value started alone: a 4.0 (2 games), b 3.0 (1 game), c 0 (no game).
+    assert [p["id"] for p in call("bestCore", players, engine_data(days), 2)] == ["a", "b"]
+
+
+# The fill tests (#218). FULL: 5 players of team K, one for each position slot, so Util is the only open slot.
+FULL = [player(f"k{n}", "K", pos, 5.0 - n) for n, pos in enumerate(SLOTS)]
+
+
+def test_a_stream_player_fills_only_the_positions_that_fit_on_his_first_start():
+    """#218 owner approval: the fill count checks the open position slots, as the Adds planner does. Day 1 has only C
+    open and day 2 has only PG open. A stream player takes C on day 1, so he cannot fill PG on day 2."""
+    a = [player("a1", "A", "PG", 3), player("a2", "A", "SG", 3), player("a3", "A", "SF", 3)]
+    a += [player("a4", "A", "PF", 3), player("a5", "A", "SF", 2)]  # a5 takes Util
+    b = [player("b1", "B", "SG", 1), player("b2", "B", "SF", 1), player("b3", "B", "PF", 1)]
+    b += [player("b4", "B", "C", 1), player("b5", "B", "C", 0.5)]  # b5 takes Util
+    data = engine_data([day("2027-03-08", "wk19", ["A", "X"]), day("2027-03-09", "wk19", ["B", "X"])])
+    got = call("streamFill", a + b, data, {"spots": 1, "adds": 0})
+    assert (got["open_heavy"], got["heavy"], got["adds"], got["unused"]) == (2, 1, 0, 1)
+    # With 1 add, a player of a team that plays on day 2 fills PG.
+    got = call("streamFill", a + b, data, {"spots": 1, "adds": 1})
+    assert (got["heavy"], got["adds"], got["unused"]) == (2, 1, 0)
+    # A stream player starts only where best_lineup() of core/lineup.py (count() of team_plan()) starts him.
+    assert len(best_lineup([set(p["pos"]) for p in b] + [{"C"}], SLOTS)) == 5  # C on day 2: no start
+    assert len(best_lineup([set(p["pos"]) for p in b] + [{"PG"}], SLOTS)) == 6
+
+
+def test_the_fill_uses_the_adds_on_heavy_nights_first_and_gives_the_stream_games_the_fill_rate_and_the_unused():
+    """Owner decisions of 2026-11-02 on #218. Day 1 is a light night (only L plays), days 2 and 3 are heavy nights
+    (only H and only H2 play). Each day, a full core of a team that plays only that day leaves Util open. With 1 add,
+    the add goes to a heavy night."""
+    days = [
+        day("2027-03-08", "wk19", ["K1", "L"], quality=True),
+        day("2027-03-09", "wk19", ["K2", "H"]),
+        day("2027-03-10", "wk19", ["K3", "H2"]),
+    ]
+    core = [{**p, "id": p["id"] + t, "team": t} for t in ("K1", "K2", "K3") for p in FULL]
+    data = engine_data(days, bonus=0.1)
+    got = call("streamFill", core, data, {"spots": 1, "adds": 1})
+    # The week starts with a player of H (each team gives 1 start, H is first by name). The add goes to day 3.
+    assert (got["heavy"], got["light"], got["adds"]) == (2, 0, 1)
+    assert (got["open_heavy"], got["open_light"]) == (2, 1)
+    assert got["games"] == pytest.approx(2.0)
+    assert got["rate"] == pytest.approx(2 / (2 + 1 * 1.1))
+    assert got["unused"] == 1
+    assert got["weeks"] == {"wk19": {"heavy": 2, "light": 0, "adds": 1}}
+    # With 3 adds (more than the 2 heavy nights with open slots), the light night gets an add too.
+    got = call("streamFill", core, data, {"spots": 1, "adds": 3})
+    assert (got["heavy"], got["light"], got["unused"]) == (2, 1, 0)
+    assert got["games"] == pytest.approx(2 + 1.1) and got["rate"] == pytest.approx(1.0)
+    # No stream spot: no fill, and a fill rate of 0.
+    got = call("streamFill", core, data, {"spots": 0, "adds": 5})
+    assert (got["heavy"], got["light"], got["games"], got["rate"], got["unused"]) == (0, 0, 0, 0, 3)
+
+
+def test_the_fill_resets_the_adds_each_week_and_fills_no_slot_that_is_not_open():
+    days = [
+        day("2027-03-08", "wk19", ["K", "H"]),
+        day("2027-03-15", "wk20", ["K", "H2"]),
+        day("2027-03-16", "wk20", []),
+    ]
+    data = {**engine_data(days), "weeks": ["wk19", "wk20"]}
+    got = call("streamFill", FULL, data, {"spots": 2, "adds": 0})
+    # Each week starts with kept players of the best teams, so no add is needed. 2 spots fill only 1 open slot a day.
+    assert (got["heavy"], got["open_heavy"], got["adds"]) == (2, 2, 0)
+    assert got["weeks"]["wk20"] == {"heavy": 1, "light": 0, "adds": 0}
+
+
+def test_rank_median_gives_rank_1_to_the_most_and_the_median_of_the_league():
+    """Owner decision of 2026-11-02 on #218: the header of the League page."""
+    assert call("rankMedian", [5, 3, 3, 1], 3) == {"rank": 2, "of": 4, "median": 3}
+    assert call("rankMedian", [5, 3, 3, 1], 5) == {"rank": 1, "of": 4, "median": 3}
+    assert call("rankMedian", [1, 2, 9], 1) == {"rank": 3, "of": 3, "median": 2}
+    assert call("rankMedian", [1, 4], 1)["median"] == 2.5

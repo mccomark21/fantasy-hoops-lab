@@ -35,6 +35,7 @@ def test_the_home_page_has_the_sections_of_the_sample_in_order():
         ("free-agents/", "Free agents"),
         ("trade/", "Trades"),
         ("playoffs/", "Playoffs"),
+        ("league/", "League"),
     ]
     assert html.count("<figcaption>Example") == 4
     assert html.count("<li><b>") == 3  # the 3 steps of How it works
@@ -80,7 +81,7 @@ def test_the_home_page_passes_the_chart_style_check_and_the_label_overlap_check(
     html = home.render(CFG)
     assert chart.style_problems(html) == [] and chart.label_overlaps(html) == []
     svgs = re.findall(r"<svg\b[^>]*>", html)
-    assert len(svgs) == 5 and all('aria-hidden="true"' in s for s in svgs)
+    assert len(svgs) == 6 and all('aria-hidden="true"' in s for s in svgs)
 
 
 def test_write_puts_the_page_in_output_home(tmp_path):

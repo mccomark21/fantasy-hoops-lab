@@ -12,6 +12,13 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | IL | Injured list: 3 spots that are not roster spots. |
 | Kept set | The players of a team that its playoff starts count in the trade tool: the top 8 by value (`[trade] kept`). The untouchable players and the IL players are always in. See the [trade guide](trade/README.md#kept-set). |
 | Playoff starts | The started games of a team in the playoff weeks, with the Roster page rules (`core/roster.py` `lineup_fit()`). A rest night on a back-to-back is not a start. |
+| Open slot | An empty starting slot of the core on a day with NBA games. A stream player can fill it. The Playoffs and League pages count them with `valueStarted()` of `core/starts.js`. |
+| Light night, heavy night | A light night has `[quality_games] max_games_per_day` (6) or fewer NBA games. A heavy night has more. A start on a light night counts `[quality_games] bonus` (10%) more. |
+| Filled heavy, filled light | The open slots on heavy nights and on light nights that the stream spots can fill with the adds of each week (`streamFill()` of `core/starts.js`, League page, #218). |
+| Stream games | Filled heavy + filled light × (1 + `[quality_games] bonus`). Stream value = stream games × v. See the [League page guide](league/README.md). |
+| Fill rate | Stream games ÷ (open heavy + open light × (1 + `[quality_games] bonus`)), as a percent. |
+| Unused slots | (Open heavy − filled heavy) + (open light − filled light): the open slots that the streams do not fill. |
+| v | The value of one streamed game: the mean Val of the best `[league_page] v_free_agents` (10) free agents of the planning run. |
 
 ## League
 

@@ -41,6 +41,10 @@ READY = [
 # readers.read_record() reads the team overview (#142). A live run has not yet shown when it appears, so it is optional:
 # it gets SCORE_WAIT_SECONDS, and a page with no overview gives no record.
 TEAM_READY = (("table#statTable0 tbody tr[data-pos]",), ('[data-tst="fantasy-team-overview-name"]',))
+# The league home page (path "") has the standings table that readers.read_standings() reads (#218). The table was in
+# the Edge HTML of 2026-10-20 (.scratch/yahoo/league.html). No planning run has read this page yet.
+HOME_PATH = ""
+HOME_READY = (("table#standingstable tbody tr",), ())
 # In the live check of 2026-10-21, the score table appeared 0.1 s or less after the day links.
 # A page with no score table uses the full wait, so the wait is short: 5 times the time of that check (#93).
 # The wait was 2 s before #93.
@@ -80,6 +84,8 @@ def ready_selectors(path):
             return required, optional
     if path[:1].isdigit():
         return TEAM_READY
+    if path == HOME_PATH:
+        return HOME_READY
     raise UnknownPage(
         f"No page kind matches the Yahoo page path {path!r}. "
         "Add the page kind and the elements that its reader needs to READY in adds/session.py."

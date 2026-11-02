@@ -128,7 +128,7 @@ def test_the_menu_and_the_page_head_describe_the_players_page():
     assert site.TOOLS["players"][0] == "Players" and "report card" in site.TOOLS["players"][1]
     html = page.render(CFG, {"rostered": 1, "free_agents": 0})
     assert "<title>Players</title>" in html and site.page_meta("players", "Players") in html
-    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html.split("</nav>")[0])[-2] == "Players"
+    assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", html.split("</nav>")[0])[-3] == "Players"
 
 
 def records():

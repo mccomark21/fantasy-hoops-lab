@@ -85,10 +85,10 @@ const Playoffs = (() => {
     });
   }
 
-  // The best core of n players (decision 11): your n players with the highest value started alone.
+  // The best core of n players (decision 11): your n players with the highest value started alone, bestCore() of
+  // core/starts.js. The League page uses the same rule (#218).
   function bestCore(m, st, n) {
-    const solo = Object.fromEntries(m.mine.map(id => [id, score(m, st, [id]).total.value]));
-    return m.mine.slice().sort((a, b) => solo[b] - solo[a]).slice(0, n);
+    return S.bestCore(m.mine.map(id => m.byId[id]), m.engine, n, resters(m, st)).map(p => p.id);
   }
 
   // The light nights of a player (decision 6): his games on quality days, from the marks of valueStarted().

@@ -454,10 +454,17 @@ def run_command(
     games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
     sched = pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
     cfg = {
-        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10, "teams": 14, "espn_season": 2027},
+        "league": {
+            "slots": ["PG", "SG", "SF", "PF", "C"],
+            "roster_spots": 10,
+            "teams": 14,
+            "espn_season": 2027,
+            "adds": 5,
+        },
         "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
         "weights": {"pts": 1.0},
         "playoffs": {"core": 8},  # the Playoffs page (#214)
+        "league_page": {"v_free_agents": 10},  # the League page (#218)
         "quality_games": {"bonus": 0.1},
         "trade": {"untouchable": [], "value_band": [0.95, 1.10]},  # the Best swaps list (#215)
         "games": {"full_season": 82, "power": 1.25},  # the Season value (#222)
@@ -888,14 +895,49 @@ def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_
     monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
     monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
     monkeypatch.setattr(command.players_page.categories, "read_categories", lambda cfg: {})
-    run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)
+    real_read = command.league_page.read_records
+    monkeypatch.setattr(
+        command.league_page, "read_records", lambda league: real_read(StandingsLeague(league, STANDINGS_PAGE))
+    )
+    yahoo = run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)
     players = (common.OUT / "players" / "index.html", (common.OUT / "players" / "players.json",))
     playoffs = common.OUT / "playoffs" / "index.html"
-    assert published[0][3] == {"free-agents": page.free_agents_path(), "players": players, "playoffs": playoffs}
+    league = common.OUT / "league" / "index.html"
+    assert published[0][3] == {
+        "free-agents": page.free_agents_path(),
+        "players": players,
+        "playoffs": playoffs,
+        "league": league,
+    }
     file = json.loads(players[1][0].read_text(encoding="utf-8"))
     assert file["players"][0]["owner"] == "Lamb Chops" and file["players"][0]["mine"] is True
     html = playoffs.read_text(encoding="utf-8")
     assert '"id":"ace-bailey","name":"Ace Bailey"' in html and '<a href="../playoffs/" aria-current="page">' in html
+    # #218: the run reads the standings (the league home page, path "") and writes the League page with the record.
+    assert yahoo.paths.count("") == 1
+    html = league.read_text(encoding="utf-8")
+    assert '"records":{"Lamb Chops":"3-1-0"}' in html and '<a href="../league/" aria-current="page">' in html
+
+
+# #218: the standings table of the league home page (Edge, 2026-10-20), with one team renamed to the owner of the
+# test and a record that is not 0-0-0.
+STANDINGS_PAGE = (
+    (Path(__file__).parent / "fixtures" / "standings.html")
+    .read_text(encoding="utf-8")
+    .replace(">Shady McGrady</a>", ">Lamb Chops</a>")
+    .replace('<td class="Nowrap Ta-c Px-sm Tst-wlt">0-0-0</td>', '<td class="Nowrap Ta-c Px-sm Tst-wlt">3-1-0</td>', 1)
+)
+
+
+class StandingsLeague:
+    """A League that gives html for the league home page (path "") and counts the page in league."""
+
+    def __init__(self, league, html):
+        self.league, self.html = league, html
+
+    def get(self, path):
+        self.league.get(path)
+        return self.html
 
 
 @pytest.mark.parametrize("error", ["timeout", "network"])

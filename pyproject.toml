@@ -27,6 +27,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "fantasyhoops.draft" = ["*.js"]
 "fantasyhoops.trade" = ["*.js"]
+"fantasyhoops.league" = ["*.js"]
 "fantasyhoops.core" = ["*.js", "fonts/*.woff2", "fonts/*.txt", "icons/*.svg", "icons/*.png"]
 
 [tool.pytest.ini_options]
