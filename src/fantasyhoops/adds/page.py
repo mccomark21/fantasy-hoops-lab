@@ -909,7 +909,7 @@ function render() {
   const focus = active && active.dataset ? active.dataset.sort : undefined;
   $("fa-table").innerHTML = `<caption class="vh">Free agents, sorted by ${SORT_NAMES[state.sort]}, highest first`
     + `</caption><thead><tr><th scope="col" class="l">Team</th><th scope="col" class="l">Player</th>`
-    + `${th("value", "s1")}${th("next7")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
+    + `${th("value", "s1")}${th("next7", "wide")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
     + rows.slice(0, DATA.rows).map(p =>
       `<tr><td class="band" style="${esc(p.band)}">${esc(p.team)}</td>`
       + `<th class="pl" scope="row"><b>${p.slug ? `<a class="lab-pname" href="#player=${p.slug}" data-player="${p.slug}">`
@@ -923,7 +923,7 @@ function render() {
       + `${p.role_up.length ? ` · role up: ${esc(p.role_up.join(", "))} absent` : ""}</small>`
       + `${p.role ? `<small>${esc(p.role)}</small>` : ""}</th>`
       + `<td class="n s1${p.value < 0 ? " neg" : ""}">${fmt(p.value)}</td>`
-      + `<td class="n${p.next7 < 0 ? " neg" : ""}">${fmt(p.next7)}</td>`
+      + `<td class="n wide${p.next7 < 0 ? " neg" : ""}">${fmt(p.next7)}</td>`
       + `<td class="n${p.match < 0 ? " neg" : ""}">${fmt(p.match)}</td><td class="n wide">${fmt(p.recent)}</td>`
       + `<td class="n">${games(p)}</td>`
       + DATA.days.map((d, i) => `<td class="day${i ? "" : " s1"}${sel(i)}">${p.fits[i] ? DOT_FIT

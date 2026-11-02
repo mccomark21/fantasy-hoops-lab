@@ -298,7 +298,7 @@ Decision (2026-10-28, #143): the free-agent table and the waiver table have the 
 2. Player: the name in heavy condensed caps, then the status tag and the flags (FA?, MIN+, UP, the next-week mark). A small line below gives the team, the positions (for example "PHI · SG/SF"), the adds today and the role-up text. The role line is a second small line.
 3. Head and rows: the Roster head (11px bold `mark` text over a 2px `mark` rule), zebra rows and 1px row rules. Vertical rules separate the player, the values and the days.
 4. Sorted column: the 3px `mark` bar under the header and the arrow (▼). Each header has `mark` text, as on the Roster table.
-5. Below 600px, the band and the name are smaller (15px), and each day column is 18px wide. At 390px, the table fits with no sideways scroll. The Recent column shows at 600px and wider.
+5. Below 600px, the band and the name are smaller (15px), and each day column is 18px wide. At 390px, the table fits with no sideways scroll. The Next 7 and Recent columns show at 600px and wider (#222: Next 7 does not fit at 320px). Below 600px, Match gives the streaming value.
 6. The free-agent table has no Rk column: a free agent has no custom rank.
 
 Page tests check that each cell of the free-agent table and the waiver table fits its cell at 320, 390, 768 and 1280px, and that each text has 4.5:1 or more in both themes at 390 and 1280px.
