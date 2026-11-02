@@ -65,3 +65,4 @@ Dated observations of what the repo did not have. Each item names the date of th
 - pandas 3.0.2 (the version in the system Python 3.11) imports in `.venv`, and `fantasyhoops.players` and `fantasyhoops.adds` import with it.
 - The local, untracked `uv.lock` now pins pandas 3.0.2 (`uv lock --upgrade-package "pandas==3.0.2"`), so `uv sync` does not bring back 3.1.0. `pyproject.toml` still says `pandas>=3.0`. CI on Linux is not affected.
 - If a later `uv lock --upgrade` picks 3.1.x again, the block comes back.
+- On 2026-11-02, the #218 builder found that the project `.venv` has no pytest or ruff. It ran them from a scratch PYTHONPATH. The dev tools are not installed in the venv by default.
