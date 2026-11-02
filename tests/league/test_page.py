@@ -5,6 +5,8 @@
 3. In Node, each value of a row comes from valueStarted(), bestCore() and streamFill() of core/starts.js. Your row uses
    the core that you saved on the Playoffs page. The header gives the ranks and the medians of rankMedian().
 4. In Chromium, the page draws the table with no error, a header click sorts and a team click opens its core.
+5. The weekly Totals, the week strips, the vulnerable flag and the reasons come from weekTotals() and weekRanks() of
+   core/starts.js (#229).
 """
 
 import copy
@@ -78,6 +80,11 @@ def test_the_page_data_has_the_records_of_the_standings_and_the_settings():
     assert data(standings=None)["records"] == {"Lamb Chops": None, "Me": None}
     assert (d["core"], d["roster_spots"], d["adds"], d["key"]) == (2, 3, 1, "fhl-playoffs")
     assert d["weeks"] == ["wk19", "wk20"] and len(d["days"]) == 4 and len(d["players"]) == len(RECORDS)
+    # #229: the rank band, the percent below the mean week and the few-starts limit come from config.toml.
+    lp = CFG["league_page"]
+    assert d["weak"] == {"band": lp["weak_rank_band"], "below": lp["weak_below_mean"], "few": lp["few_starts"]}
+    assert common.load_config()["league_page"]["weak_rank_band"] == [10, 14]
+    assert common.load_config()["league_page"]["weak_below_mean"] == 0.07
 
 
 def test_the_page_has_the_menu_item_the_scripts_and_no_placeholder():
@@ -133,12 +140,13 @@ process.stdin.on("end", () => {
   const check = rows.map(r => {
     const resters = r.source === "saved" ? r.players.filter(p => saved.rest && p.id in saved.rest ? saved.rest[p.id]
       : p.rests_b2b).map(p => p.id) : undefined;
-    return { vs: S.valueStarted(r.players, eng, resters).total,
+    const vs = S.valueStarted(r.players, eng, resters);
+    return { vs: vs.total, weeks: vs.weeks,
       fill: S.streamFill(r.players, eng, { spots: data.roster_spots - r.players.length, adds: data.adds, resters }) };
   });
   const view = L.view(data, rows, { key: "total", dir: -1, open: "Me" });
-  const sorts = Object.fromEntries(["record", "unused", "rate", "team"].map(k =>
-    [k, L.sorted(rows, { key: k, dir: k === "unused" || k === "team" ? 1 : -1 }).map(r => r.team)]));
+  const sorts = Object.fromEntries(["record", "weeks", "vps", "rate", "team"].map(k =>
+    [k, L.sorted(rows, { key: k, dir: k === "weeks" || k === "team" ? 1 : -1 }).map(r => r.team)]));
   process.stdout.write(JSON.stringify({ rows, check, view, sorts }));
 });
 """
@@ -185,6 +193,7 @@ def test_each_value_of_a_row_comes_from_value_started_and_stream_fill():
         check["vs"]["open_light"],
     )
     assert (lamb["games"], lamb["rate"], lamb["unused"]) == (fill["games"], fill["rate"], fill["unused"])
+    assert lamb["volume"] == sum(x["volume"] for x in lamb["wk"].values())
     v = data()["v"]
     assert lamb["stream"] == pytest.approx(fill["games"] * v)
     assert lamb["total"] == pytest.approx(lamb["value"] + lamb["stream"])
@@ -223,6 +232,46 @@ def test_the_header_gives_your_ranks_and_the_league_medians():
 
 
 @needs_node
+def test_the_weekly_totals_of_a_team_come_from_value_started_and_stream_fill():
+    """#229 acceptance: a test checks one team's weekly Totals against valueStarted() and streamFill()."""
+    out = run()
+    i = [r["team"] for r in out["rows"]].index("Lamb Chops")
+    lamb, check, v = out["rows"][i], out["check"][i], data()["v"]
+    for w in ("wk19", "wk20"):
+        x, vs, f = lamb["wk"][w], check["weeks"][w], check["fill"]["weeks"][w]
+        assert x["total"] == pytest.approx(vs["value"] + (f["heavy"] + f["light"] * 1.1) * v)
+        assert x["volume"] == vs["starts"] + f["heavy"] + f["light"]
+        assert x["vps"] == pytest.approx(x["total"] / x["volume"])
+    assert sum(x["total"] for x in lamb["wk"].values()) == pytest.approx(lamb["total"])
+
+
+@needs_node
+def test_the_week_strips_the_flag_the_reasons_and_the_weakest_week():
+    """#229: the Week rank, Volume and Value / start strips, the vulnerable flag, the reasons in the team detail and
+    the third header line. A band of [2, 2] and a limit below 0 flag each week at rank 2 of 2."""
+    given = data()
+    given["weak"] = {"band": [2, 2], "below": -1, "few": 2}
+    out = run(given)
+    table, n = out["view"]["table"], 0
+    for r in out["rows"]:
+        at2 = [w for w in ("wk19", "wk20") if r["wk"][w]["r_total"] == 2]
+        assert r["weakAll"] == (len(at2) == 2)
+        assert [w for w in at2 if r["wk"][w]["vulnerable"]] == ([] if r["weakAll"] else at2)
+        n += sum(r["wk"][w]["vulnerable"] for w in ("wk19", "wk20"))
+    assert table.count('class="wb vul"') == n
+    assert ("weak all 3 weeks" in table) == any(r["weakAll"] for r in out["rows"])
+    # Each row has 3 strips of 2 weeks.
+    assert table.count('<span class="ws">') == 3 * 2 and table.count('<span class="wb') == 3 * 2 * 2
+    # The team detail (Me is open): one section for each week, and the unused slots.
+    me = next(r for r in out["rows"] if r["mine"])
+    assert table.count("<section><h4>Week ") == 2 and f" · {me['unused']} unused slots</p>" in table
+    w = me["weakest"]
+    rank = me["wk"][w]["r_total"]
+    assert max(me["wk"][x]["r_total"] for x in ("wk19", "wk20")) == rank
+    assert f"<li><b>Your weakest week:</b> week {w[2:]}, rank {rank} of 2" in out["view"]["header"]
+
+
+@needs_node
 def test_the_table_has_the_columns_and_each_column_sorts():
     out = run()
     table = out["view"]["table"]
@@ -234,19 +283,22 @@ def test_the_table_has_the_columns_and_each_column_sorts():
         "Val / core",
         "Stream value",
         "Total",
+        "Week rank",
+        "Volume",
+        "Value / start",
         "Starts",
         "Open heavy",
         "Open light",
         "Stream games",
         "Fill rate",
-        "Unused",
     ]
     assert '<tr class="mine on" data-t="Me"' in table and '<em class="tag you">You</em>' in table
     assert '<tr class="det">' in table  # the open team shows its core
     # Record sorts by the win share: Me (3-1-0) first.
     assert out["sorts"]["record"] == ["Me", "Lamb Chops"] and out["sorts"]["team"] == ["Lamb Chops", "Me"]
     rows = {r["team"]: r for r in out["rows"]}
-    assert out["sorts"]["unused"] == sorted(rows, key=lambda t: (rows[t]["unused"], -rows[t]["total"]))
+    assert out["sorts"]["weeks"] == sorted(rows, key=lambda t: (rows[t]["weeks"], -rows[t]["total"]))
+    assert out["sorts"]["vps"] == sorted(rows, key=lambda t: (-rows[t]["vps"], -rows[t]["total"]))
     assert re.search(r'<td class="rate">\d+%</td>', table)
 
 
@@ -258,7 +310,7 @@ def test_the_page_in_chromium_draws_sorts_and_opens_a_team(tmp_path):
         pg.on("pageerror", lambda e: errors.append(str(e)))
         pg.goto(path.as_uri())
         assert pg.locator("#lg tbody tr[data-t]").count() == 2
-        assert pg.locator("#ranks li").count() == 2 and pg.locator("#fa-list").inner_text().startswith("Hé Accent")
+        assert pg.locator("#ranks li").count() == 3 and pg.locator("#fa-list").inner_text().startswith("Hé Accent")
         pg.locator('#lg button[data-k="team"]').click()
         assert pg.locator("#lg tbody tr[data-t]").first.get_attribute("data-t") == "Lamb Chops"
         pg.locator('#lg tr[data-t="Me"] th').click()
@@ -360,8 +412,9 @@ def test_a_header_shows_its_description_on_hover_and_on_focus_and_still_sorts(si
             # each header with a description shows after the scroll, inside the viewport. Record has no card.
             labels = {
                 "record": None, "core": "Core", "perCore": "Val / core", "stream": "Stream value", "total": "Total",
+                "weeks": "Week rank", "volume": "Volume", "vps": "Value / start",
                 "starts": "Starts", "heavy": "Open heavy", "light": "Open light", "games": "Stream games",
-                "rate": "Fill rate", "unused": "Unused",
+                "rate": "Fill rate",
             }  # fmt: skip
             pg.locator('#lg button[data-k="team"]').focus()
             for k, label in labels.items():
@@ -381,6 +434,6 @@ def test_a_header_shows_its_description_on_hover_and_on_focus_and_still_sorts(si
             pg.locator('#lg button[data-k="team"]').click()
             assert pg.locator("#lg tbody tr[data-t]").first.get_attribute("data-t") == "Lamb Chops"
             assert pg.locator("#lg-notes").get_attribute("open") is None
-            assert pg.locator("#lg-defs dd").count() == 10 and not errors
+            assert pg.locator("#lg-defs dd").count() == 12 and not errors
         finally:
             browser.close()

@@ -12,9 +12,9 @@ The planning run reads the records from the standings table of the Yahoo league 
 
 ## The page
 
-- **Header:** two lines for your team. "Core starts: rank X of 14 (league median Y)" uses the Starts column. "Filled heavy: rank X of 14 (league median Y)" uses the filled open slots on heavy nights. Rank 1 is the most. Equal values share the higher rank. `rankMedian()` of `core/starts.js` gives each rank and median (owner decision of 2026-11-02).
+- **Header:** three lines for your team. "Core starts: rank X of 14 (league median Y)" uses the Starts column. "Filled heavy: rank X of 14 (league median Y)" uses the filled open slots on heavy nights. Rank 1 is the most. Equal values share the higher rank. `rankMedian()` of `core/starts.js` gives each rank and median (owner decision of 2026-11-02). "Your weakest week: week X, rank Y of 14" gives the week with your worst rank of the weekly Total, and its main cause (#229).
 - **Summary:** your rank by Total, your core size and its source, the open slots that your streams fill, and v with the free agents of v.
-- **Table:** one row for each team. Your row has the "You" tag. A click on a column header sorts by that column. A second click reverses the sort. Record sorts by the win share, (W + T ÷ 2) ÷ games. A click on a team opens its core: each core player with his Val and his starts, then the players outside the core.
+- **Table:** one row for each team. Your row has the "You" tag. A click on a column header sorts by that column. A second click reverses the sort. Record sorts by the win share, (W + T ÷ 2) ÷ games. A click on a team opens its core: the value started and the unused slots, the reasons of each week (see "Weeks"), each core player with his Val and his starts, then the players outside the core.
 - **Column descriptions (#227):** each header except Team and Record shows a short description on mouse hover and on keyboard focus, with the numbers of the run (the slots, the light-night bonus and v). `notes()` of `league.js` gives the text. Phones have no hover, so a closed "Column meanings" list below the table has the same text. The footer has only the data line.
 
 | Column | Meaning |
@@ -25,12 +25,18 @@ The planning run reads the records from the standings table of the Yahoo league 
 | Val / core | Value started ÷ core players. |
 | Stream value | Stream games × v. |
 | Total | Value started + stream value. |
+| Week rank | One box for each playoff week: the rank of 14 of the weekly Total. A red box is a vulnerable week. A team that is weak in each week gets the label "weak all 3 weeks". |
+| Volume | One box for each week: the games started, core starts + filled heavy + filled light. |
+| Value / start | One box for each week: the weekly Total ÷ Volume. Total = Volume × Value / start. |
 | Starts | The started core games / the core games (starts + starts lost). |
 | Open heavy | The filled open slots on heavy nights / the open slots on heavy nights. |
 | Open light | The filled open slots on light nights / the open slots on light nights. |
 | Stream games | Filled heavy + filled light × (1 + `[quality_games] bonus`). |
 | Fill rate | Stream games ÷ (open heavy + open light × (1 + bonus)), as a percent. |
-| Unused | (Open heavy − filled heavy) + (open light − filled light): the open slots that the streams do not fill. |
+
+The table has no Unused column (owner decision of 2026-11-02 on #229: Volume replaces it). The team detail gives the unused slots: (open heavy − filled heavy) + (open light − filled light). Volume = the slots of the game days − the unused slots.
+
+The shade of a week box comes from its rank: rank 1 is the darkest, rank 14 has no shade.
 
 ## The numbers
 
@@ -47,7 +53,24 @@ The planning run reads the records from the standings table of the Yahoo league 
 - **Positions:** a stream player starts only if the slots and Util can hold him with the core players of the day. This is the position-slot logic of `count()` in `adds/team_plan.py` (`best_lineup()` of `core/lineup.py`). On his first start, a stream player takes the positions that fit that day (`slots_of()` and `_positions()` of `adds/team_plan.py`). With an open Util slot, each position fits. So a player who fills an open C slot on Monday cannot fill an open PG slot on Wednesday.
 - **v:** the value of one streamed game: the mean Val of the best `[league_page] v_free_agents` (10) free agents of the run. On the 11/1 data, v = 1.40.
 
+## Weeks
+
+The playoffs are three separate head-to-head weeks, so a high 3-week Total can hide one weak week (#229). `weekTotals()` and `weekRanks()` of `core/starts.js` give the numbers of each week. The page script only draws them.
+
+- **Weekly Total:** the value started of the week (`valueStarted()`) + the stream games of the week (`streamFill()`) × v. The three weekly Totals add up to the Total.
+- **Week rank:** the rank of the weekly Total among the 14 teams, with `rankMedian()`. Volume and Value / start get ranks in the same way.
+- **Vulnerable week:** the rank is in `[league_page] weak_rank_band` (10 to 14), and the weekly Total is at least `[league_page] weak_below_mean` (7%) below the mean week of the team. A team with a rank in the band in each week gets the label "weak all 3 weeks" in place of a vulnerable week. The flag uses the Total only (owner decision of 2026-11-02 on #229).
+- **Weakest week** (header): the week with the worst rank of the Total. With equal ranks, the week with the lower Total.
+- **Reasons** (team detail, one section for each week):
+  1. Few starts: the core players with `[league_page] few_starts` (2) or fewer starts in the week, with their games and rest nights.
+  2. The starts lost on crowded nights, for each player (`lost_by` of `scoreCore()`).
+  3. The open slots that the streams cannot fill, with the filled slots, the stream spots and the adds.
+- **Main cause** (header): of reasons 2 and 3, the reason with more games. With equal counts, the open slots.
+
 ## Limits
+
+- A gap of 6 to 20 points between two weeks is about 2 to 5 games, less than one injury.
+- The Total is a value sum, but the playoffs are category head-to-head.
 
 - The fill is a greedy rule, day by day. It is not the search of the Adds planner (`team_plan()`), so the Adds planner can find a plan with more starts.
 - The fill does not know which free agents each NBA team has. It assumes that a team that plays has a free agent at each open position.
