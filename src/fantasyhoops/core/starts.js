@@ -487,7 +487,7 @@ const Starts = (() => {
 
   // The numbers of each playoff week of a core (League page, #229). opts: {spots, adds, resters} as in streamFill(),
   // v: the value of one stream game, few: the most starts of a core player with "few starts".
-  // The result: {weeks: {week: {...}}, total, volume, vps}. For each week:
+  // The result: {weeks: {week: {...}}, total, volume, vps, started, fill}. For each week:
   //   value: the value started (valueStarted()). stream: the stream games of the week x v. total: value + stream.
   //   volume: the games started, core starts + filled heavy + filled light. vps: total / volume (value per start).
   //   starts, lost: the core starts and the starts lost. lost_by: {player name: starts lost} (scoreCore()).
@@ -497,6 +497,7 @@ const Starts = (() => {
   //   main: the main cause of a weak week, "unused" or "lost": the cause with more games. With equal counts,
   //     "unused". null if both are 0.
   // total, volume and vps: the same numbers for all weeks. total is the Total of the League page.
+  // started, fill: the valueStarted() and streamFill() results of the core, so that a caller does not compute them again.
   function weekTotals(core, data, opts = {}) {
     const set = opts.resters === undefined || opts.resters === null ? null : _ids(opts.resters);
     const players = set ? core.map(p => ({ ...p, rests_b2b: set.has(p.id) })) : core;
@@ -523,7 +524,7 @@ const Starts = (() => {
       total += a.value + stream;
       volume += vol;
     }
-    return { weeks, total, volume, vps: volume ? total / volume : 0 };
+    return { weeks, total, volume, vps: volume ? total / volume : 0, started: vs, fill };
   }
 
   // The weekly ranks and the vulnerable flag of the teams of the league (League page, #229). teams: a list of

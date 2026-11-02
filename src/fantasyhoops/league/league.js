@@ -39,8 +39,8 @@ const League = (() => {
       weeks: `The rank of ${n} of each week's Total, weeks ${wkNames(data)} from the left. A red week is ` +
         `vulnerable: rank ${lo} to ${hi} and at least ${Math.round(data.weak.below * 100)}% ` +
         `below the team's mean week. "Weak all 3 weeks": rank ${lo} to ${hi} in each week.`,
-      volume: `The games started in each week: core starts + stream starts (the ${slots} slots of each game day − ` +
-        "the unused slots). The shade is the rank of the week.",
+      volume: "The games started in each week: core starts + stream starts (the slots of all the game days of the " +
+        "week − the unused slots). The shade is the rank of the week.",
       vps: "Each week's Total ÷ Volume. Total = Volume × Value / start. The shade is the rank of the week.",
       starts: "The started core games / the core games (starts + starts lost).",
       heavy: "The open slots on heavy nights that the streams fill / the open slots on heavy nights. An open slot " +
@@ -90,14 +90,14 @@ const League = (() => {
   // A row of the table. core: the core players. roster: the rostered players of the team. resters: as in
   // valueStarted(), or undefined for rests_b2b of the player file. source: "saved" or "best".
   function row(data, eng, team, roster, core, resters, source) {
-    const t = S.valueStarted(core, eng, resters);
     const spots = Math.max(0, data.roster_spots - core.length);
-    const fill = S.streamFill(core, eng, { spots, adds: data.adds, resters });
+    // weekTotals() gives the valueStarted() and streamFill() results too (#229), so the row computes them one time.
+    const wt = S.weekTotals(core, eng, { spots, adds: data.adds, resters, v: data.v, few: data.weak.few });
+    const t = wt.started, fill = wt.fill;
     const stream = fill.games * data.v, total = t.total.value + stream, inCore = new Set(core.map(p => p.id));
     const starts = {};
     for (const p of core) starts[p.id] = t.marks[p.id].filter(k => k === "s").length;
     const record = (data.records || {})[team] || null;
-    const wt = S.weekTotals(core, eng, { spots, adds: data.adds, resters, v: data.v, few: data.weak.few });
     return {
       team, record, share: share(record), source, mine: roster.some(p => p.mine), core: core.length, spots,
       value: t.total.value, perCore: core.length ? t.total.value / core.length : 0, stream, total,

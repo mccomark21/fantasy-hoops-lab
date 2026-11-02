@@ -71,7 +71,6 @@ The playoffs are three separate head-to-head weeks, so a high 3-week Total can h
 
 - A gap of 6 to 20 points between two weeks is about 2 to 5 games, less than one injury.
 - The Total is a value sum, but the playoffs are category head-to-head.
-
 - The fill is a greedy rule, day by day. It is not the search of the Adds planner (`team_plan()`), so the Adds planner can find a plan with more starts.
 - The fill does not know which free agents each NBA team has. It assumes that a team that plays has a free agent at each open position.
 - The saved core is in one browser only. On another device, your row uses your best 8.

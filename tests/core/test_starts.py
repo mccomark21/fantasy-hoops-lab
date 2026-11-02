@@ -422,6 +422,8 @@ def test_week_totals_give_the_total_the_volume_the_value_per_start_and_the_reaso
     got = call("weekTotals", core, data, {"spots": 1, "adds": 0, "v": 2, "few": 1})
     vs = value_started(core, data)["weeks"]
     fill = call("streamFill", core, data, {"spots": 1, "adds": 0})["weeks"]
+    # The result holds the valueStarted() and streamFill() results, so the League page computes them one time.
+    assert got["started"]["weeks"] == vs and got["fill"]["weeks"] == fill
     for w, x in got["weeks"].items():
         f = fill[w]
         assert x["value"] == pytest.approx(vs[w]["value"])
