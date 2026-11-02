@@ -5,7 +5,7 @@ publish them.
 The steps:
 1. fantasyhoops.fetch.espn: the NBA rosters and the schedule.
 2. fantasyhoops.fetch.rotation: the new games, minutes and usage.
-3. fantasyhoops.adds.plan: the Adds, Players and Playoffs pages. It publishes.
+3. fantasyhoops.adds.plan: the Adds, Players, Playoffs and League pages. It publishes.
 4. fantasyhoops.trade: the Trades page. It publishes.
 Each step runs as python -m <module> from the repo root, so it writes the files that its own module names.
 This module writes no files. The run stops at the first step that fails. It names the step and gives its command.

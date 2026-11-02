@@ -167,6 +167,24 @@ def read_record(html):
     return "-".join(found.groups()) if found else None
 
 
+def read_standings(html):
+    """The season record (W-L-T) of each team in the standings of the league home page (/nba/<league>/), #218.
+
+    The result: {team name: record}, for example {"TradeMark™": "4-2-1"}. The standings table (table#standingstable)
+    has one row for each team: the team name is in the cell Tst-manager and the record in the cell Tst-wlt (seen on
+    2026-10-20). A page with no standings table gives {}.
+    """
+    out = {}
+    for row in _soup(html).select("table#standingstable tbody tr"):
+        names = row.select("td.Tst-manager a")
+        wlt = row.select_one("td.Tst-wlt")
+        name = names[-1].get_text(" ", strip=True) if names else ""
+        found = re.match(r"\s*(\d+)\s*-\s*(\d+)\s*-\s*(\d+)\b", wlt.get_text(" ")) if wlt else None
+        if name and found:
+            out[name] = "-".join(found.groups())
+    return out
+
+
 def read_week(html):
     """The current fantasy week, from the matchup page (/nba/<league>/matchup?mid1=<team>).
 

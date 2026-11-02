@@ -108,9 +108,9 @@ def test_publish_does_not_change_the_pages(repo, remote_pages):
     assert pages["adds/index.html"] == text and pages["adds/notes.html"] == "<body>n</body>"
 
 
-def test_the_menu_has_home_roster_adds_plan_free_agents_trades_players_and_playoffs_only():
+def test_the_menu_has_home_roster_adds_plan_free_agents_trades_players_playoffs_and_league_only():
     home, adds = site_menu("home", 14), site_menu("adds", 14)
-    labels = ["Home", "Roster", "Adds plan", "Free agents", "Trades", "Players", "Playoffs"]
+    labels = ["Home", "Roster", "Adds plan", "Free agents", "Trades", "Players", "Playoffs", "League"]
     assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", home) == labels
     assert re.findall(r"<li><a[^>]*>([^<]*)</a></li>", adds) == labels
     assert '<a href="free-agents/">Free agents</a>' in home and '<a href="../free-agents/">Free agents</a>' in adds
@@ -320,6 +320,17 @@ def test_a_trade_publish_keeps_the_playoffs_page_of_the_planning_run(repo, remot
     pages = remote_pages(repo)
     assert pages["playoffs/index.html"] == "<p>playoffs</p>" and f"playoffs/{tokens.FONT_HREF}" in pages
     assert '<li><a href="playoffs/">Playoffs</a></li>' in pages["index.html"]
+
+
+def test_a_trade_publish_keeps_the_league_page_of_the_planning_run(repo, remote_pages):
+    """#218: league is in TOOLS. The planning run publishes /league/, and the trade publish keeps it."""
+    plan = page(repo, "adds/plan.html", "<p>plan</p>")
+    league = page(repo, "league/index.html", "<p>league</p>")
+    publish(repo, "adds", plan, cfg=CFG, more_tools={"league": league})
+    publish(repo, "trade", page(repo, "trade/index.html", "<p>trades</p>"), cfg=CFG)
+    pages = remote_pages(repo)
+    assert pages["league/index.html"] == "<p>league</p>" and f"league/{tokens.FONT_HREF}" in pages
+    assert '<li><a href="league/">League</a></li>' in pages["index.html"]
 
 
 def test_a_publish_of_more_tools_with_files_needs_each_file(repo):

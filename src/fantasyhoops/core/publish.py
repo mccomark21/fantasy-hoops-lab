@@ -3,10 +3,10 @@
 The site has the Home page at / (core/home.py, #172), the folder /roster/ for the Roster page (core/roster.py,
 #120), the folder /adds/ for the adds plan, the folder /free-agents/ for the free agents of the planning run (#165),
 the folder /trade/ for the trades (#151), the folder /players/ for the Players page and the player file (#186) and
-the folder /playoffs/ for the Playoffs page (#214).
+the folder /playoffs/ for the Playoffs page (#214) and the folder /league/ for the League page (#218).
 A publish of one tool replaces its own folder and writes the Home page. It keeps the folders of the other tools in
 TOOLS. A publish can also replace the folders of more tools (more_tools). The planning run publishes /adds/,
-/free-agents/, /roster/, /players/ and /playoffs/ in one publish. The trade run publishes /trade/ only.
+/free-agents/, /roster/, /players/, /playoffs/ and /league/ in one publish. The trade run publishes /trade/ only.
 A folder on gh-pages with a name that is not in TOOLS goes away at the next publish.
 The root and the tool folder get the font file and its license (OFL.txt) in fonts/ (core/tokens.py).
 The site menu (#117): a royal-blue side panel on a desktop, and a top bar with a drawer on a phone.
@@ -53,6 +53,7 @@ TOOLS = {
     "trade": ("Trades", "Trades that raise your playoff starts and keep your season value."),
     "players": ("Players", "A report card for each player of the league: role, categories, value and comps."),
     "playoffs": ("Playoffs", "Model your playoff core: value started, starts lost and open slots."),
+    "league": ("League", "Playoff value, starts and open slots of all teams."),
 }
 
 

@@ -13,6 +13,7 @@ from fantasyhoops.adds.readers import (
     read_free_agents,
     read_record,
     read_roster,
+    read_standings,
     read_waiver_players,
     read_week,
 )
@@ -54,6 +55,22 @@ def test_read_record_gives_none_with_no_record():
     assert read_record(fixture("team.html")) is None
     # A team overview with no record in its line.
     assert read_record(fixture("team_record.html").replace(">4-2-1<", "><")) is None
+
+
+def test_read_standings_reads_the_record_of_each_team_of_the_league_home_page():
+    """#218: the saved standings table of 2026-10-20 (Edge) has the 14 teams, each 0-0-0 before the first games."""
+    page = fixture("standings.html")
+    standings = read_standings(page)
+    assert len(standings) == 14 and set(standings.values()) == {"0-0-0"}
+    assert standings["TradeMark™"] == "0-0-0" and "Freaks & Greeks" in standings
+    # A record later in the season, with the spaces that the matchup page uses.
+    later = page.replace('Tst-wlt">0-0-0<', 'Tst-wlt">10 - 3 - 1<', 1)
+    assert read_standings(later)["Shady McGrady"] == "10-3-1"
+
+
+def test_read_standings_gives_no_records_with_no_standings_table():
+    assert read_standings(fixture("team.html")) == {}
+    assert read_standings("") == {}
 
 
 def test_read_roster_maps_the_team_and_splits_the_positions():

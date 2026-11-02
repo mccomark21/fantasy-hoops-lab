@@ -43,6 +43,8 @@ One planning run:
     puts it at /roster/ and writes the Home page at / (core/home.py, #172). --no-publish also skips the Roster page.
     The Players page and its player file (players/page.py, #186) go to /players/ in the same publish. The Playoffs
     page (playoffs/page.py, #214) takes its pool from the player file and goes to /playoffs/ in the same publish.
+    The League page (league/page.py, #218) takes the same pool and the records of the Yahoo standings, and goes to
+    /league/ in the same publish. The standings are one more page (the league home page) in the Yahoo reads step.
     The Yahoo reads step reads the rostered list of all teams for them, in the views of the free-agent lists, through the same-day
     cache of the trade run. The Val of the Players page is the Val of the Free agents page. --no-publish skips that read and the Players page.
     The page shows how many pages came from the cache (PageCache.line()).
@@ -93,6 +95,7 @@ from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
 from fantasyhoops.core.season_value import SeasonValues, read_season_lines
+from fantasyhoops.league import page as league_page
 from fantasyhoops.players import page as players_page
 from fantasyhoops.playoffs import page as playoffs_page
 
@@ -241,7 +244,9 @@ def save_week(week, today, plan, spots):
     return record
 
 
-def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, players=None, playoffs=None):
+def publish_page(
+    path, lines, cfg, publish=True, roster=None, free_agents=None, players=None, playoffs=None, league=None
+):
     """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
     roster: the Roster page (adds/roster.py), or None. The same publish puts it at /roster/ (#172). With None, the
@@ -251,6 +256,8 @@ def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, 
     them at /players/. With None, the publish keeps the /players/ folder of gh-pages.
     playoffs: the Playoffs page (playoffs_page.write_site(), #214), or None. The same publish puts it at /playoffs/.
     With None, the publish keeps the /playoffs/ folder of gh-pages.
+    league: the League page (league_page.write_site(), #218), or None. The same publish puts it at /league/. With
+    None, the publish keeps the /league/ folder of gh-pages.
     The publish also writes the Home page at / (core/home.py).
     """
     print()
@@ -262,7 +269,13 @@ def publish_page(path, lines, cfg, publish=True, roster=None, free_agents=None, 
     if not publish:
         print("The run did not publish the page (--no-publish).")
         return
-    pages = (("free-agents", free_agents), ("roster", roster), ("players", players), ("playoffs", playoffs))
+    pages = (
+        ("free-agents", free_agents),
+        ("roster", roster),
+        ("players", players),
+        ("playoffs", playoffs),
+        ("league", league),
+    )
     more = {name: p for name, p in pages if p}
     site.publish(ROOT, "adds", path, cfg=cfg, more_tools=more)
     print(f"Published the plan page to {URL}. GitHub can take a few minutes to show the new page.")
@@ -280,7 +293,7 @@ def main(today=None, publish=True, timed=True, cache=True):
     with step("schedule read"):
         sched = read_schedule()
     plan, read, options, warnings, weights, match_replacement = None, [], [], [], None, None
-    recent, skip_line, market_text, owners = [], None, None, None
+    recent, skip_line, market_text, owners, standings = [], None, None, None, None
     pages = PageCache(today, use=cache)
     pages.remove_old_days()
     with step("season values"):
@@ -337,6 +350,10 @@ def main(today=None, publish=True, timed=True, cache=True):
             with part("rostered list", yahoo):
                 owner_skip = not read or skips_recent_view(recent_weight_limit(sched, today)[1], cfg)
                 owners = players_page.read_owners(pages.rostered(yahoo), owner_skip)
+            if owners is not None:
+                # The records of the League page (#218): one more page, the standings of the league home page.
+                with part("standings", yahoo):
+                    standings = league_page.read_records(yahoo)
     if read:
         weights = matchup_weights(data.matchup, cfg, len(window) / len(data.week.days))
         mcfg = weighted_cfg(cfg, weights)
@@ -395,14 +412,17 @@ def main(today=None, publish=True, timed=True, cache=True):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
         free_agents = page.write_free_agents(page.render_free_agents(run))
-        players = playoffs = None
+        players = playoffs = league = None
         if owners is not None:
             # The Val of the Players page is the Val of the Free agents page: the same Season value (#222).
             team = cfg["adds"]["team"]
             players = players_page.write_site(owners, team, cfg, today, run.options, run.replacement, scale, season)
             # The Playoffs page takes its pool from the player file of the Players page (#214).
-            playoffs = playoffs_page.write_site(players[1][0], roster_page.playoff_days(sched, cfg), cfg)
-        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players, playoffs)
+            playoff_days = roster_page.playoff_days(sched, cfg)
+            playoffs = playoffs_page.write_site(players[1][0], playoff_days, cfg)
+            # The League page takes the same pool and the records of the standings (#218).
+            league = league_page.write_site(players[1][0], playoff_days, cfg, standings)
+        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players, playoffs, league)
     print_summary(run)
 
 

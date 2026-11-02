@@ -213,6 +213,13 @@ other_windows = [
   ],
 ]
 
+# The League page (#218, docs/league/README.md). The core of each team: its best [playoffs] core players by value
+# started alone (owner decision 1 of 2026-11-02). Your row uses the core that you saved on the Playoffs page.
+# v: the value of one streamed game, the mean Val of the best v_free_agents free agents of the planning run
+# (owner decision 3 of 2026-11-02: 10, v = 1.40 on the data of 11/1).
+[league_page]
+v_free_agents = 10
+
 # Value of one playoff week for each number of games, relative to a 3-game week.
 # A linear scale is 2 = 0.67 and 4 = 1.33. These values make 2-game weeks
 # hurt more and 4-game weeks help more.

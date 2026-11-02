@@ -17,6 +17,10 @@
 //   adds(core, data, resters, others) the Adds of each player: the change of value started with him (#215).
 //   bestSwaps(core, pool, data, opts) the best swap of each pool player into the core, best schedule gain first (#215).
 //   inBand(give, get, band)           true if the value get is in the value band of the value give ([trade] value_band).
+//   bestCore(players, data, n, resters) the n players with the highest value started alone (#214, #218).
+//   streamFill(core, data, opts)      the open slots that the stream spots fill, the stream games, the fill rate and
+//                                     the unused slots (League page, #218).
+//   rankMedian(values, value)         the rank of value among values (1 is the most) and the median (#218).
 // A player is {id, name, team, pos, value, rests_b2b}. pos: the position slots, for example ["PG", "SG"].
 // value must be a number, because a null value gives NaN. The playoffs page gives val, else proj_val, else 0 (#214).
 // data: {slots, util, weeks, days}. A day is {date, week, quality, teams, b2b}. valueStarted() also reads
@@ -334,7 +338,154 @@ const Starts = (() => {
     return rows.slice(0, limit);
   }
 
-  return { scoreCore, fit, slotRoster, valueStarted, idealGames, adds, bestSwaps, inBand };
+  // The best core of n players (decision 11 of the playoffs page design, the League page #218): the n players with
+  // the highest value started alone, highest first. resters: as in valueStarted(). A stable sort: two players with
+  // the same value started keep the order of players.
+  function bestCore(players, data, n, resters) {
+    const solo = new Map(players.map(p => [p, valueStarted([p], data, resters).total.value]));
+    return players.slice().sort((a, b) => solo.get(b) - solo.get(a)).slice(0, n);
+  }
+
+  // True if the slots and Util can hold all players of trial (the acceptance rule of _day()).
+  function _fits(trial, data) {
+    return trial.length - Object.keys(_match(trial, data.slots)).length <= _utilNames(data).length;
+  }
+
+  // The stream players who start on one day, with the position-slot logic of count() in adds/team_plan.py: the core
+  // lineup of the day keeps its slots. Then each stream player in spot order starts if the slots and Util can still
+  // hold all accepted players (best_lineup() in core/lineup.py).
+  // members: one {team, pos} or null for each stream spot. pos null: a new player who has not started yet. On his
+  // first start he takes the positions that fit that day (slots_of() and _positions() in adds/team_plan.py): all
+  // positions if each fits, as an open Util slot gives.
+  // The result: {started: the spot indexes that start, fixed: {spot index: positions} for the first starts}.
+  function _streamDay(lineup, members, teams, data) {
+    let on = lineup;
+    const started = [], fixed = {};
+    members.forEach((m, k) => {
+      if (!m || !teams.has(m.team)) return;
+      let pos = m.pos;
+      if (!pos) {
+        pos = data.slots.filter(p => _fits(on.concat([{ pos: [p] }]), data));
+        if (!pos.length) return;
+        fixed[k] = pos;
+      } else if (!_fits(on.concat([{ pos }]), data)) {
+        return;
+      }
+      on = on.concat([{ pos }]);
+      started.push(k);
+    });
+    return { started, fixed };
+  }
+
+  // The starts of the members on the days from to the end of week (a list of {lineup, teams}). No add.
+  function _rest(week, members, from, data) {
+    let held = members.slice(), n = 0;
+    for (let i = from; i < week.length; i++) {
+      const r = _streamDay(week[i].lineup, held, week[i].teams, data);
+      held = held.map((m, k) => (k in r.fixed ? { team: m.team, pos: r.fixed[k] } : m));
+      n += r.started.length;
+    }
+    return n;
+  }
+
+  // The fill of one week: the open slots that the stream spots fill with the add limit of the week.
+  // At the start of the week, each spot holds a player of the team that gives the most starts (a player kept from
+  // the week before, so no add). Each day, the held players start first. For each open slot that is left, an add
+  // puts a player of a team that plays that day in a spot whose player does not start that day. The add with the
+  // most starts that day and on the days that are left wins. Heavy nights first (owner decision 2 of 2026-11-02):
+  // on a light night, an add is used only if the adds left are more than the heavy nights with open slots that are
+  // left in the week.
+  function _fillWeek(week, spots, adds, data) {
+    const out = { heavy: 0, light: 0, adds: 0 };
+    if (!spots) return out;
+    const teams = [...new Set(week.flatMap(d => [...d.teams]))].sort();
+    let held = [];
+    for (let k = 0; k < spots; k++) {
+      let best = null, most = -1;
+      for (const t of teams) {
+        const n = _rest(week, held.concat([{ team: t, pos: null }]), 0, data);
+        if (n > most) [best, most] = [t, n];
+      }
+      held.push(best === null ? null : { team: best, pos: null });
+    }
+    week.forEach((d, i) => {
+      const heavyLeft = week.filter((e, j) => j > i && !e.quality && e.open > 0).length;
+      const limit = d.quality ? adds - heavyLeft : adds;
+      let r = _streamDay(d.lineup, held, d.teams, data);
+      while (r.started.length < d.open && out.adds < limit) {
+        const idle = held.map((_, k) => k).filter(k => !r.started.includes(k));
+        let pick = null, most = -1;
+        for (const k of idle) {
+          for (const t of [...d.teams].sort()) {
+            const trial = held.map((m, j) => (j === k ? { team: t, pos: null } : m));
+            const today = _streamDay(d.lineup, trial, d.teams, data);
+            if (!today.started.includes(k) || today.started.length <= r.started.length) continue;
+            const fixedTrial = trial.map((m, j) => (j in today.fixed ? { team: m.team, pos: today.fixed[j] } : m));
+            const n = today.started.length + _rest(week, fixedTrial, i + 1, data);
+            if (n > most) [pick, most] = [trial, n];
+          }
+        }
+        if (!pick) break;
+        held = pick;
+        out.adds += 1;
+        r = _streamDay(d.lineup, held, d.teams, data);
+      }
+      held = held.map((m, k) => (k in r.fixed ? { team: m.team, pos: r.fixed[k] } : m));
+      if (d.quality) out.light += r.started.length;
+      else out.heavy += r.started.length;
+    });
+    return out;
+  }
+
+  // The stream fill of a core (League page, owner decisions of 2026-11-02 on #218): the open slots of valueStarted()
+  // that the stream spots can fill. opts: {spots, adds, resters}. spots: the stream spots. adds: the add limit of
+  // each week ([league] adds). resters: as in valueStarted(). See _fillWeek() for the rules.
+  // The result: {heavy, light, open_heavy, open_light, adds, games, rate, unused, weeks: {week: {heavy, light, adds}}}.
+  //   heavy, light: the filled open slots on heavy and on light nights. open_heavy, open_light: the open slots.
+  //   games: the stream games, heavy + light x (1 + data.quality_bonus).
+  //   rate: the fill rate, games / (open_heavy + open_light x (1 + bonus)). 0 with no open slot.
+  //   unused: the open slots that the streams do not fill, (open_heavy - heavy) + (open_light - light).
+  function streamFill(core, data, opts = {}) {
+    const vs = valueStarted(core, data, opts.resters), bonus = data.quality_bonus || 0;
+    // The rest rule of valueStarted(), so that the lineup of each day is the lineup of valueStarted()
+    const set = opts.resters === undefined || opts.resters === null ? null : _ids(opts.resters);
+    const ordered = _ordered(set ? core.map(p => ({ ...p, rests_b2b: set.has(p.id) })) : core);
+    const sets = _sets(data), byWeek = {};
+    data.days.forEach((day, i) => {
+      const d = _day(ordered, day, sets[i], data);
+      (byWeek[day.week] = byWeek[day.week] || []).push({
+        lineup: d.lineup, teams: sets[i].teams, quality: !!day.quality, open: vs.days[i].open,
+      });
+    });
+    const out = { heavy: 0, light: 0, adds: 0, weeks: {} };
+    for (const [w, week] of Object.entries(byWeek)) {
+      const f = _fillWeek(week, Math.max(0, opts.spots || 0), opts.adds || 0, data);
+      out.weeks[w] = f;
+      out.heavy += f.heavy;
+      out.light += f.light;
+      out.adds += f.adds;
+    }
+    out.open_heavy = vs.total.open_heavy;
+    out.open_light = vs.total.open_light;
+    out.games = out.heavy + out.light * (1 + bonus);
+    const room = out.open_heavy + out.open_light * (1 + bonus);
+    out.rate = room > 0 ? out.games / room : 0;
+    out.unused = out.open_heavy - out.heavy + (out.open_light - out.light);
+    return out;
+  }
+
+  // The rank of value among values and the median of values (the header of the League page, owner decision of
+  // 2026-11-02 on #218). Rank 1 is the most. Equal values share the higher rank: rank = 1 + the values above value.
+  // The median of an even count is the mean of the two middle values. No values: rank 1, median 0.
+  function rankMedian(values, value) {
+    const s = values.slice().sort((a, b) => a - b), n = s.length;
+    const median = n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0;
+    return { rank: 1 + values.filter(x => x > value).length, of: n, median };
+  }
+
+  return {
+    scoreCore, fit, slotRoster, valueStarted, idealGames, adds, bestSwaps, inBand, bestCore, streamFill, rankMedian,
+  };
 })();
 
 if (typeof module !== "undefined") module.exports = Starts;

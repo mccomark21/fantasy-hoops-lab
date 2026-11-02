@@ -337,6 +337,7 @@ def test_the_menu_shows_trades_after_adds_plan_as_the_current_page():
         "Trades",
         "Players",
         "Playoffs",
+        "League",
     ]
     assert '<a href="../trade/" aria-current="page">Trades</a>' in html
 
