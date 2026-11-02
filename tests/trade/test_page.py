@@ -20,12 +20,12 @@ READ = "Rosters: 16 pages from the cache of 2026-10-29 09:14."
 BASE = (28, 27, 26)
 
 
-def mine(name, value, team="ATL", pos=("PG",), slot="PG", status="", mark="", pg=0.5):
-    return TradePlayer(name, team, pos, slot=slot, status=status, value=value, mark=mark, pg=pg, team_id=10)
+def mine(name, value, team="ATL", pos=("PG",), slot="PG", status=""):
+    return TradePlayer(name, team, pos, slot=slot, status=status, value=value, team_id=10)
 
 
-def theirs(name, value, team="BOS", pos=("SF",), status="", mark="", pg=0.4, team_name="Rival Squad"):
-    return TradePlayer(name, team, pos, status=status, value=value, mark=mark, pg=pg, team_id=3, team_name=team_name)
+def theirs(name, value, team="BOS", pos=("SF",), status="", team_name="Rival Squad"):
+    return TradePlayer(name, team, pos, status=status, value=value, team_id=3, team_name=team_name)
 
 
 def trade(give, get, after, dv):
@@ -37,7 +37,7 @@ GUARD = mine("Hurt Point Guard", -1.89, team="CHA", slot="IL", status="O")
 WING = mine("Nickeil Alexander-Walkerson", 1.72, team="WSH", pos=("SF", "PF"))
 ROWS = [
     trade(GUARD, theirs("Steady Combo Guard", -1.70, team="ATL", pos=("PG", "SG")), (29, 30, 27), 0.19),
-    trade(GUARD, theirs("Long Name Forward Jr.", -1.83, team="HOU", pos=("PF", "C"), mark="pre"), (28, 29, 28), 0.07),
+    trade(GUARD, theirs("Long Name Forward Jr.", -1.83, team="HOU", pos=("PF", "C")), (28, 29, 28), 0.07),
     trade(WING, theirs("Big Out Center", 1.62, team="UTAH", pos=("C",), status="GTD"), (27, 29, 30), -0.10),
     trade(WING, theirs("Even Guy", 1.72, team="NO", team_name="A Very Long Fantasy Team Name"), (28, 27, 27), 0.0),
 ]
@@ -70,7 +70,7 @@ def test_each_row_shows_both_players_the_partner_the_week_cells_and_both_value_c
         '<b><a class="lab-pname" href="#player=hurt-point-guard" data-player="hurt-point-guard">Hurt Point Guard</a></b><span class="status">IL</span><small>CHA · PG</small>'
         in row
     )
-    assert "Val <i>−1.89</i> · Pre <i>0.50</i>" in row
+    assert "<small>Val <i>−1.89</i></small>" in row
     assert (
         '<b><a class="lab-pname" href="#player=steady-combo-guard" data-player="steady-combo-guard">Steady Combo Guard</a></b><small>ATL · PG/SG</small>'
         in row
@@ -82,12 +82,12 @@ def test_each_row_shows_both_players_the_partner_the_week_cells_and_both_value_c
     assert '<td class="v s1">+0.19<small>+10%</small></td><td class="v">−0.19</td>' in row
 
 
-def test_a_loss_a_no_change_a_status_and_the_pre_mark_show_in_the_rows():
+def test_a_loss_a_no_change_and_a_status_show_in_the_rows():
     html = render()
     assert '<td class="wk dn s1"><span aria-hidden="true"><b>27</b><small>−1</small>' in html  # Wk19 of row 3
     assert '<td class="wk eq"><span aria-hidden="true"><b>27</b><small>±0</small>' in html
     assert '<span class="status">GTD</span>' in html
-    assert 'Val <i>−1.83</i> <span class="pre">no blend</span> · Pre <i>' in html
+    assert "<small>Val <i>−1.83</i></small>" in html
     assert '<td class="v s1 minus">−0.10<small>−6%</small></td>' in html
 
 
@@ -398,7 +398,7 @@ def test_the_builder_sits_under_the_suggestions_with_the_partner_pick_and_both_t
 def test_the_builder_data_has_both_rosters_the_suggestions_and_the_engine_data():
     me = {p["name"]: p for p in BUILDER["me"]}
     assert me["Star Keeper"]["untouchable"] and not me[WING.name]["untouchable"]
-    assert me[GUARD.name]["il"] and me[GUARD.name]["val"] == -1.89 and me[GUARD.name]["pg"] == 0.5
+    assert me[GUARD.name]["il"] and me[GUARD.name]["val"] == -1.89 and "pg" not in me[GUARD.name]
     assert [len(t["roster"]) for t in BUILDER["teams"]] == [6, 1]
     first = BUILDER["sugg"][0]
     assert first == {"team": 3, "give": [me[GUARD.name]["id"]], "get": [BUILDER["teams"][0]["roster"][0]["id"]]}
@@ -426,20 +426,22 @@ def test_the_partner_starts_show_as_an_estimate_in_the_table_and_the_row_list():
     assert '<span class="pst"><em>Them, est.</em>27 · 27 · 25 = 79 → 26 · 28 · 26 = 80 <b>+1</b></span>' in html
 
 
-def test_the_mark_and_the_preseason_value_label_have_different_words():
-    """#162: the mark of a player with no blended value is "no blend", not "pre" next to the "Pre" label."""
-    assert page.MARK == "no blend" and "pre" not in page.MARK.lower()
-    html = render_builder()
-    note = "No blend: the player has no blended value, so his Val is his preseason value (Pre)."
-    assert page.MARK_NOTE == note
-    assert note in html.split('<p class="foot" id="sg-foot">')[1].split("</p>")[0]
-    assert f'<p class="foot" id="pk-note">{note}</p>' in html
-    assert '<span class="pre">pre</span>' not in html and '" pre"' not in html
+def test_the_page_shows_one_value_val_and_its_basis_line():
+    """#223: Val is the Season value. The page has no Pre column and no "no blend" mark. The foot has the basis line."""
+    basis = "Val = season value to date, blended with the projection until 10 games. Replacement: an estimate."
+    html = page.render(RESULT, WEEKS, CFG, MADE, TODAY, DEADLINE, READ, BUILDER, basis=basis)
+    assert basis in html.split('<p class="foot" id="sg-foot">')[1].split("</p>")[0]
+    assert page.VAL_NOTE in render().split('<p class="foot" id="sg-foot">')[1].split("</p>")[0]
+    assert f'<p class="foot" id="pk-note">{page.VAL_NOTE}</p>' in html
+    assert "Pre" not in html.replace("Preview", "") and "no blend" not in html
     with browser_page() as pg:
         pg.set_content(html)
         pg.locator('#sg-desk tr[data-k="1"] button.ld').click()
         cell = pg.locator('#pk-get tr:has(input[aria-label="Get Long Name Forward Jr."]) td.s1').text_content()
-        assert cell == "−1.83 no blend"
+        assert cell == "−1.83"
+        heads = pg.locator("#pk-get thead th").all_text_contents()
+        assert heads[-1] == "Val" and "Pre" not in heads
+        assert " · Pre " not in pg.locator("#res").text_content()
 
 
 def test_the_partner_rule_has_the_same_text_under_the_suggestions_and_in_the_builder():

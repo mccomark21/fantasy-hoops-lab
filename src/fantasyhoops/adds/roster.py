@@ -13,8 +13,7 @@ import pandas as pd
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import name_key
 from fantasyhoops.core.season_value import basis_text
-from fantasyhoops.core.schedule import playoff_schedule
-from fantasyhoops.draft.rankings import build_rankings, load_risk
+from fantasyhoops.draft.rankings import load_risk
 from fantasyhoops.fetch.espn import season_stats
 
 
@@ -43,16 +42,6 @@ def roster_players(roster, ranks, risk, stats):
     return out
 
 
-def read_ranks(cfg, sched):
-    """{name_key(name): rank} of the custom rankings (draft/rankings.py). The trade tool uses it."""
-    teams = playoff_schedule(sched, cfg)[0]
-    df = build_rankings(cfg, teams)
-    out = {}
-    for name, rank in zip(df.name, df["rank"]):
-        out.setdefault(name_key(name), int(rank))
-    return out
-
-
 def read_risk(roster, cfg):
     """{name_key(name): rests_b2b} for the players of roster, from the [risk] file (draft/rankings.py)."""
     names = pd.Series([p.name for p in roster])
@@ -60,19 +49,16 @@ def read_risk(roster, cfg):
     return {name_key(n): int(r) for n, r in zip(names, risk.rests_b2b)}
 
 
-def build_roster(data, cfg, sched, today, season=None):
+def build_roster(data, cfg, sched, today, season):
     """Write the Roster page for the LeagueData of a run. Return its path, or None if the page failed.
 
-    season: the core/season_value.SeasonValues of the run. The Rk column and the lineup order use its rank by
-    Val. None: the custom draft rank (read_ranks()).
+    season: the core/season_value.SeasonValues of the run. The Rk column and the lineup order use its rank by Val.
 
     A failure prints the error and does not stop the run. The publish then keeps the /roster/ folder of gh-pages.
     """
     try:
-        ranks = read_ranks(cfg, sched) if season is None else season.ranks()
-        basis = roster_page.DRAFT_BASIS if season is None else f"rank by Val. {basis_text(cfg)}"
         players = roster_players(
-            data.roster, ranks, read_risk(data.roster, cfg), season_stats(cfg["league"]["espn_season"])
+            data.roster, season.ranks(), read_risk(data.roster, cfg), season_stats(cfg["league"]["espn_season"])
         )
         text = roster_page.render(
             players,
@@ -83,7 +69,7 @@ def build_roster(data, cfg, sched, today, season=None):
             today=today,
             team_name=cfg["adds"].get("team_name"),
             record=data.record,
-            basis=basis,
+            basis=f"rank by Val. {basis_text(cfg)}",
         )
         path = roster_page.write(text)
     except Exception:

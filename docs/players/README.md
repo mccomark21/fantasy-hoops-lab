@@ -71,7 +71,7 @@ The planning run (`python -m fantasyhoops.adds.plan`) writes the page and the fi
 
 - The planning run reads the rostered list in its Yahoo reads step, after the free-agent lists, in the same views as those lists. A run that reads no free-agent list has no Val, so it reads the projected view only. The read uses the same-day cache of the trade run. With `--no-publish`, the run skips the read and the page.
 - If the read fails (a changed page, a Yahoo timeout, a network error), the run prints a warning, the plan publishes and the publish keeps the `/players/` folder of the site. A Yahoo block stops the run, as for each other Yahoo read (#107).
-- The trade run (`python -m fantasyhoops.trade`) does not write the page: it reads no free-agent list, so it has no Val of the Free agents page. Its publish keeps the `/players/` folder.
+- The trade run (`python -m fantasyhoops.trade`) does not write the page, because it reads no free-agent list. It reads `season_replacement` from the meta of the player file of the same day, so the Trades page gives the Val of this page (#223). Its publish keeps the `/players/` folder.
 
 ## The Players page
 

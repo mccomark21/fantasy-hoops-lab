@@ -23,28 +23,30 @@ def test_the_roster_players_get_the_rank_the_rest_flag_and_the_stats_by_name():
     assert players[0].status == "O" and players[0].positions == ("PG", "SG")
 
 
-def test_a_failed_roster_page_prints_the_error_and_gives_none(monkeypatch, capsys):
-    def fail(cfg, sched):
-        raise RuntimeError("no rankings")
+def test_a_failed_roster_page_prints_the_error_and_gives_none(capsys):
+    class NoRanks:
+        def ranks(self):
+            raise RuntimeError("no ranks")
 
-    monkeypatch.setattr(adds_roster, "read_ranks", fail)
-    assert adds_roster.build_roster(SimpleNamespace(roster=[]), {}, None, date(2026, 10, 28)) is None
+    assert adds_roster.build_roster(SimpleNamespace(roster=[]), {}, None, date(2026, 10, 28), NoRanks()) is None
     captured = capsys.readouterr()
     assert "The run did not make the Roster page." in captured.out
-    assert "RuntimeError: no rankings" in captured.err
+    assert "RuntimeError: no ranks" in captured.err
 
 
 def test_the_roster_page_gets_the_record_of_the_team_page(monkeypatch, tmp_path):
     seen = {}
-    monkeypatch.setattr(adds_roster, "read_ranks", lambda cfg, sched: {})
     monkeypatch.setattr(adds_roster, "read_risk", lambda roster, cfg: {})
     monkeypatch.setattr(adds_roster, "season_stats", lambda season: {})
     monkeypatch.setattr(adds_roster.roster_page, "playoff_days", lambda sched, cfg: [])
     monkeypatch.setattr(adds_roster.roster_page, "render", lambda *args, **kw: seen.update(kw) or "page")
     monkeypatch.setattr(adds_roster.roster_page, "write", lambda text: tmp_path / "index.html")
     data = SimpleNamespace(roster=[], week=SimpleNamespace(number=2), adds=SimpleNamespace(used=1, limit=5))
-    cfg = {"league": {"espn_season": 2027}, "adds": {"team_name": "TradeMark™"}}
-    assert adds_roster.build_roster(SimpleNamespace(**vars(data), record="4-2-1"), cfg, None, date(2026, 10, 28))
+    cfg = {"league": {"espn_season": 2027}, "adds": {"team_name": "TradeMark™"}, "season_value": {"blend_games": 10}}
+    season = SimpleNamespace(ranks=dict)
+    assert adds_roster.build_roster(
+        SimpleNamespace(**vars(data), record="4-2-1"), cfg, None, date(2026, 10, 28), season
+    )
     assert seen["record"] == "4-2-1" and seen["team_name"] == "TradeMark™"
 
 

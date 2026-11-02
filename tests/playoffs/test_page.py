@@ -421,3 +421,29 @@ def test_in_chromium_a_filter_changes_the_best_swaps_and_a_click_on_a_row_loads_
         assert pg.locator("#stats .hero dd").inner_text() == "62.0"  # 44.1 + 17.9
         assert pg.locator('#grid [data-player="kai-free"]').count() == 1
         assert pg.locator('#grid [data-player="bo-no"]').count() == 0 and not errors
+
+
+def test_the_trades_and_playoffs_pages_give_one_value_and_one_value_band_for_one_player():
+    """#223: for the same player, the Trades page and the Playoffs page use the same Val and the same value band."""
+    from fantasyhoops.adds.readers import Player
+    from fantasyhoops.core.season_value import SeasonLine, SeasonValues
+    from fantasyhoops.players.data import season_vals
+    from fantasyhoops.trade import page as trade_page
+    from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
+    from fantasyhoops.trade.run import trade_players
+    from fantasyhoops.trade.suggest import Suggestions, TradeSettings, in_band
+
+    season = SeasonValues({"fa bos": SeasonLine("Fa Bos", 4, 0.4, 2.0, 0.8)}, 0.5, CFG["games"]["power"])
+    fa = Player("Fa Bos", "BOS", ("PG", "SG"))
+    read = RosteredRead([RosteredPlayer(fa, 0, {}, 4, "Lamb Chops")], [], {}, [], True)
+    # The Playoffs page reads the Val of the player file, the Val of season_vals() (players/page.py write_site()).
+    val = season_vals(read, (), season)["fa bos"].val
+    playoffs = page.page_data([record("Fa Bos", "BOS", "PG/SG", val, owner="Lamb Chops")], DAYS, CFG, "2026-11-01")
+    _, others = trade_players([], read, 1, season, {})
+    settings = TradeSettings.from_config(CFG)
+    trades = trade_page.builder_data(Suggestions((), [], [], 0, 0, 0), [], others, DAYS, ["PG"], ["wk19"], settings)
+    assert others[0].value == playoffs["players"][0]["value"] == val == season.val("fa bos")
+    assert playoffs["band"] == trades["engine"]["band"] == list(settings.band) == CFG["trade"]["value_band"]
+    low, high = val * playoffs["band"][0], val * playoffs["band"][1]  # the band of a Val above 0
+    assert in_band(val, low, settings.band) and in_band(val, high, settings.band)
+    assert not in_band(val, low - 0.01, settings.band) and not in_band(val, high + 0.01, settings.band)

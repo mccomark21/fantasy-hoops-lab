@@ -6,12 +6,13 @@
 //   3. When you get more players than you give, you pick your drops. When you give more, the spot stays empty.
 //   4. When the partner gets more players than he gives, he drops his lowest value players that are not on IL.
 //   5. The starts come from scoreCore() of core/starts.js (#213). The engine gets value = -rank, so its value sort
-//      gives the lineup order of the Roster page (core/roster.py rank_order()). A player with no rank goes last.
+//      gives the lineup order of the Roster page (core/roster.py rank_order()). rank is the rank by Val (#223), so
+//      the lineup order is the Val order. A player with no rank (no season line) goes last.
 //
 // trade/builder.py has the same rules in Python. tests/trade/test_parity.py shows that both give the same results.
 // The file has no DOM code. trade/page.py inlines it after core/starts.js. Node loads it with require(), and it
 // loads core/starts.js itself. A player is {id, name, team, pos, rank, rests_b2b, val, il, untouchable}.
-// val is the value of the trade tool (the blended value, else the preseason value), or null.
+// val is the Val of the player, the Season value of core/season_value.py (#223), or null with no season line.
 
 const TradeBuilder = (() => {
   const S = typeof Starts !== "undefined" ? Starts : require("../core/starts.js");

@@ -25,7 +25,7 @@ The planning run (`python -m fantasyhoops.adds.plan`) writes `output/playoffs/in
 
 `valueStarted()` of `core/starts.js` gives each number. The page script (`playoffs/playoffs.js`) has no lineup math.
 
-- **Val:** the Val of the Free agents page. A player with no Val gets his projection-based Val (`proj_val`) with the "proj" tag. A player with neither shows "–" and counts as 0.
+- **Val:** the Season value above the replacement free agent (`core/season_value.py`, #222), from `val` of the player file. It is the Val of the Players, Free agents and Trades pages (#223). A player with no Val gets `proj_val` with the "proj" tag. Since #222, `proj_val` is the same Season value for a player in no Yahoo list of the run. A player with neither shows "–" and counts as 0.
 - **Lineup:** each day, the core players start in Val order, highest first, in the position slots and Util.
 - **Value started:** the sum of the Val of each started game in weeks 19 to 21. A game on a light night (6 or fewer NBA games) counts `[quality_games] bonus` more (10%).
 - **Starts lost:** the core games that sit because the lineup is full. A rest night is not a start lost.

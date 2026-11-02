@@ -6,29 +6,20 @@ drops a core player, also when he is Out. A drop is a suggestion, never an order
 
 Val is the Season value of core/season_value.py (#222). season_ranks() gives the rank and the Val of each player for
 choose_stream_spots() and value_warnings(). A player with no season line has the lowest value.
-season_values() and rank_players() give the per-game value of the projections file (Pre). The trade tool reads them
-until #223 moves it to the Season value.
 """
 
 from dataclasses import dataclass
 
-import pandas as pd
-
 from fantasyhoops.adds.planner import Option, StreamSpot
 from fantasyhoops.adds.slots import roster_spots_used
-from fantasyhoops.core.common import latest_projections, name_key
-from fantasyhoops.core.valuation import value_players
-from fantasyhoops.draft.rankings import STATS
+from fantasyhoops.core.common import name_key
 
 NO_VALUE = float("-inf")  # the value of a holder with no season line: lower than all values
 
 
 @dataclass(frozen=True)
 class SeasonValue:
-    """The value of a player: rank = his rank by value (1 = best), value = his value.
-
-    From season_ranks(): the Val of core/season_value.py. From season_values(): Pre, the per-game projection value.
-    """
+    """The value of a player from season_ranks(): rank = his rank by Val (1 = best), value = his Val."""
 
     rank: int
     value: float
@@ -38,26 +29,6 @@ def season_ranks(season):
     """{name key: SeasonValue} of the Val of each player of a core/season_value.SeasonValues. {} with no replacement."""
     vals, ranks = season.vals(), season.ranks()
     return {key: SeasonValue(ranks[key], vals[key]) for key in ranks}
-
-
-def season_values(cfg):
-    """{name_key(name): SeasonValue} of Pre for the players in the newest projections file (the trade tool)."""
-    return rank_players(pd.read_csv(latest_projections(cfg)), cfg)
-
-
-def rank_players(projections, cfg):
-    """{name_key(name): SeasonValue} for the players of a projections DataFrame with games > 0.
-
-    Two players with the same name key: the player with the higher value is in the result.
-    """
-    df = projections[projections.games > 0].copy()
-    for cat, calc in STATS.items():
-        df[cat] = calc(df) / df.games
-    df = value_players(df, cfg).sort_values("pg_value", ascending=False)
-    out = {}
-    for rank, (first, last, value) in enumerate(zip(df.first_name, df.last_name, df.pg_value), 1):
-        out.setdefault(name_key(f"{first} {last}"), SeasonValue(rank, float(value)))
-    return out
 
 
 def season_value(player, values):

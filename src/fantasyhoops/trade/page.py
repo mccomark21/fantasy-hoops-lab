@@ -30,11 +30,8 @@ TRADE_ENGINE = Path(__file__).parent / "trade_builder.js"
 MINUS = "−"
 CURRENT = "trade"  # the page in the site menu and its folder on the site: the Trades tab of publish.TOOLS (#151)
 EMPTY = "No trade raises your playoff starts."
-# The mark of a player whose Val is his preseason value, because he has no blended value. The word differs from
-# the "Pre" label of the preseason value (#162).
-MARK = "no blend"
-# The explanation of the mark, under the suggestions and under the builder tables (#162).
-MARK_NOTE = "No blend: the player has no blended value, so his Val is his preseason value (Pre)."
+# The note under the builder tables, and the Val line of the foot when the run gives no basis line (#223).
+VAL_NOTE = "Val: the Season value per game, the Val of the Players page."
 # The partner rule. The line under the suggestions and the builder result show this same text (#162).
 EST_NOTE = (
     "Est.: the partner starts are an estimate, because the rostered list does not show the IL slots of a partner."
@@ -145,8 +142,7 @@ def _flag(p):
 
 
 def _values(p):
-    pre = f' <span class="pre">{MARK}</span>' if p.mark else ""
-    return f"Val <i>{value_text(p.value)}</i>{pre} · Pre <i>{value_text(p.pg)}</i>"
+    return f"Val <i>{value_text(p.value)}</i>"
 
 
 def _band(team, tag="td"):
@@ -290,8 +286,6 @@ def _player_data(p, pid, settings):
         "slot": p.slot,
         "status": p.status,
         "val": p.value,
-        "mark": p.mark,
-        "pg": p.pg,
         "rank": p.rank,
         "rests_b2b": int(p.rests_b2b),
         "il": p.on_il,
@@ -352,7 +346,7 @@ def builder_section(data):
 <p class="line" id="open-me" hidden></p></div>
 <div><h3 id="get-h">You get</h3><table class="pk lab-t" id="pk-get"></table></div>
 </div>
-<p class="foot" id="pk-note">{MARK_NOTE}</p>
+<p class="foot" id="pk-note">{VAL_NOTE}</p>
 <div class="drop" id="drop" hidden><div class="filters" id="drop-chips"></div></div>
 <div class="res" id="res"></div>
 </section>"""
@@ -364,7 +358,7 @@ def builder_script(data):
     return (
         f'<script type="application/json" id="trade-data">{text}</script>\n'
         f"<script>\n{ENGINE.read_text(encoding='utf-8')}\n{TRADE_ENGINE.read_text(encoding='utf-8')}\n</script>\n"
-        + BUILDER_SCRIPT.replace("__MARK__", MARK).replace("__EST_NOTE__", EST_NOTE)
+        + BUILDER_SCRIPT.replace("__EST_NOTE__", EST_NOTE)
     )
 
 
@@ -401,7 +395,7 @@ def render_deadline(cfg, made, deadline):
     )
 
 
-def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", builder=None, warnings=()):
+def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", builder=None, warnings=(), basis=""):
     """The HTML of the trade page.
 
     result: the suggest.Suggestions. weeks: the names of the playoff weeks. cfg: the config ([trade] kept and
@@ -409,6 +403,7 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
     deadline: the trade deadline, or None. rostered_line: the read time of the rostered pages (run.rostered_line()).
     builder: the page data of the trade builder (builder_data()), or None for a page with no builder.
     warnings: the warning lines of the run (run.warnings()). They show under the header.
+    basis: the basis line of Val (run.basis_line()). "" gives VAL_NOTE.
     """
     base = result.base
     starts = " · ".join(str(b) for b in base)
@@ -416,7 +411,7 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
     kept, per = cfg["trade"]["kept"], cfg["trade"]["per_player"]
     foot = (
         f"<b>Starts count your {kept} kept players.</b> The player you get takes the spot of the player you give. "
-        f"Val: blended value per game. Pre: preseason value per game. {MARK_NOTE} At most {per} trades for each player you give. "
+        f"{_e(basis or VAL_NOTE)} At most {per} trades for each player you give. "
         f"{result.pairs:,} pairs, {result.in_band:,} in the value band, {result.gains:,} with a gain. {EST_NOTE}"
     )
     offer = offer_block(result, cfg["trade"].get("offer", []))
@@ -510,7 +505,6 @@ button.chip[aria-pressed="true"] small { color: var(--lab-stock); }
 .sg .pl b { display: inline; }
 .lab-t .pl small + small { font-size: 11px; margin-top: 1px; }
 .lab-t .pl small i, .ms .nm small i { font-style: normal; font-weight: 700; color: var(--lab-ink); }
-.pre { font-weight: 700; color: var(--lab-ink); }
 .sg td.pt { text-align: left; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
 .s1 { border-left: 1px solid var(--vrule); }
 td.v { font-size: 14px; white-space: nowrap; }
@@ -710,11 +704,11 @@ BUILDER_SCRIPT = """<script>
         + `<td class="ck"><input type="checkbox" aria-label="${mine ? "Give" : "Get"} ${esc(p.name)}"${on ? " checked" : ""}`
         + `${off ? " disabled" : ""}></td>${band(p)}<th class="pl" scope="row"><b>${pname(p)}</b>${flag(p)}`
         + `<small>${esc(line.join(" · "))}</small></th>`
-        + `<td class="n s1">${val(p.val)}${p.mark ? " __MARK__" : ""}</td><td class="n">${val(p.pg)}</td></tr>`;
+        + `<td class="n s1">${val(p.val)}</td></tr>`;
     }).join("");
-    $(id).innerHTML = '<colgroup><col class="c-ck"><col class="c-band"><col><col class="c-n" span="2"></colgroup>'
+    $(id).innerHTML = '<colgroup><col class="c-ck"><col class="c-band"><col><col class="c-n"></colgroup>'
       + `<thead><tr><th scope="col"><span class="vh">${mine ? "Give" : "Get"}</span></th>`
-      + '<th scope="col" class="l" colspan="2">Player</th><th scope="col" class="s1">Val</th><th scope="col">Pre</th></tr></thead>'
+      + '<th scope="col" class="l" colspan="2">Player</th><th scope="col" class="s1">Val</th></tr></thead>'
       + `<tbody>${rows}</tbody>`;
     $(id).querySelectorAll("tbody tr").forEach(tr => {
       const box = tr.querySelector("input");
@@ -772,9 +766,9 @@ BUILDER_SCRIPT = """<script>
     const lines = [];
     if (r.partner.open) lines.push(`<p class="line" id="open-them"><b>${esc(t.name)}: ${plural(r.partner.open, "open roster spot")}:</b> a free agent can fill ${r.partner.open === 1 ? "it" : "them"}.</p>`);
     r.partner.drops.forEach(p => lines.push(`<p class="line" id="drop-them"><b>${esc(t.name)} drops ${esc(p.name)}</b> (Val ${val(p.val)}): his lowest value player who is not on IL.</p>`));
-    const moved = give.map(p => `<span>You give <b>${esc(p.name)}</b> Val ${val(p.val)} · Pre ${val(p.pg)}</span>`)
-      .concat(get.map(p => `<span>You get <b>${esc(p.name)}</b> Val ${val(p.val)} · Pre ${val(p.pg)}</span>`))
-      .concat(drops.map(p => `<span>You drop <b>${esc(p.name)}</b> Val ${val(p.val)} · Pre ${val(p.pg)}</span>`));
+    const moved = give.map(p => `<span>You give <b>${esc(p.name)}</b> Val ${val(p.val)}</span>`)
+      .concat(get.map(p => `<span>You get <b>${esc(p.name)}</b> Val ${val(p.val)}</span>`))
+      .concat(drops.map(p => `<span>You drop <b>${esc(p.name)}</b> Val ${val(p.val)}</span>`));
     $("res").innerHTML = '<h3>Result</h3><table class="rt lab-t" id="rt"><caption class="vh">Playoff starts before and after '
       + 'the trade, and the value change, for both teams.</caption>' + head + "<tbody>"
       + sideRows("Your team", r.mine, false, r.band) + sideRows(t.name, r.partner, true, "") + "</tbody></table>"

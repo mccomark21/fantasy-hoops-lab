@@ -54,7 +54,7 @@ The kept set belongs to the trade tool. It does not change the `stream_spots` of
 4. The rank: the gain in total starts, then min(weeks after) − min(weeks before), then the larger value change for you.
 5. At most 3 rows for each player you give (`[trade] per_player`), and 20 rows in all (`[trade] rows`).
 
-The playoff starts use the Roster page rules exactly: `core/roster.py` `lineup_fit()` on the days of `roster.playoff_days()`. The slots are `[league] slots` and one Util slot. The lineup order is the custom rank of `draft/rankings.py`, and a player with no rank goes last. A rest night on a back-to-back (`rests_b2b` of the `[risk] file`) is not a game. IL and injured players count, with their Yahoo status on the page.
+The playoff starts use the Roster page rules exactly: `core/roster.py` `lineup_fit()` on the days of `roster.playoff_days()`. The slots are `[league] slots` and one Util slot. The lineup order is the rank by Val (`SeasonValues.ranks()`), as on the Roster page, and a player with no season line goes last (#223). A rest night on a back-to-back (`rests_b2b` of the `[risk] file`) is not a game. IL and injured players count, with their Yahoo status on the page.
 
 ## Offer list
 
@@ -84,7 +84,13 @@ The terminal prints the same lines after the best suggestion. With an empty list
 
 ## Value
 
-The value of each player on both sides is the blended value of the adds planner (`adds/blend.py`), from both views of the rostered list. The run matches a player by name and NBA team first. With no match, it matches by `common.name_key()`, but only when one player of the rostered list has that name key. A player with no blended value uses his preseason `pg_value` (`adds/drops.py` `season_values()`), and the page marks it "no blend". The line under the suggestions and a line under the builder tables explain the mark: "No blend: the player has no blended value, so his Val is his preseason value (Pre)." The page shows the preseason value ("Pre") of each player next to his value ("Val").
+The value of each player on both sides is his Val: the Season value of `core/season_value.py` above the replacement free agent (#223). It is the Val of the Players, Free agents and Roster pages and of the Playoffs page. See [Val](../glossary.md). The kept set, the suggestions, the Val column and the value band use it.
+
+1. The run reads the season lines (`read_season_lines()`) and matches each player by `common.name_key()` of his Yahoo name, as the Players page does.
+2. The replacement value comes from the player file of the planning run of the same day: `season_replacement` in the meta of `output/players/players.json` (`players/page.py` `read_season_replacement()`). So the Trades page Val equals the Players page Val. The `refresh` command runs the planning run before the trade run.
+3. With no player file of the same day, the run uses the estimate of `adds/value.py` `season_replacement()` with no free agents: the player at rank 15 after the rostered pool.
+4. The foot under the suggestions shows the basis line of Val and the source of the replacement value. The note under the builder tables says "Val: the Season value per game, the Val of the Players page."
+5. A player with no season line has no Val and is not in a trade. The page has no Pre column and no "no blend" mark.
 
 ## Data
 
@@ -92,11 +98,10 @@ The value of each player on both sides is the blended value of the adds planner 
 |---|---|---|
 | Your roster and IL slots | Your Yahoo team page, from Edge | `adds/readers.py` `read_roster()` |
 | The rostered list, projected view (next 7 days) | `players?status=T&...&stat1=S_PS7` | `trade/rostered.py` |
-| The rostered list, recent view (last 14 days) | `players?status=T&...&stat1=S_AL14` | `trade/rostered.py` |
 | The trade deadline ("Trade End Date") | The league settings page, `settings` | `trade/deadline.py` |
 | The playoff days | `data/schedule.csv` (`python -m fantasyhoops.fetch.espn`) | `core/roster.py` `playoff_days()` |
-| The custom rank | The projections file and `data/` files of the draft tools | `adds/roster.py` `read_ranks()` |
-| The preseason value | The newest projections file | `adds/drops.py` `season_values()` |
+| The season lines | The newest projections file, `data/box_scores.csv`, `data/rosters.csv` and `data/name_overrides.csv` | `core/season_value.py` `read_season_lines()` |
+| The replacement value | `output/players/players.json` of the planning run of the same day | `players/page.py` `read_season_replacement()` |
 | The rest list | `[risk] file` | `trade/run.py` `read_risk()`, with the rules of `draft/rankings.py` `load_risk()` |
 
 Without `data/schedule.csv`, the run stops with a message that names the file and the fetch command.
@@ -106,9 +111,9 @@ The rostered list reader:
 1. Reads all pages of each view, until a page has no "Next 25" link.
 2. Takes the fantasy team of a row from the team link (`/nba/<league>/<team ID>`), not from the team name. A team name can change during the season.
 3. Reads the name, the NBA team, the positions and the status with `read_player()` of `adds/readers.py`.
-4. Reads only the projected view while `[adds] recent_skip_weight` skips the recent view (`lists.skips_recent_view()`).
+4. Reads only the projected view in the trade run, because Val does not use the Yahoo stat lines (#223). The planning run reads the recent view too while `[adds] recent_skip_weight` allows it (`lists.skips_recent_view()`).
 
-The trade run keeps the rows of your team too, because your players need their blended values. The live check (`trade.reads`) drops them.
+The trade run keeps the rows of your team too, for the names, teams and positions of your players. The live check (`trade.reads`) drops them.
 
 The trade deadline reader finds the label "Trade End Date" on the league settings page and reads the first date after it. If the page has no such date, the run continues with no deadline, and a warning names the cached page.
 
@@ -161,7 +166,7 @@ The result table shows both teams: the playoff starts of each week and the total
 
 The suggestions table shows the partner starts too, marked "Est.", under the partner name: the starts of each week and the total, before (first line) and after (second line). The row list on a phone shows the same numbers on one line.
 
-The page inlines `core/starts.js` (the shared lineup-and-starts engine, #213) and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `core/starts.js` with value = −rank. So the engine starts the players in the lineup order of the Roster page. `core/starts.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
+The page inlines `core/starts.js` (the shared lineup-and-starts engine, #213) and `trade/trade_builder.js`, as the draft board does. `trade_builder.js` holds the kept set and the drop rules, and calls `scoreCore()` of `core/starts.js` with value = −rank. rank is the rank by Val, so the engine starts the players in Val order, the lineup order of the Roster page. `core/starts.js` has no trade code. `trade/builder.py` has the same rules in Python. `tests/trade/test_parity.py` runs both in Node and Python on random rosters and compares the starts, the drops, the open spots and the value changes.
 
 ## Edge states
 
@@ -169,7 +174,7 @@ The run handles these states (#153):
 
 1. **After the trade deadline.** The run reads the league settings first. If today is after the trade deadline, the run does not read your team page or the rostered list. It writes and publishes a short `/trade/` page: "The trade deadline was <date>. Yahoo accepts no more trades this season." The header shows the deadline with "passed" and the time of the run. The Trades tab stays. On the deadline day, the run still suggests trades.
 2. **No trade deadline.** If the league settings page has no "Trade End Date" with a date, the run continues. The terminal prints one warning, and the page shows the same warning under the header. The header shows "Not found".
-3. **A player with no match in a data file.** The run matches the names with `common.name_key()`. A player with no match in the rankings gets no rank and goes last in the lineup order. A player with no match in the `[risk] file` gets `rests_b2b` 0. A player with no match in the projections file gets no Pre value. For each file, the terminal prints one warning line with the names of both sides, and the page shows the same lines under the header. A line with 3 players or fewer names all of them, for example "Lost A and Lost B". A line with more players gives the count and the first 3 names, for example "11 players, such as A, B and C".
+3. **A player with no match in a data file.** The run matches the names with `common.name_key()`. A player with no season line gets no Val and no rank, and goes last in the lineup order. A player with no match in the `[risk] file` gets `rests_b2b` 0. For each file, the terminal prints one warning line with the names of both sides, and the page shows the same lines under the header. A line with 3 players or fewer names all of them, for example "Lost A and Lost B". A line with more players gives the count and the first 3 names, for example "11 players, such as A, B and C".
 4. **Yahoo read failure.** If the run cannot read Yahoo (`YahooBlocked`, `PageNotReady`, or any Playwright timeout of a Yahoo read, for example the sign-in wait or a page load), the run stops with the error. It does not write or publish a page, so the last good page stays on the site.
 
 The page header always shows the date and time of the run ("Made").
@@ -199,8 +204,7 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 | Untouchable | A player that the tool never offers in a trade. |
 | Partner | The other fantasy team of a trade. |
 | Offered player | A player on your roster that the suggestions can give: on the `[trade] offer` list (or any player if the list is empty), and not untouchable. |
-| Pre | The preseason `pg_value` of a player. |
-| No blend | The mark of a player whose value (Val) is his preseason value, because he has no blended value. |
+| Val | The Season value above the replacement free agent. See the [glossary](../glossary.md). |
 
 ## Decisions
 
@@ -213,3 +217,4 @@ The section has no deadline value. The run reads the trade deadline from Yahoo.
 - On 2026-10-29, the builder of #152 made the build choices of the builder (Decision comment on #152).
 - On 2026-10-29, the builder of #153 made the choices of the edge states (Decision comments on #153).
 - On 2026-10-29, the owner decided: a config list `[trade] offer` limits the players that the suggestions give. The kept set rule does not change (#170). The builder of #170 made the choices of the reason lines (Decision comments on #170).
+- On 2026-11-01, the owner decided: the Trades page ranks by the Season value, as the other pages do (#222, #223). The builder of #223 made the choices of the replacement value, the Pre column and the value band (Decision comments on #223).

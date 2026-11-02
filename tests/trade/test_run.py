@@ -1,5 +1,6 @@
 import csv
 import html
+import json
 import re
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
@@ -12,6 +13,7 @@ from fantasyhoops.adds.session import PageNotReady, YahooBlocked
 from fantasyhoops.adds.teams import YAHOO_TEAMS, espn_code
 from fantasyhoops.core import common, roster as roster_page
 from fantasyhoops.core import publish as site
+from fantasyhoops.core.season_value import SeasonLine, SeasonValues
 from fantasyhoops.trade import run
 from fantasyhoops.trade.deadline import SETTINGS_PATH
 from fantasyhoops.trade.reads import TradeInputs
@@ -60,8 +62,7 @@ def fake_run(tmp_path, monkeypatch):
     cfg = common.load_config()
     yahoo = Yahoo(cfg["adds"]["team"])
     monkeypatch.setattr(common, "OUT", tmp_path)
-    scale = pd.DataFrame({k: [0.0, 1.0] for k in cfg["weights"]}, index=["mean", "std"])
-    local = run.LocalFiles(playoff_days(cfg), {}, {}, scale, False)
+    local = run.LocalFiles(playoff_days(cfg), SeasonValues({}, 0.0, cfg["games"]["power"]), "Val basis line.")
     monkeypatch.setattr(run, "read_local_files", lambda cfg, today: local)
     monkeypatch.setattr(run, "read_risk", lambda names, cfg: {})
 
@@ -87,7 +88,8 @@ def test_with_no_publish_the_run_writes_the_trade_page_and_the_timings_and_skips
     assert page.exists()
     text = page.read_text(encoding="utf-8")
     assert "<h1>Trades</h1>" in text and "Starts count your 8 kept players." in text
-    assert "Rosters: 5 pages read from Yahoo at" in text
+    assert "Rosters: 3 pages read from Yahoo at" in text  # the settings page and the projected view (#223)
+    assert not [path for path in fake_run.paths if "stat1=S_AL14" in path]  # Val does not use the recent view
     assert not (tmp_path / "roster").exists()  # the run does not make the Roster page
     assert f"Wrote the trade page: {page}" in out
     assert "Publish: skipped (--no-publish)." in out
@@ -122,7 +124,7 @@ def test_a_second_run_reads_the_rostered_pages_from_the_cache(fake_run, tmp_path
     first = len(fake_run.paths)
     run.main(["--no-publish"])
     assert len(fake_run.paths) - first == 1  # only the team page
-    assert "Rosters: 5 pages from the cache of " in (tmp_path / "trade" / "index.html").read_text(encoding="utf-8")
+    assert "Rosters: 3 pages from the cache of " in (tmp_path / "trade" / "index.html").read_text(encoding="utf-8")
 
 
 def test_without_the_schedule_the_run_stops_with_the_file_and_the_fetch_command(tmp_path, monkeypatch):
@@ -146,52 +148,66 @@ class Read:
         self.projected, self.recent = projected, list(recent)
 
 
-def test_the_values_come_from_the_rostered_list_or_the_preseason_value_with_the_pre_mark():
+# Two lines with a replacement value of 0.5 and [games] power 1.25. Own Guard: (2.5 - 0.5) x 0.8 ^ 1.25 = 1.51.
+# Their Wing: 0.3 - 0.5 = -0.20, with no games factor.
+LINES = {
+    "own guard": SeasonLine("Own Guard", 8, 0.8, 2.5, 0.8),
+    "their wing": SeasonLine("Their Wing", 2, 0.2, 0.3, 1.0),
+}
+SEASON = SeasonValues(LINES, 0.5, 1.25)
+
+
+def test_the_value_is_the_season_value_and_the_rank_is_the_rank_by_val():
+    """#223: Val and the lineup rank come from SeasonValues, by the name key of the Yahoo name. No Yahoo line counts."""
     from fantasyhoops.adds.readers import Player
-    from fantasyhoops.adds.drops import SeasonValue
     from fantasyhoops.trade.rostered import RosteredPlayer
 
-    cfg = common.load_config()
-    scale = pd.DataFrame({k: [0.0, 1.0] for k in cfg["weights"]}, index=["mean", "std"])
-    line = {k: 1.0 for k in cfg["weights"]}
-    mine_row = RosteredPlayer(Player("Own Guard", "ATL", ("PG",)), 3, line, 10, "Mine")
+    mine_row = RosteredPlayer(Player("Own Guard", "ATL", ("PG",)), 3, {}, 10, "Mine")
     their_row = RosteredPlayer(Player("Their Wing", "BOS", ("SF",)), 3, {}, 4, "Rivals")
     roster = [Player("Own Guard", "ATL", ("PG",), slot="PG"), Player("Own Hurt", "CHI", ("C",), slot="IL")]
-    pre = {"own hurt": SeasonValue(100, -0.5), "their wing": SeasonValue(50, 0.7)}
-    mine, others = run.trade_players(roster, Read([mine_row, their_row]), 10, {}, {}, pre, scale, cfg)
-    assert [(p.name, p.mark, p.slot) for p in mine] == [("Own Guard", "", "PG"), ("Own Hurt", "pre", "IL")]
-    assert mine[1].value == -0.5 and mine[0].value == pytest.approx(sum(cfg["weights"].values()))
-    assert [(p.name, p.value, p.mark, p.team_name) for p in others] == [("Their Wing", 0.7, "pre", "Rivals")]
+    mine, others = run.trade_players(roster, Read([mine_row, their_row]), 10, SEASON, {})
+    assert [(p.name, p.value, p.rank, p.slot) for p in mine] == [
+        ("Own Guard", 1.51, 1, "PG"),
+        ("Own Hurt", None, None, "IL"),
+    ]
+    assert [(p.name, p.value, p.rank, p.team_name) for p in others] == [("Their Wing", -0.2, 2, "Rivals")]
 
 
-def name_key_case(rows, roster_player):
-    """The (value, mark) that trade_players() gives roster_player, with rows as the rostered list (#161)."""
-    from fantasyhoops.adds.drops import SeasonValue
+def test_the_trades_val_equals_the_players_page_val_for_the_same_player():
+    """#223 acceptance: the Trades page and the Players page (players/data.py season_vals()) give one Val."""
     from fantasyhoops.adds.readers import Player
-    from fantasyhoops.trade.rostered import RosteredPlayer
+    from fantasyhoops.players.data import season_vals
+    from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
+
+    rows = [
+        RosteredPlayer(Player("Own Guard", "ATL", ("PG",)), 3, {}, 10, "Mine"),
+        RosteredPlayer(Player("Their Wing", "BOS", ("SF",)), 3, {}, 4, "Rivals"),
+    ]
+    read = RosteredRead(rows, [], {}, [], True)
+    mine, others = run.trade_players([Player("Own Guard", "ATL", ("PG",), slot="PG")], read, 10, SEASON, {})
+    players_page = season_vals(read, (), SEASON)
+    for p in mine + others:
+        assert p.value == players_page[common.name_key(p.name)].val
+
+
+def test_the_run_takes_the_replacement_of_the_player_file_of_today(tmp_path, monkeypatch):
+    """#223: the trade run uses the replacement value of the planning run of the same day, else the estimate."""
+    from fantasyhoops.players import page as players_page
 
     cfg = common.load_config()
-    scale = pd.DataFrame({k: [0.0, 1.0] for k in cfg["weights"]}, index=["mean", "std"])
-    line = {k: 1.0 for k in cfg["weights"]}
-    read = Read([RosteredPlayer(Player(name, team, ("SF",)), 3, line, 4, "Rivals") for name, team in rows])
-    pre = {"jalen smith": SeasonValue(80, -0.3)}
-    mine, _ = run.trade_players([Player(*roster_player, ("SF",), slot="SF")], read, 10, {}, {}, pre, scale, cfg)
-    return mine[0].value, mine[0].mark, sum(cfg["weights"].values())
-
-
-def test_the_name_key_match_gives_the_value_when_one_player_has_the_name_key():
-    value, mark, blended = name_key_case([("Jalen Smith Jr.", "CHI")], ("Jalen Smith", "IND"))
-    assert mark == "" and value == pytest.approx(blended)
-
-
-def test_the_name_key_match_gives_no_value_when_two_players_share_the_name_key():
-    value, mark, _ = name_key_case([("Jalen Smith", "CHI"), ("Jalen Smith Jr.", "PHX")], ("Jalen Smith", "IND"))
-    assert (value, mark) == (-0.3, "pre")
-
-
-def test_a_name_and_team_match_gives_the_value_when_two_players_share_the_name_key():
-    value, mark, blended = name_key_case([("Jalen Smith", "CHI"), ("Jalen Smith Jr.", "PHX")], ("Jalen Smith", "CHI"))
-    assert mark == "" and value == pytest.approx(blended)
+    monkeypatch.setattr(common, "OUT", tmp_path)
+    monkeypatch.setattr(run, "read_season_lines", lambda cfg: LINES)
+    monkeypatch.setattr(run, "season_replacement", lambda options, lines, cfg: -9.0)
+    content = players_page.player_file([], date(2026, 11, 1), None, season_replacement=0.5)
+    (tmp_path / "players").mkdir()
+    (tmp_path / "players" / "players.json").write_text(json.dumps(content), encoding="utf-8")
+    season, planned = run.read_season(cfg, date(2026, 11, 1))
+    assert planned and season.replacement == 0.5 and season.lines is LINES
+    assert season.power == cfg["games"]["power"]
+    assert "the free agent of the planning run of today" in run.basis_line(cfg, planned)
+    season, planned = run.read_season(cfg, date(2026, 11, 2))  # the file is of another day
+    assert not planned and season.replacement == -9.0
+    assert "an estimate" in run.basis_line(cfg, planned)
 
 
 def test_the_best_line_and_the_warnings():
@@ -289,16 +305,13 @@ def test_with_no_deadline_the_run_continues_and_the_page_and_the_terminal_show_t
 
 
 def test_a_player_with_no_match_gets_a_warning_line_and_goes_last_in_the_lineup_order():
-    from fantasyhoops.adds.drops import SeasonValue
-
     known = TradePlayer("Known Guy", "ATL", ("PG",), rank=40)
     lost = TradePlayer("Lost Guy", "BOS", ("PG",))
-    ranks, risk, pre = {"known guy": 40}, {"known guy": 1}, {"known guy": SeasonValue(10, 0.5)}
-    lines = run.missing_data([lost, known, lost], ranks, risk, pre)
+    lines, risk = {"known guy": SeasonLine("Known Guy", 5, 0.5, 1.0, 1.0)}, {"known guy": 1}
+    lines = run.missing_data([lost, known, lost], lines, risk)
     assert lines == [
-        "Warning: these players have no rank and go last in the lineup order: Lost Guy.",
+        "Warning: these players have no season line, so no Val, and go last in the lineup order: Lost Guy.",
         "Warning: these players are not in the [risk] file and get rests_b2b 0: Lost Guy.",
-        "Warning: these players are not in the projections file and have no Pre value: Lost Guy.",
     ]
     order = roster_page.rank_order([lost.roster_player(), known.roster_player()])
     assert [p.name for p in order] == ["Known Guy", "Lost Guy"]
@@ -306,9 +319,9 @@ def test_a_player_with_no_match_gets_a_warning_line_and_goes_last_in_the_lineup_
 
 def test_a_missing_data_line_with_many_players_gives_the_count_and_the_first_three_names():
     players = [TradePlayer(f"Lost {n}", "BOS", ("PG",)) for n in "ABCDEFGHIJK"]
-    lines = run.missing_data(players, {}, {}, {})
+    lines = run.missing_data(players, {}, {})
     assert lines[0] == (
-        "Warning: these players have no rank and go last in the lineup order: "
+        "Warning: these players have no season line, so no Val, and go last in the lineup order: "
         "11 players, such as Lost A, Lost B and Lost C."
     )
     assert all("11 players, such as Lost A, Lost B and Lost C." in line for line in lines)
@@ -316,16 +329,16 @@ def test_a_missing_data_line_with_many_players_gives_the_count_and_the_first_thr
 
 def test_a_missing_data_line_with_few_players_names_all_of_them():
     players = [TradePlayer(f"Lost {n}", "BOS", ("PG",)) for n in "ABC"]
-    line = run.missing_data(players[:2], {}, {}, {})[0]
+    line = run.missing_data(players[:2], {}, {})[0]
     assert line.endswith(": Lost A and Lost B.") and "such as" not in line
-    line = run.missing_data(players, {}, {}, {})[0]
+    line = run.missing_data(players, {}, {})[0]
     assert line.endswith(": Lost A, Lost B and Lost C.") and "such as" not in line
 
 
 def test_the_run_prints_the_missing_data_lines_and_the_page_lists_them(fake_run, tmp_path, capsys):
-    run.main(["--no-publish"])  # the fake run has no ranks, no risk file and no projections file
+    run.main(["--no-publish"])  # the fake run has no season lines and no risk file
     out = capsys.readouterr().out
-    line = next(x for x in out.splitlines() if x.startswith("Warning: these players have no rank"))
+    line = next(x for x in out.splitlines() if x.startswith("Warning: these players have no season line"))
     text = (tmp_path / "trade" / "index.html").read_text(encoding="utf-8")
     assert f"<li>{html.escape(line)}</li>" in text
 
