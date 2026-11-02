@@ -8,8 +8,11 @@ The rule (owner decision of 2026-10-30): each rostered player of the league, and
   (core/season_value.py) above the replacement free agent of the planning run. season_vals() gives it for the
   players of the Yahoo lists of the run: a free agent comes from the free-agent lists, a rostered player from the
   rostered list. A player who is in no Yahoo list of the run, or who has no season line, has no Val.
-  market_values() gives the Val before #222, the blended value above the replacement free agent. Such a player gets the projection-based Val (proj_val, #213): the per-game value of his projection
-  minus the same replacement value. projection_values() gives it.
+  market_values() gives the Val before #222, the blended value above the replacement free agent.
+- proj_val (#213): a player with no Val gets the Val of the same Season value in proj_val (#222,
+  core/season_value.SeasonValues.vals()). The playoffs page marks it "proj". With no Season value (season None in
+  players/page.py write_site()), proj_val is the per-game value of his projection minus the replacement value of the
+  run. projection_values() gives it.
 - rests_b2b is the rests_b2b column of the [risk] file of config.toml (read_resters(), #213).
 - The games are the ESPN games of a player in data/rotation_log.csv.
 The names match after common.name_key(). data/name_overrides.csv gives the Yahoo name of a projection or ESPN name

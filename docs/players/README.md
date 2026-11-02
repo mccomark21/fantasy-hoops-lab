@@ -65,7 +65,7 @@ Each player has these fields for the playoffs page (#213):
 
 - `team` and `pos`: the NBA team and the positions, for example `"PG/SG"`.
 - `rests_b2b`: 1 if the player rests on the second night of a back-to-back, from the `[risk]` file of `config.toml`. Else 0.
-- `proj_val`: for a player with no Val, the projection-based Val: the per-game value of his projection minus the replacement value of the run. The playoffs page shows it with a "proj" mark. A player with a Val, or with no projection, has `null`. The Players page and the modal do not show it.
+- `proj_val`: for a player with no Val (he is in no Yahoo list of the run), the Val of the same Season value (#222). A run with no Season value gives the projection-based Val: the per-game value of his projection minus the replacement value of the run. The playoffs page shows it with a "proj" mark. A player with a Val, or with no projection, has `null`. The Players page and the modal do not show it.
 
 The planning run (`python -m fantasyhoops.adds.plan`) writes the page and the file in `output/players/` and publishes them at `/players/`:
 

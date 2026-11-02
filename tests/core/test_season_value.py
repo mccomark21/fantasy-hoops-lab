@@ -68,7 +68,8 @@ def box_rows(player, team, games, pts=25, reb=5, team_games=None, start=0, pid=N
 
 def sample():
     """A 0-game player, a player with 12 games (more than blend_games), a player with 4 of 5 team games, the two
-    players of the name overrides and a player with games and no projection."""
+    players of the name overrides, a player with games and no projection, and two 0-game players on teams with 5 and
+    12 games. Hurt Five gets his team from data/rosters.csv, Hurt Twelve from his box-score rows with played False."""
     projections = pd.DataFrame(
         [
             projection(1, "Zero", "Games"),
@@ -77,6 +78,8 @@ def sample():
             projection(4, "Alexandre", "Sarr"),
             projection(5, "Nicolas", "Claxton"),
             projection(6, "No", "Games", games=0),
+            projection(7, "Hurt", "Five"),
+            projection(8, "Hurt", "Twelve"),
         ]
     )
     box = pd.DataFrame(
@@ -85,16 +88,31 @@ def sample():
             *box_rows("Four Games", "NYK", 4, team_games=5),
             *box_rows("Alex Sarr", "WSH", 10),
             *box_rows("Box Only", "MIA", 3, pts=20),
+            *box_rows("Hurt Twelve", "BOS", 0, team_games=12),
         ]
     )
-    return season_lines(projections, box, OVERRIDES, CFG, SCALE)
+    rosters = pd.DataFrame({"espn_name": ["Hurt Five", "Nic Claxton"], "team": ["NYK", "WSH"]})
+    return season_lines(projections, box, OVERRIDES, CFG, SCALE, rosters)
 
 
 def test_a_0_game_player_gets_the_projection_value():
     line = sample()["zero games"]
     assert (line.games, line.weight) == (0, 0.0)
     assert line.pg_value == pytest.approx(1.0)  # (15 - 10) / 5
-    assert line.share == pytest.approx(70 / 82)
+    assert line.share == pytest.approx(70 / 82)  # no NBA team: t = 0
+
+
+def test_a_0_game_player_loses_games_share_as_his_team_plays():
+    # Owner decision of 2026-11-01 (half penalty): the share blends by the team games, t = min(team games, 10) / 10.
+    # The per-game value keeps the blend by his own games, so it stays the projection value.
+    lines = sample()
+    five, twelve = lines["hurt five"], lines["hurt twelve"]
+    assert (five.team_games, five.pg_value) == (5, pytest.approx(1.0))
+    assert five.share == pytest.approx(0.5 * 0 / 5 + 0.5 * 70 / 82)
+    assert (twelve.team_games, twelve.pg_value) == (12, pytest.approx(1.0))
+    assert twelve.share == pytest.approx(0.0)  # t = 1: 0 of 12 games
+    assert line_val(twelve, 0.5, 1.25) == pytest.approx(0.0) and line_val(five, 0.5, 1.25) > 0
+    assert line_val(twelve, 2.0, 1.25) == pytest.approx(-1.0)  # below replacement: no games factor
 
 
 def test_a_player_with_blend_games_or_more_gets_the_season_to_date_value():
@@ -108,7 +126,7 @@ def test_a_player_between_gets_the_blend_of_the_value_and_of_the_games_share():
     line = sample()["four games"]
     assert (line.games, line.weight) == (4, 0.4)
     assert line.pg_value == pytest.approx(0.4 * 3.0 + 0.6 * 1.0)
-    assert line.share == pytest.approx(0.4 * 4 / 5 + 0.6 * 70 / 82)
+    assert line.share == pytest.approx(0.5 * 4 / 5 + 0.5 * 70 / 82)  # t = 5 team games / 10
 
 
 def test_the_name_overrides_link_the_projection_and_the_box_scores_to_the_yahoo_name():
@@ -116,6 +134,7 @@ def test_the_name_overrides_link_the_projection_and_the_box_scores_to_the_yahoo_
     assert lines["alex sarr"].name == "Alex Sarr" and lines["alex sarr"].games == 10
     assert lines["alex sarr"].pg_value == pytest.approx(3.0)
     assert lines["nic claxton"].name == "Nic Claxton" and lines["nic claxton"].games == 0
+    assert lines["nic claxton"].team_games == 10  # his ESPN name (override) finds his team in data/rosters.csv
     assert "alexandre sarr" not in lines and "nicolas claxton" not in lines
 
 

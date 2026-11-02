@@ -119,7 +119,8 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
     rostered: the RosteredRead of all teams (read_owners()). own_team: your team ID ([adds] team).
     made: the date of the rostered list. options, replacement, scale: the free-agent Options, the replacement value
     and the category scale of the planning run. season: the core/season_value.SeasonValues of the run (#222). Val is
-    its Val (data.season_vals()), and proj_val and the Value quadrant use its replacement value.
+    its Val (data.season_vals()). A player in no Yahoo list gets the same Season value in proj_val. The Value
+    quadrant uses its replacement value.
     season None: Val is the blended value above replacement (data.market_values()). replacement None: no Val.
     The return value is the more_tools entry of publish.publish().
     """
@@ -127,9 +128,11 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
     played, first, last = data.read_played()
     if season is not None:
         values, replacement, basis = data.season_vals(rostered, options, season), season.replacement, basis_text(cfg)
+        proj_values = season.vals()
     else:
         values = {} if replacement is None else data.market_values(rostered, options, replacement, scale, cfg)
         basis = None
+        proj_values = {} if replacement is None else data.projection_values(projected, replacement)
     extras = {key: {"cats": cats} for key, cats in categories.read_categories(cfg).items()}
     for key, found in role.read_roles(cfg, data.read_overrides()).items():
         extras.setdefault(key, {})["role"] = found
@@ -140,7 +143,7 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
         values,
         extras=extras,
         resters=data.read_resters(cfg),
-        proj_values={} if replacement is None else data.projection_values(projected, replacement),
+        proj_values=proj_values,
     )
     value_meta = add_quadrants(records, cfg, made, scale, replacement)
     content = player_file(records, made, projections, first, last, replacement, basis)

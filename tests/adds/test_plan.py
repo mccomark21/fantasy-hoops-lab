@@ -975,7 +975,9 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
     monkeypatch.setattr(adds_roster, "read_risk", lambda roster, cfg: {})
     monkeypatch.setattr(adds_roster, "season_stats", lambda season: {})
     monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
-    monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    # Box Guy is in no Yahoo list of the run. His 5 games put him on the Players page with the Season value in proj_val.
+    played = {"box guy": command.players_page.data.Played("Box Guy", "MIA", 5)}
+    monkeypatch.setattr(command.players_page.data, "read_played", lambda: (played, None, None))
     monkeypatch.setattr(command.players_page.categories, "read_categories", lambda cfg: {})
     ace = Player("Ace Bailey", "PHI", ("SF",))
     owners = RosteredRead([RosteredPlayer(ace, 0, {}, 1, "Lamb Chops")], [], {}, [], True)
@@ -983,6 +985,7 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
         "ace bailey": SeasonLine("Ace Bailey", 10, 1.0, 0.2, 1.0),
         "phi one": SeasonLine("Phi One", 4, 0.4, 1.0, 0.8),
         "den guy": SeasonLine("Den Guy", 10, 1.0, 0.5, 1.0),
+        "box guy": SeasonLine("Box Guy", 5, 0.5, 0.0, 1.0),
     }
     league = command.LeagueData(roster=[ace], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2])))
     run_command(
@@ -1015,8 +1018,10 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
     file = json.loads((common.OUT / "players" / "players.json").read_text(encoding="utf-8"))
     vals = {p["name"]: p["val"] for p in file["players"]}
     assert vals["Phi One"] == 0.38 and vals["Ace Bailey"] == -0.3
+    box_guy = next(p for p in file["players"] if p["name"] == "Box Guy")
+    assert (box_guy["val"], box_guy["proj_val"]) == (None, -0.5)  # 0.0 - 0.5, the same Season value
     assert file["meta"]["val_basis"] == basis
     assert basis in (common.OUT / "players" / "index.html").read_text(encoding="utf-8")
-    # The Roster page: Ace Bailey is 3rd by Val of the 3 season lines.
+    # The Roster page: Ace Bailey is 3rd by Val of the 4 season lines (Box Guy is 4th).
     roster = (common.OUT / "roster" / "index.html").read_text(encoding="utf-8")
     assert '<td class="rk">3</td>' in roster and f"Rank: rank by Val. {basis}" in text(roster)
