@@ -5,6 +5,7 @@
    mccomark21/fantasy-hoops-lab@4071364, before the move.
 2. valueStarted() rests a player of the rester set as lineup_fit() of core/roster.py does.
 3. valueStarted() adds the light-night bonus of [quality_games] in config.toml.
+4. weekTotals() and weekRanks() give the numbers of each week and the vulnerable flag of the League page (#229).
 """
 
 import json
@@ -405,3 +406,86 @@ def test_rank_median_gives_rank_1_to_the_most_and_the_median_of_the_league():
     assert call("rankMedian", [5, 3, 3, 1], 5) == {"rank": 1, "of": 4, "median": 3}
     assert call("rankMedian", [1, 2, 9], 1) == {"rank": 3, "of": 3, "median": 2}
     assert call("rankMedian", [1, 4], 1)["median"] == 2.5
+
+
+def test_week_totals_give_the_total_the_volume_the_value_per_start_and_the_reasons_of_each_week():
+    """#229: Total = value started + stream games x v. Volume = core starts + filled slots. Value per start = Total ÷
+    Volume. wk19: s sits on day 1 (a crowded night). wk20: only u plays, and 1 stream spot fills 2 of 11 open slots."""
+    core = FULL + [player("u", "U", "C", 0.5), player("s", "K", "PG", 0.1)]
+    days = [
+        day("2027-03-08", "wk19", ["K", "U", "H"]),
+        day("2027-03-09", "wk19", ["K", "H"], quality=True),
+        day("2027-03-15", "wk20", ["U", "H"]),
+        day("2027-03-16", "wk20", ["H"]),
+    ]
+    data = {**engine_data(days, bonus=0.1), "weeks": ["wk19", "wk20"]}
+    got = call("weekTotals", core, data, {"spots": 1, "adds": 0, "v": 2, "few": 1})
+    vs = value_started(core, data)["weeks"]
+    fill = call("streamFill", core, data, {"spots": 1, "adds": 0})["weeks"]
+    # The result holds the valueStarted() and streamFill() results, so the League page computes them one time.
+    assert got["started"]["weeks"] == vs and got["fill"]["weeks"] == fill
+    for w, x in got["weeks"].items():
+        f = fill[w]
+        assert x["value"] == pytest.approx(vs[w]["value"])
+        assert x["total"] == pytest.approx(vs[w]["value"] + (f["heavy"] + f["light"] * 1.1) * 2)
+        assert x["volume"] == vs[w]["starts"] + f["heavy"] + f["light"]
+        assert x["vps"] == pytest.approx(x["total"] / x["volume"])
+        assert x["unused"] == vs[w]["open_heavy"] + vs[w]["open_light"] - x["filled"]
+    # Day 1: 15 + 0.5. Day 2 (light): (15 + 0.1) x 1.1. s sits on day 1 and starts in Util on day 2.
+    wk19 = got["weeks"]["wk19"]
+    assert wk19["total"] == pytest.approx(15.5 + 15.1 * 1.1) and (wk19["volume"], wk19["lost"]) == (12, 1)
+    assert wk19["lost_by"] == {"s": 1} and wk19["unused"] == 0 and wk19["main"] == "lost"
+    assert wk19["few"] == [
+        {"name": "u", "starts": 1, "games": 1, "rested": 0},
+        {"name": "s", "starts": 1, "games": 2, "rested": 0},
+    ]
+    wk20 = got["weeks"]["wk20"]
+    assert (wk20["total"], wk20["volume"], wk20["open"], wk20["filled"], wk20["unused"]) == (4.5, 3, 11, 2, 9)
+    assert wk20["main"] == "unused" and wk20["few"][0]["starts"] == 0 and wk20["few"][-1]["name"] == "u"
+    assert got["total"] == pytest.approx(wk19["total"] + 4.5) and got["volume"] == 15
+    assert got["vps"] == pytest.approx(got["total"] / 15)
+
+
+def test_week_totals_count_a_rest_night_and_give_no_main_cause_to_a_full_week():
+    data = engine_data([day("2027-03-08", "wk19", ["K"]), day("2027-03-09", "wk19", ["K"], b2b=["K"])])
+    got = call("weekTotals", FULL, data, {"spots": 0, "adds": 0, "v": 1, "few": 1, "resters": ["k0"]})["weeks"]["wk19"]
+    # k0 rests on the second night. With no stream spot, Util (both days) and PG (day 2) stay open.
+    assert got["few"] == [{"name": "k0", "starts": 1, "games": 1, "rested": 1}]
+    assert (got["unused"], got["main"]) == (3, "unused")
+    # The 5 core players and one stream start fill each slot: no lost start and no unused slot.
+    data = engine_data([day("2027-03-08", "wk19", ["K", "H"])])
+    assert call("weekTotals", FULL, data, {"spots": 1, "v": 1})["weeks"]["wk19"]["main"] is None
+
+
+WEEKS = ["wk19", "wk20", "wk21"]
+
+
+def week(*totals):
+    """A weekTotals() result with the totals of WEEKS, a volume of 10 and the value per start."""
+    return {"weeks": {w: {"total": t, "volume": 10, "vps": t / 10} for w, t in zip(WEEKS, totals)}}
+
+
+def test_week_ranks_flag_a_week_in_the_rank_band_that_is_far_below_the_mean_week():
+    """#229, item 2: vulnerable = a rank in the band and at least weak.below under the mean week of the team. A team
+    with a rank in the band in each week is "weak all 3 weeks" and has no vulnerable week."""
+    teams = [week(100, 100, 100), week(90, 95, 60), week(80, 80, 80), week(70, 69, 79)]
+    got = call("weekRanks", teams, WEEKS, {"band": [3, 4], "below": 0.07})
+    ranks = [[t["weeks"][w]["r_total"] for w in WEEKS] for t in got]
+    assert ranks == [[1, 1, 1], [2, 2, 4], [3, 3, 2], [4, 4, 3]]
+    flags = [[w for w in WEEKS if t["weeks"][w]["vulnerable"]] for t in got]
+    # B: wk21 is 60 / 81.7 = 27% below. C: rank 3 in wk19, but 0% below. D: weak all 3 weeks.
+    assert flags == [[], ["wk21"], [], []]
+    assert [t["weakAll"] for t in got] == [False, False, False, True]
+    assert got[1]["weeks"]["wk21"]["below"] == pytest.approx(1 - 60 / ((90 + 95 + 60) / 3))
+    # The weakest week: the worst rank, then the lower total (D: wk20, 69 < 70), then the first week (C, A).
+    assert [(t["weakest"], t["worst"]) for t in got] == [("wk19", 1), ("wk21", 4), ("wk19", 3), ("wk20", 4)]
+    # Volume and value per start get ranks too. Equal values share the higher rank.
+    assert {t["weeks"]["wk19"]["r_volume"] for t in got} == {1}
+    assert [t["weeks"]["wk19"]["r_vps"] for t in got] == [1, 2, 3, 4]
+
+
+def test_week_ranks_flag_a_week_at_exactly_the_percent_below_the_mean():
+    # 93 is 7% below the mean week 100. The float math gives 0.0699999..., so the flag keeps a small tolerance.
+    got = call("weekRanks", [week(107, 100, 93), week(50, 50, 94)], WEEKS, {"band": [2, 2], "below": 0.07})
+    assert [w for w in WEEKS if got[0]["weeks"][w]["vulnerable"]] == ["wk21"]
+    assert [w for w in WEEKS if got[1]["weeks"][w]["vulnerable"]] == ["wk19", "wk20"]

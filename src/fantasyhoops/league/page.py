@@ -14,6 +14,8 @@ The planning run (adds/plan.py) reads the standings (read_records()), calls writ
 publishes the folder at /league/. The trade run does not write the page. Its publish keeps /league/.
 Each column header except Team and Record has a description (#227): notes() of league.js gives the text of the
 header tooltip and of the closed "Column meanings" list below the table. The footer has only the data line.
+The week strips, the vulnerable flag and the reasons of each week (#229) come from weekTotals() and weekRanks() of
+core/starts.js. The rank band, the percent below the mean week and the few-starts limit are in [league_page].
 """
 
 import html
@@ -93,6 +95,11 @@ def page_data(records, days, cfg, made, standings=None):
         v_count=cfg["league_page"]["v_free_agents"],
         v_players=[{"name": p["name"], "value": p["value"]} for p in free],
         records=team_records(base["players"], standings or {}),
+        weak={
+            "band": list(cfg["league_page"]["weak_rank_band"]),
+            "below": cfg["league_page"]["weak_below_mean"],
+            "few": cfg["league_page"]["few_starts"],
+        },
     )
     return data
 
@@ -157,7 +164,7 @@ STYLE = """/* The League page (#218): the rules line, the table and the core of 
 .lg .ranks { list-style: none; margin: 12px 0 0; padding: 0; font-size: 13px; line-height: 1.5; }
 .lg .ranks b { font-weight: 800; color: var(--mark); }
 .lg .scroll.lgs { display: block; overflow-x: auto; margin-top: 16px; }
-table.lgt { min-width: 900px; }
+table.lgt { min-width: 1180px; }
 .lgt thead th { white-space: nowrap; }
 .lgt thead th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .lgt thead th button:hover { text-decoration: underline; }
@@ -202,6 +209,21 @@ table.lgt { min-width: 900px; }
 .cp li b { font-weight: 800; } .cp li span { color: var(--lab-mute); font-size: 12px; }
 .cp li em { margin-left: auto; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
 .cp li .s { width: 40px; text-align: right; }
+/* The week strips, the vulnerable flag and the reasons of each week (#229). */
+.lgt td.wkc { white-space: nowrap; }
+.lgt .ws { display: inline-flex; gap: 2px; vertical-align: middle; }
+.lgt .wb { display: inline-block; min-width: 26px; padding: 2px 3px; box-sizing: border-box; text-align: center;
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; border: 1px solid var(--lab-rule);
+  background: color-mix(in srgb, var(--mark) var(--t), var(--lab-stock)); }
+.lgt td.vps .wb { min-width: 38px; }
+.lgt .wb.vul { background: var(--lab-red); border-color: var(--lab-red); color: var(--lab-on-red); }
+.lgt .weak3 { display: block; margin-top: 2px; font-style: normal; font-size: 11px; font-weight: 800; color: var(--lab-red); }
+.tag.vul { background: var(--lab-red); border-color: var(--lab-red); color: var(--lab-on-red); font-style: normal; }
+.lgt .why { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 24px; margin: 4px 0 10px; }
+.lgt .why section { border-top: 1px solid var(--lab-rule); padding-top: 4px; }
+.lgt .why h4 { margin: 0 0 2px; font-size: 13px; font-weight: 800; }
+.lgt .why p { margin: 0 0 3px; font-size: 13px; }
+.lgt .why ul { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.45; color: var(--lab-mute); }
 @media (max-width: 899px) {
   .lgt th.tm { position: sticky; left: 0; z-index: 1; background: var(--lab-stock); max-width: 140px; overflow: hidden;
     text-overflow: ellipsis; }

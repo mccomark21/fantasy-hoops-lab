@@ -19,6 +19,10 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Fill rate | Stream games ÷ (open heavy + open light × (1 + `[quality_games] bonus`)), as a percent. |
 | Unused slots | (Open heavy − filled heavy) + (open light − filled light): the open slots that the streams do not fill. |
 | v | The value of one streamed game: the mean Val of the best `[league_page] v_free_agents` (10) free agents of the planning run. |
+| Weekly Total | The value started of one playoff week + the stream games of that week × v. The League page ranks the teams by it in each week (`weekTotals()` of `core/starts.js`, #229). |
+| Volume | The games started in one week: core starts + filled heavy + filled light. |
+| Value per start | The weekly Total ÷ Volume. Weekly Total = Volume × value per start. |
+| Vulnerable week | A playoff week with a weekly Total rank in `[league_page] weak_rank_band` (10 to 14) and a weekly Total at least `[league_page] weak_below_mean` (7%) below the mean week of the team. A team with a rank in the band in each week is "weak all 3 weeks" (`weekRanks()` of `core/starts.js`, #229). |
 
 ## League
 

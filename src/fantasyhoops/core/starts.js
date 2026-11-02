@@ -21,6 +21,8 @@
 //   streamFill(core, data, opts)      the open slots that the stream spots fill, the stream games, the fill rate and
 //                                     the unused slots (League page, #218).
 //   rankMedian(values, value)         the rank of value among values (1 is the most) and the median (#218).
+//   weekTotals(core, data, opts)      the Total, the volume, the value per start and the reasons of each week (#229).
+//   weekRanks(teams, weeks, weak)     the weekly ranks, the vulnerable flag and the weakest week of each team (#229).
 // A player is {id, name, team, pos, value, rests_b2b}. pos: the position slots, for example ["PG", "SG"].
 // value must be a number, because a null value gives NaN. The playoffs page gives val, else proj_val, else 0 (#214).
 // data: {slots, util, weeks, days}. A day is {date, week, quality, teams, b2b}. valueStarted() also reads
@@ -483,8 +485,89 @@ const Starts = (() => {
     return { rank: 1 + values.filter(x => x > value).length, of: n, median };
   }
 
+  // The numbers of each playoff week of a core (League page, #229). opts: {spots, adds, resters} as in streamFill(),
+  // v: the value of one stream game, few: the most starts of a core player with "few starts".
+  // The result: {weeks: {week: {...}}, total, volume, vps, started, fill}. For each week:
+  //   value: the value started (valueStarted()). stream: the stream games of the week x v. total: value + stream.
+  //   volume: the games started, core starts + filled heavy + filled light. vps: total / volume (value per start).
+  //   starts, lost: the core starts and the starts lost. lost_by: {player name: starts lost} (scoreCore()).
+  //   open: the open slots. filled: the open slots that the streams fill. unused: open - filled. adds: the adds used.
+  //   few: the core players with opts.few or fewer starts, fewest first: {name, starts, games, rested}. games: the
+  //     days with a game and no rest ("s" or "b" marks). rested: the rest nights ("r" marks).
+  //   main: the main cause of a weak week, "unused" or "lost": the cause with more games. With equal counts,
+  //     "unused". null if both are 0.
+  // total, volume and vps: the same numbers for all weeks. total is the Total of the League page.
+  // started, fill: the valueStarted() and streamFill() results of the core, so that a caller does not compute them again.
+  function weekTotals(core, data, opts = {}) {
+    const set = opts.resters === undefined || opts.resters === null ? null : _ids(opts.resters);
+    const players = set ? core.map(p => ({ ...p, rests_b2b: set.has(p.id) })) : core;
+    const vs = valueStarted(core, data, opts.resters);
+    const fill = streamFill(core, data, { spots: opts.spots, adds: opts.adds, resters: opts.resters });
+    const sc = scoreCore(players, data), bonus = data.quality_bonus || 0, v = opts.v || 0, few = opts.few || 0;
+    const weeks = {};
+    let total = 0, volume = 0;
+    for (const w of data.weeks) {
+      const a = vs.weeks[w], f = fill.weeks[w] || { heavy: 0, light: 0, adds: 0 };
+      const stream = (f.heavy + f.light * (1 + bonus)) * v, filled = f.heavy + f.light;
+      const open = a.open_heavy + a.open_light, unused = open - filled, vol = a.starts + filled;
+      const lowStarts = core.map(p => {
+        const m = vs.marks[p.id].filter((_, i) => data.days[i].week === w);
+        const count = k => m.filter(x => x === k).length;
+        return { name: p.name, starts: count("s"), games: count("s") + count("b"), rested: count("r") };
+      }).filter(p => p.starts <= few).sort((x, y) => x.starts - y.starts);
+      const main = unused >= a.lost ? (unused ? "unused" : null) : "lost";
+      weeks[w] = {
+        value: a.value, stream, total: a.value + stream, volume: vol, vps: vol ? (a.value + stream) / vol : 0,
+        starts: a.starts, lost: a.lost, lost_by: sc.weeks[w].lost_by, open, filled, unused, adds: f.adds,
+        few: lowStarts, main,
+      };
+      total += a.value + stream;
+      volume += vol;
+    }
+    return { weeks, total, volume, vps: volume ? total / volume : 0, started: vs, fill };
+  }
+
+  // The weekly ranks and the vulnerable flag of the teams of the league (League page, #229). teams: a list of
+  // weekTotals() results. weeks: the week names. weak: {band: [lo, hi], below} of [league_page] in config.toml.
+  // The result: one object for each team, in the order of teams:
+  //   weeks: {week: {r_total, r_volume, r_vps, below, vulnerable}}. r_*: the rank of the week's total, volume and
+  //     vps among the teams (rankMedian()). below: 1 - total / the mean week of the team.
+  //   weakAll: true if the rank of the total is in the band in each week ("weak all 3 weeks").
+  //   vulnerable: the rank of the total is in the band and below >= weak.below, and weakAll is false.
+  //   weakest: the week with the worst rank of the total (owner decision 1 of 2026-11-02 on #229). With equal ranks,
+  //     the week with the lower total, then the first week. worst: the rank of that week.
+  function weekRanks(teams, weeks, weak) {
+    const [lo, hi] = weak.band, inBand = r => r >= lo && r <= hi;
+    const out = teams.map(() => ({ weeks: {} }));
+    for (const w of weeks) {
+      const rank = k => {
+        const vals = teams.map(t => t.weeks[w][k]);
+        return teams.map(t => rankMedian(vals, t.weeks[w][k]).rank);
+      };
+      const rt = rank("total"), rv = rank("volume"), rp = rank("vps");
+      teams.forEach((_, i) => { out[i].weeks[w] = { r_total: rt[i], r_volume: rv[i], r_vps: rp[i] }; });
+    }
+    teams.forEach((t, i) => {
+      const o = out[i], mean = weeks.reduce((s, w) => s + t.weeks[w].total, 0) / (weeks.length || 1);
+      o.weakAll = weeks.length > 0 && weeks.every(w => inBand(o.weeks[w].r_total));
+      for (const w of weeks) {
+        const x = o.weeks[w];
+        x.below = mean ? 1 - t.weeks[w].total / mean : 0;
+        // The 1e-9 keeps a week at exactly weak.below in the flag, also with a rounding error of the float math
+        x.vulnerable = !o.weakAll && inBand(x.r_total) && x.below >= weak.below - 1e-9;
+      }
+      o.weakest = weeks.reduce((a, w) => {
+        const x = o.weeks[w], y = o.weeks[a];
+        return x.r_total > y.r_total || (x.r_total === y.r_total && t.weeks[w].total < t.weeks[a].total) ? w : a;
+      }, weeks[0]);
+      o.worst = o.weakest === undefined ? 0 : o.weeks[o.weakest].r_total;
+    });
+    return out;
+  }
+
   return {
     scoreCore, fit, slotRoster, valueStarted, idealGames, adds, bestSwaps, inBand, bestCore, streamFill, rankMedian,
+    weekTotals, weekRanks,
   };
 })();
 

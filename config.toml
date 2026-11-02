@@ -219,6 +219,13 @@ other_windows = [
 # (owner decision 3 of 2026-11-02: 10, v = 1.40 on the data of 11/1).
 [league_page]
 v_free_agents = 10
+# The vulnerable flag (#229): a playoff week is vulnerable when the rank of its Total (1 = the most) is in
+# weak_rank_band and its Total is at least weak_below_mean below the mean week of the team. A team with a rank
+# in the band in each week gets the label "weak all 3 weeks".
+weak_rank_band = [10, 14]
+weak_below_mean = 0.07
+# The "Few starts" reason of the team detail (#229): a core player with few_starts or fewer starts in a week.
+few_starts = 2
 
 # Value of one playoff week for each number of games, relative to a 3-game week.
 # A linear scale is 2 = 0.67 and 4 = 1.33. These values make 2-game weeks
