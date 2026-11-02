@@ -21,6 +21,37 @@ const League = (() => {
     ["stream", "Stream value", ""], ["total", "Total", ""], ["starts", "Starts", ""], ["heavy", "Open heavy", ""],
     ["light", "Open light", ""], ["games", "Stream games", ""], ["rate", "Fill rate", ""], ["unused", "Unused", ""],
   ];
+  // The description of each column header (#227), with the numbers of the run. Team and Record have none. The
+  // header tooltip and the "Column meanings" list show the same text.
+  function notes(data) {
+    const slots = data.slots.length + data.util, b = data.quality_bonus || 0;
+    const b1 = String(Number((1 + b).toFixed(4))), more = `${Math.round(b * 100)}%`;
+    return {
+      core: `The number of core players: the best ${data.core} by value started, or your core saved on the ` +
+        "Playoffs page. The saved core is in this browser only.",
+      perCore: `Value started ÷ core players. Value started is the Val of the core starts in ${slots} slots, ` +
+        "with the Season Val, else the projection Val (proj tag).",
+      stream: `Stream games × v. v = ${f2(data.v)}, the mean Val of the top ${data.v_count} free agents.`,
+      total: "Value started + stream value. The # column is the rank by Total.",
+      starts: "The started core games / the core games (starts + starts lost).",
+      heavy: "The open slots on heavy nights that the streams fill / the open slots on heavy nights. An open slot " +
+        "is an empty starting slot.",
+      light: "The open slots on light nights that the streams fill / the open slots on light nights. A light " +
+        "night has 6 or fewer NBA games.",
+      games: `Filled heavy + filled light × ${b1}. A light night counts ${more} more.`,
+      rate: `Stream games ÷ (open heavy + open light × ${b1}).`,
+      unused: "The open slots that the streams do not fill.",
+    };
+  }
+
+  // The "Column meanings" list (#227): a <dt> and a <dd> for each column of notes(). The id of each <dd> is the
+  // aria-describedby target of its header button.
+  function defs(data) {
+    const text = notes(data);
+    return COLS.filter(([k]) => text[k]).map(([k, label]) =>
+      `<dt>${esc(label)}</dt><dd id="lg-d-${k}">${esc(text[k])}</dd>`).join("");
+  }
+
   // The columns that sort from low to high first. All other columns sort from high to low first.
   const UP = new Set(["team", "unused"]);
 
@@ -125,11 +156,12 @@ const League = (() => {
 
   // The HTML of the table and of the summary for the rows and the state st: {key, dir, open}.
   function view(data, list, st) {
-    const rk = ranks(list), mine = list.find(r => r.mine);
+    const rk = ranks(list), mine = list.find(r => r.mine), text = notes(data);
     const head = '<thead><tr><th class="l rkh" scope="col">#</th>' + COLS.map(([k, label, c]) => {
       const sort = st.key === k ? (st.dir < 0 ? "descending" : "ascending") : "none";
       const arrow = sort === "none" ? "" : sort === "descending" ? "▼" : "▲";
-      return `<th scope="col" class="${c}" aria-sort="${sort}"><button type="button" data-k="${k}">${label}` +
+      const desc = text[k] ? ` aria-describedby="lg-d-${k}"` : "";
+      return `<th scope="col" class="${c}" aria-sort="${sort}"><button type="button" data-k="${k}"${desc}>${label}` +
         `<i aria-hidden="true">${arrow}</i></button></th>`;
     }).join("") + "</tr></thead>";
     const body = sorted(list, st).map(r => {
@@ -163,6 +195,39 @@ const League = (() => {
   }
 
   const faList = data => data.v_players.map(p => `${p.name} ${f2(p.value)}`).join(", ");
+
+  // The header tooltip (#227, DESIGN.md "Tooltips"): one card #lg-tt, fixed to the viewport. A mouse shows it on
+  // enter and hides it on leave. A keyboard focus shows it. A click, a scroll or Escape hides it. The card goes 12px
+  // below the header, else 12px above it, and stays 8px inside the viewport. Phones use the "Column meanings" list.
+  function bindTips(doc, tbl, data) {
+    const tip = doc.getElementById("lg-tt"), text = notes(data), win = doc.defaultView;
+    const hide = () => { tip.hidden = true; };
+    function show(b) {
+      const k = b.dataset.k;
+      if (!text[k]) return hide();
+      const label = COLS.find(c => c[0] === k)[1];
+      tip.innerHTML = `<div class="lg-tt-h">${esc(label)}</div><p>${esc(text[k])}</p>`;
+      tip.hidden = false;
+      const r = b.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+      const vw = doc.documentElement.clientWidth, vh = win.innerHeight;
+      let top = r.bottom + 12;
+      if (top + h > vh - 8) top = Math.max(8, r.top - 12 - h);
+      const left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, vw - 8 - w));
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+    }
+    const button = ev => ev.target.closest && ev.target.closest("thead button[data-k]");
+    tbl.addEventListener("pointerover", ev => { const b = button(ev); if (b && ev.pointerType === "mouse") show(b); });
+    tbl.addEventListener("pointerout", ev => {
+      const b = button(ev);
+      if (b && !(ev.relatedTarget && b.contains(ev.relatedTarget))) hide();
+    });
+    tbl.addEventListener("focusin", ev => { const b = button(ev); if (b && b.matches(":focus-visible")) show(b); });
+    tbl.addEventListener("focusout", hide);
+    tbl.addEventListener("click", hide, true);
+    doc.addEventListener("keydown", ev => { if (ev.key === "Escape") hide(); });
+    win.addEventListener("scroll", hide, true);
+  }
 
   // The page in the browser: draw the view, and change the sort or the open team on each click.
   function start(doc, data) {
@@ -199,10 +264,12 @@ const League = (() => {
       }
     });
     doc.getElementById("fa-list").textContent = faList(data);
+    doc.getElementById("lg-defs").innerHTML = defs(data);
+    bindTips(doc, tbl, data);
     draw();
   }
 
-  return { engine, teams, share, row, rows, ranks, sorted, header, view, faList, start };
+  return { COLS, notes, defs, engine, teams, share, row, rows, ranks, sorted, header, view, faList, start };
 })();
 
 if (typeof module !== "undefined") module.exports = League;
