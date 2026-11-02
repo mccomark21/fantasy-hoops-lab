@@ -226,7 +226,7 @@ def test_the_header_gives_your_ranks_and_the_league_medians():
 def test_the_table_has_the_columns_and_each_column_sorts():
     out = run()
     table = out["view"]["table"]
-    labels = re.findall(r'<button type="button" data-k="[^"]+">([^<]+)<i', table)
+    labels = re.findall(r'<button type="button" data-k="[^"]+"[^>]*>([^<]+)<i', table)
     assert labels == [
         "Team",
         "Record",
@@ -263,3 +263,124 @@ def test_the_page_in_chromium_draws_sorts_and_opens_a_team(tmp_path):
         assert pg.locator("#lg tbody tr[data-t]").first.get_attribute("data-t") == "Lamb Chops"
         pg.locator('#lg tr[data-t="Me"] th').click()
         assert pg.locator("#lg tr.det").count() == 1 and not errors
+
+
+# notes(), defs() and the header of view() in Node (#227). argv: the page script. stdin: the page data.
+NOTES_DRIVER = """
+const L = require(process.argv[1]);
+let text = "";
+process.stdin.on("data", c => (text += c));
+process.stdin.on("end", () => {
+  const data = JSON.parse(text);
+  const view = L.view(data, L.rows(data, null), { key: "total", dir: -1, open: null });
+  process.stdout.write(JSON.stringify({ cols: L.COLS.map(c => c[0]), notes: L.notes(data), defs: L.defs(data),
+    head: view.table.split("</thead>")[0] }));
+});
+"""
+
+
+@needs_node
+def test_each_column_except_team_and_record_has_a_description():
+    """#227 acceptance: each column of COLS except Team and Record has a description, on hover and on focus."""
+    given = data()
+    assert given["light_games"] == CFG["quality_games"]["max_games_per_day"]
+    given["light_games"] = 4  # the light-night game count comes from the config value, not a fixed number
+    out = subprocess.run(
+        ["node", "-e", NOTES_DRIVER, str(page.SCRIPT)],
+        input=json.dumps(given),
+        capture_output=True,
+        text=True,
+        check=True,
+        encoding="utf-8",
+    )
+    out = json.loads(out.stdout)
+    assert out["notes"]["light"].endswith("A light night has 4 or fewer NBA games.")
+    described = [k for k in out["cols"] if k not in ("team", "record")]
+    assert sorted(out["notes"]) == sorted(described) and all(out["notes"][k] for k in described)
+    for k in described:
+        # The header button points at the <dd> of the "Column meanings" list, which has the same text.
+        assert f'data-k="{k}" aria-describedby="lg-d-{k}">' in out["head"]
+        assert f'<dd id="lg-d-{k}">' in out["defs"]
+    assert 'data-k="team">' in out["head"] and 'data-k="record">' in out["head"]
+    # The real numbers of the run: the slots, the light-night bonus and v.
+    slots = len(CFG["league"]["slots"]) + 1
+    assert f"in {slots} slots" in out["notes"]["perCore"]
+    assert out["notes"]["games"] == "Filled heavy + filled light × 1.1. A light night counts 10% more."
+    assert out["notes"]["rate"] == "Stream games ÷ (open heavy + open light × 1.1)."
+    assert "v = 2.00, the mean Val of the top 2 free agents" in out["notes"]["stream"]
+
+
+def test_the_footer_has_only_the_data_line_and_the_meanings_list_is_closed():
+    """#227: the column definitions move from the footer to a closed "Column meanings" list."""
+    html = page.render(data(), CFG)
+    foot = re.search(r'<p class="foot">(.*?)</p>', html).group(1)
+    assert foot == (
+        "Data: the planning run of Sun 11/1, the Yahoo standings and the NBA schedule, playoff weeks 19 to 20."
+    )
+    assert '<details class="lg-notes" id="lg-notes"><summary>Column meanings</summary>' in html
+    assert 'id="lg-defs"' in html and 'id="lg-tt"' in html
+
+
+@pytest.mark.parametrize("size", [(1440, 900), (390, 844)])
+def test_a_header_shows_its_description_on_hover_and_on_focus_and_still_sorts(size):
+    """#227 acceptance: Chromium at 1440x900 and 390x844. The tooltip shows, a header click sorts, no errors."""
+    from playwright.sync_api import Error, sync_playwright
+
+    path = common.OUT / "league" / "index.html"
+    site.write_page(path, page.render(data(), CFG))
+    with sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except Error as e:
+            pytest.skip(f"Chromium for Playwright is not installed: {str(e).splitlines()[0]}")
+        try:
+            pg = browser.new_page(viewport={"width": size[0], "height": size[1]})
+            errors = []
+            pg.on("pageerror", lambda e: errors.append(str(e)))
+            # A file:// page cannot load its font (a CORS rule of Chromium). The test ignores the load errors only.
+            pg.on(
+                "console",
+                lambda m: (
+                    m.type == "error" and "font" not in m.text and "ERR_FAILED" not in m.text and errors.append(m.text)
+                ),
+            )
+            pg.goto(path.as_uri())
+            tip = pg.locator("#lg-tt")
+            assert tip.is_hidden()
+            # A scroll hides the card, so the test scrolls the header into view before the hover.
+            pg.locator('#lg button[data-k="rate"]').scroll_into_view_if_needed()
+            pg.wait_for_timeout(100)
+            pg.locator('#lg button[data-k="rate"]').hover()
+            assert tip.is_visible() and "Stream games ÷ (open heavy" in tip.inner_text()
+            box = tip.bounding_box()
+            assert box["x"] >= 8 and box["x"] + box["width"] <= size[0] - 8 + 0.5
+            pg.locator('#lg button[data-k="team"]').hover()
+            assert tip.is_hidden()  # Team has no description
+            # The keyboard: Tab from Team through each header. A focus can scroll the table (at 390px). The card of
+            # each header with a description shows after the scroll, inside the viewport. Record has no card.
+            labels = {
+                "record": None, "core": "Core", "perCore": "Val / core", "stream": "Stream value", "total": "Total",
+                "starts": "Starts", "heavy": "Open heavy", "light": "Open light", "games": "Stream games",
+                "rate": "Fill rate", "unused": "Unused",
+            }  # fmt: skip
+            pg.locator('#lg button[data-k="team"]').focus()
+            for k, label in labels.items():
+                pg.keyboard.press("Tab")
+                pg.wait_for_timeout(100)
+                assert pg.evaluate("document.activeElement.dataset.k") == k
+                if label is None:
+                    assert tip.is_hidden()
+                    continue
+                assert tip.is_visible(), k
+                assert tip.locator(".lg-tt-h").inner_text() == label
+                box = tip.bounding_box()
+                assert box["x"] >= 8 and box["x"] + box["width"] <= size[0] - 8 + 0.5
+            pg.keyboard.press("Escape")
+            assert tip.is_hidden()
+            # A click on a header still sorts.
+            pg.locator('#lg button[data-k="team"]').click()
+            assert pg.locator("#lg tbody tr[data-t]").first.get_attribute("data-t") == "Lamb Chops"
+            assert pg.locator("#lg-notes").get_attribute("open") is None
+            assert pg.locator("#lg-defs dd").count() == 10 and not errors
+        finally:
+            browser.close()

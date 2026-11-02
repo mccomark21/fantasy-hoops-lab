@@ -465,7 +465,7 @@ def run_command(
         "weights": {"pts": 1.0},
         "playoffs": {"core": 8},  # the Playoffs page (#214)
         "league_page": {"v_free_agents": 10},  # the League page (#218)
-        "quality_games": {"bonus": 0.1},
+        "quality_games": {"bonus": 0.1, "max_games_per_day": 6},  # the League page text (#227)
         "trade": {"untouchable": [], "value_band": [0.95, 1.10]},  # the Best swaps list (#215)
         "games": {"full_season": 82, "power": 1.25},  # the Season value (#222)
         "season_value": {"blend_games": 10},

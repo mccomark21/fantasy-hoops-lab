@@ -12,6 +12,8 @@ standings. league.js draws the page in the browser. core/starts.js gives each li
 scripts.
 The planning run (adds/plan.py) reads the standings (read_records()), calls write_site() after the Playoffs page and
 publishes the folder at /league/. The trade run does not write the page. Its publish keeps /league/.
+Each column header except Team and Record has a description (#227): notes() of league.js gives the text of the
+header tooltip and of the closed "Column meanings" list below the table. The footer has only the data line.
 """
 
 import html
@@ -20,7 +22,7 @@ from pathlib import Path
 
 from fantasyhoops.core import common
 from fantasyhoops.core import publish as site
-from fantasyhoops.core.lineup import ENGINE_JS, UTIL
+from fantasyhoops.core.lineup import ENGINE_JS
 from fantasyhoops.core.roster import PAGE_STYLE as ROSTER_STYLE
 from fantasyhoops.playoffs import page as playoffs_page
 
@@ -86,6 +88,7 @@ def page_data(records, days, cfg, made, standings=None):
     data.update(
         roster_spots=cfg["league"]["roster_spots"],
         adds=cfg["league"]["adds"],
+        light_games=cfg["quality_games"]["max_games_per_day"],
         v=round(v, 4),
         v_count=cfg["league_page"]["v_free_agents"],
         v_players=[{"name": p["name"], "value": p["value"]} for p in free],
@@ -106,15 +109,9 @@ def render(data, cfg):
         f"<script>\n{ENGINE_JS.read_text(encoding='utf-8')}\n{SCRIPT.read_text(encoding='utf-8')}\n"
         'League.start(document, JSON.parse(document.getElementById("lg-data").textContent));\n</script>'
     )
-    bonus = data["quality_bonus"]
-    slots = len(cfg["league"]["slots"]) + UTIL
     style = (ROSTER_STYLE + "\n" + playoffs_page.STYLE + "\n" + STYLE).replace("__DAYS1__", str(n_days + 1))
-    foot = (
-        FOOT.replace("__MADE__", playoffs_page._made_text(data["made"]))
-        .replace("__SLOTS__", str(slots))
-        .replace("__BONUS1__", f"{1 + bonus:g}")
-        .replace("__BONUS__", f"{round(bonus * 100)}%")
-        .replace("__WEEKS__", f"{weeks[0][2:]} to {digits}")
+    foot = FOOT.replace("__MADE__", playoffs_page._made_text(data["made"])).replace(
+        "__WEEKS__", f"{weeks[0][2:]} to {digits}"
     )
     teams = len({p["owner"] for p in data["players"] if p["owner"]})
     return (
@@ -151,17 +148,8 @@ def write_site(player_file, days, cfg, standings=None):
     return site.write_page(folder() / "index.html", render(data, cfg))
 
 
-FOOT = (
-    "Data: the planning run of __MADE__, the Yahoo standings and the NBA schedule, playoff weeks __WEEKS__. Val: the "
-    "Season value, else the projection Val (proj tag). valueStarted() of core/starts.js gives the starts and the open "
-    "slots, in __SLOTS__ slots. Val / core: value started ÷ core players. Open heavy and Open light: the open slots "
-    "that the streams fill / the open slots (the empty starting slots on heavy nights and on light nights, 6 or fewer "
-    "NBA games). Stream games: filled heavy + filled light × __BONUS1__. Fill rate: stream games ÷ (open heavy + open "
-    "light × __BONUS1__). Unused: the open slots that the streams do not fill. Stream value: stream games × v. A light "
-    "night counts __BONUS__ more. Total: value started + stream value. #: the rank by Total. Starts: the started core "
-    "games / the core games (starts + starts lost). The saved core is in this browser only (localStorage of the "
-    "site). Click a header to sort. Click a team to see its core."
-)
+# The data line under the table. The column descriptions are in notes() of league.js (#227).
+FOOT = "Data: the planning run of __MADE__, the Yahoo standings and the NBA schedule, playoff weeks __WEEKS__."
 
 STYLE = """/* The League page (#218): the rules line, the table and the core of a team. */
 .lg .q { margin: 10px 0 0; font-size: 13px; color: var(--lab-mute); max-width: 84ch; line-height: 1.45; }
@@ -173,6 +161,24 @@ table.lgt { min-width: 900px; }
 .lgt thead th { white-space: nowrap; }
 .lgt thead th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .lgt thead th button:hover { text-decoration: underline; }
+/* The header tooltip (#227): the card of DESIGN.md "Tooltips", with a column name and its description. */
+.lg-tt { position: fixed; z-index: 50; pointer-events: none; box-sizing: border-box; min-width: 168px;
+  max-width: 260px; padding: 7px 10px 8px; border: 1px solid var(--lamp-off); border-radius: 0;
+  background: var(--lab-stock); color: var(--lab-ink); font: 400 12px/1.35 var(--lab-face);
+  font-variant-numeric: tabular-nums; text-align: left; white-space: normal; }
+.lg-tt[hidden] { display: none; }
+.lg-tt .lg-tt-h { color: var(--lab-mute); font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.lg-tt p { margin: 2px 0 0; }
+/* The "Column meanings" list (#227): closed, below the table. */
+.lg details.lg-notes { margin: 14px 0 0; font-size: 13px; line-height: 1.45; color: var(--lab-mute); max-width: 84ch; }
+.lg details.lg-notes summary { cursor: pointer; color: var(--lab-ink); font-weight: 700; width: fit-content;
+  min-height: 28px; padding: 4px 0; box-sizing: border-box; }
+.lg details.lg-notes summary:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: 2px; }
+.lg details.lg-notes p { margin: 4px 0 8px; }
+.lg .lg-defs { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+.lg .lg-defs dt { color: var(--lab-ink); font-weight: 800; }
+.lg .lg-defs dd { margin: 0; }
 .lgt thead th button:focus-visible, .lgt tr[data-t]:focus-visible { outline: 2px solid var(--lab-ink); outline-offset: -2px; }
 .lgt thead th i { font-style: normal; font-size: 9px; margin-left: 3px; }
 .lgt thead th.rkh { width: 34px; }
@@ -230,7 +236,12 @@ __MENU__
 <dl class="stats" id="sum" aria-label="Your team"></dl>
 <ul class="ranks" id="ranks" aria-label="Your ranks"></ul>
 <div class="scroll lgs" tabindex="0" role="region" aria-label="League table"><table class="lab-t lgt" id="lg"></table></div>
+<details class="lg-notes" id="lg-notes"><summary>Column meanings</summary>
+<p>Click a header to sort. Click a team to see its core.</p>
+<dl class="lg-defs" id="lg-defs"></dl>
+</details>
 <p class="foot">__FOOT__</p>
+<div class="lg-tt" id="lg-tt" aria-hidden="true" hidden></div>
 </main>
 __SCRIPT__
 __DATA__

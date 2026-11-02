@@ -15,6 +15,7 @@ The planning run reads the records from the standings table of the Yahoo league 
 - **Header:** two lines for your team. "Core starts: rank X of 14 (league median Y)" uses the Starts column. "Filled heavy: rank X of 14 (league median Y)" uses the filled open slots on heavy nights. Rank 1 is the most. Equal values share the higher rank. `rankMedian()` of `core/starts.js` gives each rank and median (owner decision of 2026-11-02).
 - **Summary:** your rank by Total, your core size and its source, the open slots that your streams fill, and v with the free agents of v.
 - **Table:** one row for each team. Your row has the "You" tag. A click on a column header sorts by that column. A second click reverses the sort. Record sorts by the win share, (W + T ÷ 2) ÷ games. A click on a team opens its core: each core player with his Val and his starts, then the players outside the core.
+- **Column descriptions (#227):** each header except Team and Record shows a short description on mouse hover and on keyboard focus, with the numbers of the run (the slots, the light-night bonus and v). `notes()` of `league.js` gives the text. Phones have no hover, so a closed "Column meanings" list below the table has the same text. The footer has only the data line.
 
 | Column | Meaning |
 | --- | --- |
