@@ -19,6 +19,8 @@ COMMANDS = [
     "fetch/espn.py",
     "fetch/rotation.py",
     "fetch/yahoo.py",
+    "refresh/__main__.py",
+    "refresh/run.py",
 ]
 
 

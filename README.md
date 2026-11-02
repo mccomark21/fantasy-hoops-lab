@@ -131,7 +131,16 @@ All settings are in [`config.toml`](config.toml). The `[league]` section applies
 
 ### Run the tools
 
-Run each tool from the repo root with `python -m`:
+To get fresh data and pages, run one command in the venv:
+
+```sh
+refresh                # Run the 4 tools below in order and publish the pages
+refresh --no-publish   # Write the pages, but do not publish them
+```
+
+`python -m fantasyhoops.refresh` is the same command. The install step 1 adds `refresh` to the venv. An install from before the command needs step 1 again. The command prints one line for each step and the total time. If a step fails, the command stops and gives the command to run that step again by itself.
+
+To run one tool, run it from the repo root with `python -m`:
 
 ```sh
 python -m fantasyhoops.fetch.espn       # Download the NBA rosters and the schedule (public NBA stats)
