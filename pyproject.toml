@@ -10,6 +10,9 @@ dependencies = [
   "playwright>=1.63",  # fetch/yahoo.py: also run python -m playwright install chromium. adds/session.py uses Edge.
 ]
 
+[project.scripts]
+refresh = "fantasyhoops.refresh.run:cli"  # the same run as python -m fantasyhoops.refresh (#220)
+
 [project.optional-dependencies]
 test = ["pytest>=9.0"]
 lint = ["ruff==0.17.3"]  # exact version: CI and local runs find the same issues
