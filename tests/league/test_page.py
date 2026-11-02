@@ -282,15 +282,19 @@ process.stdin.on("end", () => {
 @needs_node
 def test_each_column_except_team_and_record_has_a_description():
     """#227 acceptance: each column of COLS except Team and Record has a description, on hover and on focus."""
+    given = data()
+    assert given["light_games"] == CFG["quality_games"]["max_games_per_day"]
+    given["light_games"] = 4  # the light-night game count comes from the config value, not a fixed number
     out = subprocess.run(
         ["node", "-e", NOTES_DRIVER, str(page.SCRIPT)],
-        input=json.dumps(data()),
+        input=json.dumps(given),
         capture_output=True,
         text=True,
         check=True,
         encoding="utf-8",
     )
     out = json.loads(out.stdout)
+    assert out["notes"]["light"].endswith("A light night has 4 or fewer NBA games.")
     described = [k for k in out["cols"] if k not in ("team", "record")]
     assert sorted(out["notes"]) == sorted(described) and all(out["notes"][k] for k in described)
     for k in described:
@@ -352,11 +356,25 @@ def test_a_header_shows_its_description_on_hover_and_on_focus_and_still_sorts(si
             assert box["x"] >= 8 and box["x"] + box["width"] <= size[0] - 8 + 0.5
             pg.locator('#lg button[data-k="team"]').hover()
             assert tip.is_hidden()  # Team has no description
-            # The keyboard: Tab from the Team button to the Record button (no description), then to Core.
+            # The keyboard: Tab from Team through each header. A focus can scroll the table (at 390px). The card of
+            # each header with a description shows after the scroll, inside the viewport. Record has no card.
+            labels = {
+                "record": None, "core": "Core", "perCore": "Val / core", "stream": "Stream value", "total": "Total",
+                "starts": "Starts", "heavy": "Open heavy", "light": "Open light", "games": "Stream games",
+                "rate": "Fill rate", "unused": "Unused",
+            }  # fmt: skip
             pg.locator('#lg button[data-k="team"]').focus()
-            pg.keyboard.press("Tab")
-            pg.keyboard.press("Tab")
-            assert tip.is_visible() and tip.inner_text().startswith("Core")
+            for k, label in labels.items():
+                pg.keyboard.press("Tab")
+                pg.wait_for_timeout(100)
+                assert pg.evaluate("document.activeElement.dataset.k") == k
+                if label is None:
+                    assert tip.is_hidden()
+                    continue
+                assert tip.is_visible(), k
+                assert tip.locator(".lg-tt-h").inner_text() == label
+                box = tip.bounding_box()
+                assert box["x"] >= 8 and box["x"] + box["width"] <= size[0] - 8 + 0.5
             pg.keyboard.press("Escape")
             assert tip.is_hidden()
             # A click on a header still sorts.

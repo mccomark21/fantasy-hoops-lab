@@ -37,7 +37,7 @@ const League = (() => {
       heavy: "The open slots on heavy nights that the streams fill / the open slots on heavy nights. An open slot " +
         "is an empty starting slot.",
       light: "The open slots on light nights that the streams fill / the open slots on light nights. A light " +
-        "night has 6 or fewer NBA games.",
+        `night has ${data.light_games} or fewer NBA games.`,
       games: `Filled heavy + filled light × ${b1}. A light night counts ${more} more.`,
       rate: `Stream games ÷ (open heavy + open light × ${b1}).`,
       unused: "The open slots that the streams do not fill.",
@@ -197,14 +197,17 @@ const League = (() => {
   const faList = data => data.v_players.map(p => `${p.name} ${f2(p.value)}`).join(", ");
 
   // The header tooltip (#227, DESIGN.md "Tooltips"): one card #lg-tt, fixed to the viewport. A mouse shows it on
-  // enter and hides it on leave. A keyboard focus shows it. A click, a scroll or Escape hides it. The card goes 12px
-  // below the header, else 12px above it, and stays 8px inside the viewport. Phones use the "Column meanings" list.
+  // enter and hides it on leave. A keyboard focus shows it. A click or Escape hides it. A scroll hides it, but the card
+  // of the header that has the keyboard focus moves with the header (a focus can scroll the table). The card goes 12px below
+  // the header, else 12px above it, and stays 8px inside the viewport. Phones use the "Column meanings" list.
   function bindTips(doc, tbl, data) {
     const tip = doc.getElementById("lg-tt"), text = notes(data), win = doc.defaultView;
-    const hide = () => { tip.hidden = true; };
+    let cur = null; // the header button of the card that shows, or null
+    const hide = () => { tip.hidden = true; cur = null; };
     function show(b) {
       const k = b.dataset.k;
       if (!text[k]) return hide();
+      cur = b;
       const label = COLS.find(c => c[0] === k)[1];
       tip.innerHTML = `<div class="lg-tt-h">${esc(label)}</div><p>${esc(text[k])}</p>`;
       tip.hidden = false;
@@ -220,13 +223,20 @@ const League = (() => {
     tbl.addEventListener("pointerover", ev => { const b = button(ev); if (b && ev.pointerType === "mouse") show(b); });
     tbl.addEventListener("pointerout", ev => {
       const b = button(ev);
-      if (b && !(ev.relatedTarget && b.contains(ev.relatedTarget))) hide();
+      // A scroll under a still mouse also sends pointerout. Only the header of the card hides it, and only with no focus.
+      if (b && b === cur && b !== doc.activeElement && !(ev.relatedTarget && b.contains(ev.relatedTarget))) hide();
     });
     tbl.addEventListener("focusin", ev => { const b = button(ev); if (b && b.matches(":focus-visible")) show(b); });
     tbl.addEventListener("focusout", hide);
     tbl.addEventListener("click", hide, true);
     doc.addEventListener("keydown", ev => { if (ev.key === "Escape") hide(); });
-    win.addEventListener("scroll", hide, true);
+    // A scroll keeps the card of a header with the keyboard focus, at the new place of the header. A scroll under a
+    // still mouse can send pointerover to another header, so the focused header wins.
+    win.addEventListener("scroll", () => {
+      const f = doc.activeElement;
+      if (cur && f && tbl.contains(f) && f.matches("thead button[data-k]:focus-visible")) show(f);
+      else hide();
+    }, true);
   }
 
   // The page in the browser: draw the view, and change the sort or the open team on each click.

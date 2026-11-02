@@ -88,6 +88,7 @@ def page_data(records, days, cfg, made, standings=None):
     data.update(
         roster_spots=cfg["league"]["roster_spots"],
         adds=cfg["league"]["adds"],
+        light_games=cfg["quality_games"]["max_games_per_day"],
         v=round(v, 4),
         v_count=cfg["league_page"]["v_free_agents"],
         v_players=[{"name": p["name"], "value": p["value"]} for p in free],
@@ -166,7 +167,8 @@ table.lgt { min-width: 900px; }
   background: var(--lab-stock); color: var(--lab-ink); font: 400 12px/1.35 var(--lab-face);
   font-variant-numeric: tabular-nums; text-align: left; white-space: normal; }
 .lg-tt[hidden] { display: none; }
-.lg-tt .lg-tt-h { color: var(--lab-mute); font-size: 11px; font-weight: 700; }
+.lg-tt .lg-tt-h { color: var(--lab-mute); font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
 .lg-tt p { margin: 2px 0 0; }
 /* The "Column meanings" list (#227): closed, below the table. */
 .lg details.lg-notes { margin: 14px 0 0; font-size: 13px; line-height: 1.45; color: var(--lab-mute); max-width: 84ch; }
