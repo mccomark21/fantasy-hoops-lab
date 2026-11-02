@@ -6,11 +6,15 @@ projections file, the same pool as the draft tools. So a value here is on the sc
 The plan page shows the market value: the value above a replacement free agent, the free agent at rank
 REPLACEMENT_RANK by value. The planner itself uses the values on the scale of the projections. A market value is
 the same value minus one number, so it does not change the order of the players.
+
+season_replacement() gives the replacement value of the Season value (core/season_value.py, #222): the per-game
+season value of the free agent at rank REPLACEMENT_RANK by that value. Val on the pages is the Season value above it.
 """
 
 import pandas as pd
 
-from fantasyhoops.core.common import latest_projections
+from fantasyhoops.core import season_value
+from fantasyhoops.core.common import latest_projections, name_key
 from fantasyhoops.core.valuation import category_scale, pg_value
 from fantasyhoops.draft.rankings import STATS
 
@@ -44,3 +48,14 @@ def replacement_value(options, rank=REPLACEMENT_RANK):
 def market_value(value, replacement):
     """The market value: value minus the replacement value, to 2 decimals. None if one of the two is None."""
     return None if value is None or replacement is None else round(value - replacement, 2)
+
+
+def season_replacement(options, lines, cfg, rank=REPLACEMENT_RANK):
+    """The per-game season value of the free agent at rank (1 = best) among the options who play and have a season line.
+
+    options: the Options of the free agents. lines: {name key: SeasonLine} of core/season_value.py. With no option
+    that has a line (the run read no free agents), the estimate season_value.pool_replacement(). None with no lines.
+    """
+    keys = [name_key(o.player.name) for o in options if not o.player.out]
+    found = season_value.replacement_of(lines, keys, rank)
+    return season_value.pool_replacement(lines, cfg, rank) if found is None else found

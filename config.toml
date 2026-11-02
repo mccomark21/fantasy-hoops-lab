@@ -183,6 +183,12 @@ last_season_lift = { pts = 0.155, reb = 0.182, ast = 0.162, threes = 0.057, stl 
 full_season = 82
 power = 1.25
 
+# Season value (#222, core/season_value.py): the Val of the Players, Free agents and Roster pages and the Adds plan.
+# Val = the custom value of the season-to-date box scores (data/box_scores.csv), blended with the projection.
+# The weight of the season-to-date line: min(games played, blend_games) / blend_games. 0 games: the projection only.
+[season_value]
+blend_games = 10
+
 [playoffs]
 # The playoff schedule does not change the rankings. These settings make the schedule
 # columns in rankings.csv, playoff_schedule.csv and the draft board flags.

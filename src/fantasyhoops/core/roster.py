@@ -1,6 +1,6 @@
 """The Roster page of the site at /roster/ (#120, #172): your roster with the season stats and the fit of each player in the playoff lineup.
 
-The page shows the players in custom-rank order. Each row has the season stats per game, the starts and games of each
+The page shows the players in rank order. The caller gives the rank and its basis (#222: rank by Val). Each row has the season stats per game, the starts and games of each
 playoff week, and a grid of the playoff days. Two rows below the team starts give the Used and vs ideal percents.
 
 The lineup fit uses the rules of core/lineup.py, the one source of the rules (#133): each playoff day, the best lineup
@@ -36,6 +36,8 @@ S1, NONE = ' class="s1"', ' class="none"'
 IL_TITLE = "On IL now. Counts in the playoff starts."
 START, SITS, REST, NO_GAME = "s", "b", "r", "n"  # the marks of the day grid
 MARK_TEXT = {START: "starts", SITS: "game, sits", REST: "rests on back-to-back", NO_GAME: "no game"}
+# The basis of the rank with no other basis: the custom draft rank of draft/rankings.py
+DRAFT_BASIS = "your custom draft rank."
 # The class of each band level of lineup.BANDS on this page
 BAND_CLASS = {"good": "p3", "warn": "p2", "bad": "p1"}
 
@@ -46,7 +48,8 @@ class RosterPlayer:
 
     team: the ESPN code of his NBA team. positions: his Yahoo positions, for example ("PG", "SG").
     slot: his roster slot today ("PG", ..., "Util", "BN" or "IL"). status: the Yahoo status, for example "Q".
-    rank: his custom draft rank (draft/rankings.py), or None if he is not in the rankings.
+    rank: his rank (1 = best), or None if he has no rank. The Roster page: his rank by Val (#222). The trade
+    tool: his custom draft rank (draft/rankings.py).
     rests_b2b: True if he rests on the second night of a back-to-back.
     stats: his season stats to date (STATS keys), or None if ESPN has no stats for him.
     """
@@ -414,7 +417,7 @@ def _title(name):
     return _e(name).replace("™", "<sup>™</sup>")
 
 
-def render(players, days, cfg, week=None, adds=None, today=None, team_name=None, record=None):
+def render(players, days, cfg, week=None, adds=None, today=None, team_name=None, record=None, basis=DRAFT_BASIS):
     """The HTML of the Roster page.
 
     players: RosterPlayer list in any order. days: Day list (playoff_days()). cfg: config.toml.
@@ -422,6 +425,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None,
     today: the date of the run. team_name: the name in the page header (default "Roster").
     record: the season record (W-L-T) of the team, for example "4-2-1", or None. The header shows it after the
     name, then the This week and Playoffs items (#142). With None, the header has no record.
+    basis: the text after "Rank:" in the foot, for example "rank by Val. Val = season value to date, ...".
     [league] teams of cfg gives the team count in the site menu.
     """
     slots = cfg["league"]["slots"]
@@ -445,7 +449,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None,
     meta.append(f"<div><dt>Playoffs</dt><dd><strong>{first}–{digits}</strong> · {span}</dd></div>")
     made = f" Made {today:%a} {today.month}/{today.day}." if today else ""
     caption = (
-        "Roster in custom-rank order: season stats per game, playoff starts and games, and the playoff day grid. "
+        "Roster in rank order: season stats per game, playoff starts and games, and the playoff day grid. "
         "IL players count in the starts."
     )
     n_days = len(fit.days)
@@ -464,7 +468,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None,
         f"{mob}\n{_mob_foot(fit)}\n</section>"
     )
     foot = (
-        f"Stats: ESPN, {season_text} regular season to date. Rank: your custom draft rank. "
+        f"Stats: ESPN, {season_text} regular season to date. Rank: {basis} "
         "Starts: the best lineup each day, higher rank first. IL players are in the lineup pool, because they will "
         "likely be back by the playoffs. Used: started / the games of your players, with no rest nights. "
         "vs ideal: started / the games of the same number of players with the most games of the week, at most "

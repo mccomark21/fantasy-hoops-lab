@@ -13,7 +13,8 @@ An old link to the Free agents section of the plan page (adds/#fa or adds/#waive
 The Free agents page (output/adds/free_agents.html, published at /free-agents/) has these sections:
 - Free agents: a table with filters for days, positions and teams. The page holds its data as JSON, and one inline
   script fills the table. The script reads the filters of a plan link from the URL.
-  The values are market values: the value above a replacement free agent (adds/value.py).
+  Val is the Season value (core/season_value.py, #222) above the replacement free agent of the run. Next 7 is the
+  blended value (adds/blend.py) above a replacement free agent, the number for streaming. The table sorts by Val.
   Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py), with the
   starter flag and the closer flag (core/role_flags.py).
   A mark such as "Mon open" names each of the first days of next week on which he plays and fills an open slot (#76).
@@ -44,6 +45,8 @@ from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import common, profile
+from fantasyhoops.core.common import name_key
+from fantasyhoops.core.season_value import basis_text
 
 TITLE = "Weekly adds plan"
 FA_TITLE = "Free agents"  # the title of the Free agents page (#165)
@@ -95,6 +98,17 @@ def header(data, days, spots, today):
     if out:
         lines.append(f"<p>Out (does not play): {_e(', '.join(out))}.</p>")
     return "\n".join(lines)
+
+
+def basis_line(cfg, spots=False, next7=False):
+    """The one-line basis of Val (#222), for example "Val = season value to date, blended with the projection until
+    10 games.". spots: also say that the stream spots go by Val. next7: also name the Next 7 column.
+    Nothing with no [season_value] section in cfg."""
+    if "season_value" not in cfg:
+        return ""
+    more = " Stream spots: your lowest players by Val." if spots else ""
+    more += " Next 7: Yahoo's 7-day projection, blended with the last 14 days." if next7 else ""
+    return f'<p class="legend" id="val-basis">{_e(basis_text(cfg))}{more}</p>'
 
 
 def warnings_section(warnings):
@@ -206,13 +220,24 @@ def _open_label(d):
 
 
 def free_agent_data(
-    options, days, games, replacement, match_replacement=None, nights=None, roles=None, next_days=(), next_games=None
+    options,
+    days,
+    games,
+    replacement,
+    match_replacement=None,
+    nights=None,
+    roles=None,
+    next_days=(),
+    next_games=None,
+    season=None,
 ):
-    """The data of the free-agent table: the days and one row for each option who plays, best value first.
+    """The data of the free-agent table: the days and one row for each option who plays, best Val first.
 
     Each day has its date (for example "2027-01-07"), so that the script can match the days of a plan link (#165).
 
-    A value is a market value: the value minus replacement. match: the matchup value minus match_replacement, the
+    value: his Val, the Season value of season (core/season_value.SeasonValues, #222), or None with no season line.
+    season None: Val is the Next 7 value. next7: the blended value minus replacement (Next 7). A player with no Val
+    comes after the players with a Val. match: the matchup value minus match_replacement, the
     matchup value of a replacement free agent. plays: his team plays on the day. fits: he plays and
     one of the open slots of the day takes one of his positions (Util takes all positions). b2b: he plays on the
     second night of a back-to-back (nights, from rest.second_nights()).
@@ -228,8 +253,12 @@ def free_agent_data(
     def market(v, base=replacement):
         return None if v is None or base is None else round(v - base, 2)
 
+    def val(o):
+        return market(o.value) if season is None else season.val(name_key(o.player.name))
+
+    shown = [o for o in options if not o.player.out and o.value is not None]
     players = []
-    for o in sorted((o for o in options if not o.player.out and o.value is not None), key=lambda o: -o.value):
+    for o in sorted(shown, key=lambda o: (val(o) is None, -(val(o) or 0), -o.value)):
         p = o.player
         plays = [p.team in games.get(d.date, ()) for d in days]
         fits = [_fits(p, d, games) for d in days]
@@ -241,7 +270,8 @@ def free_agent_data(
                 "team": p.team,
                 "pos": list(p.positions),
                 "status": p.status,
-                "value": market(o.value),
+                "value": val(o),
+                "next7": market(o.value),
                 "recent": market(o.recent_value),
                 "match": market(o.match, match_replacement),
                 "trend": o.trend.adds_today if o.trend else None,
@@ -375,6 +405,7 @@ def free_agents_section(run):
         roles,
         next_days,
         run.next_games,
+        run.season,
     )
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     skip = f'<p class="skip" id="skip-note">{SKIP_NOTE}</p>\n' if run.recent_skip else ""
@@ -386,16 +417,20 @@ def free_agents_section(run):
         '<div class="filters" id="team-chips"></div>\n'
         '<div class="tools"><label class="toggle"><input type="checkbox" id="fit-only" checked> Only games that fill '
         'an open slot</label>\n<button type="button" class="chip act" id="fa-reset">Reset filters</button></div>\n'
-        f'{skip}{fa_key(roles, minutes_rise, next_days)}<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>\n'
+        f"{skip}{basis_line(run.cfg, next7=True)}"
+        f'{fa_key(roles, minutes_rise, next_days)}<p class="count" id="fa-count" aria-live="polite" tabindex="-1"></p>\n'
         '<div class="empty" id="fa-empty" hidden><p id="fa-empty-text"></p>'
         '<button type="button" class="chip act" id="fa-clear-days">Clear days</button></div>\n'
         '<table class="fa lab-t" id="fa-table"></table>\n'
         '<details class="notes" id="fa-notes"><summary>Columns and marks</summary>\n'
         '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
         f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
-        "Val: blended value per game above a "
-        f"replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by value). Match: the same value "
-        "with the matchup weights. A filter does not change Val or Match. Gms: his games on the selected days. "
+        "Val: Season value, his custom value on the season-to-date box scores, blended with his projection, above "
+        f"a replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by Season value). A Val above 0 "
+        "counts his share of games, as on the draft board. Next 7: blended value per game (Yahoo's projection for "
+        "the next 7 days, moved toward the last 14 days) above a replacement free agent. Match: the Next 7 value "
+        "with the matchup weights. A filter does not change Val, Next 7 or Match. Gms: his games on the selected "
+        "days. "
         '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
         '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
         f"{role_legend(roles, minutes_rise, adds.get('flags'))}{next_week_legend(next_days)}</details>\n"
@@ -403,8 +438,11 @@ def free_agents_section(run):
     )
 
 
-def waivers_section(options, replacement):
-    """The waiver players (W), best value first: the clear day, the first day that he can play and the market value.
+def waivers_section(options, replacement, season=None):
+    """The waiver players (W), best value first: the clear day, the first day that he can play and his Val.
+
+    Val: the Season value of season (core/season_value.SeasonValues, #222). season None: the market value of the
+    blended value above replacement.
 
     The table has the look of the Roster table (#143): the team band, then the player cell with the team and the
     positions.
@@ -415,8 +453,8 @@ def waivers_section(options, replacement):
     if not waivers:
         return ""
 
-    def market(v):
-        v = market_value(v, replacement)
+    def market(o):
+        v = market_value(o.value, replacement) if season is None else season.val(name_key(o.player.name))
         return "—" if v is None else f"{v:+.2f}"
 
     rows = "".join(
@@ -424,7 +462,7 @@ def waivers_section(options, replacement):
         f'<th class="pl" scope="row"><b>{profile.name_link(o.player.name)}</b>{_status(o.player)}'
         f"<small>{_e(o.player.team)} · {_e('/'.join(o.player.positions))}</small></th>"
         f'<td class="s1">{_day(o.player.clear_day)}</td><td>{_day(o.player.clear_day + timedelta(days=1))}</td>'
-        f'<td class="n s1">{market(o.value)}</td></tr>'
+        f'<td class="n s1">{market(o)}</td></tr>'
         for o in waivers
     )
     return (
@@ -434,7 +472,7 @@ def waivers_section(options, replacement):
         '<th scope="col" class="s1">Clears</th><th scope="col">First day</th><th scope="col" class="s1">Val</th>'
         f"</tr></thead><tbody>{rows}</tbody></table>\n"
         '<p class="legend">First day: the first day that he can play for you, the day after he clears waivers. '
-        f"Val: the same value as in the free-agent table. {CLAIM_NOTE}</p></section>"
+        f"Val: the same Val as in the free-agent table. {CLAIM_NOTE}</p></section>"
     )
 
 
@@ -535,8 +573,9 @@ def method_note():
         "The league gives 5 adds each week, so the team can change the players in the stream spots.</p>\n"
         "<p>The planner finds the days with open starting slots. For each stream spot, it finds the NBA teams whose "
         "games fill the most open slots with the fewest adds. You pick the player in the free-agent table.</p>\n"
-        "<p>The value of a player is his value per game in the 6 categories that this league counts, above a "
-        f"replacement free agent: 0 is the value of the free agent at rank {REPLACEMENT_RANK}.</p></details>"
+        "<p>The value of a player (Val) is his season value to date per game in the 6 categories that this league "
+        "counts, blended with his projection in his first games, above a replacement free agent: 0 is the value of "
+        f"the free agent at rank {REPLACEMENT_RANK}. The stream spots hold your lowest players by Val.</p></details>"
     )
 
 
@@ -557,6 +596,7 @@ def render(run):
     min_weight = run.cfg.get("adds", {}).get("matchup", {}).get("min_weight", 0.5)
     sections = [
         header(run.data, run.days, run.spots, today),
+        basis_line(run.cfg, spots=True),
         warnings_section(run.warnings),
         matchup_section(run.data.matchup, run.weights, min_weight),
         grid.plan_section(run, interactive=bool(free_agents_section(run))),
@@ -589,7 +629,7 @@ def render_free_agents(run):
     run = replace(run, today=today)
     sections = [
         free_agents_section(run),
-        waivers_section(run.options, run.replacement),
+        waivers_section(run.options, run.replacement, run.season),
         role_up_section(run.options),
     ]
     if not any(sections):
@@ -735,7 +775,7 @@ label.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--q
 .fa td.sel { background: color-mix(in srgb, var(--q) 12%, var(--bg)); }
 .fa th.day small { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
 .wv td { white-space: nowrap; }
-/* Below 600px, the free-agent table has 4 number columns and up to 7 day columns next to the name. A smaller
+/* Below 600px, the free-agent table has 5 number columns and up to 7 day columns next to the name. A smaller
    band and name keep a long name such as VALANCIUNAS on one line. */
 @media (max-width: 599px) {
   .fa th.day, .fa td.day { width: 18px; }
@@ -809,9 +849,9 @@ const state = {days: new Set(), pos: new Set(), teams: new Set(), fit: true, sor
 const TEAMS = [...new Set(DATA.players.map(p => p.team))].sort();
 const hits = p => state.fit ? p.fits : p.plays;
 const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
-const SORTS = {value: p => p.value, games: p => games(p) * 100 + p.value, recent: p => p.recent ?? -99,
-  match: p => p.match ?? -99};
-const SORT_NAMES = {value: "Val", match: "Match", recent: "Recent", games: "Gms"};
+const SORTS = {value: p => p.value ?? -99, games: p => games(p) * 100 + (p.value ?? -99),
+  next7: p => p.next7 ?? -99, recent: p => p.recent ?? -99, match: p => p.match ?? -99};
+const SORT_NAMES = {value: "Val", next7: "Next 7", match: "Match", recent: "Recent", games: "Gms"};
 // A day chip has an aria-label such as "Tue 10/27, 5 open slots, 4 NBA games". The visible text stays short.
 const chip = (label, sub, said, dim) => `<button type="button" class="chip${dim ? " none" : ""}" aria-pressed="false"`
   + `${said ? ` aria-label="${esc(`${label}, ${said}`)}"` : ""}>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}`
@@ -869,7 +909,7 @@ function render() {
   const focus = active && active.dataset ? active.dataset.sort : undefined;
   $("fa-table").innerHTML = `<caption class="vh">Free agents, sorted by ${SORT_NAMES[state.sort]}, highest first`
     + `</caption><thead><tr><th scope="col" class="l">Team</th><th scope="col" class="l">Player</th>`
-    + `${th("value", "s1")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
+    + `${th("value", "s1")}${th("next7")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
     + rows.slice(0, DATA.rows).map(p =>
       `<tr><td class="band" style="${esc(p.band)}">${esc(p.team)}</td>`
       + `<th class="pl" scope="row"><b>${p.slug ? `<a class="lab-pname" href="#player=${p.slug}" data-player="${p.slug}">`
@@ -883,6 +923,7 @@ function render() {
       + `${p.role_up.length ? ` · role up: ${esc(p.role_up.join(", "))} absent` : ""}</small>`
       + `${p.role ? `<small>${esc(p.role)}</small>` : ""}</th>`
       + `<td class="n s1${p.value < 0 ? " neg" : ""}">${fmt(p.value)}</td>`
+      + `<td class="n${p.next7 < 0 ? " neg" : ""}">${fmt(p.next7)}</td>`
       + `<td class="n${p.match < 0 ? " neg" : ""}">${fmt(p.match)}</td><td class="n wide">${fmt(p.recent)}</td>`
       + `<td class="n">${games(p)}</td>`
       + DATA.days.map((d, i) => `<td class="day${i ? "" : " s1"}${sel(i)}">${p.fits[i] ? DOT_FIT

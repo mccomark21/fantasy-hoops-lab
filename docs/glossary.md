@@ -32,6 +32,9 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Projected value | The per-game value of Yahoo's projection for the next 7 days (from Rotowire). |
 | Recent value | The per-game value of a player's averages in the last 14 days, from Yahoo. |
 | Blended value | The per-game value of a blend of the projected line and the recent line. The weight of the recent line = games in the last 14 days ÷ 14. |
+| Season value | The custom per-game value (`core/valuation.py`) of the season-to-date box scores (`data/box_scores.csv`), blended with the per-game value of the season projection: w × season-to-date + (1 − w) × projection, with w = min(games played, `[season_value] blend_games`) ÷ `blend_games` (10). A player with 0 games gets the projection value. The category scale is the scale of the projections file. `core/season_value.py` gives it (#222). |
+| Val | The Season value above the replacement free agent: the free agent at rank 15 by Season value among the free agents of the planning run. A Val above 0 is multiplied by the games factor of the draft formula, (share of games) ^ `[games] power`. The share blends games played ÷ the games of his NBA team with projected games ÷ 82, with the same w. The Players, Free agents and Roster pages and the Adds plan show this Val (#222). The Trades and Playoffs pages move to it in #223. |
+| Next 7 | The blended value above a replacement free agent: the Val of the Free agents page before #222. The column for streaming on the Free agents page. |
 
 ## Rotation
 

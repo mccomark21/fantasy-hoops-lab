@@ -100,16 +100,19 @@ def test_no_drop_when_the_holder_gives_the_same_started_games():
 def test_a_warning_shows_for_a_streamer_with_a_higher_value_than_the_lowest_core_player():
     games = {d: {"PHI"} for d in WEEK}
     roster = [player("Core", "BOS"), player("Star", "BOS")]
-    vals = values(Core=(130, 0.1), Star=(10, 2.0))
+    # #222: the free agents and the roster compare by Val (season_ranks()), not by the Option value (Next 7).
+    vals = values(Core=(130, 0.1), Star=(10, 2.0), Good=(100, 0.5), Weak=(300, -1.0), Guard=(5, 4.0))
+    vals[name_key("Other team")] = SeasonValue(1, 3.0)
     # #140: the streamers are the free agents of the teams of the team plan who fit the slots of an add.
-    fas = [fa("Good", "PHI", value=0.5), fa("Weak", "PHI", value=-1.0), fa("Other team", "DEN", value=3.0)]
-    guard = Option(Player("Guard", "PHI", ("PG",)), 4.0)
+    # Their Option values (Next 7) are the reverse of their Val, so the order shows that the warnings use Val.
+    fas = [fa("Good", "PHI", value=-9.0), fa("Weak", "PHI", value=9.0), fa("Other team", "DEN", value=3.0)]
+    guard = Option(Player("Guard", "PHI", ("PG",)), -8.0)
     cfg = config(3, core=["Core", "Star"])
     spots, plan = run(roster, games, cfg, vals)
     assert [(a.teams, a.slots) for a in plan.adds] == [(("PHI",), ("Util",))]
     sf_only = [TeamAdd(0, WEEK[0], WEEK[6], ("SF",), ("PHI",), (WEEK[0],))]
     assert value_warnings(fas + [guard], sf_only, roster, spots, cfg, vals) == [
-        "Warning: Good (PHI) has a value of +0.50. Your lowest core player, Core, has a season value of +0.10. "
+        "Warning: Good (PHI) has a Val of +0.50. Your lowest core player, Core, has a Val of +0.10. "
         "You can make Good core."
     ]
     # Util takes all positions, so the PHI guard fits too. The best value comes first.

@@ -12,19 +12,12 @@ from fantasyhoops.core.common import DATA, ROOT, latest_projections, load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.identity import link_players
 from fantasyhoops.core.schedule import join_teams, playoff_schedule, read_schedule, schedule_columns, schedule_grid
-from fantasyhoops.core.valuation import value_players
+from fantasyhoops.core.valuation import PROJECTION_STATS, value_players
 from fantasyhoops.draft import out_dir
 from fantasyhoops.draft.market import league_prices
 
-# Category name in config.toml -> column calculated from the projections
-STATS = {
-    "pts": lambda d: 2 * d.field_goals + d.threes + d.free_throws,
-    "reb": lambda d: d.offensive_rebounds + d.defensive_rebounds,
-    "ast": lambda d: d.assists,
-    "threes": lambda d: d.threes,
-    "stl": lambda d: d.steals,
-    "blk": lambda d: d.blocks,
-}
+# Category name in config.toml -> column calculated from the projections (core/valuation.py)
+STATS = PROJECTION_STATS
 
 
 def load_players(cfg):

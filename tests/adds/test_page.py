@@ -561,7 +561,13 @@ def browser_page(width=720):
 def test_a_keyboard_user_sorts_each_column_and_the_focus_stays_on_the_sort_button():
     with browser_page() as pg:
         pg.set_content(fa())
-        for name, key in (("Match", "match"), ("Recent", "recent"), ("Gms", "games"), ("Val", "value")):
+        for name, key in (
+            ("Next 7", "next7"),
+            ("Match", "match"),
+            ("Recent", "recent"),
+            ("Gms", "games"),
+            ("Val", "value"),
+        ):
             pg.get_by_role("button", name=name, exact=True).focus()
             pg.keyboard.press("Enter")
             th = pg.locator("th.sort[aria-sort]")
@@ -569,10 +575,10 @@ def test_a_keyboard_user_sorts_each_column_and_the_focus_stays_on_the_sort_butto
             assert th.locator("button").get_attribute("data-sort") == key
             assert "▼" in th.inner_text()
             assert pg.evaluate("document.activeElement.dataset.sort") == key
-        pg.keyboard.press("Tab")
-        assert pg.evaluate("document.activeElement.dataset.sort") == "match"
+        pg.keyboard.press("Tab")  # #222: Next 7 is the column after Val
+        assert pg.evaluate("document.activeElement.dataset.sort") == "next7"
         pg.keyboard.press("Space")
-        assert pg.locator("th.sort[aria-sort] button").get_attribute("data-sort") == "match"
+        assert pg.locator("th.sort[aria-sort] button").get_attribute("data-sort") == "next7"
 
 
 def test_a_chip_press_toggles_the_chip_and_keeps_the_focus_on_it():
@@ -736,7 +742,7 @@ def test_the_key_of_the_dots_and_the_flags_is_above_the_free_agent_table():
     # The long legends are in a <details> below the table.
     notes = section.split('id="fa-table"')[1]
     assert '<details class="notes" id="fa-notes"><summary>Columns and marks</summary>' in notes
-    assert "Val: blended value per game" in text(notes.split("</details>")[0])
+    assert "Next 7: blended value per game" in text(notes.split("</details>")[0])
     assert "he has a game next Monday" in text(notes.split("</details>")[0])
 
 

@@ -4,10 +4,11 @@ The rule (owner decision of 2026-10-30): each rostered player of the league, and
 (above the replacement free agent) or with MIN_GAMES or more games in the rotation log. player_records() applies it.
 - The rostered players come from the Yahoo rostered list of all teams (trade/rostered.py), with their fantasy team.
 - The projections file gives the NBA team and the positions of a player who is in no Yahoo list of the run.
-- Val is the Val of the Free agents page (owner decision of 2026-10-30): the blended value per game (adds/blend.py)
-  above the replacement free agent of the planning run (adds/value.py). market_values() gives it. A free agent comes
-  from the free-agent lists of the run, a rostered player from the rostered list. A player with no Yahoo line in the
-  run has no Val. Such a player gets the projection-based Val (proj_val, #213): the per-game value of his projection
+- Val is the Val of the Free agents page (owner decision of 2026-10-30): since #222 the Season value
+  (core/season_value.py) above the replacement free agent of the planning run. season_vals() gives it for the
+  players of the Yahoo lists of the run: a free agent comes from the free-agent lists, a rostered player from the
+  rostered list. A player who is in no Yahoo list of the run, or who has no season line, has no Val.
+  market_values() gives the Val before #222, the blended value above the replacement free agent. Such a player gets the projection-based Val (proj_val, #213): the per-game value of his projection
   minus the same replacement value. projection_values() gives it.
 - rests_b2b is the rests_b2b column of the [risk] file of config.toml (read_resters(), #213).
 - The games are the ESPN games of a player in data/rotation_log.csv.
@@ -219,6 +220,21 @@ def market_values(rostered, options, replacement, scale, cfg):
         found = market_value(o.value, replacement)
         if found is not None:
             out.setdefault(name_key(o.player.name), Valued(o.player, found))
+    return out
+
+
+def season_vals(rostered, options, season):
+    """{name_key: Valued} with the Val of season (core/season_value.SeasonValues, #222) for the players of the Yahoo
+    lists of the run: rostered (a RosteredRead, its projected view) and options (the Options of the free agents).
+
+    A player with no season line is not in the result. A Yahoo line is not necessary: Val does not use it.
+    """
+    out = {}
+    for p in [*(r.player for r in rostered.projected), *(o.player for o in options)]:
+        key = name_key(p.name)
+        val = season.val(key)
+        if val is not None:
+            out.setdefault(key, Valued(p, val))
     return out
 
 

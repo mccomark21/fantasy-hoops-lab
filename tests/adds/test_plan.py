@@ -13,12 +13,12 @@ from fantasyhoops.adds import lists, page, timing
 from fantasyhoops.adds import plan as command
 from fantasyhoops.adds.planner import Option, StreamSpot
 from fantasyhoops.adds.readers import Adds, FreeAgent, Player, Week
-from fantasyhoops.adds.drops import SeasonValue
 from fantasyhoops.adds import week_file
 from fantasyhoops.adds.role_up import Absence
 from fantasyhoops.core import common, tokens
 from fantasyhoops.core.common import name_key
 from fantasyhoops.core.roster import Day
+from fantasyhoops.core.season_value import SeasonLine
 from tests.adds.test_page import SKIP_LINE, WEEK, option, run_time, text
 
 MON = date(2027, 1, 4)
@@ -29,7 +29,9 @@ def test_the_command_shows_the_waiver_players_on_the_page(monkeypatch, tmp_path,
     # game. He is the replacement free agent (value 0.1), so the market value of the waiver player is +0.20.
     claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
     runs = report_runs(monkeypatch)
-    run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)])
+    # #222: Val is the Season value. The season lines give the same per-game values, with all games played.
+    lines = {name_key(n): SeasonLine(n, 10, 1.0, v, 1.0) for n, v in (("Phi Claim", 0.3), ("Den Guy", 0.1))}
+    run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)], values=lines)
     assert "PHI Phi Claim W PHI · SF Mon 1/4 Tue 1/5 +0.20" in text(page.free_agents_path().read_text(encoding="utf-8"))
     # #140: the team plan uses no free agent. It recommends PHI, the team of the waiver player.
     assert [a.teams for a in runs[0].plan.adds] == [("PHI",)]
@@ -425,7 +427,7 @@ def run_command(
     value_options() and a scale of pts only, and the market and waiver lists give no free agents.
     market: the MarketRead of the fake read_lists(). None: no market free agents.
     roster: the build_roster() of the run (adds/roster.py). None: a function that makes no Roster page.
-    values: the season values of drops.season_values(). None: no player has a season value.
+    values: the season lines of read_season_lines() (#222): {name key: SeasonLine}. None: no player has a season line.
     owners: the RosteredRead of the rostered list for the Players page (#186). None: the read fails, so the run
     makes no Players page. "read": the real players_page.read_owners() runs.
     """
@@ -452,12 +454,14 @@ def run_command(
     games = [(WEEK[0], "PHI"), (WEEK[0], "BOS"), (WEEK[1], "PHI"), *extra_games]
     sched = pd.DataFrame({"date": [str(d) for d, _ in games], "team": [t for _, t in games]})
     cfg = {
-        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10, "teams": 14},
+        "league": {"slots": ["PG", "SG", "SF", "PF", "C"], "roster_spots": 10, "teams": 14, "espn_season": 2027},
         "adds": {"league": 1, "team": 1, **({"rest_chance": 0.5} if rests else {}), **(settings or {})},
         "weights": {"pts": 1.0},
         "playoffs": {"core": 8},  # the Playoffs page (#214)
         "quality_games": {"bonus": 0.1},
         "trade": {"untouchable": [], "value_band": [0.95, 1.10]},  # the Best swaps list (#215)
+        "games": {"full_season": 82, "power": 1.25},  # the Season value (#222)
+        "season_value": {"blend_games": 10},
     }
     playoff_days = [Day(date(2027, 3, 8), "wk19", False, frozenset({"PHI", "BOS"}))]
     monkeypatch.setattr(command.roster_page, "playoff_days", lambda sched, cfg: playoff_days)
@@ -467,7 +471,7 @@ def run_command(
     monkeypatch.setattr(command, "open_league", no_yahoo)
     league = league or command.LeagueData(roster=[], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2])))
     monkeypatch.setattr(command, "read_league", reader("league", league))
-    monkeypatch.setattr(command, "season_values", lambda cfg: values or {})
+    monkeypatch.setattr(command, "read_season_lines", lambda cfg: values or {})
     monkeypatch.setattr(command, "stream_spots", lambda roster, cfg, values=None: [StreamSpot()])
     if fake_lists:
         monkeypatch.setattr(command, "read_lists", lists_reader(pages, free_agents or {}, market))
@@ -803,7 +807,11 @@ def test_the_terminal_shows_only_the_page_path_the_team_plan_and_the_warnings(mo
         rests={"phi weak"},
         league=league,
         settings={"core": ["Flag Guy"]},
-        values={name_key("Flag Guy"): SeasonValue(200, -7.0)},
+        values={
+            name_key("Flag Guy"): SeasonLine("Flag Guy", 5, 0.5, -7.0, 1.0),
+            name_key("Phi Weak"): SeasonLine("Phi Weak", 5, 0.5, -6.0, 1.0),
+            name_key("Bos Good"): SeasonLine("Bos Good", 5, 0.5, -1.0, 1.0),
+        },
         pages={("market", lists.PROJECTED): 2, ("market", lists.RECENT): 2},
     )
     (run,) = runs
@@ -949,3 +957,66 @@ def test_the_owner_read_takes_the_recent_view_only_when_the_run_reads_the_free_a
     league = command.LeagueData(roster=[], adds=Adds(used, 5), week=Week(12, tuple(WEEK[:2])))
     run_command(monkeypatch, tmp_path, [], publish=True, owners="read", league=league)
     assert views == [recent]
+
+
+def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
+    """#222: the Players, Free agents and Roster pages and the Adds plan read Val from one SeasonValues.
+
+    The replacement free agent is Den Guy (rank 2 of 2 free agents with a season line, per-game value 0.5).
+    Phi One: (1.0 - 0.5) x 0.8 ^ 1.25 = +0.38. Ace Bailey (your core player): 0.2 - 0.5 = -0.30, with no games factor.
+    """
+    from fantasyhoops.adds import roster as adds_roster
+    from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
+
+    def no_draft_rank(cfg, sched):
+        raise AssertionError("the Roster page ranks by Val, not by the draft rank")
+
+    monkeypatch.setattr(adds_roster, "read_ranks", no_draft_rank)
+    monkeypatch.setattr(adds_roster, "read_risk", lambda roster, cfg: {})
+    monkeypatch.setattr(adds_roster, "season_stats", lambda season: {})
+    monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
+    monkeypatch.setattr(command.players_page.data, "read_played", lambda: ({}, None, None))
+    monkeypatch.setattr(command.players_page.categories, "read_categories", lambda cfg: {})
+    ace = Player("Ace Bailey", "PHI", ("SF",))
+    owners = RosteredRead([RosteredPlayer(ace, 0, {}, 1, "Lamb Chops")], [], {}, [], True)
+    lines = {
+        "ace bailey": SeasonLine("Ace Bailey", 10, 1.0, 0.2, 1.0),
+        "phi one": SeasonLine("Phi One", 4, 0.4, 1.0, 0.8),
+        "den guy": SeasonLine("Den Guy", 10, 1.0, 0.5, 1.0),
+    }
+    league = command.LeagueData(roster=[ace], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2])))
+    run_command(
+        monkeypatch,
+        tmp_path,
+        [],
+        publish=True,
+        options=[option("Phi One", "PHI", 0.3), option("Den Guy", "DEN", 0.1)],
+        league=league,
+        settings={"core": ["Ace Bailey"], "team_name": "Mine"},
+        values=lines,
+        owners=owners,
+        roster=adds_roster.build_roster,
+    )
+    # The Adds plan: the warning and the basis line.
+    plan_text = text(page.page_path().read_text(encoding="utf-8"))
+    assert (
+        "Warning: Phi One (PHI) has a Val of +0.38. Your lowest core player, Ace Bailey, has a Val of -0.30. "
+        "You can make Phi One core." in plan_text
+    )
+    basis = "Val = season value to date, blended with the projection until 10 games."
+    assert f"{basis} Stream spots: your lowest players by Val." in plan_text
+    # The Free agents page: Val, and the blended value above its own replacement (0.1) in Next 7.
+    html = page.free_agents_path().read_text(encoding="utf-8")
+    raw = re.search(r'<script type="application/json" id="fa-data">(.*?)</script>', html, re.S).group(1)
+    fas = {p["name"]: (p["value"], p["next7"]) for p in json.loads(raw)["players"]}
+    assert fas == {"Phi One": (0.38, 0.2), "Den Guy": (0.0, 0.0)}
+    assert basis in text(html)
+    # The Players page: the same Val for the free agent and for your player.
+    file = json.loads((common.OUT / "players" / "players.json").read_text(encoding="utf-8"))
+    vals = {p["name"]: p["val"] for p in file["players"]}
+    assert vals["Phi One"] == 0.38 and vals["Ace Bailey"] == -0.3
+    assert file["meta"]["val_basis"] == basis
+    assert basis in (common.OUT / "players" / "index.html").read_text(encoding="utf-8")
+    # The Roster page: Ace Bailey is 3rd by Val of the 3 season lines.
+    roster = (common.OUT / "roster" / "index.html").read_text(encoding="utf-8")
+    assert '<td class="rk">3</td>' in roster and f"Rank: rank by Val. {basis}" in text(roster)

@@ -11,13 +11,35 @@
 The first pool is the players with the most minutes. Each later pass uses the players with the most value.
 
 Other tools value any per-game stat line with the same formula: get the scale of the pool once with
-category_scale(), then call pg_value() for each line.
+category_scale(), then call pg_value() for each line. projection_lines() gives the per-game lines of a projections
+table (PROJECTION_STATS).
 """
 
 import numpy as np
 import pandas as pd
 
 PASSES = 5
+
+# Category name in config.toml -> its column, calculated from the season totals of a projections table
+PROJECTION_STATS = {
+    "pts": lambda d: 2 * d.field_goals + d.threes + d.free_throws,
+    "reb": lambda d: d.offensive_rebounds + d.defensive_rebounds,
+    "ast": lambda d: d.assists,
+    "threes": lambda d: d.threes,
+    "stl": lambda d: d.steals,
+    "blk": lambda d: d.blocks,
+}
+
+
+def projection_lines(projections):
+    """A copy of a projections table with one per-game column for each category of PROJECTION_STATS.
+
+    Give it only the rows with games > 0.
+    """
+    df = projections.copy()
+    for cat, calc in PROJECTION_STATS.items():
+        df[cat] = calc(df) / df.games
+    return df
 
 
 def value_players(players, cfg):
