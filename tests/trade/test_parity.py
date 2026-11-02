@@ -86,7 +86,6 @@ def roster(rng, prefix, team_id, n, mine):
                 slot=("IL" if rng.random() < 0.15 else "BN") if mine else "",
                 status=rng.choice(["", "", "", "O", "GTD"]),
                 value=value,
-                pg=round(rng.uniform(-4, 4), 2),
                 rank=None if rng.random() < 0.1 else rng.randint(1, 200),
                 rests_b2b=rng.random() < 0.3,
                 team_id=1 if mine else team_id,
@@ -182,3 +181,31 @@ def test_the_page_inlines_both_engines():
     text = page.builder_script({"me": [], "teams": [], "sugg": [], "engine": {}})
     assert Path(page.ENGINE).read_text(encoding="utf-8") in text
     assert Path(page.TRADE_ENGINE).read_text(encoding="utf-8") in text
+
+
+def test_the_lineup_order_is_the_val_order_in_python_and_in_the_browser():
+    """#223: the lineup order is the rank by Season value, in suggest.py (lineup_fit) and in trade_builder.js.
+
+    One PG slot and one Util slot on the day, and three PGs who play. The two highest Vals start, not the first two of
+    the roster.
+    """
+    from fantasyhoops.adds.readers import Player
+    from fantasyhoops.core.season_value import SeasonLine, SeasonValues
+    from fantasyhoops.trade.rostered import RosteredRead
+    from fantasyhoops.trade.run import trade_players
+
+    lines = {
+        "low val": SeasonLine("Low Val", 10, 1.0, 0.6, 1.0),
+        "high val": SeasonLine("High Val", 10, 1.0, 3.0, 1.0),
+        "mid val": SeasonLine("Mid Val", 10, 1.0, 1.5, 1.0),
+    }
+    season = SeasonValues(lines, 0.5, 1.25)
+    roster = [Player(n, "AAA", ("PG",), slot="PG") for n in ("Low Val", "Mid Val", "High Val")]
+    mine, _ = trade_players(roster, RosteredRead([], [], {}, [], True), 1, season, {})
+    assert [(p.name, p.value, p.rank) for p in mine] == [("Low Val", 0.1, 3), ("Mid Val", 1.0, 2), ("High Val", 2.5, 1)]
+    day = roster_page.Day(date(2027, 3, 8), "wk19", False, frozenset({"AAA"}), frozenset())
+    fit = roster_page.lineup_fit([p.roster_player() for p in mine], [day], ["PG"])
+    python = sorted(p.name for p, marks in zip(fit.players, fit.marks) if marks[0] == roster_page.START)
+    data = page.builder_data(Suggestions((), [], [], 0, 0, 0), mine, [], [day], ["PG"], ["wk19"], SETTINGS)
+    out = node(data, [], [p["id"] for p in data["me"]])
+    assert out["starters"] == [python] == [["High Val", "Mid Val"]]

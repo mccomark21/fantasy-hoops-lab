@@ -968,10 +968,6 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
     from fantasyhoops.adds import roster as adds_roster
     from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
 
-    def no_draft_rank(cfg, sched):
-        raise AssertionError("the Roster page ranks by Val, not by the draft rank")
-
-    monkeypatch.setattr(adds_roster, "read_ranks", no_draft_rank)
     monkeypatch.setattr(adds_roster, "read_risk", lambda roster, cfg: {})
     monkeypatch.setattr(adds_roster, "season_stats", lambda season: {})
     monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
@@ -1021,6 +1017,7 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
     box_guy = next(p for p in file["players"] if p["name"] == "Box Guy")
     assert (box_guy["val"], box_guy["proj_val"]) == (None, -0.5)  # 0.0 - 0.5, the same Season value
     assert file["meta"]["val_basis"] == basis
+    assert file["meta"]["season_replacement"] == 0.5  # Den Guy: the trade run reads it (#223)
     assert basis in (common.OUT / "players" / "index.html").read_text(encoding="utf-8")
     # The Roster page: Ace Bailey is 3rd by Val of the 4 season lines (Box Guy is 4th).
     roster = (common.OUT / "roster" / "index.html").read_text(encoding="utf-8")

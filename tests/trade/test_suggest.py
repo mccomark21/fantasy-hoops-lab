@@ -5,14 +5,12 @@ import pytest
 
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.trade.suggest import (
-    PRE,
     Suggestion,
     TradePlayer,
     TradeSettings,
     in_band,
     kept_set,
     limit,
-    player_value,
     rank_key,
     suggest,
     swap,
@@ -98,15 +96,6 @@ def test_the_player_you_get_takes_the_spot_of_the_player_you_give():
 )
 def test_the_value_band_holds_both_edges_also_below_0(give, get, inside):
     assert in_band(give, get, SETTINGS.band) is inside
-
-
-# The pre fallback --------------------------------------------------------------------------------------------------
-
-
-def test_a_player_with_no_blended_value_uses_his_pg_value_with_the_pre_mark():
-    assert player_value(0.4, 1.2) == (0.4, "")
-    assert player_value(None, 1.2) == (1.2, PRE)
-    assert player_value(None, None) == (None, "")
 
 
 def test_a_pair_with_no_value_on_one_side_is_not_scored():

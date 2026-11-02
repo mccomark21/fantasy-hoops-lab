@@ -1,20 +1,17 @@
 from datetime import date, timedelta
 
-import numpy as np
-import pandas as pd
 
 from fantasyhoops.adds.drops import (
     SeasonValue,
     choose_stream_spots,
     kept_roster,
-    rank_players,
     value_warnings,
 )
 from fantasyhoops.adds.planner import Option
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
 from fantasyhoops.adds.team_plan import TeamAdd, team_plan
-from fantasyhoops.core.common import load_config, name_key
+from fantasyhoops.core.common import name_key
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON = date(2027, 1, 4)
@@ -122,47 +119,3 @@ def test_a_warning_shows_for_a_streamer_with_a_higher_value_than_the_lowest_core
     cfg = config(3)
     assert value_warnings(fas, plan.adds, roster, spots, cfg, vals)[0].startswith("Warning: Good (PHI)")
     assert "lowest kept player, Core," in value_warnings(fas, plan.adds, roster, spots, cfg, vals)[0]
-
-
-def test_rank_players_ranks_by_per_game_value():
-    rng = np.random.default_rng(1)
-    n = 200
-    names = [chr(97 + i // 26) + chr(97 + i % 26) for i in range(n)]  # aa, ab, ...: name_key() drops digits
-    df = pd.DataFrame(
-        {
-            "player_id": range(n),
-            "first_name": names,
-            "last_name": ["Last"] * n,
-            "games": 70,
-            "minutes": rng.integers(500, 2500, n),
-        }
-    )
-    for col in [
-        "field_goals",
-        "threes",
-        "free_throws",
-        "offensive_rebounds",
-        "defensive_rebounds",
-        "assists",
-        "steals",
-        "blocks",
-    ]:
-        df[col] = rng.integers(10, 400, n)
-    df.loc[
-        0,
-        [
-            "field_goals",
-            "threes",
-            "free_throws",
-            "offensive_rebounds",
-            "defensive_rebounds",
-            "assists",
-            "steals",
-            "blocks",
-        ],
-    ] = 900
-    ranks = rank_players(df, load_config())
-    assert ranks[name_key("aa Last")].rank == 1
-    assert sorted(r.rank for r in ranks.values()) == list(range(1, n + 1))
-    by_rank = sorted(ranks.values(), key=lambda r: r.rank)
-    assert all(a.value >= b.value for a, b in zip(by_rank, by_rank[1:]))

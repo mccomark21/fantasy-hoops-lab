@@ -1,9 +1,11 @@
 """The scorer of the 1-for-1 trade suggestions (#150). It writes no file. The design is in docs/trade/README.md.
 
+The value of a player is his Val, the Season value of core/season_value.py (#223). It is the Val of the Players page.
 The playoff starts of a team count its kept set: the top [trade] kept players by value. The untouchable players
 ([trade] untouchable) and the IL players are always in it. In a trade, the player you get takes the spot of the
 player you give in the kept set. The run does not rank the kept set again after the trade (Decision comment on #150).
 The starts use the Roster page rules: core/roster.py lineup_fit() on the playoff days of roster_page.playoff_days().
+The lineup order is the rank by Val (TradePlayer.rank), as on the Roster page.
 A pair is a suggestion if the value of the player you get is in the value band of the player you give, and the trade
 raises your total playoff starts by 1 or more. The suggestions give only the players of the [trade] offer list (#170). An
 empty list offers each player who is not untouchable. The rank: the gain in total starts, then the gain of your weakest
@@ -17,27 +19,17 @@ from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import name_key
 
 EDGE = 1e-9  # a value on an edge of the value band is in the band, also with a rounding error of the float math
-PRE = "pre"  # the mark of a value that is the preseason pg_value, because the player has no blended value
-
-
-def player_value(blended, pg):
-    """(value, mark) of a player: the blended value with no mark, else the preseason pg_value with the mark PRE.
-    (None, "") if he has neither."""
-    if blended is not None:
-        return blended, ""
-    if pg is not None:
-        return pg, PRE
-    return None, ""
 
 
 @dataclass(frozen=True)
 class TradePlayer:
     """One player on your team or on the team of a partner.
 
-    name, team, positions, slot, status, rank, rests_b2b: as in roster_page.RosterPlayer. slot is "" for a player of a
+    name, team, positions, slot, status, rests_b2b: as in roster_page.RosterPlayer. slot is "" for a player of a
     partner team, because the rostered list does not show the roster slots.
-    value: the blended value per game, or the preseason pg_value if he has no blended value (mark "pre").
-    None if he has neither. pg: the preseason pg_value, or None. team_id, team_name: his fantasy team.
+    value: his Val (core/season_value.SeasonValues.val()), or None with no season line.
+    rank: his rank by Val (SeasonValues.ranks()), the lineup order. None with no season line: he goes last.
+    team_id, team_name: his fantasy team.
     """
 
     name: str
@@ -46,8 +38,6 @@ class TradePlayer:
     slot: str = ""
     status: str = ""
     value: float | None = None
-    mark: str = ""
-    pg: float | None = None
     rank: int | None = None
     rests_b2b: bool = False
     team_id: int | None = None

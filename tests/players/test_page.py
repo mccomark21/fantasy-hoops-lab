@@ -80,6 +80,7 @@ def test_write_site_writes_the_page_the_player_file_and_the_font(monkeypatch):
         "replacement_rank": 15,
         "has_val": False,
         "val_basis": None,
+        "season_replacement": None,
         "value": None,
     }
     assert [p["slug"] for p in content["players"]] == ["ace-bailey", "fa-five", "karl-anthony-towns"]
@@ -394,3 +395,16 @@ def test_a_player_with_no_block_gets_the_empty_boxes(modal_site):
     pg.locator("#pc-name").wait_for()
     assert pg.locator("#pc-q-value .lab-c-empty").inner_text() == value.NO_GAMES
     assert pg.locator("#pc-q-comps .lab-c-empty").inner_text() == "No projection and no recent games: no comps."
+
+
+def test_the_player_file_keeps_the_season_replacement_for_the_trade_run(monkeypatch, tmp_path):
+    """#223: the meta has season_replacement. read_season_replacement() gives it only for a file of the same day."""
+    monkeypatch.setattr(common, "OUT", tmp_path)
+    assert page.read_season_replacement(date(2026, 11, 1)) is None  # no player file
+    content = page.player_file([], date(2026, 11, 1), None, replacement=0.5, season_replacement=0.5)
+    (tmp_path / "players").mkdir()
+    (tmp_path / "players" / "players.json").write_text(json.dumps(content), encoding="utf-8")
+    assert page.read_season_replacement(date(2026, 11, 1)) == 0.5
+    assert page.read_season_replacement(date(2026, 11, 2)) is None
+    (tmp_path / "players" / "players.json").write_text("{", encoding="utf-8")
+    assert page.read_season_replacement(date(2026, 11, 1)) is None

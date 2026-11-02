@@ -10,8 +10,9 @@ and proj_val fields of the playoffs page (players/data.py, #213).
 add_quadrants() adds the data of the Value and Comps quadrants (players/value.py and players/comps.py, #189) to
 each player. They read data/box_scores.csv, the rotation log and the newest projections file.
 The planning run (adds/plan.py) calls write_site() and publishes the folder at /players/ with its own folders.
-The trade run does not write the page, because it reads no free-agent list and so has no Val of the Free agents page.
-Its publish keeps /players/.
+The trade run does not write the page, because it reads no free-agent list. Its publish keeps /players/.
+The meta of the player file holds season_replacement, the replacement value of the Season value of the run (#223).
+The trade run reads it with read_season_replacement(), so the Trades page gives the Val of this page.
 """
 
 import json
@@ -55,13 +56,16 @@ def read_owners(reader, skip_recent):
         return None
 
 
-def player_file(records, made, projections, log_first=None, log_last=None, replacement=None, basis=None):
+def player_file(
+    records, made, projections, log_first=None, log_last=None, replacement=None, basis=None, season_replacement=None
+):
     """The shared player file as a dict: meta, the team band of each NBA team of the players and the players.
 
     records: players/data.player_records(). made: the date of the owners. projections: the projections file name, or
     None.
     log_first, log_last: the first and the last date of the rotation log, or None.
     replacement: the replacement value of the run. None: no Val. basis: the basis line of Val (#222), or None.
+    season_replacement: the replacement value of the Season value of the run (SeasonValues.replacement), or None.
     """
     teams = sorted({r["team"] for r in records} | {""})
     rostered = sum(r["owner"] is not None for r in records)
@@ -77,10 +81,23 @@ def player_file(records, made, projections, log_first=None, log_last=None, repla
             "replacement_rank": REPLACEMENT_RANK,
             "has_val": replacement is not None,
             "val_basis": basis,
+            "season_replacement": season_replacement,
         },
         "bands": {t: site.band_style(t or None) for t in teams},
         "players": records,
     }
+
+
+def read_season_replacement(made):
+    """The season_replacement of the player file in folder() if the file is of the date made, else None (#223).
+
+    None also with no player file, a file that is not valid JSON, or a file with no season_replacement.
+    """
+    try:
+        meta = json.loads((folder() / profile.DATA_FILE).read_text(encoding="utf-8"))["meta"]
+    except (FileNotFoundError, ValueError, KeyError, TypeError):
+        return None
+    return meta.get("season_replacement") if meta.get("made") == f"{made:%Y-%m-%d}" else None
 
 
 def count_text(meta):
@@ -146,7 +163,8 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
         proj_values=proj_values,
     )
     value_meta = add_quadrants(records, cfg, made, scale, replacement)
-    content = player_file(records, made, projections, first, last, replacement, basis)
+    season_replacement = None if season is None else season.replacement
+    content = player_file(records, made, projections, first, last, replacement, basis, season_replacement)
     content["meta"]["value"] = value_meta
     out = folder()
     out.mkdir(parents=True, exist_ok=True)
