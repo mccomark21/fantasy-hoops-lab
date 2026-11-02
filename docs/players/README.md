@@ -7,7 +7,7 @@ The Players page at `/players/` is a report card for one player of the league. A
 The card has a header and 4 quadrants. It is not a scrolling page: at 1440 x 900, the header and the 4 quadrants fit with no page scroll. Below 800 px wide, the quadrants stack.
 
 - **Header:** the NBA team band, the name, the positions, the owner (or FA), Val and up to 3 signal chips.
-  - Val is the Val of the Free agents page (owner decision of 2026-10-30): the blended value per game above a replacement free agent (0 = the free agent at rank 15 by value). The value and the replacement come from the same planning run as the Free agents page. A free agent gets his Val from the free-agent lists of the run. A rostered player gets it from the rostered list, with the same blend. A player with no Yahoo line in the run has no Val ("–").
+  - Val is the Val of the Free agents page (owner decision of 2026-10-30). Since #222 (2026-11-01) it is the Season value of the [glossary](../glossary.md) (`core/season_value.py`): the custom value of the season-to-date box scores, blended with the projection until `[season_value] blend_games` (10) games, above the replacement free agent of the planning run (0 = the free agent at rank 15 by Season value). The players of the free-agent lists and of the rostered list of the run get a Val. A player in no Yahoo list of the run, or with no season line, has no Val ("–"). The count line of the page and the Methods list of the card state this basis (`meta.val_basis` of the player file).
   - A signal comes from a rule of a quadrant, for example a band exit, a projection gap or consistency. Each chip links to its quadrant. With no signal, the header says "No signals: playing to projection". The rules are in `SIGNAL_RULES` in `players/data.py`. The Categories quadrant gives the projection-gap rule (#188). The Role quadrant gives the band-exit rule, the Minutes signal (#187). The Value quadrant gives the Consistency signal (#189).
 - **Quadrants:** Role (top left), Categories (top right), Value (bottom left) and Comps (bottom right). A quadrant with no chart shows a dashed box that says what is missing.
 - **Methods:** the "i" icon in the header opens the methods and data notes.
@@ -30,7 +30,7 @@ The Categories quadrant (#188) shows the percentile of each weighted category (P
 
 The Value quadrant (#189, `players/value.py`) shows the value of each ESPN game of the player in `data/box_scores.csv`.
 
-- **Game value:** the per-game value of his box-score line minus the replacement value of the planning run. So 0 is the replacement free agent, as for Val.
+- **Game value:** the per-game value of his box-score line minus the replacement value of the planning run (the per-game Season value of the replacement free agent, #222). So 0 is the replacement free agent, as for Val.
 - **Dud:** a game below 0. **Spike:** a game at the top-30 level or more. The top-30 level is the Val of the player at rank 30 by Val on the page. Duds are red down triangles, spikes are up triangles.
 - **Hero line:** the 3-game average. **Band:** the normal range, the mean of his games ± 2 × SD ÷ √3. The SD mixes his own spread with the league spread, which counts as 4 games. A band needs 3 games, and a range exit ("▲ out" or "▼ out") needs 5. These values are in `[players.value]` of `config.toml` (agent defaults, not yet approved by the owner).
 - The quadrant head gives the dud rate and the spike rate, for example "Duds 2 of 5 (40%)". Under 5 games, the state line adds "One game moves a rate <n> points."
@@ -65,7 +65,7 @@ Each player has these fields for the playoffs page (#213):
 
 - `team` and `pos`: the NBA team and the positions, for example `"PG/SG"`.
 - `rests_b2b`: 1 if the player rests on the second night of a back-to-back, from the `[risk]` file of `config.toml`. Else 0.
-- `proj_val`: for a player with no Val, the projection-based Val: the per-game value of his projection minus the replacement value of the run. The playoffs page shows it with a "proj" mark. A player with a Val, or with no projection, has `null`. The Players page and the modal do not show it.
+- `proj_val`: for a player with no Val (he is in no Yahoo list of the run), the Val of the same Season value (#222). A run with no Season value gives the projection-based Val: the per-game value of his projection minus the replacement value of the run. The playoffs page shows it with a "proj" mark. A player with a Val, or with no projection, has `null`. The Players page and the modal do not show it.
 
 The planning run (`python -m fantasyhoops.adds.plan`) writes the page and the file in `output/players/` and publishes them at `/players/`:
 

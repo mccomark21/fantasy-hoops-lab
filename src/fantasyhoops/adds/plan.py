@@ -1,6 +1,9 @@
 """Weekly adds planner: python -m fantasyhoops.adds.plan. The design is in docs/adds/README.md.
 
 One planning run:
+0. read_season_lines(): the Season value of each player (core/season_value.py, #222). Before the Yahoo reads, the
+   stream spots use the replacement estimate of adds/value.py season_replacement(). After the free-agent reads, the
+   Val of all pages uses the replacement free agent of the run (PlanningRun.season).
 1. read_league(): open Edge with the saved Yahoo session and read your team page and the matchup page.
    On the last day of a fantasy week, it reads the next week and plans that whole week with all its adds.
    The matchup page also gives the category scores of the current matchup (adds/matchup.py).
@@ -63,7 +66,7 @@ from fantasyhoops.adds.cache import PageCache
 from fantasyhoops.adds.blend import blended_options
 from fantasyhoops.adds.roster import build_roster
 from fantasyhoops.adds.lists import read_lists, recent_skip_line, recent_weight_limit, skips_recent_view
-from fantasyhoops.adds.drops import choose_stream_spots, kept_roster, season_values, value_warnings
+from fantasyhoops.adds.drops import choose_stream_spots, kept_roster, season_ranks, value_warnings
 from fantasyhoops.adds.matchup import matchup_weights, read_matchup, weighted_cfg
 from fantasyhoops.adds import grid, week_file
 from fantasyhoops.adds.planner import StreamSpot, rank_teams, teams_to_read
@@ -83,12 +86,13 @@ from fantasyhoops.adds.slots import (
 )
 from fantasyhoops.adds.team_plan import team_plan
 from fantasyhoops.adds.trends import read_week_trends, trend_days
-from fantasyhoops.adds.value import projection_scale, replacement_value
+from fantasyhoops.adds.value import projection_scale, replacement_value, season_replacement
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
+from fantasyhoops.core.season_value import SeasonValues, read_season_lines
 from fantasyhoops.players import page as players_page
 from fantasyhoops.playoffs import page as playoffs_page
 
@@ -127,6 +131,7 @@ class PlanningRun:
     rotation log.
     next_days, next_games: the Days and the games of the first days of next week (slots.next_week_window()).
     timings: the timing.StepTimes of the run. recent_skip, market, cache: the run lines, or None.
+    season: the core/season_value.SeasonValues of the run: the Val of the pages (#222), or None.
     """
 
     data: object
@@ -153,6 +158,7 @@ class PlanningRun:
     recent_skip: str = None
     market: str = None
     cache: str = None
+    season: object = None
 
 
 def read_league(yahoo, cfg, today):
@@ -178,12 +184,20 @@ def read_league(yahoo, cfg, today):
     )
 
 
-def stream_spots(roster, cfg, values=None):
-    """The stream spots: the empty spots, then the lowest non-core players up to [adds] stream_spots.
+def season_values(lines, options, cfg):
+    """The SeasonValues of the run (#222): lines with the replacement value of options (adds/value.py
+    season_replacement()). With no options, the replacement is the estimate of season_replacement()."""
+    return SeasonValues(lines, season_replacement(options, lines, cfg), cfg["games"]["power"])
 
-    values: from drops.season_values(). If None, the function reads the projections file. See drops.py.
+
+def stream_spots(roster, cfg, values=None):
+    """The stream spots: the empty spots, then the lowest non-core players by Val up to [adds] stream_spots.
+
+    values: from drops.season_ranks(). If None, the function reads the season lines. See drops.py.
     """
-    return choose_stream_spots(roster, cfg, season_values(cfg) if values is None else values)
+    if values is None:
+        values = season_ranks(season_values(read_season_lines(cfg), (), cfg))
+    return choose_stream_spots(roster, cfg, values)
 
 
 def value_options(free_agents, cfg, recent=(), matchup_cfg=None, scale=None):
@@ -270,7 +284,9 @@ def main(today=None, publish=True, timed=True, cache=True):
     pages = PageCache(today, use=cache)
     pages.remove_old_days()
     with step("season values"):
-        values = season_values(cfg)
+        lines = read_season_lines(cfg)
+        season = season_values(lines, (), cfg)
+        values = season_ranks(season)
     # The category scale of the values. The read is outside every step, as before #92, so the rows stay comparable.
     scale = projection_scale(cfg)
     wait = cfg["adds"].get("page_wait", WAIT_SECONDS)
@@ -334,7 +350,8 @@ def main(today=None, publish=True, timed=True, cache=True):
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
         with step("team plan", search=True):
             plan = team_plan(days, games, spots, data.adds.left, slots, next_week=games_next, next_weight=weight)
-        warnings = value_warnings(options, plan.adds, data.roster, spots, cfg, values)
+        season = season_values(lines, [o for o in options if not o.player.on_waivers], cfg)
+        warnings = value_warnings(options, plan.adds, data.roster, spots, cfg, season_ranks(season))
         match_replacement = replacement_value(
             [replace(o, blended_value=o.match) for o in options if not o.player.on_waivers]
         )
@@ -367,21 +384,22 @@ def main(today=None, publish=True, timed=True, cache=True):
         recent_skip=skip_line,
         market=market_text,
         cache=cache_text,
+        season=season,
     )
     roster = None
     if publish:
         # Before the plan page, so that the Run time table of the plan page has this step.
         with step("roster page"):
-            roster = build_roster(data, cfg, sched, today)
+            roster = build_roster(data, cfg, sched, today, season)
     with step("page write and publish"):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
         free_agents = page.write_free_agents(page.render_free_agents(run))
         players = playoffs = None
         if owners is not None:
-            # The Val of the Players page is the Val of the Free agents page: the same values and replacement.
+            # The Val of the Players page is the Val of the Free agents page: the same Season value (#222).
             team = cfg["adds"]["team"]
-            players = players_page.write_site(owners, team, cfg, today, run.options, run.replacement, scale)
+            players = players_page.write_site(owners, team, cfg, today, run.options, run.replacement, scale, season)
             # The Playoffs page takes its pool from the player file of the Players page (#214).
             playoffs = playoffs_page.write_site(players[1][0], roster_page.playoff_days(sched, cfg), cfg)
         publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players, playoffs)

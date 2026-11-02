@@ -53,7 +53,7 @@ def test_the_run_builds_the_roster_page_and_publishes_it_at_roster_with_the_plan
     published, calls = [], []
     roster_path = tmp_path / "roster" / "index.html"
 
-    def build(data, cfg, sched, today):
+    def build(data, cfg, sched, today, season):
         calls.append((data.week.number, today))
         return roster_path
 

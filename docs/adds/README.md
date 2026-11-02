@@ -164,7 +164,9 @@ The free-agent table marks each second night with a small "2", for all players.
 
 ## Value
 
-The blended value orders the free agents. It uses your 6 categories and your weights, the same formula as `core/valuation.py`, on a blended stat line:
+Decision (2026-11-01, #222): Val on the pages is the Season value of the [glossary](../glossary.md) (`core/season_value.py`): the custom value of the season-to-date box scores, blended with the projection until `[season_value] blend_games` (10) games, above the replacement free agent. The free-agent table and the waiver table sort by it, the stream spots and the warnings use it, and the Roster page ranks by it. Each page states this basis in one short line. The blended value below stays as the Next 7 column of the free-agent table, for streaming, and as the value of the Match column.
+
+The blended value (Next 7) orders the free agents of the market read. It uses your 6 categories and your weights, the same formula as `core/valuation.py`, on a blended stat line:
 
 - The projected line: Yahoo's projection for the next 7 days (from Rotowire). Rotowire updates it during the season.
 - The recent line: the player's per-game averages in the last 14 days.
@@ -292,11 +294,11 @@ The table shows the free agents that the run read: the free agents of the best t
 
 Decision (2026-10-28, #143): the free-agent table and the waiver table have the look of the Roster table of the [Roster page](#roster-page-and-home-page). `publish.TABLE_STYLE` in `core/publish.py` is the one source of the table CSS. The Roster page and the Free agents page both get it from `publish.shell()`, so the tables cannot drift apart.
 
-1. Columns: Team, Player, Val, Match, Recent, Gms, then one column for each day. The Team column is a band in the color of the NBA team, as on the Roster table.
+1. Columns: Team, Player, Val, Next 7, Match, Recent, Gms, then one column for each day. Val is the Season value above the replacement free agent. Next 7 is the market value of the blended value (#222). The Team column is a band in the color of the NBA team, as on the Roster table.
 2. Player: the name in heavy condensed caps, then the status tag and the flags (FA?, MIN+, UP, the next-week mark). A small line below gives the team, the positions (for example "PHI · SG/SF"), the adds today and the role-up text. The role line is a second small line.
 3. Head and rows: the Roster head (11px bold `mark` text over a 2px `mark` rule), zebra rows and 1px row rules. Vertical rules separate the player, the values and the days.
 4. Sorted column: the 3px `mark` bar under the header and the arrow (▼). Each header has `mark` text, as on the Roster table.
-5. Below 600px, the band and the name are smaller (15px), and each day column is 18px wide. At 390px, the table fits with no sideways scroll. The Recent column shows at 600px and wider.
+5. Below 600px, the band and the name are smaller (15px), and each day column is 18px wide. At 390px, the table fits with no sideways scroll. The Next 7 and Recent columns show at 600px and wider (#222: Next 7 does not fit at 320px). Below 600px, Match gives the streaming value.
 6. The free-agent table has no Rk column: a free agent has no custom rank.
 
 Page tests check that each cell of the free-agent table and the waiver table fits its cell at 320, 390, 768 and 1280px, and that each text has 4.5:1 or more in both themes at 390 and 1280px.
@@ -305,14 +307,14 @@ Page tests check that each cell of the free-agent table and the waiver table fit
 - Positions: select one position or more. The table shows the players with one of the selected positions.
 - Teams (#140): select one team or more. There is a chip for each team of the free agents that the run read. The table shows the players of the selected teams. With no team selected, the table shows all teams. The count line names the selected teams.
 - "Only games that fill an open slot": a game counts only if an open slot of that day takes one of his positions.
-- Sort: click Val, Match, Recent or Gms. Gms is the number of his games on the selected days. Sort by Gms to find the player with the most games on those days. Val then puts the players with the same games in order.
+- Sort: click Val, Next 7, Match, Recent or Gms. Gms is the number of his games on the selected days. Sort by Gms to find the player with the most games on those days. Val then puts the players with the same games in order.
 - Reset filters: the button next to the checkbox restores the defaults. No day, no position and no team is selected, the checkbox is on, and the sort is Val (#118, #140).
 - No match: when no free agent matches the filters, the table hides and a message shows. With selected days, the message is "No free agent plays on all selected days." and a "Clear days" button clears the days (#118).
 - Keyboard and screen reader (#116): each chip and each sort header is a button. Press Tab to go to a button, then Enter or Space. The focus stays on the button. The sorted column shows an arrow (▼) and has `aria-sort`. A screen reader reads each day chip as, for example, "Tue 10/27, 5 open slots, 4 NBA games", each dot as "game in an open slot" or "game", and the count line after each change.
 
-Match is the market value with the matchup weights: the matchup value above the matchup value of a replacement free agent. Compare Val and Match to see how the matchup changes the value of a player.
+Match is the Next 7 value with the matchup weights: the matchup value above the matchup value of a replacement free agent. Compare Next 7 and Match to see how the matchup changes the value of a player.
 
-A filter does not change Val or Match, because they are values per game.
+A filter does not change Val, Next 7 or Match, because they are values per game.
 
 A one-line key above the table shows the dots and the flags. The longer text about the columns, the role line and the next-week mark is in "Columns and marks" under the table (#118).
 
@@ -362,7 +364,7 @@ The ESPN names come from `data/rotation_log.csv` and `data/rosters.csv`. A proje
 
 ### Waiver players
 
-A separate table lists the waiver players that the run read, best value first. It has the look of the Roster table (#143): the team band, then the player cell with the name, the W tag and a small line with the team and the positions. Then it shows the clear day, the first day that he can play for you and Val (the same market value as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
+A separate table lists the waiver players that the run read, best value first. It has the look of the Roster table (#143): the team band, then the player cell with the name, the W tag and a small line with the team and the positions. Then it shows the clear day, the first day that he can play for you and Val (the same Val as the free-agent table). The section is not on the page when the run read no waiver player. See [Data](#data) for the waiver rules.
 
 ### Run time
 
@@ -437,7 +439,7 @@ Decision (2026-10-29, #172): the Roster page moved from `/` to `/roster/`. The p
 
 The Roster page:
 
-- The roster is the roster of your team page. The players are in custom-rank order (`draft/rankings.py`). A player with no rank goes last.
+- The roster is the roster of your team page. The players are in rank order by Val, the Season value of the run (#222). The Rk column is his rank by Val among all players with a season line. A player with no rank goes last. The foot of the page states the basis.
 - The season stats come from one ESPN `statistics/byathlete` request (`fetch/espn.py`): GP, MIN, PTS, REB, AST, 3PM, STL and BLK per game.
 - Each playoff day, the best lineup of the position slots and Util takes the players in rank order (`best_lineup()` in `core/lineup.py`). The IL players are in the lineup pool, because they will likely be back by the playoffs. A player with `rests_b2b` = 1 gets no game on the second night of a back-to-back.
 - The vs ideal row uses `ideal_games()` in `core/lineup.py`. The percent bands are `BANDS` in `core/lineup.py`: 90% or more, 70% to 89%, less than 70%. The draft board gets the same rules from `core/lineup.py` (#133).
@@ -452,14 +454,14 @@ Page tests check that the Home page and the Roster page have no sideways scroll 
 ## Core and drops
 
 - The core list in `config.toml` holds the players that the planner never suggests to drop. The rule also holds for a core player who is Out.
-- The stream spots are the empty roster spots first, also the spots that IL frees. Then, up to `stream_spots` (3), the rostered players with the lowest season value who are not core and not on IL hold a stream spot. The planner keeps all other players, as it keeps the core players.
+- The stream spots are the empty roster spots first, also the spots that IL frees. Then, up to `stream_spots` (3), the rostered players with the lowest Val who are not core and not on IL hold a stream spot. The planner keeps all other players, as it keeps the core players.
 - A player in a stream spot plays until the first add to his spot. That add drops him. A drop is a suggestion, never an order. Since #130 (2026-10-28), the planner does not compute the trade-off of a drop.
-- The plan score counts this week's started games, and the next-week games as a tiebreak (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The season value of a player in a stream spot is not in the score. You decide.
+- The plan score counts this week's started games, and the next-week games as a tiebreak (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The Val of a player in a stream spot is not in the score. You decide.
 - A dropped player who is still a free agent next week can come back in a later plan.
 
-Rostered players are not on the free-agent list. So their rank and season value come from the season projections file of the draft tools: the per-game value (`pg_value` of `core/valuation.py`) and the rank by that value (`pg_rank` on the draft board). The free-agent values use the same category scale, so the numbers compare. A player who is not in the projections file has the lowest value.
+Decision (2026-11-01, #222): the stream spots and the warnings use Val, the Season value, for the rostered players and the free agents. Before #222 they used Pre, the per-game value of the projections file. The stream spots are chosen before the free-agent reads, so their Val uses an estimate of the replacement value: the player at rank 15 after the rostered pool (teams × roster spots) by Season value. One replacement value moves all Vals by the same number, so it changes the order only through the games factor. The warnings and all pages use the replacement free agent of the run. A player with no season line (in no projections file and in no box score) has the lowest value. The plan page states the basis in one short line above the warnings.
 
-The page also warns you when a streamer has a higher blended value than the season value of your lowest core player. Since #140, a streamer is a free agent who plays for a team of an add of the team plan and has one of its slots ("Util": any position). If no core player is on your roster, the warning uses your lowest kept player. You can then make the streamer core.
+The page also warns you when a streamer has a higher Val than your lowest core player. Since #140, a streamer is a free agent who plays for a team of an add of the team plan and has one of its slots ("Util": any position). If no core player is on your roster, the warning uses your lowest kept player. You can then make the streamer core.
 
 ## Status rules
 
@@ -596,6 +598,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `team_count_at` | From this number of teams, an add cell of the team plan gives the count of its teams, not the list: 6. See [Team plan](#team-plan). |
 | `next_week_open_days` | The first days of next week that the page checks for open slots: 2. 0 turns off the next-week mark. See [Next-week mark](#next-week-mark). |
 | `team_name` | The team name at the top of the Roster page: TradeMark™. Without it, the page shows "Roster". |
+| `[season_value] blend_games` | The games from which Val uses the season-to-date line only: 10. With fewer games, Val blends the season-to-date line with the projection. See [Value](#value). |
 | `recent_skip_weight` | The run skips the recent view while the largest possible weight of the recent line is below this value: 0.3. 0 never skips. See [Skip of the recent view](#skip-of-the-recent-view). |
 | `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
 | `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |

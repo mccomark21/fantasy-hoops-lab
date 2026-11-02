@@ -19,6 +19,7 @@ import json
 from fantasyhoops.adds.value import REPLACEMENT_RANK
 from fantasyhoops.core import common, profile
 from fantasyhoops.core import publish as site
+from fantasyhoops.core.season_value import basis_text
 from fantasyhoops.players import categories, comps, data, role, value
 
 CURRENT = "players"  # the page in the site menu and its folder on the site (publish.TOOLS)
@@ -54,13 +55,13 @@ def read_owners(reader, skip_recent):
         return None
 
 
-def player_file(records, made, projections, log_first=None, log_last=None, replacement=None):
+def player_file(records, made, projections, log_first=None, log_last=None, replacement=None, basis=None):
     """The shared player file as a dict: meta, the team band of each NBA team of the players and the players.
 
     records: players/data.player_records(). made: the date of the owners. projections: the projections file name, or
     None.
     log_first, log_last: the first and the last date of the rotation log, or None.
-    replacement: the replacement value of the run. None: no Val.
+    replacement: the replacement value of the run. None: no Val. basis: the basis line of Val (#222), or None.
     """
     teams = sorted({r["team"] for r in records} | {""})
     rostered = sum(r["owner"] is not None for r in records)
@@ -75,6 +76,7 @@ def player_file(records, made, projections, log_first=None, log_last=None, repla
             "log_last": log_last,
             "replacement_rank": REPLACEMENT_RANK,
             "has_val": replacement is not None,
+            "val_basis": basis,
         },
         "bands": {t: site.band_style(t or None) for t in teams},
         "players": records,
@@ -82,9 +84,11 @@ def player_file(records, made, projections, log_first=None, log_last=None, repla
 
 
 def count_text(meta):
-    """The count line of the page, for example "512 players: 196 rostered and 316 free agents."."""
+    """The count line of the page, for example "512 players: 196 rostered and 316 free agents.", then the basis
+    line of Val (#222) if the meta has one."""
     total = meta["rostered"] + meta["free_agents"]
-    return f"{total} players: {meta['rostered']} rostered and {meta['free_agents']} free agents."
+    basis = f" {meta['val_basis']}" if meta.get("val_basis") else ""
+    return f"{total} players: {meta['rostered']} rostered and {meta['free_agents']} free agents.{basis}"
 
 
 def add_quadrants(records, cfg, made, scale, replacement):
@@ -109,17 +113,26 @@ def render(cfg, meta):
     return site.shell(PAGE, CURRENT, cfg).replace("__COUNT__", count_text(meta))
 
 
-def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scale=None):
+def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scale=None, season=None):
     """Write the Players page and the player file in folder(). Return (page path, (player file path,)).
 
     rostered: the RosteredRead of all teams (read_owners()). own_team: your team ID ([adds] team).
     made: the date of the rostered list. options, replacement, scale: the free-agent Options, the replacement value
-    and the category scale of the planning run, for the Val (data.market_values()). replacement None: no Val.
+    and the category scale of the planning run. season: the core/season_value.SeasonValues of the run (#222). Val is
+    its Val (data.season_vals()). A player in no Yahoo list gets the same Season value in proj_val. The Value
+    quadrant uses its replacement value.
+    season None: Val is the blended value above replacement (data.market_values()). replacement None: no Val.
     The return value is the more_tools entry of publish.publish().
     """
     projected, projections = data.read_projected(cfg)
     played, first, last = data.read_played()
-    values = {} if replacement is None else data.market_values(rostered, options, replacement, scale, cfg)
+    if season is not None:
+        values, replacement, basis = data.season_vals(rostered, options, season), season.replacement, basis_text(cfg)
+        proj_values = season.vals()
+    else:
+        values = {} if replacement is None else data.market_values(rostered, options, replacement, scale, cfg)
+        basis = None
+        proj_values = {} if replacement is None else data.projection_values(projected, replacement)
     extras = {key: {"cats": cats} for key, cats in categories.read_categories(cfg).items()}
     for key, found in role.read_roles(cfg, data.read_overrides()).items():
         extras.setdefault(key, {})["role"] = found
@@ -130,10 +143,10 @@ def write_site(rostered, own_team, cfg, made, options=(), replacement=None, scal
         values,
         extras=extras,
         resters=data.read_resters(cfg),
-        proj_values={} if replacement is None else data.projection_values(projected, replacement),
+        proj_values=proj_values,
     )
     value_meta = add_quadrants(records, cfg, made, scale, replacement)
-    content = player_file(records, made, projections, first, last, replacement)
+    content = player_file(records, made, projections, first, last, replacement, basis)
     content["meta"]["value"] = value_meta
     out = folder()
     out.mkdir(parents=True, exist_ok=True)

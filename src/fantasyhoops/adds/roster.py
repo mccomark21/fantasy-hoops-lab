@@ -1,7 +1,8 @@
 """The data of the Roster page at the end of a planning run (#120). It writes output/roster/index.html (core/roster.py).
 
 The roster and the season record come from your Yahoo team page, which the run reads (LeagueData.roster and
-LeagueData.record). The rank and rests_b2b come from draft/rankings.py. The season stats come from one ESPN
+LeagueData.record). The rank is the rank by Val, the Season value of the run (core/season_value.py, #222).
+rests_b2b comes from draft/rankings.py. The season stats come from one ESPN
 statistics/byathlete request (fetch/espn.py). The playoff days come from data/schedule.csv (core/schedule.py).
 """
 
@@ -11,6 +12,7 @@ import pandas as pd
 
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import name_key
+from fantasyhoops.core.season_value import basis_text
 from fantasyhoops.core.schedule import playoff_schedule
 from fantasyhoops.draft.rankings import build_rankings, load_risk
 from fantasyhoops.fetch.espn import season_stats
@@ -42,7 +44,7 @@ def roster_players(roster, ranks, risk, stats):
 
 
 def read_ranks(cfg, sched):
-    """{name_key(name): rank} of the custom rankings (draft/rankings.py)."""
+    """{name_key(name): rank} of the custom rankings (draft/rankings.py). The trade tool uses it."""
     teams = playoff_schedule(sched, cfg)[0]
     df = build_rankings(cfg, teams)
     out = {}
@@ -58,14 +60,19 @@ def read_risk(roster, cfg):
     return {name_key(n): int(r) for n, r in zip(names, risk.rests_b2b)}
 
 
-def build_roster(data, cfg, sched, today):
+def build_roster(data, cfg, sched, today, season=None):
     """Write the Roster page for the LeagueData of a run. Return its path, or None if the page failed.
+
+    season: the core/season_value.SeasonValues of the run. The Rk column and the lineup order use its rank by
+    Val. None: the custom draft rank (read_ranks()).
 
     A failure prints the error and does not stop the run. The publish then keeps the /roster/ folder of gh-pages.
     """
     try:
+        ranks = read_ranks(cfg, sched) if season is None else season.ranks()
+        basis = roster_page.DRAFT_BASIS if season is None else f"rank by Val. {basis_text(cfg)}"
         players = roster_players(
-            data.roster, read_ranks(cfg, sched), read_risk(data.roster, cfg), season_stats(cfg["league"]["espn_season"])
+            data.roster, ranks, read_risk(data.roster, cfg), season_stats(cfg["league"]["espn_season"])
         )
         text = roster_page.render(
             players,
@@ -76,6 +83,7 @@ def build_roster(data, cfg, sched, today):
             today=today,
             team_name=cfg["adds"].get("team_name"),
             record=data.record,
+            basis=basis,
         )
         path = roster_page.write(text)
     except Exception:

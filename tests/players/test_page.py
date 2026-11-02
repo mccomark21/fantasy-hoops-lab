@@ -79,6 +79,7 @@ def test_write_site_writes_the_page_the_player_file_and_the_font(monkeypatch):
         "log_last": "2026-10-28",
         "replacement_rank": 15,
         "has_val": False,
+        "val_basis": None,
         "value": None,
     }
     assert [p["slug"] for p in content["players"]] == ["ace-bailey", "fa-five", "karl-anthony-towns"]
