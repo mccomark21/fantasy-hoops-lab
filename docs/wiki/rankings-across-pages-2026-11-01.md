@@ -31,3 +31,9 @@ On 2026-11-01, the owner said: "seems like we have conflicting rankings across p
 6. Label each page's basis.
 
 Also on 2026-11-01: the owner asked why PTS is bold on the Roster page. `td.n:nth-child(6) { font-weight: 800; }` in `core/roster.py` came with #173 (`ec0e2a1`), copied from the older Adds roster table. On the Roster page column 6 is PTS, so the bold has no meaning there.
+
+## Decision: Season value (2026-11-01)
+
+- The owner said: "Outside of playoffs, I think I want ranking to be actual custom rank value. As in the current season's stats to date." On 2026-11-01 the box scores held 89 games (10/20 to 11/1), a median of 5 games for each player and 7 at most.
+- The chief of staff recommended: one Season value (the custom formula on season-to-date box scores, blended with the projection until `blend_games = 10`, the projection for 0 games, above the replacement free agent), used as Val on every page, the Playoffs page too, with a "Next 7" column kept on the Free agents page. The owner said: "you can skip the sample on this one and just build it".
+- Issues: #222 (the seam and the Players, Free agents, Roster and Adds pages) and #223 (Trades and Playoffs, blocked by #222). Not in scope: the kept-set rule, fix 5 above, which the owner has not decided.
