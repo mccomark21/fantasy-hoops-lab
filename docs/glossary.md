@@ -23,6 +23,9 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Volume | The games started in one week: core starts + filled heavy + filled light. |
 | Value per start | The weekly Total ÷ Volume. Weekly Total = Volume × value per start. |
 | Vulnerable week | A playoff week with a weekly Total rank in `[league_page] weak_rank_band` (10 to 14) and a weekly Total at least `[league_page] weak_below_mean` (7%) below the mean week of the team. A team with a rank in the band in each week is "weak all 3 weeks" (`weekRanks()` of `core/starts.js`, #229). |
+| Weakest week | The playoff week with the worst weekly Total rank of a team. With equal ranks, the week with the lower Total, then the first week. The League page and the Playoffs page use it (`weekRanks()` of `core/starts.js`, #229, #230). |
+| Floor | The lowest weekly Total of a core. The trend of the Playoffs page shows it for each planning run (`trendPoints()` of `core/starts.js`, #230). |
+| Spread | The best weekly Total of a core − its worst weekly Total. |
 
 ## League
 

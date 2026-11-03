@@ -23,6 +23,11 @@
 //   rankMedian(values, value)         the rank of value among values (1 is the most) and the median (#218).
 //   weekTotals(core, data, opts)      the Total, the volume, the value per start and the reasons of each week (#229).
 //   weekRanks(teams, weeks, weak)     the weekly ranks, the vulnerable flag and the weakest week of each team (#229).
+//   otherTotals(players, data, opts)  weekTotals() of the best core of each other team (Playoffs page, #230).
+//   coreFloor(core, others, data, opts) the weekly Totals, the ranks, the weakest week and the floor of a core (#230).
+//   floorSwaps(core, pool, others, data, opts) the best swaps by the gain to the worst week (#230).
+//   historyRow(players, data, opts)   the weekly Totals and ranks of your best core, for the history file (#230).
+//   trendPoints(rows, weeks)          the floor and the Total of each row of the history file (#230).
 // A player is {id, name, team, pos, value, rests_b2b}. pos: the position slots, for example ["PG", "SG"].
 // value must be a number, because a null value gives NaN. The playoffs page gives val, else proj_val, else 0 (#214).
 // data: {slots, util, weeks, days}. A day is {date, week, quality, teams, b2b}. valueStarted() also reads
@@ -565,9 +570,118 @@ const Starts = (() => {
     return out;
   }
 
+  // The weekTotals() options of a core of the Playoffs page (#230), as the League page counts a row (#229).
+  // opts: {resters, roster_spots, adds, v, few}. The stream spots: roster_spots - the core size, 0 at least.
+  const _weekOpts = (core, opts) => ({
+    spots: Math.max(0, (opts.roster_spots || 0) - core.length), adds: opts.adds, resters: opts.resters, v: opts.v,
+    few: opts.few,
+  });
+
+  // The weekly Totals of the other teams of the league (Playoffs page, #230): weekTotals() of the best core of each
+  // team, as the League page counts the rows of the other teams (#229). players: the pool. A player with an owner
+  // and no mine flag is on another team. opts: {n, roster_spots, adds, v, few}. n: the core size.
+  // The result: one weekTotals() result for each other team, in the order of the first player of each team.
+  function otherTotals(players, data, opts) {
+    const by = new Map();
+    for (const p of players) {
+      if (!p.owner || p.mine) continue;
+      if (!by.has(p.owner)) by.set(p.owner, []);
+      by.get(p.owner).push(p);
+    }
+    return [...by.values()].map(roster => {
+      const core = bestCore(roster, data, opts.n);
+      return weekTotals(core, data, _weekOpts(core, { ...opts, resters: undefined }));
+    });
+  }
+
+  // The floor of a core (Playoffs page, #230). others: otherTotals(). opts: {resters, roster_spots, adds, v, few,
+  // weak}. weak: {band, below} as in weekRanks().
+  // The result: {wt, rk, weakest, spread, lowest, low_week, teams}.
+  //   wt: weekTotals() of the core. rk: weekRanks() of the core among the teams of the league.
+  //   weakest: the week with the worst rank of the Total (owner decision 1 of 2026-11-02 on #229).
+  //   spread: the best weekly Total - the worst weekly Total. lowest: the lowest weekly Total (owner decision 2 of
+  //   2026-11-02 on #230), low_week: its week (the first week on equal Totals). teams: the teams of the ranks.
+  function coreFloor(core, others, data, opts) {
+    const wt = weekTotals(core, data, _weekOpts(core, opts));
+    const rk = weekRanks(others.concat([wt]), data.weeks, opts.weak).pop();
+    const totals = data.weeks.map(w => wt.weeks[w].total), lowest = Math.min(...totals);
+    return {
+      wt, rk, weakest: rk.weakest, spread: Math.max(...totals) - lowest, lowest,
+      low_week: data.weeks[totals.indexOf(lowest)], teams: others.length + 1,
+    };
+  }
+
+  // The data of one week. valueStarted() and streamFill() count each week alone, so weekTotals() of this data gives
+  // the same numbers for the week as weekTotals() of all the data.
+  const _weekData = (data, w) => ({ ...data, weeks: [w], days: data.days.filter(d => d.week === w) });
+
+  // The Best swaps by the gain to the worst week (Playoffs page, owner decisions 3 and 5 of 2026-11-02 on #230). The
+  // worst week is the week with the lowest weekly Total (low_week of coreFloor()), the week of the trend floor. It is
+  // not the weakest week by rank. others: otherTotals().
+  // opts: the opts of coreFloor() and {band, banded, untouchable, limit} as in bestSwaps().
+  // For each pool player, the swap-out with the largest gain to the Total of the worst week now. Only a swap with a
+  // gain above 0. A player with a value of 0 or less, or with no game in the worst week, cannot raise it.
+  // The result: [{in, out, gain, total, week, after, rank, after_total}], the largest gain first.
+  //   gain: the change of the Total of the worst week. total: the change of the Total of all weeks. week: the worst
+  //   week now. after: the lowest week with the swap, rank: its rank, after_total: its Total.
+  function floorSwaps(core, pool, others, data, opts = {}) {
+    const limit = opts.limit === undefined ? 10 : opts.limit;
+    const banded = _ids(opts.banded), untouchable = _ids(opts.untouchable);
+    const inCore = new Set(core.map(p => p.id)), base = coreFloor(core, others, data, opts), w = base.low_week;
+    const now = base.wt.weeks[w].total, week = _weekData(data, w);
+    const plays = new Set(week.days.flatMap(d => d.teams)), rows = [];
+    for (const p of pool) {
+      if (inCore.has(p.id) || !(p.value > 0) || !plays.has(p.team)) continue;
+      let best = null;
+      for (const o of core) {
+        if (untouchable.has(o.id)) continue;
+        if (opts.band && banded.has(p.id) && !inBand(o.value, p.value, opts.band)) continue;
+        const swapped = core.map(c => (c.id === o.id ? p : c));
+        const gain = weekTotals(swapped, week, _weekOpts(swapped, opts)).weeks[w].total - now;
+        if (gain <= 1e-9) continue;
+        if (!best || gain > best.gain + 1e-9) best = { in: p.id, out: o.id, gain, swapped };
+      }
+      if (best) rows.push(best);
+    }
+    rows.sort((a, b) => b.gain - a.gain);
+    return rows.slice(0, limit).map(r => {
+      const f = coreFloor(r.swapped, others, data, opts);
+      return {
+        in: r.in, out: r.out, gain: r.gain, total: f.wt.total - base.wt.total, week: w, after: f.low_week,
+        rank: f.rk.weeks[f.low_week].r_total, after_total: f.lowest,
+      };
+    });
+  }
+
+  // The row of the history file of one planning run (Playoffs page, owner decision 1 of 2026-11-02 on #230): the
+  // weekly Totals of the best core of your roster, with the rests_b2b of the player file. players: the pool, with
+  // mine on your players. opts: {n, roster_spots, adds, v, few, weak}.
+  // The result: {core: the ids of the core, weeks: {week: {total, rank}}, total: the Total of all weeks}.
+  function historyRow(players, data, opts) {
+    const core = bestCore(players.filter(p => p.mine), data, opts.n);
+    const f = coreFloor(core, otherTotals(players, data, opts), data, { ...opts, resters: undefined });
+    const weeks = {};
+    for (const w of data.weeks) weeks[w] = { total: f.wt.weeks[w].total, rank: f.rk.weeks[w].r_total };
+    return { core: core.map(p => p.id), weeks, total: f.wt.total };
+  }
+
+  // The points of the trend (Playoffs page, owner decision 2 of 2026-11-02 on #230): one point for each row of the
+  // history file, in the order of rows. weeks: the week names.
+  // The result: [{made, floor, week, rank, total}]. floor: the lowest weekly Total of the row, week: its week (the
+  // first week on equal Totals), rank: its rank. total: the sum of the weekly Totals.
+  function trendPoints(rows, weeks) {
+    return rows.map(r => {
+      const week = weeks.reduce((a, w) => (r.weeks[w].total < r.weeks[a].total ? w : a), weeks[0]);
+      return {
+        made: r.made, floor: r.weeks[week].total, week, rank: r.weeks[week].rank,
+        total: weeks.reduce((s, w) => s + r.weeks[w].total, 0),
+      };
+    });
+  }
+
   return {
     scoreCore, fit, slotRoster, valueStarted, idealGames, adds, bestSwaps, inBand, bestCore, streamFill, rankMedian,
-    weekTotals, weekRanks,
+    weekTotals, weekRanks, otherTotals, coreFloor, floorSwaps, historyRow, trendPoints,
   };
 })();
 
