@@ -666,11 +666,13 @@ const Starts = (() => {
   }
 
   // The points of the trend (Playoffs page, owner decision 2 of 2026-11-02 on #230): one point for each row of the
-  // history file, in the order of rows. weeks: the week names.
+  // history file, in the order of rows. weeks: the week names. A row with no Total for one of the weeks (for example a
+  // row of a config with other playoff weeks) gives no point.
   // The result: [{made, floor, week, rank, total}]. floor: the lowest weekly Total of the row, week: its week (the
   // first week on equal Totals), rank: its rank. total: the sum of the weekly Totals.
   function trendPoints(rows, weeks) {
-    return rows.map(r => {
+    const full = r => !!r && !!r.weeks && weeks.every(w => !!r.weeks[w] && typeof r.weeks[w].total === "number");
+    return rows.filter(full).map(r => {
       const week = weeks.reduce((a, w) => (r.weeks[w].total < r.weeks[a].total ? w : a), weeks[0]);
       return {
         made: r.made, floor: r.weeks[week].total, week, rank: r.weeks[week].rank,

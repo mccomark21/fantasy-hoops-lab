@@ -10,7 +10,7 @@ The planning run (`python -m fantasyhoops.adds.plan`) writes `output/playoffs/in
 
 ## History file
 
-Each planning run adds one row to `output/adds/playoff_history.json`, next to the week files of the planning run (#230). The row holds the date of the player file, the ids of the best N players of your roster, and the weekly Total and its rank of 14 for each playoff week. The best N follows your adds, drops and trades. It is not the core that you saved in the browser, because a run cannot read the browser. A second run on the same date replaces the row of that date. `historyRow()` of `core/starts.js` gives the numbers. The run runs it in Node. With no Node on PATH, the run prints a warning and adds no row. The trade run and the refresh command do not write or remove the file.
+Each planning run adds one row to `output/adds/playoff_history.json`, next to the week files of the planning run (#230). The row holds the date of the player file, the ids of the best N players of your roster, and the weekly Total and its rank of 14 for each playoff week. The best N follows your adds, drops and trades. It is not the core that you saved in the browser, because a run cannot read the browser. A second run on the same date replaces the row of that date. The run writes the file through a temp file. A file that does not parse stays as it is: the run prints a warning and adds no row. `historyRow()` of `core/starts.js` gives the numbers. The run runs it in Node. With no Node on PATH, the run prints a warning and adds no row. The trade run and the refresh command do not write or remove the file.
 
 ## The page
 

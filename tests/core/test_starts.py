@@ -616,3 +616,7 @@ def test_the_trend_points_give_the_lowest_weekly_total_and_the_total_of_each_row
         {"made": "2026-11-02", "floor": 100, "week": "wk20", "rank": 6, "total": 210},
         {"made": "2026-11-04", "floor": 99, "week": "wk19", "rank": 7, "total": 198},  # equal Totals: the first week
     ]
+    # Review nit of #232: a row of a config with other weeks, or a bad row, gives no point and does not stop the page.
+    other = {"made": "2026-10-20", "weeks": {"wk18": {"total": 90, "rank": 9}, "wk19": {"total": 95, "rank": 8}}}
+    got = call("trendPoints", [other, None, {"made": "2026-10-21"}] + rows, FLOOR_WEEKS)
+    assert [p["made"] for p in got] == ["2026-11-02", "2026-11-04"]

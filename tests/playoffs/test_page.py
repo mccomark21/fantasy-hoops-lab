@@ -577,6 +577,38 @@ def test_the_history_file_reads_as_empty_when_it_is_missing_or_bad():
     assert history.earlier(rows, "2026-11-02") == [rows[1]]
 
 
+def test_a_run_keeps_a_bad_history_file_as_it_is_and_prints_a_warning(capsys):
+    """Review blocker 1 of #232: a file that does not parse stays, so the run never writes over the earlier rows."""
+    bad = '{"rows": [{"made": "2026-10-30"'
+    history.path().parent.mkdir(parents=True, exist_ok=True)
+    history.path().write_text(bad, encoding="utf-8")
+    assert history.load() == ([], True) and history.read() == []
+    assert history.record(data()) == []
+    assert history.path().read_text(encoding="utf-8") == bad
+    assert "does not parse" in capsys.readouterr().out
+
+
+def test_the_history_file_is_written_through_a_temp_file_and_os_replace(monkeypatch):
+    """Review blocker 1 of #232: a stopped write leaves the old file and no temp file."""
+    rows = [history_row("2026-10-30", 30, 20)]
+    history.write(rows)
+    calls = []
+    real = history.os.replace
+    monkeypatch.setattr(history.os, "replace", lambda a, b: (calls.append((a, b)), real(a, b)))
+    history.write(rows + [history_row("2026-10-31", 31, 21)])
+    assert len(calls) == 1 and calls[0][1] == history.path() and calls[0][0].name.endswith(".part")
+    assert [r["made"] for r in history.read()] == ["2026-10-30", "2026-10-31"]
+
+    def stop(a, b):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(history.os, "replace", stop)
+    with pytest.raises(OSError):
+        history.write([])
+    assert [r["made"] for r in history.read()] == ["2026-10-30", "2026-10-31"]
+    assert [f.name for f in history.path().parent.iterdir()] == [history.FILE]
+
+
 def test_with_no_node_the_run_adds_no_row_and_keeps_the_history(monkeypatch, capsys):
     history.write([history_row("2026-10-30", 30, 20)])
     monkeypatch.setattr(history.shutil, "which", lambda name: None)

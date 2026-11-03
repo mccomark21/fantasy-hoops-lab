@@ -3,7 +3,8 @@
 It writes output/adds/playoff_history.json, next to the week files of the planning run (adds/week_file.py). The path
 comes from common.OUT. The trade run and the refresh command do not write or remove the file.
 
-The file holds one row for each run date, sorted by date. A second run on the same date replaces the row of that date.
+The file holds one row for each run date, sorted by date. A second run on the same date replaces the row of that date. A file that does not parse stays as it is, with a
+warning, and the run adds no row to it.
 A row is {made, core, weeks: {week: {total, rank}}, total}: the date of the player file, the ids of the best
 [playoffs] core players of your roster, and the weekly Total and its rank of 14 for each playoff week (owner
 decision 1 of 2026-11-02 on #230). historyRow() of core/starts.js gives the numbers. This module runs it in Node,
@@ -11,8 +12,10 @@ so the planning run and the page use the same weekly math. With no Node, the run
 """
 
 import json
+import os
 import shutil
 import subprocess
+import uuid
 
 from fantasyhoops.core import common
 from fantasyhoops.core.lineup import ENGINE_JS
@@ -37,20 +40,39 @@ def path():
     return common.OUT / "adds" / FILE
 
 
+def load():
+    """(rows, bad): the rows of the history file, sorted by date, and True if the file exists but does not parse.
+
+    A missing file gives ([], False). A bad file gives ([], True).
+    """
+    file = path()
+    if not file.exists():
+        return [], False
+    try:
+        rows = json.loads(file.read_text(encoding="utf-8"))["rows"]
+        return sorted((r for r in rows if isinstance(r, dict) and "made" in r), key=lambda r: r["made"]), False
+    except (OSError, ValueError, KeyError, TypeError):
+        return [], True
+
+
 def read():
     """The rows of the history file, sorted by date. [] if the file is missing or bad."""
-    try:
-        rows = json.loads(path().read_text(encoding="utf-8"))["rows"]
-        return sorted((r for r in rows if isinstance(r, dict) and "made" in r), key=lambda r: r["made"])
-    except (OSError, ValueError, KeyError, TypeError):
-        return []
+    return load()[0]
 
 
 def write(rows):
-    """Write rows to the history file. Return the path."""
+    """Write rows to the history file through a temp file and os.replace(), so a stopped run leaves no half file.
+
+    Return the path.
+    """
     file = path()
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text(json.dumps({"rows": rows}, indent=1) + "\n", encoding="utf-8")
+    part = file.with_name(f"{file.name}.{uuid.uuid4().hex}.part")
+    try:
+        part.write_text(json.dumps({"rows": rows}, indent=1) + "\n", encoding="utf-8")
+        os.replace(part, file)
+    finally:
+        part.unlink(missing_ok=True)
     return file
 
 
@@ -99,8 +121,18 @@ def compute(data):
 
 
 def record(data):
-    """Add the row of this run to the history file. Return the rows of the file after the run."""
-    rows = read()
+    """Add the row of this run to the history file. Return the rows of the file after the run.
+
+    A history file that does not parse stays as it is: the run prints a warning, adds no row and returns [].
+    So the run never writes over the earlier rows.
+    """
+    rows, bad = load()
+    if bad:
+        print(
+            f"Warning: the Playoffs history file {path()} does not parse. The run adds no row and does not change "
+            "the file. Repair or remove the file to start the history again."
+        )
+        return []
     row = compute(data)
     if row is None:
         return rows
