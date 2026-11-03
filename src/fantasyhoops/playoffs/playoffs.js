@@ -6,11 +6,14 @@
 // The part before start() has no DOM code, so Node loads the file with require() and tests the HTML of the page
 // (tests/playoffs/test_page.py). Node loads core/starts.js itself.
 //
-// The state of the page: {n, core, added, rest, saved, filter}.
+// The Floor block (#230): coreFloor(), floorSwaps() and trendPoints() of core/starts.js give its numbers and the
+// ranking of the Best swaps by the gain to the worst week. data.history: the earlier rows of the history file.
+//
+// The state of the page: {n, core, added, rest, saved, filter, rank}.
 //   n: the core size. core: the ids of the core players. added: the ids of the players that the search added.
 //   rest: {id: true or false}, the R switches that differ from rests_b2b of the player file.
 //   saved: the time of the last save (ISO), or null. filter: the owner filter of the Best swaps list, "fa", "other"
-//   or "all". Save does not keep it.
+//   or "all". rank: the ranking of the Best swaps list, "schedule" (the default) or "floor". Save keeps neither.
 // Save keeps the state in localStorage (data.key). Reset clears the added players, the R switches and the save.
 
 const Playoffs = (() => {
@@ -23,6 +26,7 @@ const Playoffs = (() => {
   const SWAP_ROWS = 10; // the Best swaps list shows this many rows at most (decision 16)
   const FILTERS = [["fa", "Free agents"], ["other", "Other teams"], ["all", "All"]]; // decision 17
   const FILTER_NOUN = { fa: "free agents", other: "other teams' players", all: "players" };
+  const RANKS = [["schedule", "Schedule gain"], ["floor", "Worst-week gain"]]; // #230: the default first
 
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const f1 = v => (v < -0.05 ? "−" : "") + Math.abs(v).toFixed(1);
@@ -45,7 +49,7 @@ const Playoffs = (() => {
   }
 
   function newState(m) {
-    return { n: m.data.core, core: [], added: [], rest: {}, saved: null, filter: "all" };
+    return { n: m.data.core, core: [], added: [], rest: {}, saved: null, filter: "all", rank: "schedule" };
   }
 
   const isRest = (m, st, id) => (id in st.rest ? st.rest[id] : !!m.byId[id].rests_b2b);
@@ -81,6 +85,34 @@ const Playoffs = (() => {
     const pool = swapPool(m, st, filter);
     return S.bestSwaps(st.core.map(id => m.byId[id]), pool, m.engine, {
       resters: resters(m, st), band: m.data.band, banded: pool.filter(p => p.owner).map(p => p.id),
+      untouchable: m.data.untouchable, limit: SWAP_ROWS,
+    });
+  }
+
+  // The weekTotals() options of the page (#230): the settings of the League page (#229) and the R switches.
+  const weekOpts = (m, st) => ({
+    n: m.data.core, roster_spots: m.data.roster_spots, adds: m.data.adds, v: m.data.v, few: m.data.weak.few,
+    weak: m.data.weak, resters: resters(m, st),
+  });
+
+  // The weekly Totals of the other teams (#230): otherTotals() of core/starts.js. The page does not change them, so
+  // the model keeps them.
+  function others(m) {
+    if (!m.others) m.others = S.otherTotals(m.data.players, m.engine, weekOpts(m, newState(m)));
+    return m.others;
+  }
+
+  // The floor of the core ids (#230): coreFloor() of core/starts.js, with the R switches of the state.
+  function floor(m, st, ids = st.core) {
+    return S.coreFloor(ids.map(id => m.byId[id]), others(m), m.engine, weekOpts(m, st));
+  }
+
+  // The Best swaps by the gain to the worst week (#230): floorSwaps() of core/starts.js. The same pool, value band
+  // and untouchable rule as swaps().
+  function floorSwaps(m, st, filter = st.filter) {
+    const pool = swapPool(m, st, filter);
+    return S.floorSwaps(st.core.map(id => m.byId[id]), pool, others(m), m.engine, {
+      ...weekOpts(m, st), band: m.data.band, banded: pool.filter(p => p.owner).map(p => p.id),
       untouchable: m.data.untouchable, limit: SWAP_ROWS,
     });
   }
@@ -249,6 +281,93 @@ const Playoffs = (() => {
     return h;
   }
 
+  // The Why list of a week (#230): the same reasons as the team detail of the League page (#229), from weekTotals().
+  function why(f, w, spots) {
+    const x = f.wt.weeks[w], items = [];
+    if (x.few.length) {
+      items.push("<b>Few starts:</b> " + x.few.map(p => `${esc(p.name)} ${p.starts} of ${plural(p.games, "game")}` +
+        (p.rested ? `, ${p.rested} rest` : "")).join("; "));
+    }
+    const by = Object.entries(x.lost_by).sort((a, b) => b[1] - a[1]);
+    if (x.lost) items.push(`<b>${x.lost} starts lost on crowded nights:</b> ${by.map(([n, c]) => `${esc(n)} ${c}`).join(", ")}`);
+    if (x.unused) items.push(`<b>${x.unused} open slots the streams cannot fill:</b> they fill ${x.filled} of ${x.open} ` +
+      `(${plural(spots, "stream spot")}, ${x.adds} adds)`);
+    const main = x.main === "unused" ? `${x.unused} open slots the streams cannot fill`
+      : x.main === "lost" ? `${x.lost} starts lost on crowded nights` : "";
+    return { items, main };
+  }
+
+  // The Floor block (#230): the weekly Totals, Volume and Value per start of the core, the weakest week, the spread,
+  // the Why list and the trend. They change when the core changes. f: floor().
+  function floorView(m, st, f) {
+    if (!st.core.length) return "<p>The core needs 1 or more players.</p>";
+    const D = m.data, n = f.teams, w = f.weakest, spots = Math.max(0, D.roster_spots - st.core.length);
+    const x = { ...f.wt.weeks[w], ...f.rk.weeks[w] }, y = why(f, w, spots), mean = f.wt.total / D.weeks.length;
+    const f2 = v => v.toFixed(2);
+    let h = '<dl class="stats fl-stats">' +
+      `<div class="hero"><dt>Weakest week</dt><dd>${wkLabel(w)}<small>rank ${x.r_total} of ${n} · Total ${f1(x.total)}</small></dd></div>` +
+      `<div><dt>Spread</dt><dd>${f1(f.spread)}<small>best − worst week</small></dd></div>` +
+      `<div><dt>Mean week</dt><dd>${f1(mean)}<small>Total ${f1(f.wt.total)} ÷ ${D.weeks.length}</small></dd></div></dl>`;
+    const row = w2 => {
+      const a = f.wt.weeks[w2], r = f.rk.weeks[w2], weak = w2 === w;
+      return `<tr${weak ? ' class="weak"' : ""}><th class="l" scope="row">${wkLabel(w2)}${weak ? ' <em class="tag weak">Weakest</em>' : ""}</th>` +
+        `<td><b>${f1(a.total)}</b><small>rank ${r.r_total} of ${n}</small></td><td>${f1(a.value)}</td><td>${f1(a.stream)}</td>` +
+        `<td>${a.volume}<small>rank ${r.r_volume}</small></td><td>${f2(a.vps)}<small>rank ${r.r_vps}</small></td></tr>`;
+    };
+    h += '<div class="fl-scroll"><table class="wk fl-t" aria-label="Floor of each week"><thead><tr><th class="l" scope="col">Week</th>' +
+      '<th scope="col" title="Value started + stream value">Total</th><th scope="col">Value started</th><th scope="col" title="Stream games × v">Stream</th>' +
+      '<th scope="col" title="Core starts + stream starts">Volume</th><th scope="col" title="Total ÷ Volume">Value / start</th></tr></thead><tbody>' +
+      D.weeks.map(row).join("") +
+      `<tr class="t"><th class="l" scope="row">Total</th><td>${f1(f.wt.total)}</td><td>${f1(D.weeks.reduce((s, k) => s + f.wt.weeks[k].value, 0))}</td>` +
+      `<td>${f1(D.weeks.reduce((s, k) => s + f.wt.weeks[k].stream, 0))}</td><td>${f.wt.volume}</td><td>${f2(f.wt.vps)}</td></tr></tbody></table></div>`;
+    h += `<div class="why"><h3>Why ${wkLabel(w)} is the weakest week</h3>` +
+      (y.main ? `<p><b>Main cause:</b> ${y.main}.</p>` : "") +
+      (y.items.length ? `<ul>${y.items.map(i => `<li>${i}</li>`).join("")}</ul>` : "<p>No lost starts and no unused slots.</p>") + "</div>";
+    return h + trend(m, f);
+  }
+
+  const TREND_MIN = 2; // the trend shows a line from this many points
+
+  // The points of the trend (#230): trendPoints() of the earlier rows of the history file, then the core on the page
+  // now. floor: the lowest weekly Total (owner decision 2 of 2026-11-02 on #230). f: floor().
+  function trendRuns(m, f) {
+    const D = m.data;
+    return S.trendPoints(D.history || [], D.weeks).concat([{
+      made: D.made, now: true, floor: f.lowest, week: f.low_week, rank: f.rk.weeks[f.low_week].r_total, total: f.wt.total,
+    }]);
+  }
+
+  // The trend of the floor and the Total, run by run (#230). The line needs TREND_MIN points, else the block says
+  // why it is empty.
+  function trend(m, f) {
+    const runs = trendRuns(m, f), D = m.data;
+    if (runs.length < TREND_MIN) {
+      return '<div class="trend"><h3>Trend, run by run</h3><p class="state"><b>No trend yet.</b> Each planning run saves ' +
+        `the weekly Totals of your best ${D.core} to the history. The line starts at the first run on a later day.</p></div>`;
+    }
+    const W = 580, L = 40, R = 92, H = 92, T = 12, B = 10, pw = W - L - R;
+    const xs = i => L + (i * pw) / (runs.length - 1);
+    const md = s => { const d = new Date(s + "T12:00:00"); return `${d.getMonth() + 1}/${d.getDate()}`; };
+    const panel = (key, label, hero, y0) => {
+      const vals = runs.map(r => r[key]), lo = Math.min(...vals), hi = Math.max(...vals), pad = Math.max(1, (hi - lo) * 0.15);
+      const a = Math.floor(lo - pad), b = Math.ceil(hi + pad), ys = v => y0 + T + (H - T - B) * (1 - (v - a) / (b - a));
+      const pts = runs.map((r, i) => `${xs(i).toFixed(1)},${ys(r[key]).toFixed(1)}`).join(" ");
+      const ticks = [a, (a + b) / 2, b].map(v => `<text class="tk" x="${L - 6}" y="${(ys(v) + 3.5).toFixed(1)}" text-anchor="end">${Math.round(v)}</text>`).join("");
+      const last = runs[runs.length - 1], lx = xs(runs.length - 1), ly = ys(last[key]);
+      const dots = runs.map((r, i) => r.now ? "" :
+        `<circle class="dot" cx="${xs(i).toFixed(1)}" cy="${ys(r[key]).toFixed(1)}" r="3.5"><title>${md(r.made)}: ${label} ${f1(r[key])}${key === "floor" ? `, ${wkLabel(r.week)} rank ${r.rank}` : ""}</title></circle>`).join("");
+      return `<text class="pl" x="${L}" y="${y0 + 8}">${label}</text>${ticks}` +
+        `<polyline class="${hero ? "hero" : "sec"}" points="${pts}"/>${dots}` +
+        `<circle class="${hero ? "now" : "now sec"}" cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4"><title>Now, this core: ${label} ${f1(last[key])}</title></circle>` +
+        `<text class="${hero ? "el" : "el2"}" x="${lx + 8}" y="${(ly + 4).toFixed(1)}">${label} ${f1(last[key])}</text>`;
+    };
+    const svg = `<svg class="tr" viewBox="0 0 ${W} ${2 * H + 34}" role="img" aria-label="The floor and the Total of each run.">` +
+      panel("floor", "Floor", true, 0) + panel("total", "Total", false, H + 6) +
+      runs.map((r, i) => `<text class="dt" x="${xs(i).toFixed(1)}" y="${2 * H + 28}" text-anchor="middle">${r.now ? "now" : md(r.made)}</text>`).join("") + "</svg>";
+    return `<div class="trend"><h3>Trend, run by run</h3>${svg}<p class="state">${plural(runs.length - 1, "earlier planning run")} ` +
+      `with the best ${D.core} of your roster. The last point is the core on this page now. Floor: the lowest weekly Total of each run.</p></div>`;
+  }
+
   // The columns of the Players table: the class of each <col>. The colgroup and the separator rows use this list.
   const PLAYER_COLS = ["c-in", "", "c-v", "c-q", "c-a", "c-r", "c-x"];
 
@@ -299,7 +418,11 @@ const Playoffs = (() => {
       `<div class="chips" role="group" aria-label="Owner">${chips}</div>` +
       `<p class="band">Other teams: Val in ${band[0].toFixed(2)} to ${band[1].toFixed(2)} × the Val of the player out. ` +
       `${never ? `Never swapped out: ${never}. ` : ""}Free agents: no band.</p>`;
+    const ranks = RANKS.map(([k, label]) =>
+      `<button type="button" class="chip" data-rank="${k}" aria-pressed="${st.rank === k}">${label}</button>`).join("");
+    h += `<div class="chips" role="group" aria-label="Rank by"><span class="chl">Rank by</span>${ranks}</div>`;
     if (!st.core.length) return h + "<p>The core needs 1 or more players.</p>";
+    if (st.rank === "floor") return h + floorList(m, st);
     const rows = swaps(m, st);
     h += '<table class="sw"><thead><tr><th scope="col" class="l">Player</th><th scope="col" class="l">Owner</th>' +
       '<th scope="col" class="l">Swap out</th><th scope="col" title="Schedule gain">Schedule</th>' +
@@ -314,6 +437,29 @@ const Playoffs = (() => {
         `<td class="l">${esc(owner(p))}</td><td class="l">${esc(o.name)}</td>` +
         `<td class="g${r.schedule < -0.05 ? " neg" : ""}">${sgn(r.schedule)}</td><td>${sgn(r.gain)}</td>` +
         `<td>${sgnInt(r.starts)} <small>(${sgnInt(r.light)} light)</small></td></tr>`;
+    }
+    return h + "</tbody></table>";
+  }
+
+  // The rows of the Best swaps list ranked by the gain to the worst week (#230, floorSwaps()). The worst week is the
+  // week with the lowest weekly Total, the week of the trend floor (owner decision of 2026-11-02 on #230).
+  function floorList(m, st) {
+    const rows = floorSwaps(m, st), f = floor(m, st), w = f.low_week;
+    let h = `<p class="band">Ranked by the gain to the Total of your lowest week now (${wkLabel(w)}, ${f1(f.lowest)}). ` +
+      "Total gain: the gain to the 3-week Total. Lowest after: the lowest week with the swap, its Total and rank.</p>" +
+      '<table class="sw"><thead><tr><th scope="col" class="l">Player</th><th scope="col" class="l">Owner</th>' +
+      `<th scope="col" class="l">Swap out</th><th scope="col" title="Gain to the Total of ${wkLabel(w)}">${wkLabel(w)}</th>` +
+      '<th scope="col" title="Gain to the 3-week Total">Total</th><th scope="col" title="The lowest week with the swap">Lowest after</th></tr></thead><tbody>';
+    if (rows.length < SWAP_ROWS) {
+      h += `<tr class="few"><td colspan="6">Only ${rows.length} ${FILTER_NOUN[st.filter]} have a swap that raises ${wkLabel(w)}.</td></tr>`;
+    }
+    for (const r of rows) {
+      const p = m.byId[r.in], o = m.byId[r.out];
+      h += `<tr tabindex="0" data-swap="${esc(r.in)}" data-out="${esc(r.out)}" aria-label="Load the swap: ${esc(p.name)} in, ${esc(o.name)} out">` +
+        `<th scope="row"><b>${link(p)}</b>${projTag(p)}<small>${esc(p.team)} · ${esc(pos(p))} · Val ${valText(p)}</small></th>` +
+        `<td class="l">${esc(owner(p))}</td><td class="l">${esc(o.name)}</td>` +
+        `<td class="g">${sgn(r.gain)}</td><td${r.total < -0.05 ? ' class="neg"' : ""}>${sgn(r.total)}</td>` +
+        `<td>${wkLabel(r.after)} ${f1(r.after_total)} <small>(rank ${r.rank})</small></td></tr>`;
     }
     return h + "</tbody></table>";
   }
@@ -378,7 +524,7 @@ const Playoffs = (() => {
   function view(m, st) {
     const sc = score(m, st);
     return {
-      stats: headline(m, st, sc), weeks: weeksTable(m, sc), grid: grid(m, st, sc), phone: phone(m, st, sc),
+      stats: headline(m, st, sc), weeks: weeksTable(m, sc), floor: floorView(m, st, floor(m, st)), grid: grid(m, st, sc), phone: phone(m, st, sc),
       players: players(m, st), swaps: swapList(m, st), reset: `Reset to best ${st.n}`, saved: savedText(st), score: sc,
     };
   }
@@ -396,6 +542,7 @@ const Playoffs = (() => {
       const v = view(m, st);
       $("stats").innerHTML = v.stats;
       $("wk").innerHTML = v.weeks;
+      $("fl").innerHTML = v.floor;
       $("grid").innerHTML = v.grid;
       $("mob").innerHTML = v.phone;
       $("pt").innerHTML = v.players;
@@ -441,8 +588,11 @@ const Playoffs = (() => {
       }
     });
     $("sw").addEventListener("click", e => {
-      const c = e.target.closest("[data-filter]"), tr = e.target.closest("tr[data-swap]");
-      if (c) {
+      const c = e.target.closest("[data-filter]"), tr = e.target.closest("tr[data-swap]"), rk = e.target.closest("[data-rank]");
+      if (rk) {
+        st.rank = rk.dataset.rank;
+        $("sw").innerHTML = swapList(m, st);
+      } else if (c) {
         st.filter = c.dataset.filter;
         $("sw").innerHTML = swapList(m, st);
       } else if (tr && !e.target.closest("a")) {
@@ -505,7 +655,7 @@ const Playoffs = (() => {
     draw();
   }
 
-  return { model, newState, open, reset, bestCore, score, lightNights, addsOf, swaps, swap, search, pick, view, start };
+  return { floor, floorSwaps, model, newState, open, reset, bestCore, score, lightNights, addsOf, swaps, swap, search, pick, view, start };
 })();
 
 if (typeof module !== "undefined") module.exports = Playoffs;

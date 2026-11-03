@@ -6,6 +6,7 @@
 2. valueStarted() rests a player of the rester set as lineup_fit() of core/roster.py does.
 3. valueStarted() adds the light-night bonus of [quality_games] in config.toml.
 4. weekTotals() and weekRanks() give the numbers of each week and the vulnerable flag of the League page (#229).
+5. otherTotals(), coreFloor(), floorSwaps(), historyRow() and trendPoints() give the floor of the Playoffs page (#230).
 """
 
 import json
@@ -489,3 +490,133 @@ def test_week_ranks_flag_a_week_at_exactly_the_percent_below_the_mean():
     got = call("weekRanks", [week(107, 100, 93), week(50, 50, 94)], WEEKS, {"band": [2, 2], "below": 0.07})
     assert [w for w in WEEKS if got[0]["weeks"][w]["vulnerable"]] == ["wk21"]
     assert [w for w in WEEKS if got[1]["weeks"][w]["vulnerable"]] == ["wk19", "wk20"]
+
+
+# The floor tests (#230). A league of 3 teams in 2 weeks: your team (Me), T1 and T2, and 3 free agents.
+FLOOR_DAYS = [
+    day("2027-03-08", "wk19", ["A", "B", "C"]),
+    day("2027-03-09", "wk19", ["A"], quality=True),
+    day("2027-03-15", "wk20", ["B"]),
+    day("2027-03-16", "wk20", ["C"]),
+]
+FLOOR_WEEKS = ["wk19", "wk20"]
+FLOOR_DATA = {**engine_data(FLOOR_DAYS, bonus=0.1), "weeks": FLOOR_WEEKS}
+FLOOR_WEAK = {"band": [2, 3], "below": 0.07}
+FLOOR_OPTS = {"n": 2, "roster_spots": 3, "adds": 0, "v": 1.5, "few": 1, "weak": FLOOR_WEAK}
+
+
+def pool_player(id, team, pos, value, owner=None, mine=False):
+    return {**player(id, team, pos, value), "owner": owner, "mine": mine}
+
+
+FLOOR_POOL = [
+    pool_player("m1", "A", "PG", 5.0, "Me", True),
+    pool_player("m2", "B", "SG", 4.0, "Me", True),
+    pool_player("m3", "C", "SF", 1.0, "Me", True),
+    pool_player("t1", "A", "C", 6.0, "T1"),
+    pool_player("t2", "B", "PF", 2.0, "T1"),
+    pool_player("u1", "C", "PG", 4.0, "T2"),
+    pool_player("f1", "C", "C", 3.0),
+    pool_player("f2", "C", "SF", 0.0),  # a value of 0 cannot raise a week
+    pool_player("f3", "Z", "SF", 9.0),  # no game in the playoffs
+]
+FLOOR_BY_ID = {p["id"]: p for p in FLOOR_POOL}
+
+
+def floor_core(*ids):
+    return [FLOOR_BY_ID[i] for i in ids]
+
+
+def week_opts(core):
+    """The weekTotals() options of a core: the stream spots are roster_spots - the core size (the League page)."""
+    return {"spots": 3 - len(core), "adds": 0, "v": 1.5, "few": 1}
+
+
+def test_other_totals_give_the_week_totals_of_the_best_core_of_each_other_team():
+    """#230: the Playoffs page ranks your core among the other teams as the League page does (#229)."""
+    got = call("otherTotals", FLOOR_POOL, FLOOR_DATA, FLOOR_OPTS)
+    t1 = call("bestCore", floor_core("t1", "t2"), FLOOR_DATA, 2)
+    want = [call("weekTotals", c, FLOOR_DATA, week_opts(c)) for c in (t1, floor_core("u1"))]
+    assert got == want
+
+
+def test_the_floor_gives_the_weakest_week_by_rank_the_lowest_week_and_the_spread():
+    """#230 owner decisions 1 and 2: the weakest week is the worst Total rank. The trend floor is the lowest Total."""
+    core = floor_core("m1", "m2")
+    others = call("otherTotals", FLOOR_POOL, FLOOR_DATA, FLOOR_OPTS)
+    got = call("coreFloor", core, others, FLOOR_DATA, FLOOR_OPTS)
+    wt = call("weekTotals", core, FLOOR_DATA, week_opts(core))
+    assert got["wt"] == wt
+    assert got["rk"] == call("weekRanks", others + [wt], FLOOR_WEEKS, FLOOR_WEAK)[-1]
+    # The weekly Totals come from valueStarted() and streamFill() (the acceptance criteria of #230).
+    vs = value_started(core, FLOOR_DATA)["weeks"]
+    fill = call("streamFill", core, FLOOR_DATA, {"spots": 1, "adds": 0})["weeks"]
+    for w in FLOOR_WEEKS:
+        stream = (fill[w]["heavy"] + fill[w]["light"] * 1.1) * 1.5
+        assert wt["weeks"][w]["total"] == pytest.approx(vs[w]["value"] + stream)
+    totals = {w: wt["weeks"][w]["total"] for w in FLOOR_WEEKS}
+    assert totals["wk19"] > totals["wk20"]
+    assert (got["lowest"], got["low_week"]) == (pytest.approx(totals["wk20"]), "wk20")
+    assert got["spread"] == pytest.approx(totals["wk19"] - totals["wk20"])
+    assert got["weakest"] == got["rk"]["weakest"] and got["teams"] == 3
+
+
+def floor_swaps(**opts):
+    core, pool = floor_core("m2", "m3"), floor_core("t1", "t2", "u1", "f1", "f2", "f3")
+    others = call("otherTotals", FLOOR_POOL, FLOOR_DATA, FLOOR_OPTS)
+    return core, others, call("floorSwaps", core, pool, others, FLOOR_DATA, {**FLOOR_OPTS, **opts})
+
+
+def test_floor_swaps_rank_by_the_gain_to_the_worst_week():
+    """#230 owner decision 3: each pool player's swap with the largest gain to the Total of the worst week now. The
+    worst week is the week with the lowest weekly Total, the week of the trend floor (owner decision of 2026-11-02),
+    not the weakest week by rank. For the core m2 and m3, wk19 has the worst rank (3 of 3) and wk20 the lowest Total."""
+    core, others, rows = floor_swaps()
+    base = call("coreFloor", core, others, FLOOR_DATA, FLOOR_OPTS)
+    w = base["low_week"]
+    assert (base["weakest"], w) == ("wk19", "wk20")
+    assert rows and [r["gain"] for r in rows] == sorted((r["gain"] for r in rows), reverse=True)
+    for r in rows:
+        swapped = [FLOOR_BY_ID[r["in"]] if p["id"] == r["out"] else p for p in core]
+        after = call("coreFloor", swapped, others, FLOOR_DATA, FLOOR_OPTS)
+        assert r["gain"] > 0 and r["week"] == w
+        assert r["gain"] == pytest.approx(after["wt"]["weeks"][w]["total"] - base["wt"]["weeks"][w]["total"])
+        assert r["total"] == pytest.approx(after["wt"]["total"] - base["wt"]["total"])
+        assert (r["after"], r["rank"]) == (after["low_week"], after["rk"]["weeks"][after["low_week"]]["r_total"])
+        assert r["after_total"] == pytest.approx(after["lowest"])
+    ins = [r["in"] for r in rows]
+    assert "f2" not in ins and "f3" not in ins  # a value of 0, and no game
+
+
+def test_floor_swaps_keep_the_untouchable_rule_the_value_band_and_the_limit():
+    assert all(r["out"] != "m2" for r in floor_swaps(untouchable=["m2"])[2])
+    # u1 (4.0) is in the value band of m2 (4.0) only.
+    assert all(r["out"] == "m2" for r in floor_swaps(band=[0.95, 1.1], banded=["u1"])[2] if r["in"] == "u1")
+    assert len(floor_swaps(limit=1)[2]) == 1
+
+
+def test_the_history_row_holds_the_weekly_totals_and_ranks_of_your_best_core():
+    """#230 owner decision 1: each planning run saves the best core of your roster, not the core of the browser."""
+    got = call("historyRow", FLOOR_POOL, FLOOR_DATA, FLOOR_OPTS)
+    core = call("bestCore", floor_core("m1", "m2", "m3"), FLOOR_DATA, 2)
+    others = call("otherTotals", FLOOR_POOL, FLOOR_DATA, FLOOR_OPTS)
+    f = call("coreFloor", core, others, FLOOR_DATA, FLOOR_OPTS)
+    assert got["core"] == [p["id"] for p in core] == ["m1", "m2"]
+    weeks = {w: {"total": f["wt"]["weeks"][w]["total"], "rank": f["rk"]["weeks"][w]["r_total"]} for w in FLOOR_WEEKS}
+    assert got["weeks"] == weeks and got["total"] == pytest.approx(f["wt"]["total"])
+
+
+def test_the_trend_points_give_the_lowest_weekly_total_and_the_total_of_each_row():
+    """#230 owner decision 2: the trend line is the lowest weekly Total and the Total of all weeks."""
+    rows = [
+        {"made": "2026-11-02", "weeks": {"wk19": {"total": 110, "rank": 4}, "wk20": {"total": 100, "rank": 6}}},
+        {"made": "2026-11-04", "weeks": {"wk19": {"total": 99, "rank": 7}, "wk20": {"total": 99, "rank": 5}}},
+    ]
+    assert call("trendPoints", rows, FLOOR_WEEKS) == [
+        {"made": "2026-11-02", "floor": 100, "week": "wk20", "rank": 6, "total": 210},
+        {"made": "2026-11-04", "floor": 99, "week": "wk19", "rank": 7, "total": 198},  # equal Totals: the first week
+    ]
+    # Review nit of #232: a row of a config with other weeks, or a bad row, gives no point and does not stop the page.
+    other = {"made": "2026-10-20", "weeks": {"wk18": {"total": 90, "rank": 9}, "wk19": {"total": 95, "rank": 8}}}
+    got = call("trendPoints", [other, None, {"made": "2026-10-21"}] + rows, FLOOR_WEEKS)
+    assert [p["made"] for p in got] == ["2026-11-02", "2026-11-04"]

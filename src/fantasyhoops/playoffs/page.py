@@ -14,6 +14,12 @@ swaps of the free agents and the players of other teams, by schedule gain. The p
 the ids of [trade] untouchable (config.toml), so the Trades page and this page use the same rules (decision 18).
 The planning run (adds/plan.py) calls write_site() after the Players page and publishes the folder at /playoffs/.
 The trade run does not write the page. Its publish keeps /playoffs/.
+The Floor block (#230) gives the weekly Totals of the core, its weakest week (the worst Total rank among the teams of
+the league), the spread, the reasons of the weakest week and the trend of the floor, run by run. weekTotals() and
+the other weekly functions of core/starts.js give its numbers, with the settings of the League page ([league_page]).
+Each planning run adds the row of your best core to the history file (playoffs/history.py,
+output/adds/playoff_history.json). The page data holds the rows of the earlier runs. The Best swaps list can rank by
+the gain to the worst week.
 """
 
 import html
@@ -25,6 +31,7 @@ from fantasyhoops.core import common
 from fantasyhoops.core import publish as site
 from fantasyhoops.core.lineup import ENGINE_JS, UTIL
 from fantasyhoops.core.roster import PAGE_STYLE as ROSTER_STYLE
+from fantasyhoops.playoffs import history
 
 CURRENT = "playoffs"  # the page in the site menu and its folder on the site (publish.TOOLS)
 SCRIPT = Path(__file__).parent / "playoffs.js"
@@ -78,12 +85,16 @@ def span(days):
     return f"{first:%b} {first.day}–{last:%b} {last.day}"
 
 
-def page_data(records, days, cfg, made):
+def page_data(records, days, cfg, made, history=()):
     """The data of the page as a dict. records: the players of the player file. days: roster.playoff_days().
 
-    made: the date of the player file, for example "2026-10-31".
+    made: the date of the player file, for example "2026-10-31". history: the rows of the history file of the runs
+    before made (playoffs/history.py earlier()).
     """
+    from fantasyhoops.league.page import stream_value  # here: league/page.py imports this module
+
     players = pool(records)
+    lp = cfg["league_page"]
     untouchable = {common.name_key(n) for n in cfg["trade"]["untouchable"]}
     teams = sorted({p["team"] for p in players} | {""})
     return {
@@ -110,6 +121,11 @@ def page_data(records, days, cfg, made):
         "band": list(cfg["trade"]["value_band"]),
         "untouchable": [r["slug"] for r in records if common.name_key(r["name"]) in untouchable],
         "bands": {t: site.band_style(t or None) for t in teams},
+        "roster_spots": cfg["league"]["roster_spots"],
+        "adds": cfg["league"]["adds"],
+        "v": round(stream_value(players, lp["v_free_agents"])[0], 4),
+        "weak": {"band": list(lp["weak_rank_band"]), "below": lp["weak_below_mean"], "few": lp["few_starts"]},
+        "history": list(history),
     }
 
 
@@ -134,7 +150,11 @@ def render(data, cfg):
     slots = len(cfg["league"]["slots"]) + UTIL
     foot = FOOT.replace("__MADE__", _made_text(data["made"])).replace("__SLOTS__", str(slots))
     foot = foot.replace("__BONUS__", f"{round(data['quality_bonus'] * 100)}%")
-    style = (ROSTER_STYLE + "\n" + STYLE).replace("__DAYS1__", str(n_days + 1)).replace("__DAYS__", str(n_days))
+    style = (
+        (ROSTER_STYLE + "\n" + STYLE + "\n" + FLOOR_STYLE)
+        .replace("__DAYS1__", str(n_days + 1))
+        .replace("__DAYS__", str(n_days))
+    )
     return (
         site.shell(PAGE_HTML.replace("__STYLE__", style), CURRENT, cfg)
         .replace("__WEEKS__", f"{first}–{digits}")
@@ -150,10 +170,13 @@ def write_site(player_file, days, cfg):
     """Write the Playoffs page in folder() from the player file of the run. Return the page path.
 
     player_file: the path of players.json (players/page.py write_site()). days: roster.playoff_days().
+    The run adds its row to the history file (history.record()). The page shows the rows of the earlier runs.
     The return value is the more_tools entry of publish.publish().
     """
     content = json.loads(Path(player_file).read_text(encoding="utf-8"))
-    data = page_data(content["players"], days, cfg, content["meta"]["made"])
+    made = content["meta"]["made"]
+    data = page_data(content["players"], days, cfg, made)
+    data["history"] = history.earlier(history.record(data), made)
     return site.write_page(folder() / "index.html", render(data, cfg))
 
 
@@ -315,6 +338,30 @@ table.sw { border-collapse: collapse; width: 100%; font-variant-numeric: tabular
   .m-tot dl dd small { display: block; font-size: 11px; font-weight: 600; color: var(--lab-mute); }
 }"""
 
+FLOOR_STYLE = """/* The Floor block, the trend and the Rank by chips (#230). Only the Playoffs page has them. */
+.floor { margin-top: 22px; max-width: 760px; }
+.fl-stats { margin-top: 10px; }
+.fl-scroll { overflow-x: auto; }
+table.fl-t tr.weak > * { background: var(--zebra); }
+table.fl-t td b { font-weight: 800; }
+.floor h3 { margin: 14px 0 4px; font-size: 13px; font-weight: 800; color: var(--lab-ink); }
+.floor .why p, .floor .why li { font-size: 13px; line-height: 1.4; }
+.floor .why p { margin: 0 0 4px; }
+.floor .why ul { margin: 0; padding-left: 18px; }
+.trend svg.tr { display: block; width: 100%; max-width: 580px; height: auto; font-variant-numeric: tabular-nums; }
+.tr .hero { fill: none; stroke: var(--mark); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.tr .sec { fill: none; stroke: var(--lamp-off); stroke-width: 1.25; stroke-opacity: .8; stroke-linejoin: round; }
+.tr circle.dot { fill: var(--lamp-off); opacity: .9; }
+.tr circle.now { fill: var(--mark); stroke: var(--lab-stock); stroke-width: 2; }
+.tr circle.now.sec { fill: var(--lamp-off); stroke: var(--lab-stock); stroke-width: 2; stroke-opacity: 1; }
+.tr .tk, .tr .dt, .tr .el2 { font-size: 10.5px; fill: var(--lab-mute); }
+.tr .pl { font-size: 11px; font-weight: 700; fill: var(--lab-mute); }
+.tr .el { font-size: 11px; font-weight: 700; fill: var(--lab-ink); }
+.trend .state { margin: 4px 0 0; font-size: 11px; color: var(--lab-mute); }
+.trend .state b { color: var(--lab-ink); font-weight: 800; }
+.chips .chl { align-self: center; font-size: 12px; color: var(--lab-mute); margin-right: 2px; }
+table.fl-t td small { white-space: nowrap; }"""
+
 PAGE_HTML = """<!doctype html>
 <html lang="en">
 <head>
@@ -343,6 +390,10 @@ __MENU__
 </header>
 <dl class="stats" id="stats" aria-label="Headline"></dl>
 <table class="wk" id="wk" aria-label="Totals of each week"></table>
+<section class="floor" aria-labelledby="h-fl">
+<h2 id="h-fl">Floor</h2>
+<div id="fl"></div>
+</section>
 <div class="lay">
 <section aria-labelledby="h-grid">
 <h2 id="h-grid">Core grid</h2>

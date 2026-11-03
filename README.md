@@ -105,7 +105,7 @@ The draft tools (rankings, the draft board, an auction simulator and a keeper re
 
 - Python 3.11 or later.
 - Microsoft Edge, for the league site sign-in of the adds planner and the trade tool.
-- Node.js, for the tests of the JavaScript on the draft board. Without Node, pytest skips those tests.
+- Node.js, for the tests of the JavaScript on the draft board. Without Node, pytest skips those tests. The planning run also uses Node for the row of the Playoffs history (`playoffs/history.py`). Without Node, the run prints a warning and adds no row.
 - `git` on the `PATH`. The publish step and its tests use it.
 - A season projections file. Git does not track CSV files, so a new clone does not include it.
 

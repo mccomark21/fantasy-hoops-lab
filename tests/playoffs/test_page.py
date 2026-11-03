@@ -5,6 +5,7 @@
 3. In Node, the page script gives the best core, the headline, the grid rows and the Starts, Open slots and NBA
    games rows from valueStarted() of core/starts.js. The R switch, the core size, Save and Reset change the state.
 4. In Chromium, the page has no sideways scroll at 390 px, and Save and Reset use localStorage.
+5. The Floor block, the trend, the ranking by the worst week and the history file of the planning run (#230).
 """
 
 import copy
@@ -19,7 +20,7 @@ import pytest
 from fantasyhoops.core import common, publish as site
 from fantasyhoops.core.lineup import ENGINE_JS
 from fantasyhoops.core.roster import Day
-from fantasyhoops.playoffs import page
+from fantasyhoops.playoffs import history, page
 from tests.core.test_roster import browser_page
 
 CFG = copy.deepcopy(common.load_config())
@@ -125,7 +126,7 @@ def test_write_site_reads_the_player_file_and_writes_the_page(tmp_path):
 
 # The page script in Node: argv the page script. stdin: {data, steps}. Each step changes the state, then the
 # driver keeps the view. A step is ["open", saved], ["n", n], ["rest", id], ["pick", id], ["core", ids], ["reset"],
-# ["filter", owner filter] or ["swap", [id in, id out]]. swaps: the rows of the Best swaps list of each filter.
+# ["filter", owner filter], ["rank", ranking] or ["swap", [id in, id out]]. floor: floor(). swaps: the rows of the Best swaps list of each filter.
 DRIVER = """
 const P = require(process.argv[1]);
 let text = "";
@@ -143,12 +144,14 @@ process.stdin.on("end", () => {
     if (kind === "core") st.core = arg;
     if (kind === "reset") P.reset(m, st);
     if (kind === "filter") st.filter = arg;
+    if (kind === "rank") st.rank = arg;
     if (kind === "swap") P.swap(m, st, arg[0], arg[1]);
     if (kind === "search") { out.push(P.search(m, arg).map(p => p.id)); continue; }
     const v = P.view(m, st);
     out.push({ state: { ...st }, total: v.score.total, marks: v.score.marks, days: v.score.days, html: v,
       light: Object.fromEntries(st.core.map(id => [id, P.lightNights(m, st, id)])),
-      swaps: Object.fromEntries(["fa", "other", "all"].map(f => [f, P.swaps(m, st, f)])) });
+      swaps: Object.fromEntries(["fa", "other", "all"].map(f => [f, P.swaps(m, st, f)])),
+      floor: P.floor(m, st), floorSwaps: P.floorSwaps(m, st) });
   }
   process.stdout.write(JSON.stringify(out));
 });
@@ -289,6 +292,7 @@ def test_reset_clears_the_added_players_the_r_switches_and_the_save():
         "rest": {},
         "saved": None,
         "filter": "all",
+        "rank": "schedule",
     }
 
 
@@ -447,3 +451,167 @@ def test_the_trades_and_playoffs_pages_give_one_value_and_one_value_band_for_one
     low, high = val * playoffs["band"][0], val * playoffs["band"][1]  # the band of a Val above 0
     assert in_band(val, low, settings.band) and in_band(val, high, settings.band)
     assert not in_band(val, low - 0.01, settings.band) and not in_band(val, high + 0.01, settings.band)
+
+
+# The Floor block and the history file (#230).
+def history_row(made, *totals):
+    return {
+        "made": made,
+        "core": ["al-dal"],
+        "weeks": {w: {"total": t, "rank": 2} for w, t in zip(["wk19", "wk20"], totals)},
+        "total": sum(totals),
+    }
+
+
+def test_the_page_data_has_the_league_page_settings_and_the_history():
+    """#230: the Floor block counts the weekly Totals with the settings of the League page ([league_page])."""
+    lp = CFG["league_page"]
+    d = page.page_data(RECORDS, DAYS, CFG, "2026-10-31", [history_row("2026-10-30", 30, 20)])
+    assert (d["roster_spots"], d["adds"]) == (CFG["league"]["roster_spots"], CFG["league"]["adds"])
+    assert d["weak"] == {"band": list(lp["weak_rank_band"]), "below": lp["weak_below_mean"], "few": lp["few_starts"]}
+    # v: the mean Val of the best [league_page] v_free_agents free agents (Hé Accent 2.0 and Gus Free 0).
+    assert d["v"] == pytest.approx(1.0) and d["history"] == [history_row("2026-10-30", 30, 20)]
+    assert data()["history"] == []
+    html = page.render(d, CFG)
+    assert (
+        '</table>\n<section class="floor" aria-labelledby="h-fl">\n<h2 id="h-fl">Floor</h2>\n<div id="fl"></div>'
+        in html
+    )
+    assert page.FLOOR_STYLE in html and "#230 sample" not in html
+
+
+@needs_node
+def test_the_floor_block_shows_the_weakest_week_its_reasons_and_an_empty_trend():
+    """#230: the weekly Totals, the weakest week (the worst Total rank), the spread and the reasons of the week.
+    With no earlier run in the history, the trend is empty (the made-up runs of the sample are not in the page)."""
+    (v,) = run([["open", None]])
+    f, fl = v["floor"], v["html"]["floor"]
+    w = f["weakest"]
+    x = f["wt"]["weeks"][w]
+    label = w[0].upper() + w[1:]
+    assert f["teams"] == 2 and w == f["rk"]["weakest"]
+    assert f'<div class="hero"><dt>Weakest week</dt><dd>{label}<small>rank {f["rk"]["weeks"][w]["r_total"]} of 2' in fl
+    assert f"Total {x['total']:.1f}</small>" in fl and f"<dd>{f['spread']:.1f}<small>best − worst week</small>" in fl
+    assert f'<tr class="weak"><th class="l" scope="row">{label} <em class="tag weak">Weakest</em></th>' in fl
+    assert f"<h3>Why {label} is the weakest week</h3>" in fl
+    # 7 stream spots fill each open slot, and no start is lost. Each core player has 2 or fewer starts in the week.
+    assert (x["unused"], x["lost"], x["main"]) == (0, 0, None) and "Main cause" not in fl
+    few = "; ".join(f"{p['name']} {p['starts']} of {p['games']} game{'' if p['games'] == 1 else 's'}" for p in x["few"])
+    assert x["few"] and f"<li><b>Few starts:</b> {few}</li>" in fl
+    assert "<b>No trend yet.</b>" in fl and "<svg" not in fl and "Sample data" not in fl
+
+
+@needs_node
+def test_the_trend_shows_a_line_from_2_points_with_the_lowest_weekly_total():
+    """#230 owner decision 2: the floor of the trend is the lowest weekly Total. One earlier run and the core now are
+    2 points."""
+    given = page.page_data(RECORDS, DAYS, CFG, "2026-10-31", [history_row("2026-10-29", 30, 20.5)])
+    (v,) = run([["open", None]], given)
+    fl, f = v["html"]["floor"], v["floor"]
+    assert "No trend yet" not in fl and fl.count("<polyline") == 2
+    assert "<title>10/29: Floor 20.5, Wk20 rank 2</title>" in fl and "<title>10/29: Total 50.5</title>" in fl
+    assert f"<title>Now, this core: Floor {f['lowest']:.1f}</title>" in fl
+    assert f"<title>Now, this core: Total {f['wt']['total']:.1f}</title>" in fl
+    assert ">now</text>" in fl and "1 earlier planning run with the best 3 of your roster." in fl
+
+
+@needs_node
+def test_the_best_swaps_can_rank_by_the_gain_to_the_worst_week():
+    """#230 owner decision 3: the schedule gain stays the default, and "Worst-week gain" is an option."""
+    (v,) = run([["open", None]], data(SWAP_RECORDS))
+    assert v["state"]["rank"] == "schedule"
+    sw = v["html"]["swaps"]
+    assert '<button type="button" class="chip" data-rank="schedule" aria-pressed="true">Schedule gain</button>' in sw
+    assert '<button type="button" class="chip" data-rank="floor" aria-pressed="false">Worst-week gain</button>' in sw
+    assert "Ranked by the gain to the Total of your lowest week" not in sw
+    (fv,) = run([["rank", "floor"]], data(SWAP_RECORDS))
+    rows, sw = fv["floorSwaps"], fv["html"]["swaps"]
+    assert rows and all(r["gain"] > 0 and r["out"] != "al-dal" for r in rows)  # Al Dal is untouchable
+    w = fv["floor"]["low_week"]  # the week of the lowest weekly Total (owner decision of 2026-11-02)
+    assert (
+        all(r["week"] == w for r in rows)
+        and '<th scope="col" title="The lowest week with the swap">Lowest after</th>' in sw
+    )
+    assert (
+        f"Ranked by the gain to the Total of your lowest week now ({w[0].upper() + w[1:]}, {fv['floor']['lowest']:.1f})."
+        in sw
+    )
+    first = rows[0]
+    assert f'<tr tabindex="0" data-swap="{first["in"]}" data-out="{first["out"]}"' in sw
+    assert f'<td class="g">+{first["gain"]:.1f}</td>' in sw
+
+
+@needs_node
+def test_a_planning_run_adds_one_row_to_the_history_file(tmp_path):
+    """#230: write_site() adds the row of the run, keyed by the date of the player file. A second run on the same
+    date replaces it. The page shows the rows of the earlier runs."""
+    file = tmp_path / "players.json"
+    file.write_text(json.dumps({"meta": {"made": "2026-10-31"}, "players": RECORDS}), encoding="utf-8")
+    old = history_row("2026-10-30", 30, 20)
+    history.write([old])
+    path = page.write_site(file, DAYS, CFG)
+    assert history.path() == common.OUT / "adds" / "playoff_history.json"
+    rows = history.read()
+    assert [r["made"] for r in rows] == ["2026-10-30", "2026-10-31"] and rows[0] == old
+    row = rows[1]
+    # The best 3 of your roster (decision 11), with the weekly Totals and ranks of historyRow() of core/starts.js.
+    assert row["core"] == ["al-dal", "cy-orl", "bo-no"] and set(row["weeks"]) == {"wk19", "wk20"}
+    d = page.page_data(RECORDS, DAYS, CFG, "2026-10-31")
+    want = history.compute(d)
+    assert row == want and row["total"] == pytest.approx(sum(x["total"] for x in row["weeks"].values()), abs=0.01)
+    assert all(x["rank"] in (1, 2) for x in row["weeks"].values())
+    # The page data holds only the earlier run.
+    text = path.read_text(encoding="utf-8")
+    assert '"history":[{"made":"2026-10-30"' in text and '"made":"2026-10-31","core"' not in text
+    page.write_site(file, DAYS, CFG)
+    assert [r["made"] for r in history.read()] == ["2026-10-30", "2026-10-31"]
+
+
+def test_the_history_file_reads_as_empty_when_it_is_missing_or_bad():
+    assert history.read() == []
+    history.path().parent.mkdir(parents=True, exist_ok=True)
+    history.path().write_text("not json", encoding="utf-8")
+    assert history.read() == []
+    rows = [history_row("2026-11-02", 1, 2), history_row("2026-10-30", 3, 4)]
+    assert [r["made"] for r in history.added(rows, history_row("2026-11-02", 5, 6))] == ["2026-10-30", "2026-11-02"]
+    assert history.earlier(rows, "2026-11-02") == [rows[1]]
+
+
+def test_a_run_keeps_a_bad_history_file_as_it_is_and_prints_a_warning(capsys):
+    """Review blocker 1 of #232: a file that does not parse stays, so the run never writes over the earlier rows."""
+    bad = '{"rows": [{"made": "2026-10-30"'
+    history.path().parent.mkdir(parents=True, exist_ok=True)
+    history.path().write_text(bad, encoding="utf-8")
+    assert history.load() == ([], True) and history.read() == []
+    assert history.record(data()) == []
+    assert history.path().read_text(encoding="utf-8") == bad
+    assert "does not parse" in capsys.readouterr().out
+
+
+def test_the_history_file_is_written_through_a_temp_file_and_os_replace(monkeypatch):
+    """Review blocker 1 of #232: a stopped write leaves the old file and no temp file."""
+    rows = [history_row("2026-10-30", 30, 20)]
+    history.write(rows)
+    calls = []
+    real = history.os.replace
+    monkeypatch.setattr(history.os, "replace", lambda a, b: (calls.append((a, b)), real(a, b)))
+    history.write(rows + [history_row("2026-10-31", 31, 21)])
+    assert len(calls) == 1 and calls[0][1] == history.path() and calls[0][0].name.endswith(".part")
+    assert [r["made"] for r in history.read()] == ["2026-10-30", "2026-10-31"]
+
+    def stop(a, b):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(history.os, "replace", stop)
+    with pytest.raises(OSError):
+        history.write([])
+    assert [r["made"] for r in history.read()] == ["2026-10-30", "2026-10-31"]
+    assert [f.name for f in history.path().parent.iterdir()] == [history.FILE]
+
+
+def test_with_no_node_the_run_adds_no_row_and_keeps_the_history(monkeypatch, capsys):
+    history.write([history_row("2026-10-30", 30, 20)])
+    monkeypatch.setattr(history.shutil, "which", lambda name: None)
+    assert history.record(data()) == [history_row("2026-10-30", 30, 20)]
+    assert "node is not on PATH" in capsys.readouterr().out
+    assert history.read() == [history_row("2026-10-30", 30, 20)]
