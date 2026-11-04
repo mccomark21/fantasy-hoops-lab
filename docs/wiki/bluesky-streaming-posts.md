@@ -12,6 +12,8 @@ On 2026-10-26, the owner paused the work on the Bluesky posts, to focus on the p
 
 The last open step: the owner gets a free balldontlie API key. With the key, we can check whether `/v1/games` gives future games. See item 3 of "Unclear on 2026-10-26" below.
 
+Superseded on 2026-11-04: the owner resumed the Bluesky posts plan. A GitHub workflow will post a fixed "schedule map" image each Monday. See [Schedule map of 2026-11-04](schedule-map-2026-11-04.md).
+
 ## The idea and the owner decisions
 
 The owner prefers free GitHub Actions to run the job. AWS is also available.

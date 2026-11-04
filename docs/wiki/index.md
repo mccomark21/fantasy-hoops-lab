@@ -31,9 +31,11 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 - [Free agents page of 2026-10-29](free-agents-page-2026-10-29.md): the owner decisions of 2026-10-29 to move Free agents, Waiver players and Role-up to a `/free-agents/` tab.
 - [Trade tool design of 2026-10-28](trade-tool-design-2026-10-28.md): the grilling session of 2026-10-28 for a trade tool tab, the 13 owner decisions and the next steps.
 
-- [Bluesky streaming posts](bluesky-streaming-posts.md) (paused on 2026-10-26): the owner idea of 2026-10-26 for weekly streaming images on Bluesky, the owner decisions, and the studies of that day (feasibility, sources without login, an availability estimate, platform defaults, general ranks, terms-safe sources, an own projection check), and the owner decision on the terms question.
+- [Bluesky streaming posts](bluesky-streaming-posts.md) (paused on 2026-10-26, resumed on 2026-11-04): the owner idea of 2026-10-26 for weekly streaming images on Bluesky, the owner decisions, and the studies of that day (feasibility, sources without login, an availability estimate, platform defaults, general ranks, terms-safe sources, an own projection check), and the owner decision on the terms question.
 
 ## Decisions
+
+- [Schedule map of 2026-11-04](schedule-map-2026-11-04.md): the owner decisions of 2026-11-04 for the adds page redesign (one data source for the adds page and a Monday Bluesky image, a schedule map with weight on light nights, a scoped "Poster" mode), and the four-concept compare page as the next step.
 
 - [Team plan of 2026-10-28](team-plan-2026-10-28.md): the owner decision to recommend teams and positions, not players (#140), the prototype rounds and the approved C3 week grid.
 
