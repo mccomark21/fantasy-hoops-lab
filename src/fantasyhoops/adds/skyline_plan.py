@@ -104,15 +104,16 @@ def _legs(plan, week, scarce, light):
     return out
 
 
-def roster_rungs(week, plans, cfg):
+def roster_rungs(week, plans, cfg, matchup=None):
     """(the Rungs of plans, {id(leg): (rung number, the TeamAdds of the leg)}) for week.
 
     Rung n: plans[n - 1]. Its games are the counted started games of the stream spots. Its legs: _legs(). replan:
     the rung does not keep each add of the rung above. plus_one: the start days that the rung has more often than the
-    rung above, light nights first.
+    rung above, light nights first. matchup: the Weeks of all halves of a long week, so that the gain days of a rung
+    are the same in each half. None: week only.
     """
     scarce = cfg.get("skyline", {}).get("scarce_teams", SCARCE_TEAMS)
-    light = dict(zip(week.days, week.light))
+    light = {d: lt for w in (matchup or (week,)) for d, lt in zip(w.days, w.light)}
     rungs, adds_of, before = [], {}, None
     for n, plan in enumerate(plans, start=1):
         legs = []
@@ -125,7 +126,7 @@ def roster_rungs(week, plans, cfg):
         if before is not None:
             gain = _num(games - before[0].games)
             more = starts - before[1]
-            ranked = sorted(more, key=lambda d: (not light[d], d))  # the days of this half only
+            ranked = sorted(more, key=lambda d: (not light[d], d))
             plus_one = tuple(sorted(ranked[: max(1, round(gain))])) if gain > 0 else ()
             kept = {(a.spot, a.day, a.teams) for a in plan.adds}
             replan = any((a.spot, a.day, a.teams) not in kept for a in plans[n - 2].adds)
@@ -252,7 +253,7 @@ def plan_section(run, interactive=True):
     count_at = team_count_at(cfg)
     halves, adds_of = [], {}
     for week in weeks:
-        rungs, found = roster_rungs(week, plans, cfg)
+        rungs, found = roster_rungs(week, plans, cfg, weeks)
         halves.append(rungs)
         adds_of.update(found)
     lines = []
