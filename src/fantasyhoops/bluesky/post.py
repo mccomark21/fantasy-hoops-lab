@@ -200,24 +200,34 @@ def export_pngs(svgs, paths):
 def write_post(post, folder):
     """Write the 2 PNGs and post.json of post in folder.
 
+    The files go to a temporary folder first. They move to folder only when both images pass the text check and the
+    size check. Before the run, the function removes the old files of the set from folder. Thus a failed run leaves
+    no partial set and no old set in folder.
     Return ([skyline.png, ladder.png, post.json], the smallest text of each PNG in px at the PHONE display width).
     """
+    names = [f"{name}.png" for name in IMAGES] + ["post.json"]
     folder.mkdir(parents=True, exist_ok=True)
-    pngs = [folder / f"{name}.png" for name in IMAGES]
-    smallest = export_pngs(post["svgs"], pngs)
-    for p in pngs:
-        if p.stat().st_size >= MAX_BYTES:
-            raise RuntimeError(f"{p.name} is {p.stat().st_size} bytes. A post image must be under {MAX_BYTES} bytes.")
-    week = post["week"]
-    data = {
-        "first_day": week.days[0].isoformat(),
-        "last_day": week.days[-1].isoformat(),
-        "text": post["text"],
-        "images": [{"file": p.name, "alt": alt} for p, alt in zip(pngs, post["alts"])],
-    }
-    path = folder / "post.json"
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return [*pngs, path], smallest
+    for name in names:
+        (folder / name).unlink(missing_ok=True)
+    with tempfile.TemporaryDirectory(dir=folder) as tmp:
+        pngs = [Path(tmp) / name for name in names[:2]]
+        smallest = export_pngs(post["svgs"], pngs)
+        for p in pngs:
+            if p.stat().st_size >= MAX_BYTES:
+                raise RuntimeError(
+                    f"{p.name} is {p.stat().st_size} bytes. A post image must be under {MAX_BYTES} bytes."
+                )
+        week = post["week"]
+        data = {
+            "first_day": week.days[0].isoformat(),
+            "last_day": week.days[-1].isoformat(),
+            "text": post["text"],
+            "images": [{"file": p.name, "alt": alt} for p, alt in zip(pngs, post["alts"])],
+        }
+        (Path(tmp) / names[2]).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        for name in names:
+            (Path(tmp) / name).replace(folder / name)
+    return [folder / name for name in names], smallest
 
 
 def main(argv=None):

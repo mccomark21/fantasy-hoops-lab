@@ -294,3 +294,18 @@ def test_the_post_text_of_the_longest_dates_and_the_most_adds_fits_the_limit():
     text = post_text(week, cfg)
     assert TAGS == ("#FantasyBasketball", "#MahhhkDraft") and all(t in text for t in TAGS)
     assert len(text) <= LIMIT, len(text)
+
+
+@pytest.mark.parametrize("fail", ["text", "size"])
+def test_a_failed_check_leaves_no_partial_or_old_set_in_the_folder(chromium_ok, posts, monkeypatch, tmp_path, fail):
+    """The Monday job (#238) must not find a partial set or the set of an earlier run after a failed run."""
+    folder = tmp_path / "bluesky" / "2026-11-02"
+    write_post(posts["A"], folder)  # an earlier, good run
+    small = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350"><text x="9" y="40" style="font-family:Archivo;font-size:20px">x</text></svg>'
+    bad = {**posts["A"], "svgs": (posts["A"]["svgs"][0], small)}  # image 1 passes, image 2 fails the text check
+    if fail == "size":
+        bad = posts["A"]
+        monkeypatch.setattr(post, "MAX_BYTES", 100_000)  # the skyline PNG passes, the ladder PNG (about 120 KB) fails
+    with pytest.raises(RuntimeError):
+        write_post(bad, folder)
+    assert list(folder.iterdir()) == []
