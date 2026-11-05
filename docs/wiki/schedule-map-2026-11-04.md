@@ -64,6 +64,8 @@ Superseded in part later on 2026-11-04: weak point 1 no longer applies. The rung
 
 On 2026-11-04, the owner reviewed versions v2 to v5 of the poster on the compare page `.impeccable/review/schedule-map-compare.html`. The compare page is not committed. Its script is in a session scratchpad.
 
+Superseded in part later on 2026-11-04: copies of the compare page and its script are now in `.impeccable/mocks/schedule-skyline/`. See [Prototype files (2026-11-04)](#prototype-files-2026-11-04).
+
 ### Layout and rung rule (2026-11-04)
 
 1. The owner chose a hybrid. The night skyline is on top. The add ladder is below. The day columns of the two parts align.
@@ -80,6 +82,8 @@ On 2026-11-04, the owner reviewed versions v2 to v5 of the poster on the compare
 - The label "Teams that play each night".
 
 The owner also had the gap between the totals column and the chart made smaller.
+
+Superseded in part later on 2026-11-04: in v6, the owner also removed the top-left kicker. The year "2026" is now in the small title line. See [Schedule Skyline v6 and the build plan (2026-11-04)](#schedule-skyline-v6-and-the-build-plan-2026-11-04).
 
 ### Ladder and skyline scale (v3, 2026-11-04)
 
@@ -123,6 +127,8 @@ On 2026-11-04, no test week has the type "stream every day".
 
 Known weak point on 2026-11-04: many team primary colors are navy or red.
 
+Superseded in part later on 2026-11-04: item 3 was a misreading by the assistant. The owner wanted blue only on the day column of the anchor night, not a band across the whole row. See [Schedule Skyline v6 and the build plan (2026-11-04)](#schedule-skyline-v6-and-the-build-plan-2026-11-04).
+
 ### Candidate Poster-mode rules (2026-11-04)
 
 These rules are candidates for the Poster mode in `DESIGN.md`. On 2026-11-04, nobody had written them in `DESIGN.md`.
@@ -130,6 +136,69 @@ These rules are candidates for the Poster mode in `DESIGN.md`. On 2026-11-04, no
 1. The hero fills its frame. It scales to the data, not to the theoretical maximum.
 2. Ink and words go to what is scarce.
 3. Team colors go on team chips only.
+
+## Schedule Skyline v6 and the build plan (2026-11-04)
+
+On 2026-11-04, the owner reviewed v6 of the poster. The owner said: "I love the graphic". The owner approved the v6 graphic.
+
+### Name and title (2026-11-04)
+
+1. The owner chose the name "Schedule Skyline" from 10 options.
+2. The title is "Schedule Skyline" in large type. Below it, "Week N · 2026" is in small type.
+
+### v6 changes (2026-11-04)
+
+1. Anchor column: a semi-transparent blue stripe covers the day column of the anchor night only. This change corrects the v5 band across the whole row.
+2. Ladder: the leg blocks are white on a grey calendar grid.
+3. Skyline unit: the skyline now counts games per night, not teams. In v5, the 6-game line was drawn at 12 teams.
+4. Skyline line: the page scales the poster to about 0.45x. Thus the thin line drew under 1 px and did not show. The line is now 1.5 px with a paper halo. The pixel check `check_line.py` passes 70 of 70 cells.
+5. No-game days: a darker neutral grey hatch with the text "NO NBA GAMES". A no-game day is never blue.
+6. Zero-gain rungs: these rungs stay dimmed with the text "+0 · a Nth add gains nothing".
+7. Gain mark: a "+1" tag replaces the gain ring. The owner found the ring unclear.
+
+### Items the owner removed in v6 (2026-11-04)
+
+- The footer.
+- The week-type stamp. The owner said: "I'm not even defining it on the page".
+- The top-left kicker.
+
+The week type still drives the layout internally. See [Week types (2026-11-04)](#week-types-2026-11-04).
+
+### Build decisions (2026-11-04)
+
+1. On `adds_plan.html`, the Skyline replaces only the team-plan grid. The other blocks stay.
+2. The ladder on the page uses the owner's roster through `team_plan`.
+3. A click on a leg opens the filtered Free agents view.
+4. One question is open: how one rung shows several stream spots. A sample comes first, before the build.
+5. The Bluesky image stays team-agnostic.
+6. A GitHub Actions job runs each Monday. It does not use AWS. It posts a 1080x1350 PNG to Bluesky.
+7. The post text is short. It has `#FantasyBasketball`, a line about what Schedule Skyline is, and the dates.
+8. The job does a dry run first.
+9. A GitHub secret holds the Bluesky app password.
+
+### Follow-up: data source credit (2026-11-04)
+
+This follow-up is not a GitHub issue. The owner's rule of 2026-10-27 says: no new issues until the open issues are done.
+
+1. The credit line went away with the footer. Thus the poster names no data source.
+2. The prototype uses ESPN's schedule.
+3. The Bluesky decision of 2026-10-26 said: inputs must come from sources whose terms allow automated use. See [Bluesky streaming posts](bluesky-streaming-posts.md).
+4. On 2026-11-04, the owner chose not to block on this point.
+5. Revisit this point before real posting runs for a long time.
+
+### Prototype files (2026-11-04)
+
+The prototype files are in `.impeccable/mocks/schedule-skyline/`. They are not committed.
+
+- `schedule-map-compare.html`: the compare page.
+- `schedule_map.py`: the prototype script.
+- `check_line.py`: the pixel check for the skyline line.
+
+### Lessons (2026-11-04)
+
+1. Scale the hero to the data, not to the theoretical maximum.
+2. When the page scales the poster, measure visibility. Do not judge it by eye.
+3. Use one unit, games, in labels, rule lines and classifiers.
 
 ## Related pages
 
