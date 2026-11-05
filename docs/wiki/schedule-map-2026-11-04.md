@@ -274,6 +274,8 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 
 10. PR #242 (for #237) opened at head `67cc7f9`. On 2026-11-05, the owner decided: the post title shows dates (for example "Nov 9–15"), not a week number; the adds page shows the owner's Yahoo week number. The chief of staff confirmed that on a Monday the default week is the week that starts that day. Open point: with 7-day weeks from 2026-10-19, Mar 8 is week 21, but `config.toml` names it wk19, so the Yahoo calendar has longer weeks that the repo does not know yet.
 
+11. Later on 2026-11-05, the owner asked to tag both post images with "Mahhhk Draft" and to add "#MahhhkDraft" to the post text. This supersedes "no footer, no credit line" of #235 only for this one tag, and only in the post images. The default placement is a small sign-off in a bottom corner, in the text ink; the owner sees it on the #237 review page.
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages
