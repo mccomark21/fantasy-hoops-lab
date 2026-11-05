@@ -126,7 +126,7 @@ All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-r
 ### Named Rules
 **The One Source Rule.** A new color goes into `core/tokens.py` with a light value and a dark value. A page never writes a hex value.
 
-**The Text Accent Rule.** As text color, `mark` shows only the page title, links, the heads of the Roster-look tables, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. The teams of an add cell in the week grid are buttons, so they show as `mark` text with an underline, as a link. Other marks (the fit square, the band and the start square of the week grid, the FA?, MIN+ and UP flags) use ink.
+**The Text Accent Rule.** As text color, `mark` shows only the page title, links, the heads of the Roster-look tables, and the selected or sorted state. Pressed chips are a solid `mark` block. The sorted column and the selected day have `mark` text and a 3px `mark` bar under the header. Other marks (the fit square, the FA?, MIN+ and UP flags) use ink. The Schedule Skyline follows Poster mode (#236).
 
 **The Red Is Alert Rule.** `lab-red` marks only something that needs attention. It is never a decoration. A category that you trail in the matchup needs attention, so its margin is `lab-red`.
 
@@ -151,8 +151,8 @@ All small text is at least 4.5:1 in both themes. The back-to-back mark is `lab-r
 
 - The side menu is 216px wide and fixed at the left at 900px and wider. The main area starts at its right edge.
 - Below 900px, the menu is a drawer. A 48px blue bar at the top holds the site name and a Menu button. The drawer moves the focus to its Close button, closes on Escape and on the scrim, and makes the page behind it inert.
-- The adds page body is 720px wide at most, with 28px side padding (16px below 600px). The Home page body is 1000px wide at most. Below 1100px, each page row and the About section go to one column.
-- The week grid shows its 7 day columns at each width. Below 600px, it shows short labels ("M" and "26"). The free-agent table shows its wide columns at 600px and wider.
+- The adds page body is 720px wide at most, with 28px side padding (16px below 600px). The Schedule Skyline of the adds page is the exception (#236): from 1210px, its desktop layout is up to 1080px wide, wider than the body, so that its text of 13 SVG units is 11px or more. Below 1210px, the page shows the 2 phone panels, 520px wide at most. The Home page body is 1000px wide at most. Below 1100px, each page row and the About section go to one column.
+- The free-agent table shows its wide columns at 600px and wider.
 
 ## Elevation & Depth
 
@@ -186,17 +186,19 @@ All corners are square: chips, flags, the theme switch, the menu buttons and the
 - **Sorted column and selected day:** a 3px `mark` bar under the header. The sorted column also has an arrow (▼). Cells of a selected day have a 12% `mark` tint.
 
 ### Matchup table
-- **Style:** the matchup section of the adds page (#144), above the team plan. One column for each category and the rows You, Opp, Margin and Weight, in a fixed layout that fits 320px.
+- **Style:** the matchup section of the adds page (#144), below the Schedule Skyline (#236). One column for each category and the rows You, Opp, Margin and Weight, in a fixed layout that fits 320px.
 - **Margin:** ink for a close margin, `lab-green` for a lead, `lab-red` for a deficit. A large margin is bold (800). The sign stays.
 - **Weight:** 1.00 in bold ink. Lower weights step to a 50% mix of ink and `lab-mute`, then to `lab-mute`.
 - **Key:** a line under the table shows each look.
 - **Rules (#190):** no zebra rows. A 1px `lab-rule` rule under the head, not the 2px `mark` rule of the Tables style.
 
-### Week grid (signature component)
-- **Style:** the team plan of the adds page (#140, the approved C3 heat sample). A fixed-layout table with one column for each day of the fantasy week and the rows Games, Add 1 and Add 2. The games of the day shade the day header, the Games row, the add cells and the bands with a `mark` tint, 0% to 40%, mixed with `lab-stock`. An empty add cell has no tint: a `lab-stock` ground (#190). The Games row has regular (400) numbers and a 1px `lamp-off` rule below it (#190).
-- **Add cell:** a box of `lab-stock` with a 1px `lamp-off` border, with no heavy top border (#190): "+<slots>" in condensed caps, then the teams. Hover: the `zebra` ground. Selected (the cell that set the filters): `lab-stock` text on a solid `mark` block. Focus: a 2px ink outline. A day header that set the filters has the same selected state.
-- **Band:** a 2px ink band (the hero line width) through the days that the new player holds the spot, with a 10px ink square (8px below 600px) and a 2px `lab-stock` ring on each day that he starts (#190).
-- **Past day:** a 10% `lab-mute` ground and `lab-mute` text. A past add is a 1px dashed `lamp-off` box with `lab-mute` text. A past band and its 8px square are `lab-mute`.
+### Schedule Skyline on the adds page (signature component)
+- **Style:** the team plan of the adds page (#236). It replaces the week grid of #140. It is a poster: see [Poster mode](#poster-mode). `core/skyline_svg.py` draws it.
+- **Layout:** from 1210px, the desktop layout (the days from left to right), up to 1080px wide. All its text is 13 SVG units or more: 11px or more on the screen. Below 1210px, the 2 phone panels (the days from top to bottom), 520px wide at most.
+- **Ladder:** one rung for each number of adds, 1 to 4. A rung is one row of legs with no overlap. A leg runs from an add day to the day before the next add day of the rung.
+- **Long week:** a 14-day week shows 2 Skylines, one above the other, each with a date line. Both halves show the same rung totals.
+- **Leg link:** hover: a 2px ink frame on the leg box. Focus: a 2px ink outline and a 4px ink frame.
+- **Theme:** the page holds a light copy and a dark copy of each drawing. The CSS shows the copy of the current theme.
 
 ### Charts
 - **Source:** the "After + tooltips" look of `.impeccable/review/players-sample.html`. The owner approved the After marks on 2026-10-29, then its tooltips and label placement. The Before look of that file is not a rule. The reasons are in `docs/wiki/player-profile-design-2026-10-29.md`.

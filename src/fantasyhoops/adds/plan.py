@@ -29,6 +29,9 @@ One planning run:
    (next_week_games()). value_warnings() checks the free agents of the teams of the plan.
    Before the plan, with_rests() marks the rest games of the players on the rest list (adds/rest.py).
    matchup_weights() gives the matchup values of the free agents, the Match column of the page.
+   ladder_plans(): the plans of the Schedule Skyline ladder, one for each number of adds from 1 to
+   min(adds left, [skyline] max_adds) (adds/skyline_plan.py, #236). skyline_weeks(): the skyline of each 7-day
+   half of the week (core/skyline.py).
 7. save_week(): write the adds of the plan to the week file, output/adds/week_plan_<first day>.json
    (adds/week_file.py). The run replaces the saved adds of today and later. The saved adds of the past days stay.
 8. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
@@ -86,6 +89,7 @@ from fantasyhoops.adds.slots import (
     plans_next_week,
     team_games,
 )
+from fantasyhoops.adds.skyline_plan import ladder_plans, skyline_weeks
 from fantasyhoops.adds.team_plan import team_plan
 from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import projection_scale, replacement_value, season_replacement
@@ -135,6 +139,8 @@ class PlanningRun:
     next_days, next_games: the Days and the games of the first days of next week (slots.next_week_window()).
     timings: the timing.StepTimes of the run. recent_skip, market, cache: the run lines, or None.
     season: the core/season_value.SeasonValues of the run: the Val of the pages (#222), or None.
+    skyline: the core/skyline.Week of each 7-day half of the fantasy week (2 for a long week), or (). ladder: the
+    TeamPlans of the Skyline ladder (skyline_plan.ladder_plans(), #236): item n - 1 is the plan with n adds.
     """
 
     data: object
@@ -162,6 +168,8 @@ class PlanningRun:
     market: str = None
     cache: str = None
     season: object = None
+    skyline: tuple = ()
+    ladder: tuple = ()
 
 
 def read_league(yahoo, cfg, today):
@@ -293,6 +301,7 @@ def main(today=None, publish=True, timed=True, cache=True):
     with step("schedule read"):
         sched = read_schedule()
     plan, read, options, warnings, weights, match_replacement = None, [], [], [], None, None
+    ladder = ()
     recent, skip_line, market_text, owners, standings = [], None, None, None, None
     pages = PageCache(today, use=cache)
     pages.remove_old_days()
@@ -367,6 +376,10 @@ def main(today=None, publish=True, timed=True, cache=True):
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
         with step("team plan", search=True):
             plan = team_plan(days, games, spots, data.adds.left, slots, next_week=games_next, next_weight=weight)
+            # The Skyline ladder (#236): the same search with 1 to 4 adds. Its work counts in this step.
+            ladder = ladder_plans(
+                days, games, spots, data.adds.left, slots, cfg, next_week=games_next, next_weight=weight, full=plan
+            )
         season = season_values(lines, [o for o in options if not o.player.on_waivers], cfg)
         warnings = value_warnings(options, plan.adds, data.roster, spots, cfg, season_ranks(season))
         match_replacement = replacement_value(
@@ -402,6 +415,8 @@ def main(today=None, publish=True, timed=True, cache=True):
         market=market_text,
         cache=cache_text,
         season=season,
+        skyline=skyline_weeks(sched, data.week, cfg),
+        ladder=ladder,
     )
     roster = None
     if publish:

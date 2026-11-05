@@ -4,9 +4,10 @@ docs/adds/README.md.
 render() makes the plan page and render_free_agents() makes the Free agents page (#165), from one PlanningRun
 (adds/plan.py). Each section of a page comes from one small function. A section shows only the parts that exist.
 The plan page (output/adds/adds_plan.html, published at /adds/) has these main sections:
-- Team plan: the week grid of adds/grid.py (#140). It shows the adds of the team plan (adds/team_plan.py) and the
-  saved adds of the past days (adds/week_file.py). A click on an add or a day opens the Free agents page with the
-  filters of the add or the day in the URL.
+- Schedule Skyline (#236), directly under the title: the skyline of the week and the add ladder of your roster
+  (adds/skyline_plan.py). It replaces the week grid of the team plan (#140). Rung n is the team plan
+  (adds/team_plan.py) with n adds. Under it, the saved adds of the past days (adds/week_file.py). A click on a leg
+  opens the Free agents page with the filters of the add in the URL.
 - Matchup: the category scores of the current matchup and the weight of each category (adds/matchup.py).
 - Run time: see below.
 An old link to the Free agents section of the plan page (adds/#fa or adds/#waivers) forwards to the Free agents page.
@@ -39,7 +40,7 @@ import json
 from dataclasses import replace
 from datetime import date, timedelta
 
-from fantasyhoops.adds import grid
+from fantasyhoops.adds import grid, skyline_plan
 from fantasyhoops.adds.planner import waiver_options
 from fantasyhoops.adds.readers import STAT_COLUMNS
 from fantasyhoops.adds.value import REPLACEMENT_RANK, market_value
@@ -582,24 +583,24 @@ def method_note():
 def render(run):
     """The plan page of a PlanningRun (plan.py) as HTML text. The page uses these fields of run:
 
-    data (week, adds, roster, next_week, matchup), days, games, spots, plan, record, week_games (the team plan,
-    grid.plan_section()), options, ranking, read, today, replacement, match_replacement, warnings, weights (None: no
+    data (week, adds, roster, next_week, matchup), days, spots, skyline, ladder, record (the Schedule Skyline,
+    skyline_plan.plan_section()), options, ranking, read, today, replacement, match_replacement, warnings, weights (None: no
     matchup section), nights (the B2B marks), roles, next_days, next_games, timings (the Run time table) and the run
     lines recent_skip, market and cache (timings_section()).
     [adds] minutes_rise and [adds.flags] of run.cfg give the legends of the role marks.
     [league] teams of run.cfg gives the team count in the site menu.
     The Free agents, Waiver players and Role up sections are on the Free agents page (render_free_agents(), #165).
-    The add cells and the day headers of the team plan link to that page when it has a free-agent table.
+    The legs of the Schedule Skyline link to that page when it has a free-agent table.
     """
     today = run.today or date.today()
     run = replace(run, today=today)
     min_weight = run.cfg.get("adds", {}).get("matchup", {}).get("min_weight", 0.5)
     sections = [
         header(run.data, run.days, run.spots, today),
+        skyline_plan.plan_section(run, interactive=bool(free_agents_section(run))),
         basis_line(run.cfg, spots=True),
         warnings_section(run.warnings),
         matchup_section(run.data.matchup, run.weights, min_weight),
-        grid.plan_section(run, interactive=bool(free_agents_section(run))),
         ranking_section(run.ranking, run.read),
         timings_section(run.timings, run.market, run.cache, run.recent_skip),
         method_note(),
@@ -654,10 +655,14 @@ FORWARD = (
 
 
 # The CSS of the plan page only (#190). The Free agents page does not get it.
-# 1. The shared chart style (core/chart.py, #185): the --lab-c-* sizes that the week grid and the matchup table use.
+# 1. The shared chart style (core/chart.py, #185): the --lab-c-* sizes that the matchup table uses.
 # 2. The heading rule of the DESIGN.md "Charts" panel head: 1px, not 2px.
-PLAN_CSS = """__CHART_CSS__
+# 3. The Schedule Skyline (adds/skyline_plan.py, #236).
+PLAN_CSS = (
+    """__CHART_CSS__
 h2 { border-bottom-width: var(--lab-c-sw-rule); }"""
+    + skyline_plan.CSS
+)
 
 # The CSS of the Free agents page only (#193): the shared chart style in the page head, so that the player modal
 # does not add its own copy (#186). The page draws no chart of the DESIGN.md "Marks" table, so its look does not

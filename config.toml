@@ -246,6 +246,15 @@ max_games_per_day = 6      # a day with this number of NBA games or fewer is a l
 # For comparison, a 4-game week adds 0.40 over a 3-game week.
 bonus = 0.10
 
+# The calendar of the fantasy weeks of the Yahoo league (core/weeks.py, owner, 2026-11-05). Week 1 starts on first.
+# Each week is Monday to Sunday, except a long week: 2 weeks in one. The adds page takes its week number from here.
+[weeks]
+first = 2026-10-19
+long = [
+  { start = 2026-11-30, end = 2026-12-13 },  # the NBA Cup knockout rounds (Dec 4-11)
+  { start = 2027-02-15, end = 2027-02-28 },  # the All-Star break (no games Feb 19-24)
+]
+
 # Schedule Skyline (core/skyline.py): the add ladder for one stream spot and the week type.
 [skyline]
 max_adds = 4               # the ladder shows 1 to this number of adds
