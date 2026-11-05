@@ -269,6 +269,9 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 6. Owner look at the compare page of head `a790af6` (2026-11-05): "they look great", except that in some views the no-game hatch is drawn behind the legs. It must run over them. The owner said this happened "again". The builder must fix it in all layouts and add a test of the draw order.
 7. The 2 optional nits of the re-review are fixed before the merge (the mark-role check reads all SVG shape types and checks the dark theme).
 
+8. Head `c5c76d5` fixed the hatch (draw-order test and a Chromium hit-test) and the 2 nits. The owner approved the compare page ("looks great now"). PR #241 merged as `f438cad` on 2026-11-05 and closed #235. Gap noted by the merger: the last reviewer pass was at `a790af6`; the commits after it had owner approval but no second review.
+9. On 2026-11-05, #236 and #237 started at the same time in separate worktrees.
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages
