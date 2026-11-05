@@ -354,11 +354,19 @@ Measurements on 2026-11-04 showed the single v6 poster at 4-9 px at 390 px. Thus
 The owner removed these items on 2026-11-04. Do not add them back.
 
 - No computed headline. The takeaway must come from the visual.
-- No footer.
+- No footer. One exception: the 2 Bluesky post images have the sign-off "Mahhhk Draft" (owner request of 2026-11-05). See [The sign-off](#the-sign-off).
 - No week-type stamp. The week type still drives the layout internally.
 - No rung-rule label.
 - No credit line. The credit line went away with the footer. The owner deferred the data source credit on 2026-11-04. Revisit it before real posting runs for a long time.
 - No top-left kicker, no big date line, no method note and no label "Teams that play each night".
+
+### The sign-off
+On 2026-11-05, the owner asked for the tag "Mahhhk Draft" on the 2 Bluesky post images.
+
+1. The tag is on the post images only (`skyline_svg.POST`). The adds page and the phone panels do not have it.
+2. The tag is right-aligned in the bottom-right corner, in a band under the day axis (`SIGN_BAND`).
+3. The tag is `lab-ink` text at the tall body size (11.6 px at a display width of 390 px). It is not `mark`, so it is not in "The Named Exception Rule".
+4. The tag is not a credit line. The post still names no data source.
 
 ### Skyline tokens
 The renderer ticket (#235) added these values to `core/tokens.py`, as "The One Source Rule" says. Each color has a light value (`SKYLINE_LIGHT`) and a dark value (`SKYLINE_DARK`). The light values come from the v6 mock. The site pages do not use these colors, so they are not in `LIGHT` and `DARK`.

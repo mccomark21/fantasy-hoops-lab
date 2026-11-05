@@ -27,6 +27,11 @@ FRAMES = {
     "ladder": (1350, 1080, 1350),
 }
 TITLE, BRAND = "SCHEDULE ", "SKYLINE"  # "Schedule" in lab-ink, "Skyline" in mark
+POST = ("skyline", "ladder")  # the layouts of the 2 post images
+# The sign-off of the post images only (owner, 2026-11-05): lab-ink text in the bottom-right corner, in a band under
+# the day axis. The size is the body size of a tall layout, 11.6 px at a display width of 390 px.
+SIGN = "Mahhhk Draft"
+SIGN_BAND = 52  # the height of the sign-off band, in SVG units
 
 # The roles of the marks that the renderer draws in `mark` (data-mark). The test ties each role to an item of the
 # DESIGN.md "Named Exception Rule", or to the site use of `mark` for headings ("title").
@@ -295,11 +300,30 @@ class _Week:
         return self.w.light[i] and not self.spot
 
 
-def _title(s, p, y, size, week_no, year):
+def _day(d):
+    return f"{d:%b} {d.day}"
+
+
+def week_dates(week):
+    """The dates of week, for example "Nov 9–15, 2026", "Nov 30 – Dec 6, 2026" or "Dec 28, 2026 – Jan 3, 2027"."""
+    a, b = week.days[0], week.days[-1]
+    if a.year != b.year:
+        return f"{_day(a)}, {a.year} – {_day(b)}, {b.year}"
+    if a.month != b.month:
+        return f"{_day(a)} – {_day(b)}, {b.year}"
+    return f"{_day(a)}–{b.day}, {b.year}"
+
+
+def _subtitle(week, week_no):
+    """The small title line: "Week N · year", or the dates of the week when week_no is None (the post images)."""
+    return week_dates(week) if week_no is None else f"Week {week_no} · {week.start.year}"
+
+
+def _title(s, p, y, size, week, week_no):
     brand = f'<tspan class="mark" data-mark="title">{BRAND}</tspan>'
     s.text(p.margin, y, TITLE + BRAND, size, "ink", "display", inner=f"{TITLE}{brand}")
     x = p.margin + text_width(TITLE + BRAND, size, "display") + p.week * 0.4
-    s.text(x, y, f"Week {week_no} · {year}", p.week, "ink", "label")
+    s.text(x, y, _subtitle(week, week_no), p.week, "ink", "label")
 
 
 def _runs(flags):
@@ -561,7 +585,7 @@ def _ladder(s, k, p, ax, top, bottom, href):
 
 def _page(s, k, p, ax, week_no, href):
     w = k.w
-    _title(s, p, 60 + p.title * 0.84, p.title, week_no, w.start.year)
+    _title(s, p, 60 + p.title * 0.84, p.title, w, week_no)
     s.line(p.margin, 182, ax.end, 182, "base-rule")
     line_y = _skyline(s, k, p, ax, 190, 490)
     label = (f"{w.light_max} or fewer", "games = light", "night")
@@ -766,14 +790,15 @@ def axis(layout, week=None, rungs=None):
     rungs = tuple(rungs if rungs is not None else week.rungs)
     start = _tall_top(layout, week, rungs)[3]
     weights = tuple(NO_GAME_WEIGHT if none else 1 for none in week.no_games)
-    return DayAxis(start, FRAMES[layout][0] - p.margin - start, weights)
+    band = SIGN_BAND if layout in POST else 0
+    return DayAxis(start, FRAMES[layout][0] - p.margin - band - start, weights)
 
 
 def _tall(s, k, p, ax, layout, week_no, href):
     w = k.w
     title_y, top, head_h, _ = _tall_top(layout, w, k.rungs)
     ladder = layout.endswith("ladder")
-    _title(s, p, title_y, p.title, week_no, w.start.year)
+    _title(s, p, title_y, p.title, w, week_no)
     s.line(p.margin, title_y + 22, UNITS - p.margin, title_y + 22, "title-rule")
     if ladder:
         _ladder_tall(s, k, p, ax, top, head_h, href)
@@ -786,6 +811,15 @@ def _tall(s, k, p, ax, layout, week_no, href):
         _rows(s, ax, p.margin, UNITS - p.margin)
         _skyline_tall(s, k, p, ax)
     _heads_tall(s, k, p, ax)
+    if layout in POST:
+        _sign(s, p, layout)
+
+
+def _sign(s, p, layout):
+    """The sign-off of a post image: SIGN in lab-ink, right-aligned in the bottom-right corner of the frame."""
+    s.add('<g class="sign">')
+    s.text(UNITS - p.margin, FRAMES[layout][0] - p.margin - p.body * 0.25, SIGN, p.body, "ink", "label", "end")
+    s.add("</g>")
 
 
 def render(week, week_no, layout="page", rungs=None, leg_href=None, theme="light"):
@@ -793,6 +827,7 @@ def render(week, week_no, layout="page", rungs=None, leg_href=None, theme="light
 
     layout: one of LAYOUTS. "page": the desktop layout. "phone-skyline", "phone-ladder": the 2 phone panels.
     "skyline", "ladder": the 2 images of the post.
+    week_no: the fantasy week number of the small title line. None: the line gives the dates of the week.
     rungs: the ladder to draw, week.rungs when None. The adds page can give the rungs of a roster.
     leg_href: a function (rung, leg) -> URL or None. Each leg with a URL becomes a link.
     theme: "light" or "dark", the token values of core/tokens.py.
@@ -808,7 +843,7 @@ def render(week, week_no, layout="page", rungs=None, leg_href=None, theme="light
     else:
         _tall(s, k, p, ax, layout, week_no, leg_href)
     height, dw, dh = FRAMES[layout]
-    label = f"Schedule Skyline, week {week_no}, {week.days[0]:%b} {week.days[0].day} to {week.days[-1]:%b} {week.days[-1].day}"
+    label = "Schedule Skyline, " + (week_dates(week) if week_no is None else f"week {week_no}, {week_dates(week)}")
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" id="{sid}" class="skyline skyline-{layout}" '
         f'viewBox="0 0 {UNITS} {height}" width="{dw}" height="{dh}" role="img" aria-label="{label}">'
@@ -817,9 +852,12 @@ def render(week, week_no, layout="page", rungs=None, leg_href=None, theme="light
     )
 
 
-def post_images(week, week_no, theme="light"):
-    """The 2 images of the Bluesky post: (the skyline SVG, the ladder SVG), each 1080x1350."""
-    return render(week, week_no, "skyline", theme=theme), render(week, week_no, "ladder", theme=theme)
+def post_images(week, theme="light"):
+    """The 2 images of the Bluesky post: (the skyline SVG, the ladder SVG), each 1080x1350.
+
+    The title line gives the dates of the week, not a week number: the readers play in leagues with other week numbers.
+    """
+    return render(week, None, "skyline", theme=theme), render(week, None, "ladder", theme=theme)
 
 
 def phone_panels(week, week_no, rungs=None, leg_href=None, theme="light"):
