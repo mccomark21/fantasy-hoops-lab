@@ -27,6 +27,20 @@ The terms that more than one tool uses. Each term has one meaning in the code, t
 | Floor | The lowest weekly Total of a core. The trend of the Playoffs page shows it for each planning run (`trendPoints()` of `core/starts.js`, #230). |
 | Spread | The best weekly Total of a core − its worst weekly Total. |
 
+## Schedule Skyline
+
+`core/skyline.py` `week_facts()` gives these facts for one week of the NBA schedule. The adds page and the Bluesky image use them (#234). All counts are NBA games per night: the rows of `data/schedule.csv` ÷ 2.
+
+| Term | Meaning |
+|---|---|
+| Leg | A day window that one team holds in one stream spot. The best team of a leg has the most games, then the most light-night games. |
+| Rung | The plan for one stream spot, open each day, with 1 to `[skyline] max_adds` (4) adds. A rung with n adds has n legs. A rung keeps the legs of the rung above and splits one leg. If no split keeps the best total, the rung takes the best plan and gets a RE-PLAN flag. |
+| Zero-gain rung | A rung with no more games than the rung above. |
+| Scarce leg | A leg with `[skyline] scarce_teams` (5) or fewer best teams. The poster names the teams of a scarce leg. For another leg, it gives the count. |
+| Anchor night | A light night with `[skyline] anchor_max_games` (4) or fewer games that a scarce leg uses. A week has 2 anchor nights or fewer. |
+| Decisive back-to-back | A back-to-back that each team of a scarce leg needs, when 5 or fewer teams have a back-to-back in that leg. Only a decisive back-to-back gets a written callout. |
+| Week type | Dead-day, anchor, heavy-team or stream every day. The first match in this order sets the type. See the [schedule map wiki page](wiki/schedule-map-2026-11-04.md#week-types-2026-11-04). |
+
 ## League
 
 | Term | Meaning |

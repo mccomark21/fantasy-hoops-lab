@@ -246,6 +246,13 @@ max_games_per_day = 6      # a day with this number of NBA games or fewer is a l
 # For comparison, a 4-game week adds 0.40 over a 3-game week.
 bonus = 0.10
 
+# Schedule Skyline (core/skyline.py): the add ladder for one stream spot and the week type.
+[skyline]
+max_adds = 4               # the ladder shows 1 to this number of adds
+scarce_teams = 5           # a leg with this number of teams or fewer is scarce: the poster names its teams
+anchor_max_games = 4       # an anchor night has this number of NBA games or fewer
+heavy_max_teams = 3        # a heavy-team week: this number of teams or fewer play the most games
+
 # Settings for draft/board.py (writes draft_board.md and draft_board.html)
 [board]
 low_games = 60             # mark players projected for fewer games than this
