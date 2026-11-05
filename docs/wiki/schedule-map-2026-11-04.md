@@ -254,6 +254,7 @@ Poster mode inherits the site chart rules. These named exceptions apply:
 4. The phone layout stays in the scope of #236. No new issue.
 5. The #235 builder got a note: keep the day-axis geometry in one place, so that a later orientation option is a small change. #235 does not build the transposed layout.
 6. Sample file: `.impeccable/review/236-phone-sample.html` (untracked).
+7. Sample result of 2026-11-05 (agent report, measured in headless Edge): the smallest text is 11 px at 390 px in all 20 images. No overlaps remain after 2 fixes. On the phone screens all chips fit, with rows about 89 px tall. In the post images, rows are about 51 px tall at 390 px. One leg (post A, rung 4, Thu) shows 2 chips plus "+2". The skyline post image has a large empty top band. The agent recommended to keep the v6 2-image post and use the transposed layout on the phone only. The owner has not decided. Script: `.impeccable/mocks/schedule-skyline/transposed.py` (untracked).
 
 ## Related pages
 
