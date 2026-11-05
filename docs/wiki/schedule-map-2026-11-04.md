@@ -289,6 +289,10 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 
 18. On 2026-11-05, the owner decided: leave the unpublished Cup days (Dec 4–11) drawn as no-game days for now; no "TBD" mark. The owner also told the chief of staff to stop raising the ESPN data-source and credit question. This closes item 17 and the follow-up [Data source credit (2026-11-04)](#follow-up-data-source-credit-2026-11-04). Do not raise it again.
 
+19. PR #243 fixed the long-week totals blocker (both halves count over the whole matchup) and the doc nits at `240da1f`. The owner approved the compare page, and PR #243 merged as `2de2b1d` on 2026-11-05 (closes #236). With this, #235 to #238 are all closed. Owner steps left: the 2 Bluesky secrets, one manual post on `main`, then `BLUESKY_POST=true`.
+
+Lesson (2026-11-05): twice (PR #241 and PR #243) a fix after a review merged on owner approval with no second reviewer pass. A short re-review of the fix commits closes this gap. The merger also had to unlock 2 worktrees that the harness had locked.
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages

@@ -35,7 +35,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Decisions
 
-- [Schedule map of 2026-11-04](schedule-map-2026-11-04.md): the owner decisions of 2026-11-04 for the adds page redesign (one data source for the adds page and a Monday Bluesky image, a schedule map with weight on light nights, a scoped "Poster" mode), and the four-concept compare page as the next step.
+- [Schedule map of 2026-11-04](schedule-map-2026-11-04.md): the owner decisions of 2026-11-04 for the adds page redesign (one data source for the adds page and a Monday Bluesky image, a schedule map with weight on light nights, a scoped "Poster" mode), and the four-concept compare page as the next step. On 2026-11-05, the build of #235 to #238 (PRs #241 to #244) and the owner decisions on the top-to-bottom phone and post layout, the Mahhhk Draft tag and the long weeks.
 
 - [Team plan of 2026-10-28](team-plan-2026-10-28.md): the owner decision to recommend teams and positions, not players (#140), the prototype rounds and the approved C3 week grid.
 
