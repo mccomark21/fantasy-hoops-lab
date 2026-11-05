@@ -36,6 +36,8 @@ The owner said the concepts were "too simple". The owner wants ideal patterns: h
 1. "Best" means the most games. Light-night games break a tie. A light night is a day with 6 or fewer NBA games. The owner rejected weighted games and a two-lane version for the public image.
 2. The poster shows a ladder of patterns for 1, 2, 3 and 4 adds. Each leg is a day window that one team holds. Each leg lists the teams that fit it. The poster shows the gain from each extra add. The owner rejected a poster that names one specific chain.
 
+Superseded in part later on 2026-11-04: a leg no longer lists all the teams that fit it. The poster names only what is scarce. See [Skyline + ladder poster, v2-v5 (2026-11-04)](#skyline--ladder-poster-v2-v5-2026-11-04).
+
 ### Prototype: concept 6 "Ladder" (2026-11-04)
 
 On 2026-11-04, concept 6 "Ladder" gave these game totals for 1, 2, 3 and 4 adds:
@@ -51,10 +53,83 @@ In week B, the 2nd add gains only a light-night game. The prototype has two know
 1. Each rung is an independent optimum. Thus the legs can change order or teams from one rung to the next.
 2. The dots follow the first tied team in alphabetical order.
 
+Superseded in part later on 2026-11-04: weak point 1 no longer applies. The rung rule is now "nested when free". See [Skyline + ladder poster, v2-v5 (2026-11-04)](#skyline--ladder-poster-v2-v5-2026-11-04).
+
 ### Notes (2026-11-04)
 
 - Data: on 2026-11-04, `data/schedule.csv` had NBA Cup knockout games with no schedule for the weeks of Nov 30 and Dec 7. A Monday job must handle these weeks.
 - Reuse: `team_plan` in `src/fantasyhoops/adds/team_plan.py` (line 106 at `ae2ccdd`) already searches chained adds per stream spot for the owner's roster.
+
+## Skyline + ladder poster, v2-v5 (2026-11-04)
+
+On 2026-11-04, the owner reviewed versions v2 to v5 of the poster on the compare page `.impeccable/review/schedule-map-compare.html`. The compare page is not committed. Its script is in a session scratchpad.
+
+### Layout and rung rule (2026-11-04)
+
+1. The owner chose a hybrid. The night skyline is on top. The add ladder is below. The day columns of the two parts align.
+2. The rung rule is "nested when free" (concept 7C). Each rung keeps the legs of the rung above it and splits one leg. If that split loses games, the rung shows the best split instead, with a RE-PLAN tag.
+3. On weeks A, B and C, all rung rules gave the same result.
+4. On week D (Nov 9-15), the nested rule lost 1 game on rung 4.
+
+### Items the owner removed (2026-11-04)
+
+- The computed headline. The owner said: "the takeaway must come from the visual".
+- The label of the rung rule.
+- The big date line. The year "2026" went into the top-left kicker.
+- The method note "One open spot, every day. Leg = days one team holds the spot."
+- The label "Teams that play each night".
+
+The owner also had the gap between the totals column and the chart made smaller.
+
+### Ladder and skyline scale (v3, 2026-11-04)
+
+1. In v3, the ladder became a week calendar.
+2. The skyline scale was fixed at 30 teams. This scale wasted space.
+3. The owner challenged the fixed scale. The skyline now fits the busiest night of the week. Thus bar heights differ from one week to the next.
+
+### Owner principle: name only what is scarce (2026-11-04)
+
+1. Long team lists add no value. The poster writes "N teams to choose from" instead of the list.
+2. The key insight of a week is a leg with low volume, for example a Thursday with 2 games. The owner plans around that leg.
+3. The poster always draws a back-to-back as a line between dots. The poster names a back-to-back only when a leg depends on one that 5 or fewer teams have.
+
+### Week types (2026-11-04)
+
+The poster checks the week types in this order. The first match sets the type.
+
+1. Dead-day: 2 or more empty days in a row, or 3 or more light nights in a row.
+2. Anchor: a night with 4 or fewer games, and a leg with 5 or fewer teams depends on that night.
+3. Heavy-team: a few teams play more games than all other teams, and the 1-add rung depends on them.
+4. Stream every day: all other weeks.
+
+The test weeks have these types:
+
+| Week | Dates | Type |
+| --- | --- | --- |
+| A | Nov 2-8 | Anchor |
+| B | Feb 15-21 | Dead-day |
+| C | Jan 11-17 | Heavy-team (DEN 5) |
+| D | Nov 9-15 | Anchor |
+| E | Feb 8-14 2027 | Heavy-team (POR 5) |
+
+On 2026-11-04, no test week has the type "stream every day".
+
+### Team colors and rung bands (v5, 2026-11-04)
+
+1. Team abbreviations are chips in the team's primary color. The chip text passes a 4.5:1 contrast ratio.
+2. The team chips are a deliberate exception to the DESIGN.md rule "Ink Only". The exception applies to team identity only.
+3. Each rung is one light-blue band across the whole row. White dividers separate the legs. The anchor night has a deeper tint.
+4. The owner rejected dark-blue event blocks.
+
+Known weak point on 2026-11-04: many team primary colors are navy or red.
+
+### Candidate Poster-mode rules (2026-11-04)
+
+These rules are candidates for the Poster mode in `DESIGN.md`. On 2026-11-04, nobody had written them in `DESIGN.md`.
+
+1. The hero fills its frame. It scales to the data, not to the theoretical maximum.
+2. Ink and words go to what is scarce.
+3. Team colors go on team chips only.
 
 ## Related pages
 
