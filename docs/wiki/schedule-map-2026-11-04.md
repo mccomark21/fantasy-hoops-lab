@@ -239,6 +239,11 @@ Poster mode inherits the site chart rules. These named exceptions apply:
 3. #237: the export makes 2 PNGs and the post text. Each PNG is under 1 MB. A test measures the 11 px at 390 px rule.
 4. #238: the post attaches the 2 images in order, each with its own alt text.
 
+### Merges and an open gap (2026-11-04)
+
+1. PR #239 (closes #233) merged as `1cf0ee7`. PR #240 (closes #234) merged as `5825fda`.
+2. Open gap, found by the merger: the v6 game dots use the `mark` ink. As of `5825fda`, the Poster mode exception list in DESIGN.md does not name the dots, so the dots break the chart rules. Do this before #235 starts: add the dots to the exception list, or draw them in the text ink. The owner has not decided.
+
 ## Related pages
 
 - [Bluesky streaming posts](bluesky-streaming-posts.md): the plan of 2026-10-26 for weekly streaming images on Bluesky, paused the same day.
