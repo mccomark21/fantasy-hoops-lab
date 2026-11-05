@@ -8,7 +8,7 @@ name: bluesky
 
 on:
   schedule:
-    - cron: "0 13 * * 1"  # each Monday at 13:00 UTC: 8:00 US Eastern in winter (EST), 9:00 in summer (EDT)
+    - cron: "0 9 * * 1"  # each Monday at 09:00 UTC: 4:00 US Eastern in winter (EST), 5:00 in summer (EDT)
   workflow_dispatch:
     inputs:
       post:
