@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from fantasyhoops.adds import lists, page, timing
@@ -17,12 +18,13 @@ from fantasyhoops.adds.planner import Option, StreamSpot, TeamRank
 from fantasyhoops.adds.readers import Adds, Player, Week
 from fantasyhoops.adds.roles import Role
 from fantasyhoops.adds.slots import Day
-from fantasyhoops.adds.team_plan import UTIL
+from fantasyhoops.adds.team_plan import UTIL, TeamAdd, TeamPlan
 from fantasyhoops.adds.week_file import SavedAdd, WeekRecord
 from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
 from fantasyhoops.core.common import load_config
+from fantasyhoops.core.skyline import week_facts
 
 MON = date(2027, 1, 4)
 WEEK = [MON + timedelta(days=i) for i in range(7)]
@@ -196,8 +198,8 @@ def test_the_margin_and_the_weight_cells_get_the_class_of_the_state_of_the_categ
     assert rows["Weight"] == ["w0", "w3", "w2", "w3", "w1", "w0"]
     assert rows["You"] == [""] * 6
     assert 'id="mu-key"' in html and "a deficit" in text(html)
-    # The matchup section is above the team plan (#144).
-    assert html.index('<section id="matchup">') < html.index('id="plan"')
+    # #236: the Schedule Skyline is above the matchup section (#144 put the matchup above the team plan).
+    assert html.index('id="plan"') < html.index('<section id="matchup">')
 
 
 def test_margin_class_and_weight_class():
@@ -800,9 +802,34 @@ GRID_ADDS = (
     SavedAdd(2, WEEK[3], ("PF",), ("CHI",), (WEEK[3], WEEK[5])),
     SavedAdd(1, WEEK[6], (UTIL,), EIGHT, (WEEK[6],)),
 )
+# The Schedule Skyline (#236): the games of WEEK_GAMES, in a fake schedule, and a ladder of 3 rungs. Rung 1: +SG/PF
+# from 5 teams on Thu. Rung 2: also +PF CHI on Thu in spot 2. Rung 3: also +Util from 8 teams on Sun in spot 1.
+SKY_CFG = {
+    "quality_games": {"max_games_per_day": 6},
+    "skyline": {"max_adds": 4, "scarce_teams": 5, "anchor_max_games": 4, "heavy_max_teams": 3},
+}
+NBA = sorted(tokens.TEAM_COLORS)
+SKY_SCHED = pd.DataFrame(
+    [(str(d), NBA[(i * 7 + k) % 30]) for i, d in enumerate(WEEK) for k in range(2 * WEEK_GAMES[d])],
+    columns=["date", "team"],
+)
+FIVE = ("ATL", "CLE", "MEM", "PHI", "SAC")
+THU, SAT, SUN = WEEK[3], WEEK[5], WEEK[6]
+SG_PF = TeamAdd(0, THU, SUN, ("SG", "PF"), FIVE, (THU, SAT))
+PF_CHI = TeamAdd(1, THU, SUN, ("PF",), ("CHI",), (THU, SAT))
+LADDER = (
+    TeamPlan((SG_PF,), 2.0),
+    TeamPlan((SG_PF, PF_CHI), 4.0),
+    TeamPlan((replace(SG_PF, last_day=SAT), PF_CHI, TeamAdd(0, SUN, SUN, (UTIL,), EIGHT, (SUN,))), 5.0),
+)
 # The run also has the matchup of each state (MU, #144), so the fit test and the contrast test check its table.
 GRID_RUN = replace(
-    MU_RUN, today=WEEK[2], days=DAYS[2:], record=WeekRecord(runs=(WEEK[0], WEEK[1], WEEK[2]), adds=GRID_ADDS)
+    MU_RUN,
+    today=WEEK[2],
+    days=DAYS[2:],
+    record=WeekRecord(runs=(WEEK[0], WEEK[1], WEEK[2]), adds=GRID_ADDS),
+    skyline=week_facts(SKY_SCHED, MON, SKY_CFG),
+    ladder=LADDER,
 )
 
 # The matchup table (#144): the 6 category columns and each cell are inside the page, and no cell scrolls sideways.
@@ -843,33 +870,16 @@ TABLE_FIT = r"""width => {
 }"""
 
 
-# For each add cell and each band cell: each child box must be inside the cell box and inside the add box.
-FIT = r"""() => {
-  const bad = [], inside = (r, c) => r.left >= c.left - 0.5 && r.right <= c.right + 0.5
-    && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5;
-  document.querySelectorAll("#plan td.add, #plan td.band").forEach((td, i) => {
-    const c = td.getBoundingClientRect();
-    td.querySelectorAll("*").forEach(el => {
-      const r = el.getBoundingClientRect();
-      if ((r.width || r.height) && !inside(r, c)) bad.push(`cell ${i}: "${el.textContent.trim()}" leaves the cell`);
-    });
-    td.querySelectorAll(".addc").forEach(box => {
-      const k = box.getBoundingClientRect();
-      box.querySelectorAll("*").forEach(el => {
-        const r = el.getBoundingClientRect();
-        if ((r.width || r.height) && !inside(r, k)) bad.push(`cell ${i}: "${el.textContent.trim()}" leaves the add box`);
-      });
-      if (box.scrollHeight > box.clientHeight + 1 || box.scrollWidth > box.clientWidth + 1)
-        bad.push(`cell ${i}: the content is larger than the add box`);
-    });
-    if (td.scrollWidth > td.clientWidth + 1) bad.push(`cell ${i} scrolls sideways`);
-  });
-  return bad;
+# The Schedule Skyline (#236): the drawing of the current theme and layout. Its box is inside the page.
+SKY_FIT = r"""width => {
+  const shown = [...document.querySelectorAll("#plan .sky svg")].filter(s => s.getClientRects().length);
+  return shown.map(s => { const r = s.getBoundingClientRect();
+    return [s.classList[1], s.id.endsWith("-dark") ? "dark" : "light", r.left >= 0 && r.right <= width]; });
 }"""
 
 
 @pytest.mark.parametrize("width", [320, 390, 768, 1280])
-def test_each_add_cell_and_band_fits_its_cell_and_the_page_has_no_horizontal_scroll(width):
+def test_the_skyline_and_the_tables_fit_and_the_page_has_no_horizontal_scroll(width):
     with browser_page(width=width) as pg:
         # #165: the free-agent table and the waiver table are on the Free agents page.
         pg.set_content(page.render_free_agents(TABLE_RUN))
@@ -881,17 +891,11 @@ def test_each_add_cell_and_band_fits_its_cell_and_the_page_has_no_horizontal_scr
         pg.set_content(page.render(TABLE_RUN))
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
-            assert pg.evaluate(FIT) == [], (width, theme)
             assert pg.evaluate(MATCHUP_FIT, width) == [], (width, theme)
             assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
-            # The 7 columns of the week fit, with no sideways scroll of the grid.
-            assert pg.locator("#plan thead th[scope=col]").count() == 8
-            box = pg.locator("#plan table.week").bounding_box()
-            assert box["x"] >= 0 and box["x"] + box["width"] <= width, (width, theme)
-        # The long team list wraps inside its cell: the row grows, and each team is on its own line.
-        teams = pg.locator("#plan a.addc").nth(0).locator(".who span")
-        tops = teams.evaluate_all("els => els.map(e => e.getBoundingClientRect().top)")
-        assert len(tops) == 5 and tops == sorted(tops) and len(set(tops)) == 5
+            # #236: the page shows the Skyline of the theme: the desktop layout from 600px, else the 2 phone panels.
+            layouts = ["skyline-page"] if width >= 600 else ["skyline-phone-skyline", "skyline-phone-ladder"]
+            assert pg.evaluate(SKY_FIT, width) == [[name, theme, True] for name in layouts], (width, theme)
 
 
 # The contrast of each text of an element (and its children) against the solid background behind it.
@@ -913,61 +917,61 @@ CELL_CONTRAST = r"""root => {
   return out;
 }"""
 
-BAND_CONTRAST = r"""() => {
-  const rgb = s => { const p = s.match(/[\d.]+/g).map(Number);
-    return s.startsWith("color(") ? [p[0] * 255, p[1] * 255, p[2] * 255] : p.slice(0, 3); };
+
+# The contrast of each text of a leg link against the fill of its leg box (#236). A chip text: against its chip.
+LEG_CONTRAST = r"""a => {
+  const rgb = s => { const p = s.match(/[\d.]+/g).map(Number); return p.slice(0, 3); };
   const lum = c => c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
     .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0);
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
-  const out = [];
-  document.querySelectorAll("#plan td.band").forEach((td, i) => {
-    const bg = rgb(getComputedStyle(td).backgroundColor), bar = td.querySelector(".bar"), mk = td.querySelector(".mk");
-    const pairs = [["band", getComputedStyle(bar, "::before").backgroundColor]];
-    if (mk) pairs.push(["mark", getComputedStyle(mk).backgroundColor]);
-    pairs.forEach(([name, c]) => { const r = ratio(rgb(c), bg); if (r < 4.5) out.push(`${name} ${i} ${r.toFixed(2)}`); });
+  const box = rgb(getComputedStyle(a.querySelector(".leg-box")).fill), out = [];
+  a.querySelectorAll("text").forEach(t => {
+    // A chip text is on its chip. A "+1" text is on its tag box, the rect before it.
+    const chip = t.closest(".chip"), tag = t.previousElementSibling;
+    const under = chip ? chip.querySelector("rect") : tag && tag.matches("rect.plus-box") ? tag : null;
+    const bg = under ? rgb(getComputedStyle(under).fill) : box;
+    const r = ratio(rgb(getComputedStyle(t).fill), bg);
+    if (r < 4.5) out.push(`"${t.textContent}" ${r.toFixed(2)}`);
   });
   return out;
 }"""
 
+# The focus state of the focused leg: the outline of the link and the stroke of its leg box.
+LEG_FOCUS = r"""() => { const a = document.activeElement;
+  return { outline: getComputedStyle(a).outlineStyle, box: getComputedStyle(a.querySelector(".leg-box")).strokeWidth };
+}"""
+
 
 @pytest.mark.parametrize("width", [390, 1280])
-def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_theme(width):
+def test_each_leg_and_each_table_cell_has_4_5_to_1_in_each_state_and_theme(width):
     with browser_page(width=width) as pg:
         pg.set_content(page.render(TABLE_RUN))
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
 
-            def check(state, el):
-                cell = el.evaluate_handle("e => e.closest('td, th')")
-                assert pg.evaluate(CELL_CONTRAST, cell) == [], (theme, width, state, el.text_content())
-
-            links = pg.locator("#plan a")
-            assert links.count() == 3 + 5  # the adds of Thu (2) and Sun, and the day headers of Wed to Sun
-            # #165: a plan cell is a link to the Free agents page, so it has no selected state.
+            # #236: each leg of the Skyline is a link with a text label, a focus outline and 4.5:1 or more.
+            links = pg.locator("#plan .sky a").filter(visible=True)
+            assert links.count() == 6  # the 6 legs of the 3 rungs
             for i in range(links.count()):
                 el = links.nth(i)
+                assert el.get_attribute("aria-label").endswith("Show these free agents.")
                 el.scroll_into_view_if_needed()
                 pg.mouse.move(0, 0)
-                check("default", el)
+                assert pg.evaluate(LEG_CONTRAST, el.element_handle()) == [], (theme, width, "default", i)
                 el.hover()
-                check("hover", el)
+                assert pg.evaluate(LEG_CONTRAST, el.element_handle()) == [], (theme, width, "hover", i)
                 pg.mouse.move(0, 0)
                 el.focus()
                 pg.keyboard.press("Shift+Tab")
                 pg.keyboard.press("Tab")
-                assert pg.evaluate("getComputedStyle(document.activeElement).outlineStyle") == "solid"
-                check("focus", el)
+                focus = pg.evaluate(LEG_FOCUS)
+                assert focus["outline"] == "solid" and focus["box"] == "4px", (theme, width, focus)
+                assert pg.evaluate(LEG_CONTRAST, el.element_handle()) == [], (theme, width, "focus", i)
                 el.evaluate("e => e.blur()")
-            for past in (pg.locator("#plan .addc.was"), pg.locator("#plan thead th.past")):
-                assert past.count() == 2
-                for j in range(past.count()):
-                    check("past", past.nth(j))
-            assert pg.evaluate(BAND_CONTRAST) == [], (theme, width)
             # Each cell of the matchup table and its key (#144): each color of the Margin row and the Weight row.
             matchup = pg.locator("#matchup")
             assert matchup.locator("td.lead, td.trail, td.w0, td.w1, td.w2, td.w3").count() == 10
             assert pg.evaluate(CELL_CONTRAST, matchup.element_handle()) == [], (theme, width, "matchup")
-            assert pg.locator("#plan td.band.past .mk").count() == 1  # the Mon add starts on Tue (past)
         # Each text of the free-agent table and the waiver table (#143) on the Free agents page (#165): the bands,
         # the names, the tags and the values.
         pg.set_content(page.render_free_agents(TABLE_RUN))
@@ -977,71 +981,48 @@ def test_each_add_cell_day_header_band_and_mark_has_4_5_to_1_in_each_state_and_t
                 assert pg.evaluate(CELL_CONTRAST, pg.locator(table).element_handle()) == [], (theme, width, table)
 
 
-# The chart audit of the adds page (#190). Row 1 has its first add on Fri, so the grid has empty add cells on Wed and
-# Thu, which are not past. Row 2 has a past add on Tue and an add on Thu with a band and a start square.
-AUDIT_RUN = replace(
-    TABLE_RUN,
-    record=WeekRecord(
-        runs=(WEEK[0], WEEK[1], WEEK[2]),
-        adds=(
-            SavedAdd(2, WEEK[1], ("PG",), ("POR",), (WEEK[1],)),
-            SavedAdd(1, WEEK[4], ("SG", "PF"), ("ATL", "CLE"), (WEEK[4], WEEK[5])),
-            SavedAdd(2, WEEK[3], ("PF",), ("CHI",), (WEEK[3], WEEK[5])),
-        ),
-    ),
-)
+# The chart audit of the adds page (#190): the matchup table and the heading rule. The week grid parts of the audit
+# went with the week grid (#236).
+AUDIT_RUN = GRID_RUN
 
-# The computed look of each of the 7 spots of the audit, from the plan page in a browser.
 AUDIT_LOOK = r"""() => {
-  const css = (sel, prop, pseudo) => { const el = document.querySelector(sel);
-    return el ? getComputedStyle(el, pseudo || null)[prop] : "missing"; };
-  // The lab-stock ground in the color form of a heat cell: a 0% mix of mark.
-  const probe = document.createElement("i");
-  probe.style.background = "color-mix(in srgb, var(--mark) 0%, var(--lab-stock))"; document.body.append(probe);
-  const stockRgb = getComputedStyle(probe).backgroundColor; probe.remove();
-  const empty = [...document.querySelectorAll("#plan tr.add td:not(.past):not(.add):not(.band)")];
+  const css = (sel, prop) => { const el = document.querySelector(sel); return el ? getComputedStyle(el)[prop] : "missing"; };
   return {
-    empty: empty.length, emptyGrounds: [...new Set(empty.map(td => getComputedStyle(td).backgroundColor))],
-    stock: stockRgb,
-    gamesRule: css("#plan tr.games td", "borderBottomWidth"),
-    gamesWeight: css("#plan tr.games td", "fontWeight"),
-    addBorder: css("#plan a.addc", "borderTopWidth") + " " + css("#plan a.addc", "borderLeftWidth"),
-    pastBorder: css("#plan .addc.was", "borderTopWidth"),
     muZebra: css("#matchup tbody tr:nth-child(even) td", "backgroundColor"),
     muHeadRule: css("#matchup thead th", "borderBottomWidth"),
-    h2Rule: css("#plan h2", "borderBottomWidth"),
-    band: css("#plan td.band:not(.past) .bar", "height", "::before"),
-    square: css("#plan td.band:not(.past) .mk", "width"),
+    h2Rule: css("#matchup h2", "borderBottomWidth"),
   };
 }"""
 
 
 @pytest.mark.parametrize("width", [320, 390, 768, 1280])
-def test_the_plan_page_shows_the_7_changes_of_the_chart_audit(width):
-    """#190: the heat stops at an empty add cell, a 1px Games rule, a 1px add cell border, a plain matchup table, a
-    1px heading rule, a 2px band with a 10px square (8px below 600px) and regular Games numbers."""
+def test_the_plan_page_keeps_the_matchup_changes_of_the_chart_audit(width):
+    """#190: a plain matchup table and a 1px heading rule."""
     with browser_page(width=width) as pg:
         pg.set_content(page.render(AUDIT_RUN))
         for theme in ("light", "dark"):
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             look = pg.evaluate(AUDIT_LOOK)
-            assert look["empty"] >= 2 and look["emptyGrounds"] == [look["stock"]], (theme, look)
-            assert look["gamesRule"] == "1px" and look["gamesWeight"] == "400", (theme, look)
-            assert look["addBorder"] == "1px 1px" and look["pastBorder"] == "1px", (theme, look)
             assert look["muZebra"] == "rgba(0, 0, 0, 0)" and look["muHeadRule"] == "1px", (theme, look)
             assert look["h2Rule"] == "1px", (theme, look)
-            assert look["band"] == "2px" and look["square"] == ("10px" if width >= 600 else "8px"), (theme, look)
-            assert pg.evaluate(BAND_CONTRAST) == [], (theme, width)
-            assert pg.evaluate(FIT) == [] and pg.evaluate("document.documentElement.scrollWidth") <= width
+            assert pg.evaluate("document.documentElement.scrollWidth") <= width
 
 
 def test_the_plan_page_has_the_shared_chart_style_and_passes_its_check():
     """#190 adopts the shared chart style of #185 on the plan page. The plan page has no player modal."""
     from fantasyhoops.core import chart
 
+    from fantasyhoops.core import skyline_svg
+
     html = page.render(AUDIT_RUN)
     assert chart.CHART_STYLE in html and "__CHART_CSS__" not in html and "__PAGE_CSS__" not in html
-    assert chart.style_problems(html) == [] and chart.label_overlaps(html) == []
+    # #236: the Schedule Skyline is a poster (DESIGN.md "Poster mode"), not a Box Score chart. The poster checks of
+    # core/skyline_svg.py apply to it. The rest of the page passes the chart check.
+    posters = re.findall(r'<svg [^>]*class="skyline .*?</svg>', html, re.S)
+    assert len(posters) == 6 and all(skyline_svg.text_overlaps(svg) == [] for svg in posters)
+    rest = re.sub(r'<div class="sky">.*?</div></div></div>', "", html, flags=re.S)
+    assert "<svg" not in rest.split('id="plan"')[1].split("</section>")[0]
+    assert chart.style_problems(rest) == [] and chart.label_overlaps(rest) == []
     assert "lab-pmodal" not in html
 
 
@@ -1079,31 +1060,28 @@ def site_pages(run, width=390):
         yield pg
 
 
-def test_a_click_on_an_add_opens_the_free_agents_page_with_the_day_the_position_and_the_team_filters():
+def test_a_click_on_a_leg_opens_the_free_agents_page_with_the_day_the_position_and_the_team_filters():
     with site_pages(GRID_RUN) as pg:
         pg.goto(f"{SITE}adds/")
         assert pg.locator("#fa-table").count() == 0  # #165: the plan page has no free-agent table
-        pg.locator("#plan a.addc").nth(2).click()  # Add 2 on Thu: +PF CHI, starts Thu and Sat (row 2)
+        # #236: a leg of the phone ladder. Rung 2, spot 2: +PF CHI on Thu, starts Thu and Sat.
+        legs = pg.locator("#plan .sky a").filter(visible=True)
+        legs.and_(pg.locator('[href*="teams=CHI&"]')).first.click()
         pg.wait_for_url(f"{SITE}free-agents/?**")
         assert "days=2027-01-07,2027-01-09" in pg.url
         pressed = pg.locator('button.chip[aria-pressed="true"]').all_inner_texts()
         assert [t.split("\n")[0] for t in pressed] == ["Thu 1/7", "Sat 1/9", "PF", "CHI"]
         assert pg.locator("#fa-from").is_visible()
-        assert pg.locator("#fa-from-text").inner_text() == "Filters from the team plan: Add 2, Thu: +PF CHI."
+        assert pg.locator("#fa-from-text").inner_text() == "Filters from the team plan: 2 adds, spot 2, Thu: +PF CHI."
         assert pg.locator("#fa-from a").get_attribute("href") == "../adds/#plan"
         assert "(teams: CHI)" in pg.locator("#fa-count").inner_text()
         assert pg.evaluate("document.activeElement.id") == "fa-count"
         # Back to the team plan opens the plan on the plan page.
         pg.locator("#fa-from a").click()
         pg.wait_for_url(f"{SITE}adds/#plan")
-        # A day header sets only the day.
-        pg.get_by_role("link", name="Show free agents who play Sat 1/9").click()
-        pg.wait_for_url(f"{SITE}free-agents/?**")
-        pressed = pg.locator('button.chip[aria-pressed="true"]').all_inner_texts()
-        assert [t.split("\n")[0] for t in pressed] == ["Sat 1/9"]
         # Util clears the position filter.
         pg.goto(f"{SITE}adds/")
-        pg.locator("#plan a.addc").nth(1).click()  # Add 1 on Sun: +Util from 8 teams
+        legs.and_(pg.locator('[href*="pos=&"]')).first.click()  # rung 3, spot 1: +Util from 8 teams on Sun
         pg.wait_for_url(f"{SITE}free-agents/?**")
         assert pg.locator('#pos-chips button[aria-pressed="true"]').count() == 0
         assert "(teams: ATL, BKN, BOS, GS, IND, LAC, LAL, ORL)" in pg.locator("#fa-count").inner_text()
@@ -1144,7 +1122,7 @@ def test_the_team_filter_has_a_chip_for_each_team_of_the_free_agents():
 def test_the_page_has_the_team_plan_and_no_plans_for_one_roster_spot_and_no_contingency_section():
     html = render()
     shown = text(html)
-    assert '<section id="plan"><h2>Team plan</h2>' in html
+    assert '<section id="plan"><h2 class="vh">Schedule Skyline</h2>' in html
     assert "Best plans for one roster spot" not in shown and "Contingency" not in shown
     assert 'class="plans"' not in html
 
@@ -1160,6 +1138,27 @@ def test_the_free_agents_sections_are_on_the_free_agents_page_and_not_on_the_pla
     assert "<h1>Free agents</h1>" in free and "<title>Free agents</title>" in free
     assert '<a href="../adds/#plan">team plan</a>' in free and "Week 12: Mon 1/4 to Sun 1/10." in text(free)
     assert page.FORWARD in plan and page.FORWARD not in free
+
+
+def test_the_skyline_is_the_hero_under_the_title_and_the_other_blocks_follow_in_their_old_order():
+    """#236: the Schedule Skyline replaces the team-plan grid and goes directly under the title and the week line.
+    The other blocks keep their order (the grid was between the matchup and the ranking)."""
+    run = replace(GRID_RUN, cfg={**GRID_RUN.cfg, "season_value": {"blend_games": 10}}, warnings=["Check X."])
+    run = replace(run, ranking=RANKING, read=["PHI"], timings=(timing.StepTime("team plan", 1.0),))
+    html = page.render(run)
+    marks = [
+        '<div class="stats">',
+        '<section id="plan">',
+        'id="val-basis"',
+        '<section class="warning">',
+        '<section id="matchup">',
+        "<summary>NBA teams by open days</summary>",
+        'id="run-time"',
+        "<summary>How the plan works</summary>",
+    ]
+    where = [html.index(m) for m in marks]
+    assert where == sorted(where)
+    assert '<table class="week"' not in html and 'class="addc' not in html
 
 
 def test_the_free_agents_page_shows_the_site_menu_with_free_agents_current():

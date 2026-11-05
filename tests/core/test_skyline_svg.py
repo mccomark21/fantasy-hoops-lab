@@ -609,3 +609,21 @@ def test_only_the_post_images_have_the_sign_off_in_the_bottom_right_corner(weeks
     assert size * display_scale(layout) * 390 / FRAMES[layout][1] >= 11
     assert re.search(r'<g class="sign"><text [^>]*class="ink"[^>]*>Mahhhk Draft</text></g>', svg)
     assert text_overlaps(svg) == []
+
+
+@pytest.mark.parametrize("layout", ("page", "phone-ladder"))
+def test_a_leg_link_can_have_a_text_label_and_a_drawing_with_links_is_a_group(weeks, layout):
+    """#236: the adds page gives each leg link a text label."""
+    week, no = weeks["A"]
+    svg = render(week, no, layout, week.rungs[:2], lambda r, leg: (f"#fa-{r.adds}", f"Leg {leg.first}"))
+    legs = sum(len(r.legs) for r in week.rungs[:2])
+    assert len(re.findall(r'<a href="#fa-\d" aria-label="Leg \d">', svg)) == legs
+    assert 'role="group"' in svg and 'role="img"' not in svg
+    assert 'role="img"' in render(week, no, layout)
+
+
+def test_a_dark_drawing_has_its_own_id_so_that_both_themes_fit_on_one_page(weeks):
+    week, no = weeks["A"]
+    light, dark = render(week, no, "page"), render(week, no, "page", theme="dark")
+    assert 'id="sk-page-20261102"' in light and 'id="sk-page-20261102-dark"' in dark
+    assert "#sk-page-20261102-dark .ink" in dark

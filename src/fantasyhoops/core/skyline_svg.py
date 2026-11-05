@@ -400,8 +400,11 @@ def _dot(s, k, p, i, x, y, plus):
 
 
 def _leg_open(s, leg, href):
+    """href: the URL of the leg, or (the URL, the text label of the link), or None for no link."""
     if href:
-        s.add(f'<a href="{html.escape(href)}">')
+        url, label = href if isinstance(href, tuple) else (href, None)
+        aria = f' aria-label="{html.escape(label)}"' if label else ""
+        s.add(f'<a href="{html.escape(url)}"{aria}>')
     s.add(f'<g class="leg" data-first="{leg.first}" data-last="{leg.last}">')
 
 
@@ -829,12 +832,12 @@ def render(week, week_no, layout="page", rungs=None, leg_href=None, theme="light
     "skyline", "ladder": the 2 images of the post.
     week_no: the fantasy week number of the small title line. None: the line gives the dates of the week.
     rungs: the ladder to draw, week.rungs when None. The adds page can give the rungs of a roster.
-    leg_href: a function (rung, leg) -> URL or None. Each leg with a URL becomes a link.
+    leg_href: a function (rung, leg) -> a URL, (a URL, a text label) or None. Each leg with a URL becomes a link.
     theme: "light" or "dark", the token values of core/tokens.py.
     """
     if layout not in LAYOUTS:
         raise ValueError(f"The layout must be one of {LAYOUTS}, not {layout!r}.")
-    sid = f"sk-{layout}-{week.start:%Y%m%d}"
+    sid = f"sk-{layout}-{week.start:%Y%m%d}" + ("-dark" if theme == "dark" else "")
     k = _Week(week, rungs, sid)
     p, ax = profile(layout), axis(layout, week, k.rungs)
     s = _Svg()
@@ -843,10 +846,12 @@ def render(week, week_no, layout="page", rungs=None, leg_href=None, theme="light
     else:
         _tall(s, k, p, ax, layout, week_no, leg_href)
     height, dw, dh = FRAMES[layout]
+    # An image with leg links is a group, so that a screen reader reaches each link (role "img" hides them).
+    role = "group" if leg_href and not layout.endswith("skyline") else "img"
     label = "Schedule Skyline, " + (week_dates(week) if week_no is None else f"week {week_no}, {week_dates(week)}")
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" id="{sid}" class="skyline skyline-{layout}" '
-        f'viewBox="0 0 {UNITS} {height}" width="{dw}" height="{dh}" role="img" aria-label="{label}">'
+        f'viewBox="0 0 {UNITS} {height}" width="{dw}" height="{dh}" role="{role}" aria-label="{label}">'
         f"<title>{label}</title><style>{_css(sid, theme)}</style><defs>{_hatch(sid)}</defs>"
         f'<rect class="paper" width="{UNITS}" height="{height}"/>' + "".join(s.parts) + "</svg>"
     )

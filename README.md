@@ -79,7 +79,7 @@ The Roster page at [`/roster/`](https://mccomark21.github.io/fantasy-hoops-lab/r
 
 ### Adds plan
 
-The planner finds the open starting slots of each day of the fantasy week. It then recommends which NBA teams and positions to add in each stream spot, and on which day. The week grid shows each add and the days that the new player starts. The page also shows the category totals of this week's matchup.
+The planner finds the open starting slots of each day of the fantasy week. It then recommends which NBA teams and positions to add in each stream spot, and on which day. The Schedule Skyline shows the games of each night and a ladder of the best plans with 1 to 4 adds. The page also shows the category totals of this week's matchup.
 
 ### Free agents
 

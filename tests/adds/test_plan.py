@@ -49,7 +49,8 @@ def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, cap
     assert f"Wrote the plan page: {path}" in out
     assert "<h1>Free agents</h1>" in free_agents.read_text(encoding="utf-8")
     assert command.URL in out and command.URL.endswith("/adds/")
-    assert "+Util PHI" in text(path.read_text(encoding="utf-8"))
+    # #236: the Schedule Skyline shows the add as a leg with a link to the Free agents page.
+    assert "?days=2027-01-04,2027-01-05&amp;pos=&amp;teams=PHI&amp;" in path.read_text(encoding="utf-8")
     assert out.splitlines() == [
         "",
         f"Wrote the plan page: {path}",
@@ -71,7 +72,7 @@ def test_the_page_shows_the_team_plan_and_no_player_plan(monkeypatch, tmp_path, 
     for output in (out, shown):
         assert "Best plans for one roster spot" not in output and "Contingency" not in output
         assert "Aggressive" not in output and "Schedule plan" not in output
-    assert '<section id="plan"><h2>Team plan</h2>' in html and "+Util PHI" in shown
+    assert '<section id="plan"><h2 class="vh">Schedule Skyline</h2>' in html and "1 ADD" in shown
     assert "?days=2027-01-04,2027-01-05&amp;pos=&amp;teams=PHI&amp;" in html
 
 
@@ -474,6 +475,8 @@ def run_command(
         "trade": {"untouchable": [], "value_band": [0.95, 1.10]},  # the Best swaps list (#215)
         "games": {"full_season": 82, "power": 1.25},  # the Season value (#222)
         "season_value": {"blend_games": 10},
+        # The Schedule Skyline (#236): the values of config.toml.
+        "skyline": {"max_adds": 4, "scarce_teams": 5, "anchor_max_games": 4, "heavy_max_teams": 3},
     }
     playoff_days = [Day(date(2027, 3, 8), "wk19", False, frozenset({"PHI", "BOS"}))]
     monkeypatch.setattr(command.roster_page, "playoff_days", lambda sched, cfg: playoff_days)
@@ -858,7 +861,8 @@ def test_each_run_writes_the_week_file_and_a_later_run_keeps_the_past_day(monkey
     assert tuesday.adds[0] == monday.adds[0]
     assert [a.day for a in tuesday.adds] == [WEEK[0], WEEK[1]]
     html = page.page_path().read_text(encoding="utf-8")
-    assert '<td class="add past"><span class="addc was"' in html
+    # #236: the Skyline lists the saved add of the past day under the drawing.
+    assert "<li>Add 1, Mon 1/4: +Util PHI. Starts Mon &amp; Tue.</li>" in html
     assert "No saved plan" not in html
 
 

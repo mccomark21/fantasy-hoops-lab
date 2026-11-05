@@ -1,6 +1,6 @@
 # Weekly adds planner
 
-Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, finds the open starting slots of each day and ranks the NBA teams by the open days that they cover. Then it makes the team plan: the adds of the stream spots as NBA teams and open slots, not as players (#140). The planner writes the plan page and the Free agents page in `output/adds/`. It publishes them at `/adds/` and `/free-agents/`. The plan page shows the team plan as a week grid, the matchup weights and the warnings. The Free agents page shows a free-agent table with filters, the waiver players and the role-up marks (#165). You pick the player in the free-agent table. Each run saves the adds of its plan in the week file, so that the page can show the past days of the week (see [Week file](#week-file)). The terminal prints a short summary (see [Terminal summary](#terminal-summary)). The planner times each step of the run. The page shows the times in the Run time section, and the run appends them to `output/adds/timings.csv`.
+Status: built. This guide records the design and how the planner works. The code is in `src/fantasyhoops/adds/`. The planner reads your team, finds the open starting slots of each day and ranks the NBA teams by the open days that they cover. Then it makes the team plan: the adds of the stream spots as NBA teams and open slots, not as players (#140). The planner writes the plan page and the Free agents page in `output/adds/`. It publishes them at `/adds/` and `/free-agents/`. The plan page shows the team plan as the Schedule Skyline (#236), the matchup weights and the warnings. The Free agents page shows a free-agent table with filters, the waiver players and the role-up marks (#165). You pick the player in the free-agent table. Each run saves the adds of its plan in the week file, so that the page can show the past days of the week (see [Week file](#week-file)). The terminal prints a short summary (see [Terminal summary](#terminal-summary)). The planner times each step of the run. The page shows the times in the Run time section, and the run appends them to `output/adds/timings.csv`.
 
 The planner shows how to use your adds in the current fantasy week. For the terms that all tools share, see the [glossary](../glossary.md).
 
@@ -121,7 +121,7 @@ Decision (2026-10-28, #140): each run writes the recommended adds of the week to
 5. The file holds only the recommendations, not the adds that you made on Yahoo.
 6. On the last day of a week, the run plans the next week and writes the file of the next week.
 
-The row of an add is its row in the week grid. A stream spot continues the row of a past add when its holder plays for a team of the last past add of that row, because that add was likely the holder. Each other spot takes the lowest row with no past add, in order of spot.
+The row of an add is its row in the week file and in the terminal line ("Add 1"). A stream spot continues the row of a past add when its holder plays for a team of the last past add of that row, because that add was likely the holder. Each other spot takes the lowest row with no past add, in order of spot.
 
 ### Next-week games
 
@@ -252,33 +252,36 @@ The margin keeps its sign (+ or -), so the state does not depend on color only. 
 
 Decision (2026-10-29, #165): the free-agent table, the waiver players and the role-up marks moved to the [Free agents page](#free-agents-page), with its own tab in the site menu. The order of the menu is Roster, Adds plan, Free agents, Trades. Since #172, it is Home, Roster, Adds plan, Free agents, Trades.
 
-The plan page has the team plan as its main section. Above the team plan, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight (#144). The page is public, so it does not show the name of the opponent. Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
+The plan page has the Schedule Skyline as its hero, directly under the title and the week line (#236). Below the Skyline, the matchup section shows the total of each category for your team and your opponent, the margin and the matchup weight (#144). The page is public, so it does not show the name of the opponent. Near the end of the page, the Run time section shows the time of each step of the run (see [Run time](#run-time)).
 
 An old link to the free-agent table of the plan page (`adds/#fa` or `adds/#waivers`) forwards to the Free agents page.
 
-### Team plan
+### Schedule Skyline
 
-Decision (2026-10-28, #140): the owner approved the C3 heat sample of the week grid. `adds/grid.py` makes the section.
+Decision (2026-11-05, #236): the Schedule Skyline replaces the week grid of the team plan (#140). `adds/skyline_plan.py` makes the section. `core/skyline.py` gives the facts of the week, and `core/skyline_svg.py` draws them (#235). DESIGN.md "Poster mode" gives the rules of the drawing.
 
-1. Columns: Monday to Sunday of the fantasy week, always, on a desktop and on a phone. At 390px, the 7 columns fit with no sideways scroll. Below 600px, the labels get shorter ("M" and "26" for "Mon" and "10/26").
-2. Row "Games": the NBA games of the day (the rows of `data/schedule.csv` for that date, divided by 2).
-3. The games of the day shade the whole column: more games, a deeper `mark` tint, from 0% to 40% of the day with the most games. A key under the grid shows the scale.
-4. Rows "Add 1" and "Add 2": one row for each stream spot with an add, and 2 rows at least. An add sits in the column of its add day: "+<slots> <teams>", for example "+SG/PF SAC". With 5 teams or fewer, the cell lists them. With `[adds] team_count_at` (6) teams or more, the cell gives the count, for example "+Util 8 teams". A later add in the same row drops the player of the earlier add. The row label counts the adds of the row.
-5. A band continues after each add in the same row, through each day that the new player holds the spot: up to the day before the next add in that row, or Sunday. A filled square on the band marks a day that he starts. A held day with no start shows the band only. A key under the grid shows the band with and without the square.
-6. A past day is muted. Its add cells show the saved add of the [week file](#week-file) in a dashed muted cell. A past band and its squares use `lab-mute`. A past day with no saved run gets blank add cells and a line under the grid, for example "No saved plan for Mon and Tue."
-7. The legend under the grid is collapsed ("How to read the plan"). The keys stay visible.
+1. The skyline: the NBA games of each night of the fantasy week, Monday to Sunday. A light night has 6 or fewer games (`[quality_games] max_games_per_day`). It is the same skyline as the Monday Bluesky post.
+2. The ladder: one rung for each number of adds n, from 1 to the adds left, and 4 at most (`[skyline] max_adds`). Rung n is the team plan (`team_plan()`) of your stream spots with n adds or fewer. The number at the left of a rung is the started games of your stream spots.
+3. A lane: each stream spot with an add in the rung has its own row in the rung. The lanes go in order of the first add day.
+4. A leg: one add, a white block from the add day to the last day that the new player holds the spot. A dot marks a day that he starts. A leg with 5 or fewer teams (`[skyline] scarce_teams`) names them as team chips. Else it gives the count, for example "14 teams to choose from".
+5. "+1" marks a start day that the rung has more often than the rung above. A leg that the rung above also has gets no "+1". RE-PLAN marks a rung that does not keep each add of the rung above.
+6. The days before today are past. The ladder plans from today. Under the drawing, a list gives the saved adds of the past days from the [week file](#week-file), for example "Add 1, Mon 1/4: +SG PHI. Starts Mon & Tue." A past day with no saved run gets a line, for example "No saved plan for Tue."
+7. Layout: from 600px, the page shows the desktop layout, with the days from left to right. Below 600px, it shows the 2 phone panels, with the days from top to bottom: the skyline, then the ladder. In a phone panel, a lane too narrow for the label shows only its dots.
+8. Theme: the page holds a light copy and a dark copy of each drawing. The CSS shows the copy of the current theme.
+9. The legend under the Skyline is collapsed ("How to read the Skyline").
 
-Click to filter: an add cell and a day header of a day that is not past are links (#165). A click opens the Free agents page with the filters of the cell in the URL, for example `../free-agents/?days=2027-01-07,2027-01-09&pos=PF&teams=CHI&from=...`. The page sets the filters and scrolls to the free-agent table:
+Click to filter: each leg is a link (#165). A click opens the Free agents page with the filters of the add in the URL, for example `../free-agents/?days=2027-01-07,2027-01-09&pos=PF&teams=CHI&from=...`. The page sets the filters and scrolls to the free-agent table:
 
-- An add cell sets the day filter to the start days of the add, the position filter to its slots ("Util" clears the position filter) and the team filter to its teams. The URL gives the days as dates. A date that is not a day of the table sets no filter.
-- A day header sets the day filter to that day. It clears the position filter and the team filter.
-- A line above the table names the source of the filters. Its link "Back to the team plan" opens the plan on the plan page (`/adds/#plan`). Reset filters hides the line and removes the filters from the URL.
+- A leg sets the day filter to the start days of the add, the position filter to its slots ("Util" clears the position filter) and the team filter to its teams. The URL gives the days as dates. A date that is not a day of the table sets no filter.
+- A line above the table names the source of the filters, for example "2 adds, spot 2, Thu: +PF CHI". Its link "Back to the team plan" opens the plan on the plan page (`/adds/#plan`). Reset filters hides the line and removes the filters from the URL.
 
-Decision (2026-10-29, #165): the plan cells have no selected state now, because a click opens another page.
+Each leg link has a text label, for example "2 adds, spot 2: on Thu add PF from CHI. Starts Thu & Sat. Show these free agents." On focus, the leg box gets a 4px ink frame and the link a 2px ink outline. Each text of a leg has 4.5:1 or more in both themes. Page tests check this, and that the Skyline fits with no sideways scroll at 320, 390, 768 and 1280px.
 
-A past add cell is not a link. Each link has a text label. Each state of an add cell and a day header (default, hover, focus, past) has 4.5:1 or more in both themes, and so have the bands and the squares. Page tests check this, and that each add cell and each band fits its cell at 320, 390, 768 and 1280px.
+The Skyline has no day links. The week grid had a link on each day header (#165).
 
-With no free-agent table (no free agents read), the cells are not links. When the plan has no add, a line gives the reason: no stream spots, no adds left, the week is over, or no NBA team gives a started game in an open slot.
+With no free-agent table (no free agents read), the legs are not links. When the ladder has no rung, a line gives the reason: no stream spots, no adds left, the week is over, or no NBA team gives a started game in an open slot. The ladder then shows the one open spot of `core/skyline.py`, with a line that says so.
+
+The page writes the run of the ladder in the "team plan" step of Run time. The step then counts the search work of all rungs.
 
 ## Free agents page
 
@@ -595,7 +598,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `rest_chance` | The chance that a player on the rest list sits on a second night: 0.5. That game counts `1 - rest_chance` started games. 0 counts each game as 1. |
 | `minutes_rise` | The change of minutes (L5 minus 14d) that gets the MIN+ mark: 4. |
 | `next_week_weight` | The part of a game this week that a game next week is worth: 0.5. 0 turns off the next-week games. See [Next-week games](#next-week-games). |
-| `team_count_at` | From this number of teams, an add cell of the team plan gives the count of its teams, not the list: 6. See [Team plan](#team-plan). |
+| `team_count_at` | From this number of teams, the terminal line of an add and the filter line of the Free agents page give the count of its teams, not the list: 6. |
 | `next_week_open_days` | The first days of next week that the page checks for open slots: 2. 0 turns off the next-week mark. See [Next-week mark](#next-week-mark). |
 | `team_name` | The team name at the top of the Roster page: TradeMark™. Without it, the page shows "Roster". |
 | `[season_value] blend_games` | The games from which Val uses the season-to-date line only: 10. With fewer games, Val blends the season-to-date line with the projection. See [Value](#value). |
@@ -637,7 +640,7 @@ The terms that only the planner uses. The shared terms are in the [glossary](../
 | Matchup value | The value of a player with each category weight times its matchup weight. With all categories tied, it equals the blended value. |
 | Team plan | The adds of the stream spots as NBA teams and open slots, with the most started games and the fewest adds. It names no player. See [The team plan](#the-team-plan). |
 | Add (of the team plan) | One recommended move: on its add day, add a player with one of its slots from one of its teams. A later add in the same row drops him. |
-| Band | The days after an add that the new player holds the spot, in the week grid. A filled square marks a day that he starts. |
+| Leg | One add of the Schedule Skyline ladder: the days from the add day to the last day that the new player holds the spot. A dot marks a day that he starts. |
 | Week file | `output/adds/week_plan_<first day>.json`: the adds that the runs of one fantasy week recommended. See [Week file](#week-file). |
 | Planning run | One run of `python -m fantasyhoops.adds.plan`. |
 | Free agents page | The page at `/free-agents/` with the free-agent table, the waiver players and the role-up marks of the last planning run. See [Free agents page](#free-agents-page). |
