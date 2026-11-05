@@ -1,0 +1,75 @@
+name: bluesky
+
+# The weekly Schedule Skyline post (#238). See docs/bluesky/README.md.
+# The default is a dry run: the job uploads the post files as an artifact and posts nothing.
+# The job posts only on main, and only when the owner switches on posting:
+#   - a scheduled run posts when the repo variable BLUESKY_POST is "true".
+#   - a manual run posts when its input "post" is on.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1"  # each Monday at 13:00 UTC: 8:00 US Eastern in winter (EST), 9:00 in summer (EDT)
+  workflow_dispatch:
+    inputs:
+      post:
+        description: Post to Bluesky. Off gives a dry run. Only a run on main can post.
+        type: boolean
+        default: false
+      week:
+        description: The Monday of the week, YYYY-MM-DD. Empty gives the next fantasy week.
+        type: string
+        default: ""
+  pull_request:  # a dry run on each PR that changes the post code
+    paths:
+      - .github/workflows/bluesky.yml
+      - src/fantasyhoops/bluesky/**
+      - src/fantasyhoops/core/skyline*.py
+
+concurrency:
+  group: bluesky-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BLUESKY_POST: >-
+        ${{ github.ref == 'refs/heads/main' && (
+        (github.event_name == 'schedule' && vars.BLUESKY_POST == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.post)) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"  # requires-python in pyproject.toml
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install the package
+        run: python -m pip install -e .
+      - name: Install Chromium for the PNG export
+        run: python -m playwright install --with-deps chromium
+      - name: Get the NBA schedule from ESPN (no login, no key)
+        run: python -m fantasyhoops.fetch.espn
+      - name: Make the post, then post it or do a dry run
+        env:
+          WEEK: ${{ inputs.week }}
+          # Lets the command say why a manual run off main with "post" on is a dry run.
+          BLUESKY_POST_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.post }}
+          # The job gives the secrets to this step only when posting is on.
+          BLUESKY_HANDLE: ${{ env.BLUESKY_POST == 'true' && secrets.BLUESKY_HANDLE || '' }}
+          BLUESKY_APP_PASSWORD: ${{ env.BLUESKY_POST == 'true' && secrets.BLUESKY_APP_PASSWORD || '' }}
+        run: |
+          echo "Posting switch: BLUESKY_POST=$BLUESKY_POST"
+          python -m fantasyhoops.bluesky.send ${WEEK:+--week "$WEEK"}
+      - name: Upload the post files
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: skyline-post
+          path: output/bluesky/
+          if-no-files-found: ignore  # a week with missing schedule days has no files
+          retention-days: 30

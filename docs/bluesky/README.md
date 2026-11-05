@@ -2,7 +2,7 @@
 
 ## Goal
 
-The Bluesky tool makes the weekly Schedule Skyline post: 2 images, the post text and 1 alt text for each image. The post is team-agnostic. It shows one roster spot that is open each day, with 1 to 4 adds, from the NBA schedule only. The command reads no Yahoo data and no roster file. It posts nothing. The design is in [docs/wiki/schedule-map-2026-11-04.md](../wiki/schedule-map-2026-11-04.md).
+The Bluesky tool makes the weekly Schedule Skyline post: 2 images, the post text and 1 alt text for each image. The post is team-agnostic. It shows one roster spot that is open each day, with 1 to 4 adds, from the NBA schedule only. The command reads no Yahoo data and no roster file. It posts nothing. A GitHub Actions job makes the post each Monday and posts it only when the owner switches on posting. See [The Monday job](#the-monday-job). The design is in [docs/wiki/schedule-map-2026-11-04.md](../wiki/schedule-map-2026-11-04.md).
 
 ## Usage
 
@@ -72,3 +72,54 @@ No post for the week of Dec 7–13, 2026. The schedule has no games on Mon Dec 7
 ```
 
 When the schedule has games on these days, the post runs again. A no-game day outside `unscheduled`, for example Tue Nov 3, 2026, shows the "NO NBA GAMES" hatch.
+
+## The Monday job
+
+The workflow `.github/workflows/bluesky.yml` makes the post each Monday at 13:00 UTC (8:00 US Eastern in winter, 9:00 in summer). It uses GitHub Actions only. It needs no Yahoo login.
+
+1. The job runs `python -m fantasyhoops.fetch.espn`. This script reads the public ESPN site API with no login and no key. If the fetch fails, the job fails and posts nothing.
+2. The job runs `python -m fantasyhoops.bluesky.send`. This command makes the post files of `python -m fantasyhoops.bluesky`. Then it posts them, or it does a dry run.
+3. The job uploads the files of `output/bluesky/` as the artifact `skyline-post`. GitHub keeps the artifact for 30 days.
+
+The job also runs as a dry run on each PR that changes the workflow, `src/fantasyhoops/bluesky/` or `src/fantasyhoops/core/skyline*.py`.
+
+### The dry run
+
+The dry run is the default. It makes the files and posts nothing. To read a dry run:
+
+1. Open the run on the Actions tab of the repo (workflow "bluesky").
+2. Read the job summary. It gives the post text and the alt text of each image.
+3. Download the artifact `skyline-post`. It holds `skyline.png`, `ladder.png` and `post.json`.
+
+A week with missing schedule days (see [Missing days](#missing-days)) gives no files and no post. The run stays green and shows the notice "No Skyline post this week".
+
+### The secrets
+
+The owner adds 2 repository secrets. The dry run does not need them.
+
+| Secret | Value |
+| --- | --- |
+| `BLUESKY_HANDLE` | The handle of the Bluesky account, for example `name.bsky.social`. |
+| `BLUESKY_APP_PASSWORD` | An app password of the account. Do not use the account password. |
+
+1. In Bluesky, open Settings, then Privacy and security, then App passwords.
+2. Add an app password. Do not give it access to direct messages.
+3. In GitHub, open the repo Settings, then Secrets and variables, then Actions.
+4. On the Secrets tab, add `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD`.
+
+The job gives the secrets to the post step only when posting is on. The command never prints the app password.
+
+### Switch on posting
+
+Only a run on `main` can post. A run on another branch is always a dry run. If a manual run on another branch has "post" on, the run shows a notice and a job-summary line that say so.
+
+1. Check the dry runs of some Mondays first.
+2. To post one time, run the workflow by hand: Actions, then "bluesky", then "Run workflow". Select `main` and turn on "post".
+3. To post each Monday, add the repository variable `BLUESKY_POST` with the value `true`. Use the Variables tab, next to the Secrets tab.
+4. To go back to the dry run, delete the variable or set it to `false`.
+
+The manual input "week" makes the post of another week, for example `2026-11-16`. Before it posts, the command reads the 30 newest posts of the account. If one of them has the same title line, for example "Schedule Skyline · Nov 9–15, 2026", the command posts nothing. The job summary then says "Already posted". Thus a second run for the same week does not post the week 2 times.
+
+### The post
+
+The post has the post text and 2 images in order: image 1 is the skyline, image 2 is the ladder. Each image has its own alt text, from `post.json`. Each tag of the post text is a link. The command sends plain AT Protocol HTTP calls to `https://bsky.social` (`com.atproto.server.createSession`, `app.bsky.feed.getAuthorFeed`, `com.atproto.repo.uploadBlob`, `com.atproto.repo.createRecord`). It needs no added library.
