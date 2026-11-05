@@ -280,11 +280,11 @@ These values have no token in `core/tokens.py` yet. Each chart writes them as li
 
 ## Poster mode
 
-**Scope.** Poster mode applies only to hero graphics and shareable images. Tables and working UI keep the Box Score rules of the sections above. The owner made "Art meets analytics" a product principle on 2026-11-04 (see `PRODUCT.md`). Poster mode is the design side of that principle.
+**Scope.** Poster mode applies only to hero graphics and shareable images. Tables and working UI keep the Box Score rules of the sections above. The owner made "Art meets analytics" a product principle on 2026-11-04 (see `PRODUCT.md`). Poster mode is the design side of that principle. A poster keeps the chart rules of the Charts section, such as "The Ink Only Rule" and "The One Hero Rule". "The Named Exception Rule" lists the only exceptions.
 
 The first use is the Schedule Skyline:
 
-- The weekly Bluesky image, a 1080x1350 PNG. This image is team-agnostic.
+- The weekly Bluesky post: a skyline image and a ladder image, each a PNG (see "The Phone Legibility Rule"). The post is team-agnostic.
 - The Skyline on the adds page. It replaces the team-plan grid only, and its ladder uses the owner's roster.
 
 **Source.** The owner approved concept "7C v6" on 2026-11-04. The mock is `.impeccable/mocks/schedule-skyline/schedule-map-compare.html` (key "[", weeks A to E). Git does not track this file. The decisions and the superseded versions are in `docs/wiki/schedule-map-2026-11-04.md`.
@@ -302,6 +302,18 @@ The first use is the Schedule Skyline:
 2. "The One Hero Rule": a chip is a data mark that is not `mark`, `lamp-off`, `lab-red` or `lab-ink`.
 
 The exception applies to team identity only. Known weak point on 2026-11-04: many team primary colors are navy or red.
+
+**The Named Exception Rule.** A poster follows the chart rules, except for the items in this list:
+
+1. Team chips, for team identity only. See "The Team Chip Rule".
+2. The grey calendar grid of the ladder.
+3. `mark` accents on three marks only: the anchor stripe or the anchor night column, the "+1" gain tags, and the light-night line.
+
+Any other break of a chart rule needs a new named exception in this list.
+
+**The Phone Legibility Rule.** A poster must be readable at a display width of 390 px. At that width, all text and all marks render at 11 px or more. On a poster 1080 px wide, that is about 30 px or more. When the content does not fit, split it into more images. Do not make the type smaller. Bluesky allows up to 4 images in a post.
+
+Measurements on 2026-11-04 showed the single v6 poster at 4-9 px at 390 px. Thus the Bluesky post splits into a skyline image and a ladder image.
 
 ### Layout
 - **Title:** "Schedule Skyline" in large Display type. Below it, "Week N · 2026" in small type.
