@@ -291,6 +291,8 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 
 19. PR #243 fixed the long-week totals blocker (both halves count over the whole matchup) and the doc nits at `240da1f`. The owner approved the compare page, and PR #243 merged as `2de2b1d` on 2026-11-05 (closes #236). With this, #235 to #238 are all closed. Owner steps left: the 2 Bluesky secrets, one manual post on `main`, then `BLUESKY_POST=true`.
 
+20. On 2026-11-05, the owner added the 2 Bluesky secrets. At the owner's request, the chief of staff ran the `bluesky` workflow on `main` with "post" on (run 42108111535). It succeeded and posted the week of 2026-11-09 (skyline.png 60 KB, ladder.png 111 KB): `at://did:plc:j36uhu4h273p66uvqzmmhj7b/app.bsky.feed.post/3mzlr2bibuy2p`. This is the first real test of the posting code. The repo variable `BLUESKY_POST` is not set yet, so the Monday runs stay dry runs.
+
 Lesson (2026-11-05): twice (PR #241 and PR #243) a fix after a review merged on owner approval with no second reviewer pass. A short re-review of the fix commits closes this gap. The merger also had to unlock 2 worktrees that the harness had locked.
 
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
