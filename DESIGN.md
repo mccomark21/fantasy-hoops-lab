@@ -96,6 +96,7 @@ Each page reads like the back of a basketball card: white coated stock, royal-bl
 - A royal-blue side menu on a desktop. A top bar with a drawer on a phone.
 - Square corners. Rules, not boxes or shadows, give the page its structure.
 - Light and dark themes follow `prefers-color-scheme`. The Auto, Light and Dark switch in the menu sets `data-theme` on `<html>` and keeps the choice in `localStorage`.
+- One scoped mode, Poster, for hero graphics and shareable images only. The Box Score rules stay for tables and working UI. See [Poster mode](#poster-mode).
 
 ## Colors
 
@@ -277,6 +278,88 @@ The chart keeps a box around each mark, line and placed label. A new label goes 
 These values have no token in `core/tokens.py` yet. Each chart writes them as literal values today.
 - Tooltip sizes: the 20px key number at width 85%, and the 168–260px card width.
 
+## Poster mode
+
+**Scope.** Poster mode applies only to hero graphics and shareable images. Tables and working UI keep the Box Score rules of the sections above. The owner made "Art meets analytics" a product principle on 2026-11-04 (see `PRODUCT.md`). Poster mode is the design side of that principle. A poster keeps the chart rules of the Charts section, such as "The Ink Only Rule" and "The One Hero Rule". "The Named Exception Rule" lists the only exceptions.
+
+The first use is the Schedule Skyline:
+
+- The weekly Bluesky post: a skyline image and a ladder image, each a PNG (see "The Phone Legibility Rule"). The post is team-agnostic.
+- The Skyline on the adds page. It replaces the team-plan grid only, and its ladder uses the owner's roster.
+
+**Source.** The owner approved concept "7C v6" on 2026-11-04. The mock is `.impeccable/mocks/schedule-skyline/schedule-map-compare.html` (key "[", weeks A to E). Git does not track this file. The decisions and the superseded versions are in `docs/wiki/schedule-map-2026-11-04.md`.
+
+### Named Rules
+**The Box Score Scope Rule.** Use Box Score for tables and working UI. Use Poster mode only for a hero graphic or a shareable image. A table, a filter or a form on the same page keeps the Box Score rules.
+
+**The Fill the Frame Rule.** The hero fills its frame. It scales to the data of the week, not to the theoretical maximum. Example: the skyline fits the busiest night of the week, not 15 games. Thus the bar heights differ from one week to the next.
+
+**The Scarce Ink Rule.** Ink and words go to what is scarce. A leg with 5 or fewer teams names its teams as team chips. A leg with more teams shows the text "N teams to choose from". The poster always draws a back-to-back as a line between dots. The poster names a back-to-back only when a leg depends on one that 5 or fewer teams have.
+
+**The Team Chip Rule.** Team colors go on team chips only. A team chip is the team abbreviation on the team's primary color from `tokens.TEAM_COLORS`. The chip text passes 4.5:1 (AA). This rule is a scoped exception to two chart rules:
+
+1. "The Ink Only Rule": a chip is a colored mark that is not data, a reference line or a direct label.
+2. "The One Hero Rule": a chip is a data mark that is not `mark`, `lamp-off`, `lab-red` or `lab-ink`.
+
+The exception applies to team identity only. Known weak point on 2026-11-04: many team primary colors are navy or red.
+
+**The Named Exception Rule.** A poster follows the chart rules, except for the items in this list:
+
+1. Team chips, for team identity only. See "The Team Chip Rule".
+2. The grey calendar grid of the ladder.
+3. `mark` accents on three marks only: the anchor stripe or the anchor night column, the "+1" gain tags, and the light-night line.
+
+Any other break of a chart rule needs a new named exception in this list.
+
+**The Phone Legibility Rule.** A poster must be readable at a display width of 390 px. At that width, all text and all marks render at 11 px or more. On a poster 1080 px wide, that is about 30 px or more. When the content does not fit, split it into more images. Do not make the type smaller. Bluesky allows up to 4 images in a post.
+
+Measurements on 2026-11-04 showed the single v6 poster at 4-9 px at 390 px. Thus the Bluesky post splits into a skyline image and a ladder image.
+
+### Layout
+- **Title:** "Schedule Skyline" in large Display type. Below it, "Week N · 2026" in small type.
+- **Two parts:** the night skyline on top and the add ladder below. The day columns of the two parts align.
+- **Skyline:** one column for each day of the fantasy week. One block is one NBA game. The skyline counts games per night, not teams.
+- **Ladder:** one rung each for 1, 2, 3 and 4 adds through one stream spot. Each rung shows its add count, its game total, its light-night games and the gain over the rung above it ("+1 · buys Thu").
+- **Rung rule:** "nested when free". Each rung keeps the legs of the rung above it and splits one leg. If that split loses games, the rung shows the best split instead, with a RE-PLAN tag.
+
+### Marks (7C v6)
+| Mark | Look | Tokens |
+| --- | --- | --- |
+| Skyline block | One block for each NBA game of the night. In a week with an anchor night, the blocks of the other nights are a dimmed tint. | `qcol`, dimmed tint (gap) |
+| Light-night line | A 1.5px dashed line at the light-night limit (6 or fewer games), with a paper halo. The line stays 1.5px wide when a page scales the poster. Its label reads "6 or fewer games = light night". | `mark`, halo (gap) |
+| Anchor night | Inverted. The skyline column is a solid `mark` bar with its game count in `lab-stock`. The day head is a solid `mark` block with `lab-stock` text. | `mark`, `lab-stock` |
+| Anchor stripe | A semi-transparent blue stripe on the day column of the anchor night only, through the skyline and the ladder. It is never a band across a whole row. In a dead-day week, the stripe covers the dead span. | stripe (gap) |
+| Ladder grid | A grey calendar grid with 1px `vrule` day rules. A 1px `lab-ink` rule is above rung 1. A 1px `vrule` rule is between the other rungs. | grid grey (gap), `vrule`, `lab-ink` |
+| Leg block | A white event block with a 1px `lamp-off` border, on the grey grid. It holds the leg label ("4 gm · 1 light"), the team chips or the team count, and one dot for each game. | leg white (gap), `lamp-off` |
+| Game dot | A ring with a `mark` border on `lab-stock`. A game on a light night is a solid `mark` dot. A day of the leg with no game for its team is a small `lamp-off` tick. | `mark`, `lab-stock`, `lamp-off` |
+| Back-to-back line | A 2px line between the dots of two games on back-to-back days. | `lab-ink` |
+| Gain tag | A "+1" tag above the dot of each game that the add buys. It replaces the gain ring of v5. | `mark` |
+| Zero-gain rung | The rung stays, dimmed, with the text "+0 · a Nth add gains nothing". | dimmed rung (gap), `vrule` |
+| No-game day | A darker neutral grey hatch with the text "NO NBA GAMES". A no-game day is never blue. | hatch grey (gap) |
+
+### What a poster does not have
+The owner removed these items on 2026-11-04. Do not add them back.
+
+- No computed headline. The takeaway must come from the visual.
+- No footer.
+- No week-type stamp. The week type still drives the layout internally.
+- No rung-rule label.
+- No credit line. The credit line went away with the footer. The owner deferred the data source credit on 2026-11-04. Revisit it before real posting runs for a long time.
+- No top-left kicker, no big date line, no method note and no label "Teams that play each night".
+
+### Token gaps
+These colors have no token in `core/tokens.py` yet. The renderer ticket (#235) adds them, each with a light value and a dark value, as "The One Source Rule" says. The light values come from the v6 mock.
+
+| Gap | v6 mock value | Job |
+| --- | --- | --- |
+| Hatch grey | `#e0e0e0` with `#ababab` stripes at 135° | The no-game day. |
+| Halo | `lab-stock`, 2.5px | The paper halo of the light-night line. The mock uses the literal `lab-stock` value. |
+| Stripe | `rgb(29 79 145 / .16)`, `lab-blue` at 16% | The anchor stripe. |
+| Dimmed rung | 45% opacity, chips at 55% | The zero-gain rung. |
+| Dimmed tint | `#edf1f7` | The skyline blocks of the other nights in a week with an anchor night. |
+| Grid grey | `#f6f7f9` | The ground of the ladder grid. |
+| Leg white | `rgb(255 255 255 / .62)` | The ground of a leg block. |
+
 ## Do's and Don'ts
 
 ### Do:
@@ -284,6 +367,8 @@ These values have no token in `core/tokens.py` yet. Each chart writes them as li
 - **Do** use tabular figures for all numbers.
 - **Do** show a state with a shape, a label or a sign as well as a color.
 - **Do** keep corners square and surfaces flat.
+- **Do** scale a poster hero to the data of the week.
+- **Do** measure the visibility of a thin poster mark at the scale of the page. Do not judge it by eye.
 
 ### Don't:
 - **Don't** write a hex value in a page generator. The draft board (`draft/board.py`) and the keeper report (`draft/report.py`) keep their own palettes. They are not on the site (owner decision of 2026-10-28).
@@ -291,3 +376,6 @@ These values have no token in `core/tokens.py` yet. Each chart writes them as li
 - **Don't** use side-stripe borders. A notice gets a full border.
 - **Don't** add gradients, shadows or rounded pills.
 - **Don't** draw gridlines, frames or legends in a chart.
+- **Don't** use Poster mode for a table or working UI.
+- **Don't** use a team color on a poster outside a team chip.
+- **Don't** list all the teams of a leg that has more than 5 teams.
