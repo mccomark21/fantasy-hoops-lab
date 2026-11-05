@@ -30,8 +30,8 @@ One planning run:
    Before the plan, with_rests() marks the rest games of the players on the rest list (adds/rest.py).
    matchup_weights() gives the matchup values of the free agents, the Match column of the page.
    ladder_plans(): the plans of the Schedule Skyline ladder, one for each number of adds from 1 to
-   min(adds left, [skyline] max_adds) (adds/skyline_plan.py, #236). skyline_week(): the skyline of the week
-   (core/skyline.py).
+   min(adds left, [skyline] max_adds) (adds/skyline_plan.py, #236). skyline_weeks(): the skyline of each 7-day
+   half of the week (core/skyline.py).
 7. save_week(): write the adds of the plan to the week file, output/adds/week_plan_<first day>.json
    (adds/week_file.py). The run replaces the saved adds of today and later. The saved adds of the past days stay.
 8. read_roles(): the minutes, starts and closes of each free agent from the rotation log (adds/roles.py).
@@ -89,7 +89,7 @@ from fantasyhoops.adds.slots import (
     plans_next_week,
     team_games,
 )
-from fantasyhoops.adds.skyline_plan import ladder_plans, skyline_week
+from fantasyhoops.adds.skyline_plan import ladder_plans, skyline_weeks
 from fantasyhoops.adds.team_plan import team_plan
 from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import projection_scale, replacement_value, season_replacement
@@ -139,8 +139,8 @@ class PlanningRun:
     next_days, next_games: the Days and the games of the first days of next week (slots.next_week_window()).
     timings: the timing.StepTimes of the run. recent_skip, market, cache: the run lines, or None.
     season: the core/season_value.SeasonValues of the run: the Val of the pages (#222), or None.
-    skyline: the core/skyline.Week of the fantasy week, or None. ladder: the TeamPlans of the Skyline ladder
-    (skyline_plan.ladder_plans(), #236): item n - 1 is the plan with n adds.
+    skyline: the core/skyline.Week of each 7-day half of the fantasy week (2 for a long week), or (). ladder: the
+    TeamPlans of the Skyline ladder (skyline_plan.ladder_plans(), #236): item n - 1 is the plan with n adds.
     """
 
     data: object
@@ -168,7 +168,7 @@ class PlanningRun:
     market: str = None
     cache: str = None
     season: object = None
-    skyline: object = None
+    skyline: tuple = ()
     ladder: tuple = ()
 
 
@@ -415,7 +415,7 @@ def main(today=None, publish=True, timed=True, cache=True):
         market=market_text,
         cache=cache_text,
         season=season,
-        skyline=skyline_week(sched, data.week, cfg),
+        skyline=skyline_weeks(sched, data.week, cfg),
         ladder=ladder,
     )
     roster = None

@@ -268,6 +268,7 @@ Decision (2026-11-05, #236): the Schedule Skyline replaces the week grid of the 
 6. The days before today are past. The ladder plans from today. Under the drawing, a list gives the saved adds of the past days from the [week file](#week-file), for example "Add 1, Mon 1/4: +SG PHI. Starts Mon & Tue." A past day with no saved run gets a line, for example "No saved plan for Tue."
 7. Layout: from 1210px, the page shows the desktop layout, with the days from left to right. It is wider than the other blocks: up to 1080px. All its text is 11px or more (owner, 2026-11-05). Below 1210px, the page shows the 2 phone panels, with the days from top to bottom: the skyline, then the ladder. The panels are 520px wide at most.
 8. Week number: the title gives the week number of the week calendar, `[weeks]` in `config.toml` (`core/weeks.py`). Without `[weeks]`, it gives the number of the Yahoo matchup page.
+   Decision (2026-11-05, owner): a long week (14 days) shows 2 Skylines, one above the other, one for each 7-day half. A date line above each one names its days, for example "Week 7, part 1 of 2: Nov 30 – Dec 6, 2026". The ladder plans the whole matchup. A leg that crosses the seam continues in the second half: a leg starts on Monday with the teams of the adds that still hold a spot. On a phone, the panels of the 2 halves follow in order.
 9. Theme: the page holds a light copy and a dark copy of each drawing. The CSS shows the copy of the current theme.
 10. The legend under the Skyline is collapsed ("How to read the Skyline").
 

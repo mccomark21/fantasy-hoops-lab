@@ -182,3 +182,68 @@ def test_the_week_number_comes_from_the_week_calendar_of_config_toml():
     calendar = {**CFG, "weeks": load_config()["weeks"]}
     assert "Week 11 · 2027" in skyline_plan.plan_section(run(cfg=calendar))
     assert "Week 12 · 2027" in skyline_plan.plan_section(run())
+
+
+# A long week (owner, 2026-11-05): 14 days, Nov 30 to Dec 13, 2026. CHI plays each Sat, Sun and Tue. MIA plays each
+# Wed and Thu. One add of CHI on Sat Dec 5 holds its spot to Dec 13. One add of MIA on Wed Dec 9.
+LONG = [date(2026, 11, 30) + timedelta(days=i) for i in range(14)]
+LONG_SCHED = pd.DataFrame(
+    [(str(d), "CHI") for d in LONG if d.weekday() in (5, 6, 1)]
+    + [(str(d), "MIA") for d in LONG if d.weekday() in (2, 3)]
+    + [(str(d), "ATL") for d in LONG],
+    columns=["date", "team"],
+)
+CHI_SAT = TeamAdd(0, LONG[5], LONG[13], ("PF",), ("CHI",), (LONG[5], LONG[6], LONG[8], LONG[12], LONG[13]))
+MIA_WED = TeamAdd(1, LONG[9], LONG[13], ("C",), ("MIA",), (LONG[9], LONG[10]))
+
+
+def long_run(**fields):
+    days = open_slots_by_day([], {d: set() for d in LONG[4:]}, SLOTS)
+    data = command.LeagueData(roster=[], adds=Adds(0, 5), week=Week(7, tuple(LONG)))
+    cfg = {**CFG, "weeks": load_config()["weeks"]}
+    base = command.PlanningRun(
+        data=data,
+        days=days,
+        games={},
+        spots=SPOTS,
+        today=LONG[4],
+        cfg=cfg,
+        skyline=skyline_plan.skyline_weeks(LONG_SCHED, data.week, cfg),
+        ladder=(TeamPlan((CHI_SAT,), 5.0), TeamPlan((CHI_SAT, MIA_WED), 7.0)),
+    )
+    return replace(base, **fields)
+
+
+def test_a_long_week_has_2_skylines_and_a_leg_that_crosses_the_seam_continues_in_the_second_half():
+    run = long_run()
+    assert [w.days[0] for w in run.skyline] == [LONG[0], LONG[7]]
+    first, second = (skyline_plan.roster_rungs(w, run.ladder, run.cfg)[0] for w in run.skyline)
+    # The first half: the CHI leg from Sat to Sun.
+    assert [[(x.first, x.last, x.teams, x.games) for x in r.legs] for r in first] == [
+        [(5, 7, ("CHI",), 2)],
+        [(5, 7, ("CHI",), 2)],
+    ]
+    # The second half: the CHI leg continues on Monday. In rung 2, the MIA add on Wed starts a new leg.
+    assert [[(x.first, x.last, x.teams, x.games) for x in r.legs] for r in second] == [
+        [(0, 7, ("CHI",), 3)],
+        [(0, 2, ("CHI",), 1), (2, 7, ("MIA",), 4)],
+    ]
+    html = skyline_plan.plan_section(run)
+    assert '<p class="sky-dates">Week 7, part 1 of 2: Nov 30 – Dec 6, 2026</p>' in html
+    assert '<p class="sky-dates">Week 7, part 2 of 2: Dec 7–13, 2026</p>' in html
+    assert html.index("part 1 of 2") < html.index('id="sk-page-20261130"') < html.index("part 2 of 2")
+    assert html.index("part 2 of 2") < html.index('id="sk-page-20261207"')
+    # The phone panels of the 2 halves follow in order: light, then dark, for each half.
+    phone = re.findall(r'<svg [^>]*id="sk-(phone-[a-z]+)-(\d+)', html)
+    assert phone == [
+        ("phone-skyline", "20261130"),
+        ("phone-ladder", "20261130"),
+        ("phone-skyline", "20261130"),
+        ("phone-ladder", "20261130"),
+        ("phone-skyline", "20261207"),
+        ("phone-ladder", "20261207"),
+        ("phone-skyline", "20261207"),
+        ("phone-ladder", "20261207"),
+    ]
+    # The CHI leg of the second half links to the filters of the CHI add.
+    assert html.count("2 adds: on Sat add PF from CHI.") == 2 * 2 * 2  # 2 halves x 2 layouts x 2 themes

@@ -20,7 +20,7 @@ from collections import Counter
 from fantasyhoops.adds.grid import add_text, fa_link, slot_text, team_count_at, teams_text
 from fantasyhoops.adds.team_plan import UTIL, team_plan
 from fantasyhoops.core.skyline import DAYS, Leg, Rung, week_facts
-from fantasyhoops.core.skyline_svg import phone_panels, render
+from fantasyhoops.core.skyline_svg import phone_panels, render, week_dates
 from fantasyhoops.core.weeks import week_number
 
 MAX_ADDS = 4  # [skyline] max_adds if config.toml does not set it
@@ -40,9 +40,14 @@ def _days(days):
     return _words((f"{d:%a}" for d in days), "&")
 
 
-def skyline_week(sched, week, cfg):
-    """The core.skyline.Week of the fantasy week week (readers.Week), or None if cfg has no [skyline] section."""
-    return week_facts(sched, week.start, cfg) if "skyline" in cfg else None
+def skyline_weeks(sched, week, cfg):
+    """The core.skyline.Week of each 7-day half of the fantasy week week (readers.Week), first half first.
+
+    A long week (14 days, owner, 2026-11-05) has 2 halves. Every other week has 1. () if cfg has no [skyline] section.
+    """
+    if "skyline" not in cfg:
+        return ()
+    return tuple(week_facts(sched, week.days[i], cfg) for i in range(0, len(week.days), DAYS))
 
 
 def rung_count(adds_left, cfg):
@@ -74,15 +79,22 @@ def _num(x):
 
 
 def _legs(plan, week, scarce, light):
-    """[(Leg, the TeamAdds of its first day)] of plan in week: one leg from each add day to the next add day."""
-    adds = [a for a in plan.adds if a.day in week.days]
-    days = sorted({a.day for a in adds})
+    """[(Leg, the TeamAdds of the leg)] of plan in week: one leg from each add day to the next add day.
+
+    In the second half of a long week, the adds of the first half that still hold a spot on Monday continue: a leg
+    starts on Monday with their teams, up to the first add day of the half.
+    """
+    adds = [a for a in plan.adds if a.day <= week.days[-1] and a.last_day >= week.days[0]]
+    days = sorted({a.day for a in adds if a.day in week.days})
+    carry = [a for a in adds if a.day < week.days[0]]
+    if carry and (not days or days[0] > week.days[0]):
+        days.insert(0, week.days[0])
     out = []
     for k, day in enumerate(days):
         first = week.days.index(day)
         last = week.days.index(days[k + 1]) if k + 1 < len(days) else DAYS
         span = set(week.days[first:last])
-        here = [a for a in adds if a.day == day]
+        here = [a for a in adds if a.day == day] or carry
         # The starts in the leg: each start day of each new player of the rung, with one count for each player.
         starts = [d for a in adds for d in a.starts if d in span and a.day <= d <= a.last_day]
         teams = tuple(sorted({t for a in here for t in a.teams}))
@@ -113,7 +125,7 @@ def roster_rungs(week, plans, cfg):
         if before is not None:
             gain = _num(games - before[0].games)
             more = starts - before[1]
-            ranked = sorted(more, key=lambda d: (not light[d], d))
+            ranked = sorted(more, key=lambda d: (not light[d], d))  # the days of this half only
             plus_one = tuple(sorted(ranked[: max(1, round(gain))])) if gain > 0 else ()
             kept = {(a.spot, a.day, a.teams) for a in plan.adds}
             replan = any((a.spot, a.day, a.teams) not in kept for a in plans[n - 2].adds)
@@ -227,45 +239,57 @@ LEGEND = (
 def plan_section(run, interactive=True):
     """The Schedule Skyline section of a PlanningRun as HTML.
 
-    run.skyline: the core.skyline.Week of the fantasy week, or None. run.ladder: the TeamPlans of ladder_plans().
-    run.record: the saved adds, for the past days. interactive: the Free agents page has a free-agent table, so each
-    leg is a link to it (#165). With no rung, the ladder shows the one open spot of core/skyline.py and a line gives
-    the reason.
+    run.skyline: the core.skyline.Week of each 7-day half of the fantasy week (skyline_weeks()), or (). A long week
+    has 2 halves: 2 Skylines, one above the other, each with its own date line. A leg that crosses the seam continues
+    in the second half. run.ladder: the TeamPlans of ladder_plans(). run.record: the saved adds, for the past days.
+    interactive: the Free agents page has a free-agent table, so each leg is a link to it (#165). With no rung, the
+    ladder shows the one open spot of core/skyline.py and a line gives the reason.
     """
-    week, cfg = run.skyline, run.cfg
+    cfg = run.cfg
+    weeks = run.skyline or ()
+    weeks = weeks if isinstance(weeks, tuple) else (weeks,)
     plans = tuple(run.ladder or ())
     count_at = team_count_at(cfg)
-    rungs, adds_of = roster_rungs(week, plans, cfg) if week is not None else ((), {})
+    halves, adds_of = [], {}
+    for week in weeks:
+        rungs, found = roster_rungs(week, plans, cfg)
+        halves.append(rungs)
+        adds_of.update(found)
     lines = []
-    message = _messages(run, rungs)
+    message = _messages(run, [r for rungs in halves for r in rungs])
     if message:
         lines.append(f'<p class="tp-lede">{_e(message)}</p>')
-        rungs = ()
+        halves = [() for _ in weeks]
     else:
         tap = " Tap a block to see the free agents who fit it." if interactive else ""
         lines.append(
             f'<p class="tp-lede">Rung n is the best plan with <b>n adds</b>. You have <b>{run.data.adds.left} adds '
             f"left</b>.{tap}</p>"
         )
-    figure = ""
-    if week is not None:
+    figures = []
+    if weeks:
         # The week number of the calendar of config.toml ([weeks]), else the number of the Yahoo page.
         no = week_number(run.data.week.start, cfg, run.data.week.number)
         slots = cfg.get("league", {}).get("slots", ["PG", "SG", "SF", "PF", "C"])
-        href = _leg_href(run, adds_of, count_at, slots) if interactive and rungs else None
-        drawn = rungs or None  # None: the ladder of one open spot, with no links
-        if not rungs:
+        href = _leg_href(run, adds_of, count_at, slots) if interactive and any(halves) else None
+        if not any(halves):
             lines.append('<p class="muted tp-note">The ladder shows one open spot on each day, not your roster.</p>')
-        wide = _themes(lambda t: render(week, no, "page", drawn, href, t))
-        tall = _themes(lambda t: "".join(phone_panels(week, no, drawn, href, t)))
-        figure = f'<div class="sky"><div class="sky-wide">{wide}</div><div class="sky-tall">{tall}</div></div>'
-    light_max = week.light_max if week is not None else cfg.get("quality_games", {}).get("max_games_per_day", 6)
+        for k, (week, rungs) in enumerate(zip(weeks, halves), start=1):
+            drawn = rungs or None  # None: the ladder of one open spot, with no links
+            wide = _themes(lambda t: render(week, no, "page", drawn, href, t))
+            tall = _themes(lambda t: "".join(phone_panels(week, no, drawn, href, t)))
+            if len(weeks) > 1:
+                figures.append(f'<p class="sky-dates">Week {no}, part {k} of {len(weeks)}: {_e(week_dates(week))}</p>')
+            figures.append(
+                f'<div class="sky"><div class="sky-wide">{wide}</div><div class="sky-tall">{tall}</div></div>'
+            )
+    light_max = weeks[0].light_max if weeks else cfg.get("quality_games", {}).get("max_games_per_day", 6)
     scarce = cfg.get("skyline", {}).get("scarce_teams", SCARCE_TEAMS)
     return "\n".join(
         [
             '<section id="plan"><h2 class="vh">Schedule Skyline</h2>',
             *lines,
-            figure,
+            *figures,
             _notes(run, plans),
             LEGEND.format(light_max=light_max, scarce=scarce),
             "</section>",
@@ -282,6 +306,7 @@ CSS = """
 .tp-note { font-size: 12px; margin: 4px 0 0; }
 .tp-past { font-size: 12px; margin: 2px 0 0; padding-left: 18px; }
 .sky { margin: 0 0 8px; }
+.sky-dates { color: var(--fg); font-size: 14px; font-weight: 800; margin: 12px 0 4px; }
 .sky svg { display: block; width: 100%; height: auto; }
 .sky-wide { width: min(1080px, calc(100vw - 288px)); }
 .sky-tall { display: none; max-width: 520px; }
