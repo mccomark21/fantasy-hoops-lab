@@ -215,7 +215,7 @@ Later on 2026-11-04, the owner answered three open questions (Q15-Q17).
 3. All text must be 11 px or more at a 390 px display width. On a 1080 px image, this is about 30 px or more.
 4. Evidence: in the PNG export test, the text of the single v6 poster measured 4-9 px at 390 px.
 5. This decision supersedes the "one 1080x1350 image" claim in [Build decisions (2026-11-04)](#build-decisions-2026-11-04).
-6. The phone layout of the adds page is a separate question. On 2026-11-04, it is still open.
+6. The phone layout of the adds page is a separate question. On 2026-11-04, it is still open. On 2026-11-05, the owner proposed a transposed layout. See [Transposed phone layout (2026-11-05)](#transposed-phone-layout-2026-11-05).
 
 ### Q16: Poster mode inherits the site chart rules (2026-11-04)
 
@@ -245,6 +245,15 @@ Poster mode inherits the site chart rules. These named exceptions apply:
 2. Open gap, found by the merger: the v6 game dots use the `mark` ink. As of `5825fda`, the Poster mode exception list in DESIGN.md does not name the dots, so the dots break the chart rules. Do this before #235 starts: add the dots to the exception list, or draw them in the text ink. The owner has not decided.
 
    Decided on 2026-11-05: the owner chose to add the game dots to the Poster mode exception list in DESIGN.md. The dots keep the `mark` ink of v6. #235 makes this DESIGN.md change.
+
+## Transposed phone layout (2026-11-05)
+
+1. On 2026-11-05, the owner proposed a transposed phone layout for the adds page. The skyline and the ladder read top to bottom (Mon at the top, Sun at the bottom). Each panel fits one phone screen. Only desktop keeps both panels horizontal, together on one screen.
+2. The chief of staff agreed and noted: keep equal row heights in the two panels so that the days align while you scroll, use 3-letter team codes in chips, and check chip room in a sample.
+3. The owner asked that the sample also show the transposed panels as the 2 Bluesky post images (1080x1350). The approved post design (v6, 2 images) does not change unless the owner approves after the sample.
+4. The phone layout stays in the scope of #236. No new issue.
+5. The #235 builder got a note: keep the day-axis geometry in one place, so that a later orientation option is a small change. #235 does not build the transposed layout.
+6. Sample file: `.impeccable/review/236-phone-sample.html` (untracked).
 
 ## Related pages
 
