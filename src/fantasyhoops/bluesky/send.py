@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date, datetime, timezone
 
@@ -30,6 +31,7 @@ SWITCH = "BLUESKY_POST"  # "true" switches on real posting. Any other value or n
 HANDLE = "BLUESKY_HANDLE"  # the account handle, from a GitHub secret
 PASSWORD = "BLUESKY_APP_PASSWORD"  # the app password, from a GitHub secret
 TAG = re.compile(r"#(\w+)")
+FEED_LIMIT = 30  # the recent posts that the duplicate check reads: about 30 weeks of weekly posts
 
 
 def posting_on(env):
@@ -38,7 +40,7 @@ def posting_on(env):
 
 
 class Client:
-    """The 3 AT Protocol calls of one post: log in, upload each image, make the post record.
+    """The AT Protocol calls of one post: log in, read the recent posts, upload each image, make the post record.
 
     opener sends a urllib Request and returns a file-like answer. A test gives a fake opener.
     """
@@ -48,13 +50,17 @@ class Client:
         self.opener = opener
         self.token = None
 
-    def _call(self, method, body, content_type="application/json"):
-        headers = {"Content-Type": content_type}
+    def _call(self, method, body, content_type="application/json", query=None):
+        """A POST call with body, or a GET call with the parameters of query when query is given."""
+        headers = {} if query is not None else {"Content-Type": content_type}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
-        if content_type == "application/json":
+        if content_type == "application/json" and query is None:
             body = json.dumps(body).encode("utf-8")
-        request = urllib.request.Request(f"{self.service}/xrpc/{method}", data=body, headers=headers, method="POST")
+        url = f"{self.service}/xrpc/{method}"
+        if query is not None:
+            url, body = f"{url}?{urllib.parse.urlencode(query)}", None
+        request = urllib.request.Request(url, data=body, headers=headers, method="GET" if query is not None else "POST")
         try:
             with self.opener(request, timeout=60) as resp:
                 return json.load(resp)
@@ -67,6 +73,19 @@ class Client:
         session = self._call("com.atproto.server.createSession", {"identifier": handle, "password": password})
         self.token = session["accessJwt"]
         return session["did"]
+
+    def recent_texts(self, did, limit=FEED_LIMIT):
+        """The texts of the newest posts of the account (no replies, no reposts), newest first."""
+        feed = self._call(
+            "app.bsky.feed.getAuthorFeed",
+            None,
+            query={"actor": did, "limit": limit, "filter": "posts_no_replies"},
+        )["feed"]
+        return [
+            item["post"]["record"].get("text", "")
+            for item in feed
+            if "reason" not in item and item["post"]["author"]["did"] == did
+        ]
 
     def upload_image(self, data):
         """Upload the bytes of one PNG. Return the blob reference for the post record."""
@@ -111,10 +130,21 @@ def post_record(data, blobs, now):
     }
 
 
+def title_line(text):
+    """The first line of a post text, for example "Schedule Skyline · Nov 9–15, 2026". It names the week."""
+    return text.split("\n", 1)[0].strip()
+
+
 def send(folder, client, handle, password, now=None):
-    """Post the files of folder (post.json and its images, in the post.json order). Return {"uri", "cid"}."""
+    """Post the files of folder (post.json and its images, in the post.json order). Return {"uri", "cid"}.
+
+    Return None and post nothing if a recent post of the account has the same title line: the week has a post.
+    """
     data = json.loads((folder / "post.json").read_text(encoding="utf-8"))
     did = client.login(handle, password)
+    title = title_line(data["text"])
+    if any(title_line(text) == title for text in client.recent_texts(did)):
+        return None
     blobs = [client.upload_image((folder / image["file"]).read_bytes()) for image in data["images"]]
     return client.create_post(did, post_record(data, blobs, now or datetime.now(timezone.utc)))
 
@@ -145,6 +175,11 @@ def run(folder, env, client=None, now=None):
     if not handle or not password:
         sys.exit(f"{SWITCH} is true, but the secret {HANDLE} or {PASSWORD} is empty. Add both secrets.")
     result = send(folder, client or Client(), handle, password, now)
+    if result is None:
+        line = f'Already posted: a recent post has the title "{title_line(data["text"])}". Posted nothing.'
+        print(line)
+        _summary(env, summary(data, "already posted, posted nothing") + f"\n{line}\n")
+        return None
     print(f"Posted to Bluesky: {result['uri']}")
     _summary(env, summary(data, f"posted, {result['uri']}"))
     return result

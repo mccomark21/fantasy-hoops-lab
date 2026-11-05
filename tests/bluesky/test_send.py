@@ -46,20 +46,35 @@ class FakeOpener:
         "com.atproto.repo.createRecord": {"uri": "at://did:plc:owner/app.bsky.feed.post/1", "cid": "cid1"},
     }
 
-    def __init__(self):
+    def __init__(self, feed=()):
         self.requests = []
+        self.feed = list(feed)  # the items of the author feed
+
+    @staticmethod
+    def method(request):
+        return request.full_url.rsplit("/", 1)[1].split("?", 1)[0]
 
     def __call__(self, request, timeout):
         self.requests.append(request)
-        method = request.full_url.rsplit("/", 1)[1]
+        method = self.method(request)
         if method == "com.atproto.repo.uploadBlob":
             answer = {"blob": {"$type": "blob", "ref": {"$link": f"blob{len(self.requests)}"}, "size": 1}}
+        elif method == "app.bsky.feed.getAuthorFeed":
+            answer = {"feed": self.feed}
         else:
             answer = self.ANSWERS[method]
         return io.BytesIO(json.dumps(answer).encode("utf-8"))
 
     def methods(self):
-        return [r.full_url.rsplit("/", 1)[1] for r in self.requests]
+        return [self.method(r) for r in self.requests]
+
+
+def item(text, did="did:plc:owner", repost=False):
+    """One item of an author feed: a post of did with text, or a repost of it."""
+    entry = {"post": {"author": {"did": did}, "record": {"text": text}}}
+    if repost:
+        entry["reason"] = {"$type": "app.bsky.feed.defs#reasonRepost"}
+    return entry
 
 
 @pytest.mark.parametrize(
@@ -84,21 +99,27 @@ def test_with_the_switch_off_the_job_posts_nothing(folder, tmp_path, capsys):
 
 
 def test_with_the_switch_on_the_job_posts_the_text_and_the_2_images_in_order(folder, capsys):
-    opener = FakeOpener()
+    # The feed has an older week, and a repost and a post of another account with the same title line.
+    title = TEXT.split("\n", 1)[0]
+    feed = [item("Schedule Skyline · Nov 2–8, 2026\n\n..."), item(title, repost=True), item(title, did="did:plc:x")]
+    opener = FakeOpener(feed)
     result = run(folder, ENV_ON, Client(opener=opener), now=NOW)
     assert result["uri"] == "at://did:plc:owner/app.bsky.feed.post/1"
     assert opener.methods() == [
         "com.atproto.server.createSession",
+        "app.bsky.feed.getAuthorFeed",
         "com.atproto.repo.uploadBlob",
         "com.atproto.repo.uploadBlob",
         "com.atproto.repo.createRecord",
     ]
-    login, sky, ladder, create = opener.requests
+    login, read, sky, ladder, create = opener.requests
     assert json.loads(login.data) == {"identifier": "owner.bsky.social", "password": SECRET}
     assert "Authorization" not in login.headers
+    assert read.get_method() == "GET" and read.data is None
+    assert "actor=did%3Aplc%3Aowner" in read.full_url
     # Image 1 is the skyline, image 2 is the ladder.
     assert sky.data == b"\x89PNG skyline" and ladder.data == b"\x89PNG ladder"
-    for r in (sky, ladder, create):
+    for r in (read, sky, ladder, create):
         assert r.get_header("Authorization") == "Bearer TOKEN"
     assert sky.get_header("Content-type") == "image/png"
     body = json.loads(create.data)
@@ -108,12 +129,23 @@ def test_with_the_switch_on_the_job_posts_the_text_and_the_2_images_in_order(fol
     assert record["createdAt"] == "2026-11-09T13:00:00.000Z"
     images = record["embed"]["images"]
     assert [i["alt"] for i in images] == ["Alt of the skyline.", "Alt of the ladder."]
-    assert [i["image"]["ref"]["$link"] for i in images] == ["blob2", "blob3"]  # the blobs of request 2 and 3
+    assert [i["image"]["ref"]["$link"] for i in images] == ["blob3", "blob4"]  # the blobs of request 3 and 4
     assert all(i["aspectRatio"] == {"width": WIDTH, "height": HEIGHT} for i in images)
     assert [f["features"][0]["tag"] for f in record["facets"]] == ["FantasyBasketball", "MahhhkDraft"]
     # The password goes only in the login request and never in the output.
-    assert all(SECRET.encode() not in (r.data or b"") for r in opener.requests[1:])
+    assert all(SECRET.encode() not in (r.data or b"") and SECRET not in r.full_url for r in opener.requests[1:])
     assert SECRET not in capsys.readouterr().out
+
+
+def test_a_rerun_does_not_post_the_same_week_again(folder, tmp_path, capsys):
+    # The account already has the post of this week, with other text after the title line.
+    opener = FakeOpener([item("Schedule Skyline · Nov 9–15, 2026\n\nAn older text of the post.")])
+    summary = tmp_path / "summary.md"
+    assert run(folder, {**ENV_ON, "GITHUB_STEP_SUMMARY": str(summary)}, Client(opener=opener), now=NOW) is None
+    assert opener.methods() == ["com.atproto.server.createSession", "app.bsky.feed.getAuthorFeed"]
+    line = 'Already posted: a recent post has the title "Schedule Skyline · Nov 9–15, 2026". Posted nothing.'
+    assert line in capsys.readouterr().out
+    assert line in summary.read_text(encoding="utf-8")
 
 
 def test_with_the_switch_on_and_no_secret_the_job_stops_before_a_request(folder):

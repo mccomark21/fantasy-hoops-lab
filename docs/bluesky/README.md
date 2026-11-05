@@ -118,8 +118,8 @@ Only a run on `main` can post. A run on another branch is always a dry run.
 3. To post each Monday, add the repository variable `BLUESKY_POST` with the value `true`. Use the Variables tab, next to the Secrets tab.
 4. To go back to the dry run, delete the variable or set it to `false`.
 
-The manual input "week" makes the post of another week, for example `2026-11-16`. Each run that posts makes a new post. Do not run the job again after a post, or Bluesky shows the week 2 times.
+The manual input "week" makes the post of another week, for example `2026-11-16`. Before it posts, the command reads the 30 newest posts of the account. If one of them has the same title line, for example "Schedule Skyline · Nov 9–15, 2026", the command posts nothing. The job summary then says "Already posted". Thus a second run for the same week does not post the week 2 times.
 
 ### The post
 
-The post has the post text and 2 images in order: image 1 is the skyline, image 2 is the ladder. Each image has its own alt text, from `post.json`. Each tag of the post text is a link. The command sends plain AT Protocol HTTP calls to `https://bsky.social` (`com.atproto.server.createSession`, `com.atproto.repo.uploadBlob`, `com.atproto.repo.createRecord`). It needs no added library.
+The post has the post text and 2 images in order: image 1 is the skyline, image 2 is the ladder. Each image has its own alt text, from `post.json`. Each tag of the post text is a link. The command sends plain AT Protocol HTTP calls to `https://bsky.social` (`com.atproto.server.createSession`, `app.bsky.feed.getAuthorFeed`, `com.atproto.repo.uploadBlob`, `com.atproto.repo.createRecord`). It needs no added library.
