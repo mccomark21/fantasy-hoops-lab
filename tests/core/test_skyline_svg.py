@@ -113,16 +113,22 @@ def outside(leg):
     return [t for t, (bx, by, bw, bh) in boxes if bx < x or by < y or bx + bw > x + w + 0.5 or by + bh > y + h + 0.5]
 
 
-def unlisted_marks(svg):
-    """The elements of svg that use the mark color with no data-mark role of MARK_ROLES, as a list of tags."""
-    mark = tokens.LIGHT["mark"]
+def unlisted_marks(svg, theme="light"):
+    """The elements of svg that use the mark color with no data-mark role of MARK_ROLES, as a list of tags.
+
+    The check reads the elements of each type (rect, polygon, path, g and the others). theme: the theme of svg.
+    """
+    mark = (tokens.DARK if theme == "dark" else tokens.LIGHT)["mark"]
     css = re.search(r"<style>(.*?)</style>", svg, re.S).group(1)
     classes = set()
     for selectors, body in re.findall(r"([^{}]+)\{([^}]*)\}", css):
         if mark in body:
             classes |= {sel.split()[-1].lstrip(".") for sel in selectors.split(",") if "." in sel}
     bad = []
-    for tag in re.findall(r"<(?:rect|line|circle|text|tspan|path)\b[^>]*>", svg):
+    frame = {"svg", "style", "title", "defs", "pattern"}  # the frame of the SVG, not marks
+    for tag, name in re.findall(r"(<([a-zA-Z]+)\b[^>]*>)", svg):
+        if name in frame:
+            continue
         cls = set((re.search(r'class="([^"]*)"', tag) or re.search("()", "")).group(1).split())
         role = re.search(r'data-mark="([^"]*)"', tag)
         if (cls & classes or mark in tag) and (not role or role.group(1) not in MARK_ROLES):
@@ -311,10 +317,13 @@ def test_the_overlap_check_finds_an_overlap():
     assert text_overlaps(svg + svg[5:] + "</svg>") == [("overlap", "overlap")]
 
 
+@pytest.mark.parametrize("theme", ("light", "dark"))
 @pytest.mark.parametrize("key", WEEKS)
 @pytest.mark.parametrize("layout", LAYOUTS)
-def test_each_mark_mark_is_in_the_exception_list_of_design_md(svgs, key, layout):
-    assert unlisted_marks(svgs[key, layout]) == []
+def test_each_mark_mark_is_in_the_exception_list_of_design_md(weeks, svgs, key, layout, theme):
+    week, no = weeks[key]
+    svg = svgs[key, layout] if theme == "light" else render(week, no, layout, theme="dark")
+    assert unlisted_marks(svg, theme) == []
 
 
 def test_each_mark_role_is_an_item_of_the_named_exception_rule():
@@ -330,6 +339,11 @@ def test_the_mark_check_finds_a_mark_mark_with_no_listed_role():
     assert unlisted_marks(svg.replace(' data-mark="gain-text"', "", 1))
     assert unlisted_marks(svg.replace(' data-mark="game-dot"', ' data-mark="other"', 1))
     assert unlisted_marks(svg.replace("</svg>", f'<rect class="paper" style="fill:{tokens.LIGHT["mark"]}"/></svg>'))
+    for shape in ("polygon", "path", "ellipse", "polyline", "g"):
+        assert unlisted_marks(svg.replace("</svg>", f'<{shape} class="mark"/></svg>')), shape
+    dark = render(*_week_a(), "page", theme="dark")
+    assert unlisted_marks(dark, "dark") == []
+    assert unlisted_marks(dark.replace("</svg>", f'<polygon style="fill:{tokens.DARK["mark"]}"/></svg>'), "dark")
 
 
 def _week_a():
@@ -502,3 +516,55 @@ def test_no_text_overlaps_another_in_chromium(chromium, weeks, tmp_path, layout)
             and b[2] < a[2] + a[4] - 0.5
         ]
         assert hits == [], key
+
+
+def ladder_zone(layout, week):
+    """(x0, y0, x1, y1) of the ladder grid of layout, in SVG units."""
+    if layout == "page":
+        ax = axis("page")
+        return ax.start, 560, ax.end, FRAMES["page"][0] - 56
+    p, ax = skyline_svg.TALL_PROFILE, axis(layout, week)
+    return p.margin + p.gutter, ax.start, 1080 - p.margin, ax.end
+
+
+@pytest.mark.parametrize("key", ("A", "B"))
+@pytest.mark.parametrize("layout", LADDERS)
+def test_the_no_game_hatch_is_drawn_after_the_legs(svgs, key, layout):
+    svg = svgs[key, layout]
+    last_leg = svg.rindex('<g class="leg"')
+    ladder_hatch = [
+        m.start() for m in re.finditer(r'<rect class="hatch"', svg) if m.start() > svg.index('<g class="rung')
+    ]
+    assert ladder_hatch and min(ladder_hatch) > last_leg
+
+
+HATCH_CHECK = """(points) => points.map(([x, y]) => { const top = document.elementFromPoint(x, y);
+  return top ? top.getAttribute('class') : null; })"""
+
+
+@pytest.mark.parametrize("layout", LADDERS)
+def test_the_no_game_hatch_is_on_top_of_the_legs_in_chromium(chromium, weeks, tmp_path, layout):
+    """On each no-game day of weeks A-E, the hatch is the topmost element at points across the whole ladder.
+
+    The points cross the legs that span the no-game day. No leg, chip, dot or text may paint over the hatch.
+    """
+    width = FRAMES[layout][1]
+    scale = width / 1080
+    for key, (week, no) in weeks.items():
+        empty = [i for i, none in enumerate(week.no_games) if none]
+        if not empty:
+            continue
+        show(chromium, render(week, no, layout), tmp_path, width)
+        x0, y0, x1, y1 = ladder_zone(layout, week)
+        ax = axis(layout, week)
+        points = []
+        for i in empty:
+            lo, hi = ax.lo(i) + 3, ax.lo(i + 1) - 3
+            for k in range(1, 20):
+                for j in range(1, 4):
+                    if layout == "page":
+                        points.append((lo + (hi - lo) * j / 4, y0 + (y1 - y0) * k / 20))
+                    else:
+                        points.append((x0 + (x1 - x0) * k / 20, lo + (hi - lo) * j / 4))
+        tops = chromium.evaluate(HATCH_CHECK, [[x * scale, y * scale] for x, y in points])
+        assert [t for t in tops if t != "hatch"] == [], key

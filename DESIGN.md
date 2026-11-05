@@ -348,7 +348,7 @@ Measurements on 2026-11-04 showed the single v6 poster at 4-9 px at 390 px. Thus
 | Back-to-back line | A 2px line between the dots of two games on back-to-back days. | `lab-ink` |
 | Gain tag | A "+1" tag above the dot of each game that the add buys. It replaces the gain ring of v5. | `mark` |
 | Zero-gain rung | The rung stays, dimmed, with the text "+0 · a Nth add gains nothing". The dimmed chip text is below 4.5:1, as in v6. | `SKYLINE_OPACITIES`, `vrule` |
-| No-game day | A darker neutral grey hatch with the text "NO NBA GAMES". A no-game day is never blue. | `sky-hatch`, `sky-hatch-line` |
+| No-game day | A darker neutral grey hatch with the text "NO NBA GAMES". In the ladder, the hatch runs over the legs. A no-game day is never blue. | `sky-hatch`, `sky-hatch-line` |
 
 ### What a poster does not have
 The owner removed these items on 2026-11-04. Do not add them back.

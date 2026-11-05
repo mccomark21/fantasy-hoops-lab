@@ -531,12 +531,13 @@ def _rung_info(s, p, rung, n, x, top):
 
 
 def _ladder(s, k, p, ax, top, bottom, href):
-    """The ladder of the page layout: the grid, one rung for each number of adds, then the anchor stripe."""
+    """The ladder of the page layout: the grid, one rung for each number of adds, the no-game hatch over the legs,
+    then the anchor stripe."""
     w = k.w
     rh = (bottom - top) / len(k.rungs)
     for i in range(DAYS):
         x, cw = ax.span(i, i + 1)
-        s.rect(x, top, cw, bottom - top, "hatch" if w.no_games[i] else "grid", k.hatch if w.no_games[i] else "")
+        s.rect(x, top, cw, bottom - top, "grid")
     for i in range(DAYS + 1):
         s.line(ax.lo(i), top, ax.lo(i), bottom, "day-rule")
     for n, rung in enumerate(k.rungs, start=1):
@@ -548,6 +549,10 @@ def _ladder(s, k, p, ax, top, bottom, href):
             url = href(rung, leg) if href else None
             _leg(s, k, p, ax, rung, leg, rt + 7, rt + rh - 7, k.lead and n == 1, url)
         s.add("</g>")
+    for i in range(DAYS):  # the hatch of a no-game day runs over the legs
+        if w.no_games[i]:
+            x, cw = ax.span(i, i + 1)
+            s.rect(x, top, cw, bottom - top, "hatch", k.hatch)
     for i in range(DAYS):
         if k.stripe[i]:
             x, cw = ax.span(i, i + 1, p.inset)
@@ -719,7 +724,7 @@ def _ladder_tall(s, k, p, ax, head_top, head_h, href):
     cw = (x1 - x0) / len(k.rungs)
     for i in range(DAYS):
         y, h = ax.span(i, i + 1)
-        s.rect(x0, y, x1 - x0, h, "hatch" if w.no_games[i] else "grid", k.hatch if w.no_games[i] else "")
+        s.rect(x0, y, x1 - x0, h, "grid")
     _rows(s, ax, p.margin, x1, first_ink=True)
     for c in range(len(k.rungs) + 1):
         s.line(x0 + c * cw, ax.start, x0 + c * cw, ax.end, "day-rule")
@@ -731,6 +736,10 @@ def _ladder_tall(s, k, p, ax, head_top, head_h, href):
             url = href(rung, leg) if href else None
             _leg_tall(s, k, p, ax, rung, leg, cx + 5, cw - 10, k.lead and n == 1, url)
         s.add("</g>")
+    for i in range(DAYS):  # the hatch of a no-game day runs over the legs
+        if w.no_games[i]:
+            y, h = ax.span(i, i + 1)
+            s.rect(x0, y, x1 - x0, h, "hatch", k.hatch)
     for i in range(DAYS):
         if k.stripe[i]:
             y, h = ax.span(i, i + 1, 3)
