@@ -244,6 +244,8 @@ Poster mode inherits the site chart rules. These named exceptions apply:
 1. PR #239 (closes #233) merged as `1cf0ee7`. PR #240 (closes #234) merged as `5825fda`.
 2. Open gap, found by the merger: the v6 game dots use the `mark` ink. As of `5825fda`, the Poster mode exception list in DESIGN.md does not name the dots, so the dots break the chart rules. Do this before #235 starts: add the dots to the exception list, or draw them in the text ink. The owner has not decided.
 
+   Decided on 2026-11-05: the owner chose to add the game dots to the Poster mode exception list in DESIGN.md. The dots keep the `mark` ink of v6. #235 makes this DESIGN.md change.
+
 ## Related pages
 
 - [Bluesky streaming posts](bluesky-streaming-posts.md): the plan of 2026-10-26 for weekly streaming images on Bluesky, paused the same day.
