@@ -266,6 +266,9 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 4. Build place: PR #241 adds the transposed layout to the one shared renderer before the merge, and fixes the 3 post problems of the sample (rows about 51 px tall, a leg that drops chips, the empty top band). #236 and #237 then use it.
 5. Blue marks (the blocker): the 5 extra `mark` marks of v6 (light-night skyline blocks, light-night counts, light-night day heads, rung gain text, line key text) go into the Poster mode exception list in DESIGN.md. A test must fail when the renderer uses `mark` on a mark that is not in the list.
 
+6. Owner look at the compare page of head `a790af6` (2026-11-05): "they look great", except that in some views the no-game hatch is drawn behind the legs. It must run over them. The owner said this happened "again". The builder must fix it in all layouts and add a test of the draw order.
+7. The 2 optional nits of the re-review are fixed before the merge (the mark-role check reads all SVG shape types and checks the dark theme).
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages
