@@ -281,6 +281,10 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 13. PR #243 (for #236) opened at head `111a131`. On 2026-11-05, the owner decided: the long Yahoo weeks are Nov 30 – Dec 13, 2026 (NBA Cup) and Feb 15–28, 2027 (All-Star); the page ladder shows the 4 rung columns with no overlapping legs ("Having overlapping narrow legs seems pointless"), so the builder's pick of one lane per stream spot is rejected; all desktop Skyline text is 11 px or more (it was about 7 px). Open: on a 14-day week the Skyline draws only 7 days.
 14. PR #242 fixed the partial-output nit at `23e4165` and went to the merger.
 
+15. PR #242 merged as `a31a410` (closes #237). PR #244 (for #238) got a no-double-post guard and a notice for a manual post run off `main`, then merged as `4df1900` (closes #238). Live posting is off until the owner adds the secrets `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD` and sets the repo variable `BLUESKY_POST=true` (owner steps in `docs/bluesky/README.md`). The posting code is untested against Bluesky.
+16. PR #243 at head `cc1b902`: rungs are one row of legs with no overlap; the week calendar is `[weeks]` in `config.toml`. On 2026-11-05, the owner accepted the 1210 px breakpoint (below it, the page shows the top-to-bottom panels) and decided that a 14-day long week shows both 7-day halves as 2 stacked Skylines.
+17. Still open: the data-source terms question of 2026-11-04 (the Skyline uses ESPN's schedule), before weekly posting starts.
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages
