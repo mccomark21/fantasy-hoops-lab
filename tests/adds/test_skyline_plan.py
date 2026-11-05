@@ -217,7 +217,7 @@ def long_run(**fields):
 def test_a_long_week_has_2_skylines_and_a_leg_that_crosses_the_seam_continues_in_the_second_half():
     run = long_run()
     assert [w.days[0] for w in run.skyline] == [LONG[0], LONG[7]]
-    first, second = (skyline_plan.roster_rungs(w, run.ladder, run.cfg)[0] for w in run.skyline)
+    first, second = (skyline_plan.roster_rungs(w, run.ladder, run.cfg, run.skyline)[0] for w in run.skyline)
     # The first half: the CHI leg from Sat to Sun.
     assert [[(x.first, x.last, x.teams, x.games) for x in r.legs] for r in first] == [
         [(5, 7, ("CHI",), 2)],
@@ -228,6 +228,9 @@ def test_a_long_week_has_2_skylines_and_a_leg_that_crosses_the_seam_continues_in
         [(0, 7, ("CHI",), 3)],
         [(0, 2, ("CHI",), 1), (2, 7, ("MIA",), 4)],
     ]
+    # Both halves show the same rung totals: the games and the light-night starts of the whole matchup.
+    totals = [[(r.games, r.light, r.gain, r.plus_one) for r in half] for half in (first, second)]
+    assert totals[0] == totals[1]
     html = skyline_plan.plan_section(run)
     assert '<p class="sky-dates">Week 7, part 1 of 2: Nov 30 – Dec 6, 2026</p>' in html
     assert '<p class="sky-dates">Week 7, part 2 of 2: Dec 7–13, 2026</p>' in html

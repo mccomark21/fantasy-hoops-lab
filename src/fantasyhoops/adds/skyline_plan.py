@@ -130,7 +130,8 @@ def roster_rungs(week, plans, cfg, matchup=None):
             plus_one = tuple(sorted(ranked[: max(1, round(gain))])) if gain > 0 else ()
             kept = {(a.spot, a.day, a.teams) for a in plan.adds}
             replan = any((a.spot, a.day, a.teams) not in kept for a in plans[n - 2].adds)
-        lights = sum(leg.light for leg in legs)
+        # The light-night starts of the whole matchup, so that both halves of a long week show the same rung total.
+        lights = sum(n for d, n in starts.items() if light[d])
         rung = Rung(
             n,
             tuple(x.first for x in legs[1:]),
