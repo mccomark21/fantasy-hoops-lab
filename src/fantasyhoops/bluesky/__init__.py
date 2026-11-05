@@ -1,1 +1,4 @@
-"""The Bluesky tool: the weekly Schedule Skyline post (docs/bluesky/README.md, #237). It posts nothing yet."""
+"""The Bluesky tool: the weekly Schedule Skyline post (post.py, #237) and its Monday job (send.py, #238).
+
+See docs/bluesky/README.md.
+"""
