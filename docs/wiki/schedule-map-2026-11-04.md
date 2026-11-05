@@ -190,6 +190,8 @@ This follow-up is not a GitHub issue. The owner's rule of 2026-10-27 says: no ne
 4. On 2026-11-04, the owner chose not to block on this point.
 5. Revisit this point before real posting runs for a long time.
 
+   Superseded on 2026-11-05: the owner closed this point and asked not to raise it again. See item 18 of [PR #241 decisions (2026-11-05)](#pr-241-decisions-2026-11-05).
+
 ### Prototype files (2026-11-04)
 
 The prototype files are in `.impeccable/mocks/schedule-skyline/`. They are not committed.
@@ -284,6 +286,8 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 15. PR #242 merged as `a31a410` (closes #237). PR #244 (for #238) got a no-double-post guard and a notice for a manual post run off `main`, then merged as `4df1900` (closes #238). Live posting is off until the owner adds the secrets `BLUESKY_HANDLE` and `BLUESKY_APP_PASSWORD` and sets the repo variable `BLUESKY_POST=true` (owner steps in `docs/bluesky/README.md`). The posting code is untested against Bluesky.
 16. PR #243 at head `cc1b902`: rungs are one row of legs with no overlap; the week calendar is `[weeks]` in `config.toml`. On 2026-11-05, the owner accepted the 1210 px breakpoint (below it, the page shows the top-to-bottom panels) and decided that a 14-day long week shows both 7-day halves as 2 stacked Skylines.
 17. Still open: the data-source terms question of 2026-11-04 (the Skyline uses ESPN's schedule), before weekly posting starts.
+
+18. On 2026-11-05, the owner decided: leave the unpublished Cup days (Dec 4–11) drawn as no-game days for now; no "TBD" mark. The owner also told the chief of staff to stop raising the ESPN data-source and credit question. This closes item 17 and the follow-up [Data source credit (2026-11-04)](#follow-up-data-source-credit-2026-11-04). Do not raise it again.
 
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
