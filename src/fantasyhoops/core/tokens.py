@@ -68,6 +68,23 @@ DARK = {
 }
 
 
+# The colors of the Schedule Skyline (#235, DESIGN.md "Poster mode"), for core/skyline_svg.py only. They are not in
+# LIGHT and DARK, because no site page uses them as CSS custom properties. The light values come from the v6 mock.
+SKYLINE_LIGHT = {
+    "sky-hatch": "#e0e0e0",  # the ground of the hatch of a no-game day
+    "sky-hatch-line": "#ababab",  # the stripes of that hatch, at 135°
+    "sky-stripe": "rgb(29 79 145 / .16)",  # the anchor stripe: lab-blue at 16%
+    "sky-dim": "#edf1f7",  # the skyline blocks of the other nights in a week with an anchor night
+    "sky-grid": "#f6f7f9",  # the ground of the ladder grid
+}
+SKYLINE_DARK = {
+    "sky-hatch": "#24344f",
+    "sky-hatch-line": "#3d5276",
+    "sky-stripe": "rgb(143 179 255 / .16)",  # mark at 16%
+    "sky-dim": "#17294a",
+    "sky-grid": "#12213a",
+}
+
 # The chart sizes of the DESIGN.md "Charts" section (#185). core/chart.py writes them as CSS custom properties and
 # gives the marker sizes to its SVG helpers. All values are in px, except the opacities and the font weights.
 CHART_STROKES = {
@@ -92,6 +109,8 @@ CHART_OPACITIES = {
 }
 CHART_TEXT = {"small": 10.5, "label": 11}  # the font sizes of the chart text. 10.5px is outside the type ramp.
 CHART_WEIGHTS = {"small": 400, "label": 700, "exit": 800}  # the font weights of the chart text
+# The opacities of the Schedule Skyline (#235): a zero-gain rung and its team chips.
+SKYLINE_OPACITIES = {"quiet": 0.45, "quiet-chip": 0.55, "tick": 0.5}
 
 
 def _declarations(colors, scheme):

@@ -287,6 +287,8 @@ The first use is the Schedule Skyline:
 - The weekly Bluesky post: a skyline image and a ladder image, each a PNG (see "The Phone Legibility Rule"). The post is team-agnostic.
 - The Skyline on the adds page. It replaces the team-plan grid only, and its ladder uses the owner's roster.
 
+**Renderer.** `core/skyline_svg.py` draws the Skyline as SVG (#235). `render()` gives 3 layouts: "page" (the skyline over the ladder), and "skyline" and "ladder" (the 2 images of the post). `DayAxis` holds the position and the size of each day column.
+
 **Source.** The owner approved concept "7C v6" on 2026-11-04. The mock is `.impeccable/mocks/schedule-skyline/schedule-map-compare.html` (key "[", weeks A to E). Git does not track this file. The decisions and the superseded versions are in `docs/wiki/schedule-map-2026-11-04.md`.
 
 ### Named Rules
@@ -308,6 +310,7 @@ The exception applies to team identity only. Known weak point on 2026-11-04: man
 1. Team chips, for team identity only. See "The Team Chip Rule".
 2. The grey calendar grid of the ladder.
 3. `mark` accents on three marks only: the anchor stripe or the anchor night column, the "+1" gain tags, and the light-night line.
+4. The game dots of a leg: a `mark` ring, or a solid `mark` dot on a light night. The owner added this item on 2026-11-05 (#235).
 
 Any other break of a chart rule needs a new named exception in this list.
 
@@ -325,17 +328,17 @@ Measurements on 2026-11-04 showed the single v6 poster at 4-9 px at 390 px. Thus
 ### Marks (7C v6)
 | Mark | Look | Tokens |
 | --- | --- | --- |
-| Skyline block | One block for each NBA game of the night. In a week with an anchor night, the blocks of the other nights are a dimmed tint. | `qcol`, dimmed tint (gap) |
-| Light-night line | A 1.5px dashed line at the light-night limit (6 or fewer games), with a paper halo. The line stays 1.5px wide when a page scales the poster. Its label reads "6 or fewer games = light night". | `mark`, halo (gap) |
+| Skyline block | One block for each NBA game of the night. In a week with an anchor night, the blocks of the other nights are a dimmed tint. In a week with no anchor night, the blocks of a light night are `mark`, as in v6. | `qcol`, `mark`, `sky-dim` |
+| Light-night line | A 1.5px dashed line at the light-night limit (6 or fewer games), with a paper halo. The line stays 1.5px wide when a page scales the poster. Its label reads "6 or fewer games = light night". In a post image, the line is 4px wide with a 4px halo, so that it shows at a display width of 390 px. | `mark`, `lab-stock` (halo) |
 | Anchor night | Inverted. The skyline column is a solid `mark` bar with its game count in `lab-stock`. The day head is a solid `mark` block with `lab-stock` text. | `mark`, `lab-stock` |
-| Anchor stripe | A semi-transparent blue stripe on the day column of the anchor night only, through the skyline and the ladder. It is never a band across a whole row. In a dead-day week, the stripe covers the dead span. | stripe (gap) |
-| Ladder grid | A grey calendar grid with 1px `vrule` day rules. A 1px `lab-ink` rule is above rung 1. A 1px `vrule` rule is between the other rungs. | grid grey (gap), `vrule`, `lab-ink` |
-| Leg block | A white event block with a 1px `lamp-off` border, on the grey grid. It holds the leg label ("4 gm · 1 light"), the team chips or the team count, and one dot for each game. | leg white (gap), `lamp-off` |
+| Anchor stripe | A semi-transparent blue stripe on the day column of the anchor night only, through the skyline and the ladder. It is never a band across a whole row. In a dead-day week, the stripe also covers the days of the dead span that have games. | `sky-stripe` |
+| Ladder grid | A grey calendar grid with 1px `vrule` day rules. A 1px `lab-ink` rule is above rung 1. A 1px `vrule` rule is between the other rungs. | `sky-grid`, `vrule`, `lab-ink` |
+| Leg block | A white event block with a 1px `lamp-off` border, on the grey grid. It holds the leg label ("4 gm · 1 light"), the team chips or the team count, and one dot for each game. | `lab-stock`, `lamp-off` |
 | Game dot | A ring with a `mark` border on `lab-stock`. A game on a light night is a solid `mark` dot. A day of the leg with no game for its team is a small `lamp-off` tick. | `mark`, `lab-stock`, `lamp-off` |
 | Back-to-back line | A 2px line between the dots of two games on back-to-back days. | `lab-ink` |
 | Gain tag | A "+1" tag above the dot of each game that the add buys. It replaces the gain ring of v5. | `mark` |
-| Zero-gain rung | The rung stays, dimmed, with the text "+0 · a Nth add gains nothing". | dimmed rung (gap), `vrule` |
-| No-game day | A darker neutral grey hatch with the text "NO NBA GAMES". A no-game day is never blue. | hatch grey (gap) |
+| Zero-gain rung | The rung stays, dimmed, with the text "+0 · a Nth add gains nothing". | `SKYLINE_OPACITIES`, `vrule` |
+| No-game day | A darker neutral grey hatch with the text "NO NBA GAMES". A no-game day is never blue. | `sky-hatch`, `sky-hatch-line` |
 
 ### What a poster does not have
 The owner removed these items on 2026-11-04. Do not add them back.
@@ -347,18 +350,18 @@ The owner removed these items on 2026-11-04. Do not add them back.
 - No credit line. The credit line went away with the footer. The owner deferred the data source credit on 2026-11-04. Revisit it before real posting runs for a long time.
 - No top-left kicker, no big date line, no method note and no label "Teams that play each night".
 
-### Token gaps
-These colors have no token in `core/tokens.py` yet. The renderer ticket (#235) adds them, each with a light value and a dark value, as "The One Source Rule" says. The light values come from the v6 mock.
+### Skyline tokens
+The renderer ticket (#235) added these values to `core/tokens.py`, as "The One Source Rule" says. Each color has a light value (`SKYLINE_LIGHT`) and a dark value (`SKYLINE_DARK`). The light values come from the v6 mock. The site pages do not use these colors, so they are not in `LIGHT` and `DARK`.
 
-| Gap | v6 mock value | Job |
+| Token | Light value | Job |
 | --- | --- | --- |
-| Hatch grey | `#e0e0e0` with `#ababab` stripes at 135° | The no-game day. |
-| Halo | `lab-stock`, 2.5px | The paper halo of the light-night line. The mock uses the literal `lab-stock` value. |
-| Stripe | `rgb(29 79 145 / .16)`, `lab-blue` at 16% | The anchor stripe. |
-| Dimmed rung | 45% opacity, chips at 55% | The zero-gain rung. |
-| Dimmed tint | `#edf1f7` | The skyline blocks of the other nights in a week with an anchor night. |
-| Grid grey | `#f6f7f9` | The ground of the ladder grid. |
-| Leg white | `rgb(255 255 255 / .62)` | The ground of a leg block. |
+| `sky-hatch`, `sky-hatch-line` | `#e0e0e0` with `#ababab` stripes at 135° | The no-game day. |
+| `sky-stripe` | `rgb(29 79 145 / .16)`, `lab-blue` at 16% | The anchor stripe. |
+| `sky-dim` | `#edf1f7` | The skyline blocks of the other nights in a week with an anchor night. |
+| `sky-grid` | `#f6f7f9` | The ground of the ladder grid. |
+| `SKYLINE_OPACITIES` | 45%, chips at 55%, ticks at 50% | The zero-gain rung and the ticks. |
+
+The halo of the light-night line is `lab-stock`. A leg block is `lab-stock`, not the 62% white of the mock, because the grid under it is opaque.
 
 ## Do's and Don'ts
 
