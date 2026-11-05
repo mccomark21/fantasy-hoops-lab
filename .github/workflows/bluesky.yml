@@ -57,6 +57,8 @@ jobs:
       - name: Make the post, then post it or do a dry run
         env:
           WEEK: ${{ inputs.week }}
+          # Lets the command say why a manual run off main with "post" on is a dry run.
+          BLUESKY_POST_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.post }}
           # The job gives the secrets to this step only when posting is on.
           BLUESKY_HANDLE: ${{ env.BLUESKY_POST == 'true' && secrets.BLUESKY_HANDLE || '' }}
           BLUESKY_APP_PASSWORD: ${{ env.BLUESKY_POST == 'true' && secrets.BLUESKY_APP_PASSWORD || '' }}

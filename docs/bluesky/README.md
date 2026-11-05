@@ -111,7 +111,7 @@ The job gives the secrets to the post step only when posting is on. The command 
 
 ### Switch on posting
 
-Only a run on `main` can post. A run on another branch is always a dry run.
+Only a run on `main` can post. A run on another branch is always a dry run. If a manual run on another branch has "post" on, the run shows a notice and a job-summary line that say so.
 
 1. Check the dry runs of some Mondays first.
 2. To post one time, run the workflow by hand: Actions, then "bluesky", then "Run workflow". Select `main` and turn on "post".

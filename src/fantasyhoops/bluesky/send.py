@@ -28,6 +28,8 @@ from fantasyhoops.core.schedule import read_schedule
 
 SERVICE = "https://bsky.social"  # the Bluesky host of the owner's account
 SWITCH = "BLUESKY_POST"  # "true" switches on real posting. Any other value or no value gives a dry run.
+REQUESTED = "BLUESKY_POST_REQUESTED"  # "true" when a manual run has its input "post" on, on any ref
+MAIN = "refs/heads/main"  # the only ref that can post
 HANDLE = "BLUESKY_HANDLE"  # the account handle, from a GitHub secret
 PASSWORD = "BLUESKY_APP_PASSWORD"  # the app password, from a GitHub secret
 TAG = re.compile(r"#(\w+)")
@@ -164,12 +166,25 @@ def _summary(env, text):
             f.write(text + "\n")
 
 
+def not_main_line(env):
+    """The reason line when a run asked to post (BLUESKY_POST_REQUESTED) but its ref is not main. Else None."""
+    ref = env.get("GITHUB_REF", "")
+    if env.get(REQUESTED, "").strip().lower() == "true" and ref != MAIN:
+        return f'Dry run: the input "post" is on, but only a run on main can post. This run is on {ref}.'
+    return None
+
+
 def run(folder, env, client=None, now=None):
     """Post the files of folder when the switch is on. Else post nothing. Return the post {"uri", "cid"} or None."""
     data = json.loads((folder / "post.json").read_text(encoding="utf-8"))
     if not posting_on(env):
         print(f"Dry run: posted nothing. To post, set {SWITCH}=true (docs/bluesky/README.md).")
-        _summary(env, summary(data, "dry run, posted nothing"))
+        text = summary(data, "dry run, posted nothing")
+        line = not_main_line(env)
+        if line:
+            print(f"::notice title=Dry run, not main::{line}")
+            text += f"\n{line}\n"
+        _summary(env, text)
         return None
     handle, password = env.get(HANDLE, ""), env.get(PASSWORD, "")
     if not handle or not password:

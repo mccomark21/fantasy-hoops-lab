@@ -137,6 +137,33 @@ def test_with_the_switch_on_the_job_posts_the_text_and_the_2_images_in_order(fol
     assert SECRET not in capsys.readouterr().out
 
 
+def test_a_manual_post_run_off_main_says_why_it_is_a_dry_run(folder, tmp_path, capsys):
+    opener = FakeOpener()
+    summary = tmp_path / "summary.md"
+    env = {
+        **ENV_ON,
+        "BLUESKY_POST": "false",  # the workflow sets false off main
+        "BLUESKY_POST_REQUESTED": "true",
+        "GITHUB_REF": "refs/heads/238-skyline-monday-workflow",
+        "GITHUB_STEP_SUMMARY": str(summary),
+    }
+    assert run(folder, env, Client(opener=opener)) is None
+    assert opener.requests == []
+    line = 'Dry run: the input "post" is on, but only a run on main can post. This run is on refs/heads/238-'
+    out = capsys.readouterr().out
+    assert f"::notice title=Dry run, not main::{line}" in out
+    assert line in summary.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "requested, ref", [("true", "refs/heads/main"), ("false", "refs/heads/x"), ("", "refs/heads/x")]
+)
+def test_other_dry_runs_give_no_not_main_notice(folder, requested, ref, capsys):
+    env = {"BLUESKY_POST": "false", "BLUESKY_POST_REQUESTED": requested, "GITHUB_REF": ref}
+    run(folder, env, Client(opener=FakeOpener()))
+    assert "::notice" not in capsys.readouterr().out
+
+
 def test_a_rerun_does_not_post_the_same_week_again(folder, tmp_path, capsys):
     # The account already has the post of this week, with other text after the title line.
     opener = FakeOpener([item("Schedule Skyline · Nov 9–15, 2026\n\nAn older text of the post.")])
