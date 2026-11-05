@@ -102,6 +102,8 @@ Superseded in part later on 2026-11-04: in v6, the owner also removed the top-le
 The poster checks the week types in this order. The first match sets the type.
 
 1. Dead-day: 2 or more empty days in a row, or 3 or more light nights in a row.
+
+   Clarified later on 2026-11-04: a no-game day counts as a light night in this rule. See [Phone rule and post images (2026-11-04)](#phone-rule-and-post-images-2026-11-04).
 2. Anchor: a night with 4 or fewer games, and a leg with 5 or fewer teams depends on that night.
 3. Heavy-team: a few teams play more games than all other teams, and the 1-add rung depends on them.
 4. Stream every day: all other weeks.
@@ -172,6 +174,8 @@ The week type still drives the layout internally. See [Week types (2026-11-04)](
 4. One question is open: how one rung shows several stream spots. A sample comes first, before the build.
 5. The Bluesky image stays team-agnostic.
 6. A GitHub Actions job runs each Monday. It does not use AWS. It posts a 1080x1350 PNG to Bluesky.
+
+   Superseded later on 2026-11-04: the post has 2 images, not one 1080x1350 image. See [Phone rule and post images (2026-11-04)](#phone-rule-and-post-images-2026-11-04).
 7. The post text is short. It has `#FantasyBasketball`, a line about what Schedule Skyline is, and the dates.
 8. The job does a dry run first.
 9. A GitHub secret holds the Bluesky app password.
@@ -199,6 +203,41 @@ The prototype files are in `.impeccable/mocks/schedule-skyline/`. They are not c
 1. Scale the hero to the data, not to the theoretical maximum.
 2. When the page scales the poster, measure visibility. Do not judge it by eye.
 3. Use one unit, games, in labels, rule lines and classifiers.
+
+## Phone rule and post images (2026-11-04)
+
+Later on 2026-11-04, the owner answered three open questions (Q15-Q17).
+
+### Q15: the Bluesky post has 2 images (2026-11-04)
+
+1. "For now", the Bluesky post splits into 2 images. Image 1 is the skyline. Image 2 is the ladder.
+2. Each image is 1080x1350.
+3. All text must be 11 px or more at a 390 px display width. On a 1080 px image, this is about 30 px or more.
+4. Evidence: in the PNG export test, the text of the single v6 poster measured 4-9 px at 390 px.
+5. This decision supersedes the "one 1080x1350 image" claim in [Build decisions (2026-11-04)](#build-decisions-2026-11-04).
+6. The phone layout of the adds page is a separate question. On 2026-11-04, it is still open.
+
+### Q16: Poster mode inherits the site chart rules (2026-11-04)
+
+Poster mode inherits the site chart rules. These named exceptions apply:
+
+- Team chips.
+- The calendar grid.
+- The mark-blue accents for the anchor.
+- The "+1" tags.
+- The light-night line.
+
+### Q17: no-game days in the dead-day rule (2026-11-04)
+
+1. In the dead-day rule, a no-game day counts toward "3 or more light nights in a row".
+2. No-game days stay visually separate. They keep the grey hatch.
+
+### Issue updates (2026-11-04)
+
+1. #235: the renderer draws the skyline panel and the ladder panel as separate 1080x1350 images for the post, and the combined layout for the page.
+2. #236: the phone layout of the page is still open. The sample must include a phone proposal for the owner.
+3. #237: the export makes 2 PNGs and the post text. Each PNG is under 1 MB. A test measures the 11 px at 390 px rule.
+4. #238: the post attaches the 2 images in order, each with its own alt text.
 
 ## Related pages
 
