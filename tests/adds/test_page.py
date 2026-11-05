@@ -802,8 +802,8 @@ GRID_ADDS = (
     SavedAdd(2, WEEK[3], ("PF",), ("CHI",), (WEEK[3], WEEK[5])),
     SavedAdd(1, WEEK[6], (UTIL,), EIGHT, (WEEK[6],)),
 )
-# The Schedule Skyline (#236): the games of WEEK_GAMES, in a fake schedule, and a ladder of 3 rungs. Rung 1: +SG/PF
-# from 5 teams on Thu. Rung 2: also +PF CHI on Thu in spot 2. Rung 3: also +Util from 8 teams on Sun in spot 1.
+# The Schedule Skyline (#236): the games of WEEK_GAMES, in a fake schedule, and a ladder of 3 rungs. Rung 1: +PF CHI
+# on Thu. Rung 2: also +Util from 8 teams on Sun. Rung 3: also +SG/PF from 5 teams on Thu. 5 legs in all.
 SKY_CFG = {
     "quality_games": {"max_games_per_day": 6},
     "skyline": {"max_adds": 4, "scarce_teams": 5, "anchor_max_games": 4, "heavy_max_teams": 3},
@@ -817,10 +817,11 @@ FIVE = ("ATL", "CLE", "MEM", "PHI", "SAC")
 THU, SAT, SUN = WEEK[3], WEEK[5], WEEK[6]
 SG_PF = TeamAdd(0, THU, SUN, ("SG", "PF"), FIVE, (THU, SAT))
 PF_CHI = TeamAdd(1, THU, SUN, ("PF",), ("CHI",), (THU, SAT))
+UTIL_SUN = TeamAdd(0, SUN, SUN, (UTIL,), EIGHT, (SUN,))
 LADDER = (
-    TeamPlan((SG_PF,), 2.0),
-    TeamPlan((SG_PF, PF_CHI), 4.0),
-    TeamPlan((replace(SG_PF, last_day=SAT), PF_CHI, TeamAdd(0, SUN, SUN, (UTIL,), EIGHT, (SUN,))), 5.0),
+    TeamPlan((PF_CHI,), 2.0),
+    TeamPlan((PF_CHI, UTIL_SUN), 3.0),
+    TeamPlan((replace(SG_PF, last_day=SAT), PF_CHI, UTIL_SUN), 5.0),
 )
 # The run also has the matchup of each state (MU, #144), so the fit test and the contrast test check its table.
 GRID_RUN = replace(
@@ -893,8 +894,8 @@ def test_the_skyline_and_the_tables_fit_and_the_page_has_no_horizontal_scroll(wi
             pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
             assert pg.evaluate(MATCHUP_FIT, width) == [], (width, theme)
             assert pg.evaluate("document.documentElement.scrollWidth") <= width, (width, theme)
-            # #236: the page shows the Skyline of the theme: the desktop layout from 600px, else the 2 phone panels.
-            layouts = ["skyline-page"] if width >= 600 else ["skyline-phone-skyline", "skyline-phone-ladder"]
+            # #236: the page shows the Skyline of the theme: the desktop layout from 1210px, else the 2 phone panels.
+            layouts = ["skyline-page"] if width >= 1210 else ["skyline-phone-skyline", "skyline-phone-ladder"]
             assert pg.evaluate(SKY_FIT, width) == [[name, theme, True] for name in layouts], (width, theme)
 
 
@@ -951,7 +952,7 @@ def test_each_leg_and_each_table_cell_has_4_5_to_1_in_each_state_and_theme(width
 
             # #236: each leg of the Skyline is a link with a text label, a focus outline and 4.5:1 or more.
             links = pg.locator("#plan .sky a").filter(visible=True)
-            assert links.count() == 6  # the 6 legs of the 3 rungs
+            assert links.count() == 5  # the 5 legs of the 3 rungs
             for i in range(links.count()):
                 el = links.nth(i)
                 assert el.get_attribute("aria-label").endswith("Show these free agents.")
@@ -1064,7 +1065,7 @@ def test_a_click_on_a_leg_opens_the_free_agents_page_with_the_day_the_position_a
     with site_pages(GRID_RUN) as pg:
         pg.goto(f"{SITE}adds/")
         assert pg.locator("#fa-table").count() == 0  # #165: the plan page has no free-agent table
-        # #236: a leg of the phone ladder. Rung 2, spot 2: +PF CHI on Thu, starts Thu and Sat.
+        # #236: a leg of the phone ladder. Rung 1: +PF CHI on Thu, starts Thu and Sat.
         legs = pg.locator("#plan .sky a").filter(visible=True)
         legs.and_(pg.locator('[href*="teams=CHI&"]')).first.click()
         pg.wait_for_url(f"{SITE}free-agents/?**")
@@ -1072,7 +1073,7 @@ def test_a_click_on_a_leg_opens_the_free_agents_page_with_the_day_the_position_a
         pressed = pg.locator('button.chip[aria-pressed="true"]').all_inner_texts()
         assert [t.split("\n")[0] for t in pressed] == ["Thu 1/7", "Sat 1/9", "PF", "CHI"]
         assert pg.locator("#fa-from").is_visible()
-        assert pg.locator("#fa-from-text").inner_text() == "Filters from the team plan: 2 adds, spot 2, Thu: +PF CHI."
+        assert pg.locator("#fa-from-text").inner_text() == "Filters from the team plan: 1 add, Thu: +PF CHI."
         assert pg.locator("#fa-from a").get_attribute("href") == "../adds/#plan"
         assert "(teams: CHI)" in pg.locator("#fa-count").inner_text()
         assert pg.evaluate("document.activeElement.id") == "fa-count"
@@ -1081,7 +1082,7 @@ def test_a_click_on_a_leg_opens_the_free_agents_page_with_the_day_the_position_a
         pg.wait_for_url(f"{SITE}adds/#plan")
         # Util clears the position filter.
         pg.goto(f"{SITE}adds/")
-        legs.and_(pg.locator('[href*="pos=&"]')).first.click()  # rung 3, spot 1: +Util from 8 teams on Sun
+        legs.and_(pg.locator('[href*="pos=&"]')).first.click()  # rung 2: +Util from 8 teams on Sun
         pg.wait_for_url(f"{SITE}free-agents/?**")
         assert pg.locator('#pos-chips button[aria-pressed="true"]').count() == 0
         assert "(teams: ATL, BKN, BOS, GS, IND, LAC, LAL, ORL)" in pg.locator("#fa-count").inner_text()
@@ -1224,3 +1225,24 @@ def test_a_player_name_opens_the_player_modal(modal_site):
     assert pg.locator('#wv-table a.lab-pname[data-player="claim-guy"]').count() == 1
     modal_site.check_modal()
     assert "lab-pmodal" not in render()  # not on the Adds plan page
+
+
+# The smallest text of the shown desktop Skyline, in px on the screen (#236).
+SKY_TEXT = r"""() => {
+  const svg = [...document.querySelectorAll("#plan svg.skyline-page")].find(s => s.getClientRects().length);
+  if (!svg) return null;
+  const scale = svg.getBoundingClientRect().width / 1080;
+  return Math.min(...[...svg.querySelectorAll("text")].map(t => parseFloat(getComputedStyle(t).fontSize) * scale));
+}"""
+
+
+@pytest.mark.parametrize("width", [1210, 1280, 1440, 1920])
+def test_each_text_of_the_desktop_skyline_is_11px_or_more(width):
+    """Owner, 2026-11-05: all Skyline text on the desktop page is 11px or more."""
+    with browser_page(width=width) as pg:
+        pg.set_content(page.render(GRID_RUN))
+        for theme in ("light", "dark"):
+            pg.evaluate(f"document.documentElement.dataset.theme = '{theme}'")
+            smallest = pg.evaluate(SKY_TEXT)
+            assert smallest is not None and smallest >= 11, (width, theme, smallest)
+            assert pg.evaluate("document.documentElement.scrollWidth") <= width

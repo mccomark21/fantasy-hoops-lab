@@ -12,6 +12,7 @@ from fantasyhoops.adds.readers import Adds, Player, Week
 from fantasyhoops.adds.slots import open_slots_by_day
 from fantasyhoops.adds.team_plan import UTIL, TeamAdd, TeamPlan, team_plan
 from fantasyhoops.adds.week_file import SavedAdd, WeekRecord
+from fantasyhoops.core.common import load_config
 from fantasyhoops.core.skyline import week_facts
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
@@ -77,9 +78,13 @@ def test_rung_n_is_the_team_plan_with_n_adds_for_n_up_to_the_adds_left_and_4():
     rungs, _ = skyline_plan.roster_rungs(r.skyline, r.ladder, CFG)
     assert [x.games for x in rungs] == [p.started_games for p in r.ladder]
     for rung, plan in zip(rungs, r.ladder):
-        # Each add is one leg: from the add day to the last day that the new player holds the spot.
-        got = sorted((WEEK[leg.first], WEEK[leg.last - 1], leg.teams, leg.pattern) for leg in rung.legs)
-        assert got == sorted((a.day, a.last_day, a.teams, a.starts) for a in plan.adds)
+        # One leg for each add day, with the teams of the adds of that day. The legs do not overlap.
+        days = sorted({a.day for a in plan.adds})
+        assert [WEEK[leg.first] for leg in rung.legs] == days
+        assert [leg.last for leg in rung.legs] == [WEEK.index(d) for d in days[1:]] + [7]
+        for leg in rung.legs:
+            here = [a for a in plan.adds if a.day == WEEK[leg.first]]
+            assert leg.teams == tuple(sorted({t for a in here for t in a.teams}))
     # 2 adds left: 2 rungs. [skyline] max_adds caps the rungs.
     assert len(run(adds_left=2).ladder) == 2
     assert len(run(adds_left=5).ladder) == 4
@@ -88,51 +93,49 @@ def test_rung_n_is_the_team_plan_with_n_adds_for_n_up_to_the_adds_left_and_4():
     assert len(skyline_plan.ladder_plans(r.days, r.games, SPOTS, 5, SLOTS, three)) == 3
 
 
-def test_each_stream_spot_with_an_add_is_one_lane_of_its_rung_in_order_of_the_first_add_day():
+def test_a_rung_is_one_row_of_legs_with_no_overlap_cut_at_each_add_day():
+    """Owner, 2026-11-05: the ladder shows the rung columns of the post, with no overlapping legs."""
+    chi = TeamAdd(1, WEEK[2], WEEK[6], ("PF",), ("CHI",), (WEEK[2], WEEK[5], WEEK[6]))
     plans = (
-        TeamPlan((TeamAdd(1, WEEK[2], WEEK[6], ("PF",), ("CHI",), (WEEK[2], WEEK[5], WEEK[6])),), 3.0),
-        TeamPlan(
-            (
-                TeamAdd(0, WEEK[0], WEEK[1], (UTIL,), ("PHI",), (WEEK[0], WEEK[1])),
-                TeamAdd(1, WEEK[2], WEEK[6], ("PF",), ("CHI",), (WEEK[2], WEEK[5], WEEK[6])),
-            ),
-            5.0,
-        ),
+        TeamPlan((chi,), 3.0),
+        TeamPlan((TeamAdd(0, WEEK[0], WEEK[6], (UTIL,), ("PHI",), (WEEK[0], WEEK[1])), chi), 5.0),
+        TeamPlan((TeamAdd(0, WEEK[2], WEEK[6], ("C",), ("MIA",), (WEEK[2], WEEK[4])), chi), 5.0),
     )
     week = week_facts(SCHED, MON, CFG)
     rungs, adds_of = skyline_plan.roster_rungs(week, plans, CFG)
-    assert [[[leg.teams for leg in lane] for lane in r.lanes] for r in rungs] == [
-        [[("CHI",)]],
-        [[("PHI",)], [("CHI",)]],
+    spans = [[(leg.first, leg.last, leg.teams, leg.games) for leg in r.legs] for r in rungs]
+    assert spans == [
+        [(2, 7, ("CHI",), 3)],
+        # Mon to Tue: the PHI add. Wed to Sun: the CHI add. The PHI player has no start after Tue.
+        [(0, 2, ("PHI",), 2), (2, 7, ("CHI",), 3)],
+        # 2 adds on Wed: one leg with the teams of both adds, and the starts of both players.
+        [(2, 7, ("CHI", "MIA"), 5)],
     ]
     two = rungs[1]
     assert two.gain == 2 and not two.zero_gain and not two.replan and two.plus_one == (WEEK[0], WEEK[1])
-    assert {n for n, _ in adds_of.values()} == {1, 2}
+    assert rungs[2].zero_gain and rungs[2].replan
+    assert [len(adds) for _, adds in adds_of.values()] == [1, 1, 1, 2]
 
 
 def test_each_leg_links_to_the_free_agents_page_with_the_filters_of_its_add_and_has_a_text_label():
     html = skyline_plan.plan_section(run())
     found = links(html)
-    adds = [a for plan in run().ladder for a in plan.adds]
-    assert len(found) == len(adds) >= 4
+    rungs, adds_of = skyline_plan.roster_rungs(run().skyline, run().ladder, CFG)
+    groups = [adds for _, adds in adds_of.values()]
+    assert len(found) == len(groups) >= 4
     want = sorted(
         (
-            ",".join(d.isoformat() for d in a.starts),
-            "" if a.slots == (UTIL,) else ",".join(a.slots),
-            ",".join(a.teams),
-            f"spot {a.spot + 1}, {a.day:%a}",
+            ",".join(sorted({d.isoformat() for a in g for d in a.starts})),
+            "" if any(a.slots == (UTIL,) for a in g) else ",".join(s for s in SLOTS if any(s in a.slots for a in g)),
+            ",".join(sorted({t for a in g for t in a.teams})),
         )
-        for a in adds
+        for g in groups
     )
-    got = sorted(
-        (q["days"], q["pos"], q["teams"], q["from"].split(": ")[0].split("adds, ")[-1].split("add, ")[-1])
-        for q, _ in found
-    )
-    assert got == want
+    assert sorted((q["days"], q["pos"], q["teams"]) for q, _ in found) == want
     assert all(label.endswith("Show these free agents.") for _, label in found)
-    assert "spot 1: on Mon add any position from MIA. Starts Mon, Wed &amp; Fri. Show these free agents." in html
+    assert "1 add: on Wed add any position from CHI. Starts Wed, Sat &amp; Sun. Show these free agents." in html
     # The phone ladder has the same links. The skyline panels have none.
-    assert html.count('<a href="../free-agents/?') == 4 * len(adds)  # 2 layouts x 2 themes
+    assert html.count('<a href="../free-agents/?') == 4 * len(groups)  # 2 layouts x 2 themes
     assert 'role="group"' in html
 
 
@@ -172,3 +175,10 @@ def test_a_mixed_add_has_a_line_under_the_skyline():
     mixed = TeamAdd(0, WEEK[2], WEEK[6], ("PF",), ("CHI", "MIA"), (WEEK[2],), mixed=True)
     html = skyline_plan.plan_section(run(ladder=(TeamPlan((mixed,), 1.0),)))
     assert "The teams of the add on Wed (CHI MIA) play on different days." in html
+
+
+def test_the_week_number_comes_from_the_week_calendar_of_config_toml():
+    """#236: the calendar of [weeks] gives the week number (Jan 4, 2027 is week 11). Without it: the Yahoo number."""
+    calendar = {**CFG, "weeks": load_config()["weeks"]}
+    assert "Week 11 · 2027" in skyline_plan.plan_section(run(cfg=calendar))
+    assert "Week 12 · 2027" in skyline_plan.plan_section(run())

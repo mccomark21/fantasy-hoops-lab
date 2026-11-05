@@ -262,20 +262,21 @@ Decision (2026-11-05, #236): the Schedule Skyline replaces the week grid of the 
 
 1. The skyline: the NBA games of each night of the fantasy week, Monday to Sunday. A light night has 6 or fewer games (`[quality_games] max_games_per_day`). It is the same skyline as the Monday Bluesky post.
 2. The ladder: one rung for each number of adds n, from 1 to the adds left, and 4 at most (`[skyline] max_adds`). Rung n is the team plan (`team_plan()`) of your stream spots with n adds or fewer. The number at the left of a rung is the started games of your stream spots.
-3. A lane: each stream spot with an add in the rung has its own row in the rung. The lanes go in order of the first add day.
-4. A leg: one add, a white block from the add day to the last day that the new player holds the spot. A dot marks a day that he starts. A leg with 5 or fewer teams (`[skyline] scarce_teams`) names them as team chips. Else it gives the count, for example "14 teams to choose from".
-5. "+1" marks a start day that the rung has more often than the rung above. A leg that the rung above also has gets no "+1". RE-PLAN marks a rung that does not keep each add of the rung above.
+3. Decision (2026-11-05, owner): a rung is one row of legs with no overlap, as the ladder of the post. The owner rejected one row for each stream spot.
+4. A leg: a white block from an add day to the day before the next add day of the rung, or Sunday. It holds the adds of its first day, and names their teams. A dot marks a day that a new player of the rung starts. The label counts these starts, one for each player. A leg with 5 or fewer teams (`[skyline] scarce_teams`) names them as team chips. Else it gives the count, for example "14 teams to choose from".
+5. "+1" marks a start day that the rung has more often than the rung above. RE-PLAN marks a rung that does not keep each add of the rung above.
 6. The days before today are past. The ladder plans from today. Under the drawing, a list gives the saved adds of the past days from the [week file](#week-file), for example "Add 1, Mon 1/4: +SG PHI. Starts Mon & Tue." A past day with no saved run gets a line, for example "No saved plan for Tue."
-7. Layout: from 600px, the page shows the desktop layout, with the days from left to right. Below 600px, it shows the 2 phone panels, with the days from top to bottom: the skyline, then the ladder. In a phone panel, a lane too narrow for the label shows only its dots.
-8. Theme: the page holds a light copy and a dark copy of each drawing. The CSS shows the copy of the current theme.
-9. The legend under the Skyline is collapsed ("How to read the Skyline").
+7. Layout: from 1210px, the page shows the desktop layout, with the days from left to right. It is wider than the other blocks: up to 1080px. All its text is 11px or more (owner, 2026-11-05). Below 1210px, the page shows the 2 phone panels, with the days from top to bottom: the skyline, then the ladder. The panels are 520px wide at most.
+8. Week number: the title gives the week number of the week calendar, `[weeks]` in `config.toml` (`core/weeks.py`). Without `[weeks]`, it gives the number of the Yahoo matchup page.
+9. Theme: the page holds a light copy and a dark copy of each drawing. The CSS shows the copy of the current theme.
+10. The legend under the Skyline is collapsed ("How to read the Skyline").
 
 Click to filter: each leg is a link (#165). A click opens the Free agents page with the filters of the add in the URL, for example `../free-agents/?days=2027-01-07,2027-01-09&pos=PF&teams=CHI&from=...`. The page sets the filters and scrolls to the free-agent table:
 
-- A leg sets the day filter to the start days of the add, the position filter to its slots ("Util" clears the position filter) and the team filter to its teams. The URL gives the days as dates. A date that is not a day of the table sets no filter.
-- A line above the table names the source of the filters, for example "2 adds, spot 2, Thu: +PF CHI". Its link "Back to the team plan" opens the plan on the plan page (`/adds/#plan`). Reset filters hides the line and removes the filters from the URL.
+- A leg sets the day filter to the start days of its adds, the position filter to their slots ("Util" clears the position filter) and the team filter to their teams. The URL gives the days as dates. A date that is not a day of the table sets no filter.
+- A line above the table names the source of the filters, for example "1 add, Thu: +PF CHI". Its link "Back to the team plan" opens the plan on the plan page (`/adds/#plan`). Reset filters hides the line and removes the filters from the URL.
 
-Each leg link has a text label, for example "2 adds, spot 2: on Thu add PF from CHI. Starts Thu & Sat. Show these free agents." On focus, the leg box gets a 4px ink frame and the link a 2px ink outline. Each text of a leg has 4.5:1 or more in both themes. Page tests check this, and that the Skyline fits with no sideways scroll at 320, 390, 768 and 1280px.
+Each leg link has a text label, for example "1 add: on Thu add PF from CHI. Starts Thu & Sat. Show these free agents." On focus, the leg box gets a 4px ink frame and the link a 2px ink outline. Each text of a leg has 4.5:1 or more in both themes. Page tests check this, that the Skyline fits with no sideways scroll at 320, 390, 768 and 1280px, and that its desktop text is 11px or more at 1210, 1280, 1440 and 1920px.
 
 The Skyline has no day links. The week grid had a link on each day header (#165).
 

@@ -4,11 +4,13 @@ The Skyline replaces the team-plan week grid. The design is in docs/adds/README.
 writes no files. core/skyline.py gives the facts of the week and core/skyline_svg.py draws them.
 
 - ladder_plans(): rung n is the team_plan() plan with n adds, for n = 1 to min(adds left, [skyline] max_adds).
-- roster_rungs(): the core.skyline Rungs of these plans. Each stream spot with an add is one lane of its rung. A leg
-  is one add: the days from the add day to the last day that the new player holds the spot. Its dots are the days
-  that he starts. A leg with [skyline] scarce_teams teams or fewer names its teams as team chips.
+- roster_rungs(): the core.skyline Rungs of these plans. A rung is one row of legs with no overlap, as the ladder of
+  the post (owner, 2026-11-05). Each add day starts a leg, and the leg runs to the day before the next add day of the
+  rung. The leg holds the adds of its first day. Its dots are the days that a new player of the rung starts. A leg
+  with [skyline] scarce_teams teams or fewer names its teams as team chips.
 - plan_section(): the HTML of the section: the desktop layout (the days from left to right) and the 2 phone panels
-  (the days from top to bottom), each in the light theme and the dark theme. A click on a leg opens the Free agents
+  (the days from top to bottom), each in the light theme and the dark theme. The week number comes from the week
+  calendar of config.toml (core/weeks.py). A click on a leg opens the Free agents
   page with the filters of the add (grid.fa_link(), #165).
 """
 
@@ -19,6 +21,7 @@ from fantasyhoops.adds.grid import add_text, fa_link, slot_text, team_count_at, 
 from fantasyhoops.adds.team_plan import UTIL, team_plan
 from fantasyhoops.core.skyline import DAYS, Leg, Rung, week_facts
 from fantasyhoops.core.skyline_svg import phone_panels, render
+from fantasyhoops.core.weeks import week_number
 
 MAX_ADDS = 4  # [skyline] max_adds if config.toml does not set it
 SCARCE_TEAMS = 5  # [skyline] scarce_teams if config.toml does not set it
@@ -70,50 +73,65 @@ def _num(x):
     return int(x) if x == int(x) else x
 
 
-def _leg(add, week, scarce):
-    """The Leg of one TeamAdd in week (a core.skyline.Week), or None if the add day is not a day of the week."""
-    if add.day not in week.days:
-        return None
-    first = week.days.index(add.day)
-    last = week.days.index(add.last_day) + 1 if add.last_day in week.days else DAYS
-    starts = tuple(d for d in add.starts if d in week.days)
-    light = sum(1 for d in starts if week.light[week.days.index(d)])
-    return Leg(first, last, len(starts), light, tuple(add.teams), starts, len(add.teams) <= scarce, {}, ())
+def _legs(plan, week, scarce, light):
+    """[(Leg, the TeamAdds of its first day)] of plan in week: one leg from each add day to the next add day."""
+    adds = [a for a in plan.adds if a.day in week.days]
+    days = sorted({a.day for a in adds})
+    out = []
+    for k, day in enumerate(days):
+        first = week.days.index(day)
+        last = week.days.index(days[k + 1]) if k + 1 < len(days) else DAYS
+        span = set(week.days[first:last])
+        here = [a for a in adds if a.day == day]
+        # The starts in the leg: each start day of each new player of the rung, with one count for each player.
+        starts = [d for a in adds for d in a.starts if d in span and a.day <= d <= a.last_day]
+        teams = tuple(sorted({t for a in here for t in a.teams}))
+        pattern = tuple(sorted(set(starts)))
+        lights = sum(1 for d in starts if light[d])
+        out.append((Leg(first, last, len(starts), lights, teams, pattern, len(teams) <= scarce, {}, ()), here))
+    return out
 
 
 def roster_rungs(week, plans, cfg):
-    """(the Rungs of plans, {id(leg): (rung number, TeamAdd)}) for week.
+    """(the Rungs of plans, {id(leg): (rung number, the TeamAdds of the leg)}) for week.
 
-    Rung n: plans[n - 1]. Its games are the counted started games of the stream spots. Its lanes: the legs of each
-    stream spot with an add, in order of the first add day, then the spot. replan: the rung does not keep each add of the rung above. plus_one: the
-    start days that the rung has more often than the rung above, light nights first.
+    Rung n: plans[n - 1]. Its games are the counted started games of the stream spots. Its legs: _legs(). replan:
+    the rung does not keep each add of the rung above. plus_one: the start days that the rung has more often than the
+    rung above, light nights first.
     """
     scarce = cfg.get("skyline", {}).get("scarce_teams", SCARCE_TEAMS)
+    light = dict(zip(week.days, week.light))
     rungs, adds_of, before = [], {}, None
     for n, plan in enumerate(plans, start=1):
-        lanes = {}
-        for add in plan.adds:
-            leg = _leg(add, week, scarce)
-            if leg is not None:
-                lanes.setdefault(add.spot, []).append(leg)
-                adds_of[id(leg)] = (n, add)
-        lanes = tuple(tuple(lanes[s]) for s in sorted(lanes, key=lambda s: (lanes[s][0].first, s)))
-        legs = tuple(leg for lane in lanes for leg in lane)
+        legs = []
+        for leg, here in _legs(plan, week, scarce, light):
+            legs.append(leg)
+            adds_of[id(leg)] = (n, tuple(here))
+        starts = Counter(d for a in plan.adds for d in a.starts if d in light)
         games = _num(plan.started_games)
-        light = sum(leg.light for leg in legs)
         gain, plus_one, replan = 0, (), False
         if before is not None:
-            gain = _num(games - before.games)
-            more = Counter(d for leg in legs for d in leg.pattern) - Counter(
-                d for leg in before.legs for d in leg.pattern
-            )
-            ranked = sorted(more, key=lambda d: (not week.light[week.days.index(d)], d))
+            gain = _num(games - before[0].games)
+            more = starts - before[1]
+            ranked = sorted(more, key=lambda d: (not light[d], d))
             plus_one = tuple(sorted(ranked[: max(1, round(gain))])) if gain > 0 else ()
             kept = {(a.spot, a.day, a.teams) for a in plan.adds}
             replan = any((a.spot, a.day, a.teams) not in kept for a in plans[n - 2].adds)
-        rung = Rung(n, (), legs, games, light, gain, n > 1 and gain <= 0, replan, plus_one, games, lanes)
+        lights = sum(leg.light for leg in legs)
+        rung = Rung(
+            n,
+            tuple(x.first for x in legs[1:]),
+            tuple(legs),
+            games,
+            lights,
+            gain,
+            n > 1 and gain <= 0,
+            replan,
+            plus_one,
+            games,
+        )
         rungs.append(rung)
-        before = rung
+        before = (rung, starts)
     return tuple(rungs), adds_of
 
 
@@ -121,21 +139,28 @@ def _said_slots(slots):
     return "any position" if slots == (UTIL,) else _words(slots, "or")
 
 
-def _leg_href(run, adds_of, count_at):
-    """The function (rung, leg) -> (the Free agents link of the add of leg, its text label) for render()."""
+def _leg_href(run, adds_of, count_at, slots):
+    """The function (rung, leg) -> (the Free agents link of the adds of leg, its text label) for render().
+
+    A leg with more than one add sets the filters of all its adds: their start days, their slots and their teams.
+    """
     index = {d.date for d in run.days}
 
     def href(rung, leg):
-        n, add = adds_of[id(leg)]
-        days = [d for d in add.starts if d in index]
-        pos = "" if add.slots == (UTIL,) else ",".join(add.slots)
-        teams = teams_text(add.teams, count_at)
-        source = f"{n} add{'s' if n > 1 else ''}, spot {add.spot + 1}, {add.day:%a}: +{slot_text(add.slots)} {teams}"
+        n, adds = adds_of[id(leg)]
+        days = sorted({d for a in adds for d in a.starts if d in index})
+        util = any(a.slots == (UTIL,) for a in adds)
+        pos = "" if util else ",".join(s for s in slots if any(s in a.slots for a in adds))
+        teams = tuple(sorted({t for a in adds for t in a.teams}))
+        head = f"{n} add{'s' if n > 1 else ''}, {adds[0].day:%a}: "
+        source = head + ", ".join(f"+{slot_text(a.slots)} {teams_text(a.teams, count_at)}" for a in adds)
+        said = " and ".join(f"{_said_slots(a.slots)} from {_words(a.teams, 'or')}" for a in adds)
+        starts = sorted({d for a in adds for d in a.starts})
         label = (
-            f"{n} add{'s' if n > 1 else ''}, spot {add.spot + 1}: on {add.day:%a} add {_said_slots(add.slots)} from "
-            f"{_words(add.teams, 'or')}. Starts {_days(add.starts)}. Show these free agents."
+            f"{n} add{'s' if n > 1 else ''}: on {adds[0].day:%a} add {said}. Starts {_days(starts)}. "
+            "Show these free agents."
         )
-        return fa_link(days, pos, add.teams, source), label
+        return fa_link(days, pos, teams, source), label
 
     return href
 
@@ -190,8 +215,8 @@ LEGEND = (
     '<details class="notes" id="plan-notes"><summary>How to read the Skyline</summary>\n'
     '<p class="legend">The skyline at the top shows the NBA games of each night. A blue night is a light night: '
     "{light_max} or fewer games. The ladder below has one rung for each number of adds. Rung n is the best plan for "
-    "your stream spots with n adds. Each stream spot with an add has its own row in the rung. A white block is one "
-    "add: from the add day to the last day that the new player holds the spot. A dot marks a day that he starts. A "
+    "your stream spots with n adds. A white block starts on an add day and runs to the next add day of the rung. It "
+    "names the teams of the adds of its first day. A dot marks a day that a new player of the rung starts. A "
     "line between 2 dots marks a back-to-back. With {scarce} teams or fewer, the block names the teams. Else it gives "
     'the count. The number at the left is the started games of your stream spots. "+1" marks a game that the extra '
     "add buys. RE-PLAN: the rung does not keep the adds of the rung above. A click on a block opens the Free agents "
@@ -224,8 +249,10 @@ def plan_section(run, interactive=True):
         )
     figure = ""
     if week is not None:
-        no = run.data.week.number
-        href = _leg_href(run, adds_of, count_at) if interactive and rungs else None
+        # The week number of the calendar of config.toml ([weeks]), else the number of the Yahoo page.
+        no = week_number(run.data.week.start, cfg, run.data.week.number)
+        slots = cfg.get("league", {}).get("slots", ["PG", "SG", "SF", "PF", "C"])
+        href = _leg_href(run, adds_of, count_at, slots) if interactive and rungs else None
         drawn = rungs or None  # None: the ladder of one open spot, with no links
         if not rungs:
             lines.append('<p class="muted tp-note">The ladder shows one open spot on each day, not your roster.</p>')
@@ -247,15 +274,17 @@ def plan_section(run, interactive=True):
 
 
 CSS = """
-/* The Schedule Skyline (issue 236): the desktop layout above 599px, the 2 phone panels below. The page shows the
-   copy of the current theme. */
+/* The Schedule Skyline (issue 236): the desktop layout from 1210px, the 2 phone panels below. The page shows the
+   copy of the current theme. The desktop layout is wider than the sheet: 914px or more at 1210px, so that its
+   text of 13 units is 11px or more. 288px: the menu (216px), the side padding of the sheet and a scrollbar. */
 .tp-lede { color: var(--fg); font-size: 14px; margin: 0 0 10px; }
 .tp-lede b { font-weight: 800; }
 .tp-note { font-size: 12px; margin: 4px 0 0; }
 .tp-past { font-size: 12px; margin: 2px 0 0; padding-left: 18px; }
 .sky { margin: 0 0 8px; }
 .sky svg { display: block; width: 100%; height: auto; }
-.sky-tall { display: none; }
+.sky-wide { width: min(1080px, calc(100vw - 288px)); }
+.sky-tall { display: none; max-width: 520px; }
 .sky-tall svg + svg { margin-top: 12px; }
 .sky-dark { display: none; }
 :root[data-theme="dark"] .sky-light { display: none; }
@@ -264,7 +293,7 @@ CSS = """
   :root:not([data-theme="light"]) .sky-light { display: none; }
   :root:not([data-theme="light"]) .sky-dark { display: block; }
 }
-@media (max-width: 599px) {
+@media (max-width: 1209px) {
   .sky-wide { display: none; }
   .sky-tall { display: block; }
 }

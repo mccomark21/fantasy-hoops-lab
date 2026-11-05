@@ -149,7 +149,8 @@ class _Profile:
     inset: float  # the gap between a skyline bar and the day rule
 
 
-PAGE = _Profile(64, 96, 90, 30, 22, 40, 24, 12, 11, 17, 30, 14, 12, 22, 13, 58, 8.5, 2, 2, 1.5, 2.5, 4)
+# The page layout keeps all text at 13 units or more, so that it is 11 px or more at a display width of 914 px (issue 236).
+PAGE = _Profile(64, 96, 90, 30, 22, 40, 24, 13, 13, 17, 30, 14, 13, 22, 13, 58, 8.5, 2, 2, 1.5, 2.5, 4)
 # A tall layout: 32 units on a 1080 unit width are 11.6 px at a display width of 390 px.
 TALL_PROFILE = _Profile(36, 132, 64, 32, 44, 60, 48, 32, 32, 32, 44, 32, 32, 32, 32, 60, 14, 6, 6, 4, 4, 8)
 NO_GAME_WEIGHT = 0.6  # the size of a no-game day on a tall axis, relative to a day with games
@@ -592,7 +593,7 @@ def _page(s, k, p, ax, week_no, href):
     s.line(p.margin, 182, ax.end, 182, "base-rule")
     line_y = _skyline(s, k, p, ax, 190, 490)
     label = (f"{w.light_max} or fewer", "games = light", "night")
-    s.lines(p.margin, line_y - 8 - 3 * 12 * 1.2, label, 12, "mark", "label", 1.2, "line-key")
+    s.lines(p.margin, line_y - 8 - 3 * 13 * 1.2, label, 13, "mark", "label", 1.2, "line-key")
     s.line(p.margin, 490, ax.end, 490, "base-rule")
     _heads(s, k, p, ax, 490, 62)
     _ladder(s, k, p, ax, 560, FRAMES["page"][0] - 56, href)
