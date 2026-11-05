@@ -278,6 +278,9 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 
 12. Later on 2026-11-05, the owner approved the "Mahhhk Draft" tag placement (bottom right of each post image) on the #237 review page. The owner also said the 2 long Yahoo weeks are the NBA Cup week and the All-Star break week. The #236 builder must find the exact dates and put the week calendar in `config.toml`.
 
+13. PR #243 (for #236) opened at head `111a131`. On 2026-11-05, the owner decided: the long Yahoo weeks are Nov 30 – Dec 13, 2026 (NBA Cup) and Feb 15–28, 2027 (All-Star); the page ladder shows the 4 rung columns with no overlapping legs ("Having overlapping narrow legs seems pointless"), so the builder's pick of one lane per stream spot is rejected; all desktop Skyline text is 11 px or more (it was about 7 px). Open: on a 14-day week the Skyline draws only 7 days.
+14. PR #242 fixed the partial-output nit at `23e4165` and went to the merger.
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages
