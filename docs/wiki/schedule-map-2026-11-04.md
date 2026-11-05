@@ -276,6 +276,8 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 
 11. Later on 2026-11-05, the owner asked to tag both post images with "Mahhhk Draft" and to add "#MahhhkDraft" to the post text. This supersedes "no footer, no credit line" of #235 only for this one tag, and only in the post images. The default placement is a small sign-off in a bottom corner, in the text ink; the owner sees it on the #237 review page.
 
+12. Later on 2026-11-05, the owner approved the "Mahhhk Draft" tag placement (bottom right of each post image) on the #237 review page. The owner also said the 2 long Yahoo weeks are the NBA Cup week and the All-Star break week. The #236 builder must find the exact dates and put the week calendar in `config.toml`.
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages
