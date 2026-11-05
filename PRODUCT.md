@@ -43,6 +43,7 @@ References:
 3. **One system.** All pages use the same tokens, type, nav and table conventions, so a new tool page looks like part of the site.
 4. **Earn each mark.** Color, weight and borders carry meaning (good, bad, selected, open). Remove a mark that does not carry meaning.
 5. **Desktop depth, phone reach.** Design for the desktop first. The decision for the week must also be clear and usable on a phone.
+6. **Art meets analytics.** A hero graphic or a shareable image can carry a picture of the data that a person sees at a glance. The decision still comes from the data. This principle applies only to hero graphics and shareable images. Tables and working UI keep the Box Score rules of `DESIGN.md`. The owner set this principle on 2026-11-04. The Schedule Skyline is its first use. See the "Poster mode" section of `DESIGN.md`.
 
 ## Accessibility & Inclusion
 
