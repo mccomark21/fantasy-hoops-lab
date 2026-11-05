@@ -256,6 +256,18 @@ Poster mode inherits the site chart rules. These named exceptions apply:
 6. Sample file: `.impeccable/review/236-phone-sample.html` (untracked).
 7. Sample result of 2026-11-05 (agent report, measured in headless Edge): the smallest text is 11 px at 390 px in all 20 images. No overlaps remain after 2 fixes. On the phone screens all chips fit, with rows about 89 px tall. In the post images, rows are about 51 px tall at 390 px. One leg (post A, rung 4, Thu) shows 2 chips plus "+2". The skyline post image has a large empty top band. The agent recommended to keep the v6 2-image post and use the transposed layout on the phone only. The owner has not decided. Script: `.impeccable/mocks/schedule-skyline/transposed.py` (untracked).
 
+## PR #241 decisions (2026-11-05)
+
+PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On 2026-11-05, the owner decided these points:
+
+1. Post header rows: accepted. In the post images, the rung totals go in a header row above each rung, the line label goes in a key under the title, and the post line is 4 px wide. The cause is the 30 px phone rule.
+2. RE-PLAN triangles: left out. A RE-PLAN rung shows only the RE-PLAN tag.
+3. Orientation: the top-to-bottom (transposed) layout is used on the phone page AND in the 2 Bluesky post images. The owner did not take the sample agent's advice to keep v6 for the post. This supersedes Q15 item 1 of [Phone rule and post images](#phone-rule-and-post-images-2026-11-04) as to the layout inside each image. There are still 2 images, each 1080x1350.
+4. Build place: PR #241 adds the transposed layout to the one shared renderer before the merge, and fixes the 3 post problems of the sample (rows about 51 px tall, a leg that drops chips, the empty top band). #236 and #237 then use it.
+5. Blue marks (the blocker): the 5 extra `mark` marks of v6 (light-night skyline blocks, light-night counts, light-night day heads, rung gain text, line key text) go into the Poster mode exception list in DESIGN.md. A test must fail when the renderer uses `mark` on a mark that is not in the list.
+
+Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
+
 ## Related pages
 
 - [Bluesky streaming posts](bluesky-streaming-posts.md): the plan of 2026-10-26 for weekly streaming images on Bluesky, paused the same day.
