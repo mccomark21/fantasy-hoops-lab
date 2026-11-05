@@ -23,13 +23,13 @@ The command writes these files in `output/bluesky/<first day of the week>/`:
 | --- | --- |
 | `skyline.png` | Image 1: the skyline. 1080x1350, under 1 MB. |
 | `ladder.png` | Image 2: the add ladder. 1080x1350, under 1 MB. |
-| `post.json` | The week number, the first and the last day, the post text, and the file and the alt text of each image in the post order. |
+| `post.json` | The first and the last day of the week, the post text, and the file and the alt text of each image in the post order. |
 
-The terminal shows the week, the path and the size of each file, the smallest text of each image at a 390 px display width, the post text and the 2 alt texts.
+The terminal shows the dates of the week, the path and the size of each file, the smallest text of each image at a 390 px display width, the post text and the 2 alt texts.
 
 ### The images
 
-`core/skyline_svg.py` draws the 2 images (`post_images()`). The days go from top to bottom, Monday at the top. Playwright Chromium opens each SVG with the Archivo font of `core/fonts/` and saves a 1080x1350 screenshot.
+`core/skyline_svg.py` draws the 2 images (`post_images()`). The days go from top to bottom, Monday at the top. The title line gives the dates of the week, for example "Nov 9–15, 2026", not a week number. Bluesky readers play in leagues with other week numbers (owner decision of 2026-11-05). Playwright Chromium opens each SVG with the Archivo font of `core/fonts/` and saves a 1080x1350 screenshot.
 
 The command stops with an error in these cases:
 
@@ -39,10 +39,10 @@ The command stops with an error in these cases:
 
 ### The post text
 
-The post text has 3 parts: the title line with the week number and the dates, one line about the Skyline, and `#FantasyBasketball`. It has 300 characters or fewer (the Bluesky limit). An example:
+The post text has 3 parts: the title line with the dates of the week, one line about the Skyline, and `#FantasyBasketball`. It has 300 characters or fewer (the Bluesky limit). An example:
 
 ```text
-Schedule Skyline · Week 3 · Nov 2–8, 2026
+Schedule Skyline · Nov 2–8, 2026
 
 The NBA games of each night, and the most games that one open roster spot gets with 1 to 4 adds.
 
@@ -60,7 +60,6 @@ The settings are in `[skyline]` of `config.toml`:
 
 | Setting | Use |
 | --- | --- |
-| `week_1` | The Monday of fantasy week 1. The week number counts weeks of 7 days from this Monday. |
 | `unscheduled` | The ranges (first, last) of days that `data/schedule.csv` does not have yet. |
 | `max_adds` | The ladder shows 1 to this number of adds. The post text gives this number. |
 
@@ -69,7 +68,7 @@ The settings are in `[skyline]` of `config.toml`:
 On 2026-11-04, `data/schedule.csv` had no games on Dec 4-11, 2026: the NBA Cup knockout days. `unscheduled` lists these days. A week with a day in `unscheduled` and 0 games on that day gives no post. The command writes no files, stops with exit code 1 and names the days. For example:
 
 ```text
-No post for week 8 (Dec 7–13, 2026). The schedule has no games on Mon Dec 7, Tue Dec 8, Wed Dec 9, Thu Dec 10, Fri Dec 11. These days are in [skyline] unscheduled of config.toml. Run python -m fantasyhoops.fetch.espn again after the NBA sets the games of these days.
+No post for the week of Dec 7–13, 2026. The schedule has no games on Mon Dec 7, Tue Dec 8, Wed Dec 9, Thu Dec 10, Fri Dec 11. These days are in [skyline] unscheduled of config.toml. Run python -m fantasyhoops.fetch.espn again after the NBA sets the games of these days.
 ```
 
 When the schedule has games on these days, the post runs again. A no-game day outside `unscheduled`, for example Tue Nov 3, 2026, shows the "NO NBA GAMES" hatch.

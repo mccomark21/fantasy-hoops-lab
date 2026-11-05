@@ -22,6 +22,7 @@ from fantasyhoops.core import common, tokens
 from fantasyhoops.core.schedule import read_schedule
 from fantasyhoops.core.skyline import week_facts
 from fantasyhoops.core.skyline_svg import FRAMES, post_images
+from fantasyhoops.core.skyline_svg import week_dates as dates
 
 TAG = "#FantasyBasketball"
 LIMIT = 300  # the Bluesky limit of the post text, in characters
@@ -48,14 +49,10 @@ def next_week_start(today):
     return today + timedelta((7 - today.weekday()) % 7)
 
 
-def week_number(start, cfg):
-    """The fantasy week number of the week that starts on start: weeks of 7 days from [skyline] week_1."""
+def check_monday(start):
+    """Raise ValueError if start is not a Monday: a fantasy week starts on a Monday."""
     if start.weekday() != 0:
         raise ValueError(f"A fantasy week starts on a Monday. {start:%a %Y-%m-%d} is not a Monday.")
-    first = cfg["skyline"]["week_1"]
-    if start < first:
-        raise ValueError(f"Week 1 starts on {first}. {start} is before week 1.")
-    return (start - first).days // 7 + 1
 
 
 def missing_days(week, cfg):
@@ -70,21 +67,14 @@ def _day(d):
     return f"{d:%b} {d.day}"
 
 
-def dates(week):
-    """The dates of the week, for example "Nov 9–15, 2026" or "Dec 28, 2026 – Jan 3, 2027"."""
-    a, b = week.days[0], week.days[-1]
-    if a.year != b.year:
-        return f"{_day(a)}, {a.year} – {_day(b)}, {b.year}"
-    if a.month != b.month:
-        return f"{_day(a)} – {_day(b)}, {b.year}"
-    return f"{_day(a)}–{b.day}, {b.year}"
+def post_text(week, cfg):
+    """The text of the post: the title line with the dates, one line about the Skyline and the tag.
 
-
-def post_text(week, week_no, cfg):
-    """The text of the post: the title line with the dates, one line about the Skyline and the tag."""
+    The post names no week number: the readers play in leagues with other week numbers (owner, 2026-11-05).
+    """
     adds = cfg["skyline"]["max_adds"]
     return (
-        f"Schedule Skyline · Week {week_no} · {dates(week)}\n\n"
+        f"Schedule Skyline · {dates(week)}\n\n"
         f"The NBA games of each night, and the most games that one open roster spot gets with 1 to {adds} adds.\n\n"
         f"{TAG}"
     )
@@ -100,11 +90,11 @@ def _names(days):
     return ", ".join(f"{d:%a}" for d in days)
 
 
-def skyline_alt(week, week_no):
+def skyline_alt(week):
     """The alt text of image 1: the games of each night, the light nights, the no-game days and the anchor nights."""
     nights = ", ".join(f"{d:%a} {g}" if g else f"{d:%a} no games" for d, g in zip(week.days, week.games))
     parts = [
-        f"Schedule Skyline, week {week_no}, {dates(week)}.",
+        f"Schedule Skyline, {dates(week)}.",
         f"A chart of the NBA games of each night: {nights}.",
     ]
     light = [d for d, lt in zip(week.days, week.light) if lt]
@@ -141,35 +131,34 @@ def _rung_text(rung):
     return head + "."
 
 
-def ladder_alt(week, week_no):
+def ladder_alt(week):
     """The alt text of image 2: each rung of the ladder with its games, its gain and its legs."""
-    parts = [f"The add ladder of week {week_no}: the most games for one roster spot that is open each day."]
+    parts = [f"The add ladder of {dates(week)}: the most games for one roster spot that is open each day."]
     for rung in week.rungs:
         parts.append(" ".join([_rung_text(rung), *(_leg_text(week, leg) for leg in rung.legs)]))
     return " ".join(parts)
 
 
 def build(sched, start, cfg):
-    """{"week", "week_no", "text", "alts", "svgs"} of the post of the week that starts on start.
+    """{"week", "text", "alts", "svgs"} of the post of the week that starts on start.
 
     Raise MissingDays if the week has unscheduled days with 0 games.
     """
-    week_no = week_number(start, cfg)
+    check_monday(start)
     week = week_facts(sched, start, cfg)
     missing = missing_days(week, cfg)
     if missing:
         raise MissingDays(
-            f"No post for week {week_no} ({dates(week)}). The schedule has no games on "
+            f"No post for the week of {dates(week)}. The schedule has no games on "
             + ", ".join(f"{d:%a} {_day(d)}" for d in missing)
             + ". These days are in [skyline] unscheduled of config.toml. "
             "Run python -m fantasyhoops.fetch.espn again after the NBA sets the games of these days."
         )
     return {
         "week": week,
-        "week_no": week_no,
-        "text": post_text(week, week_no, cfg),
-        "alts": (skyline_alt(week, week_no), ladder_alt(week, week_no)),
-        "svgs": post_images(week, week_no),
+        "text": post_text(week, cfg),
+        "alts": (skyline_alt(week), ladder_alt(week)),
+        "svgs": post_images(week),
     }
 
 
@@ -221,7 +210,6 @@ def write_post(post, folder):
             raise RuntimeError(f"{p.name} is {p.stat().st_size} bytes. A post image must be under {MAX_BYTES} bytes.")
     week = post["week"]
     data = {
-        "week_no": post["week_no"],
         "first_day": week.days[0].isoformat(),
         "last_day": week.days[-1].isoformat(),
         "text": post["text"],
@@ -249,7 +237,7 @@ def main(argv=None):
     except ValueError as e:  # MissingDays is a ValueError
         sys.exit(str(e))
     files, smallest = write_post(post, common.OUT / "bluesky" / start.isoformat())
-    print(f"Week {post['week_no']}: {dates(post['week'])}")
+    print(f"The week of {dates(post['week'])}")
     for f in files:
         print(f"  {f} ({f.stat().st_size / 1024:.0f} KB)")
     print(f"Smallest text at {PHONE} px: " + ", ".join(f"{px:.1f} px" for px in smallest))

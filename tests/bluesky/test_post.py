@@ -22,18 +22,18 @@ from fantasyhoops.bluesky.post import (
     TAG,
     MissingDays,
     build,
+    check_monday,
     dates,
     export_pngs,
     ladder_alt,
     next_week_start,
     post_text,
     skyline_alt,
-    week_number,
     write_post,
 )
 from fantasyhoops.core import common
 
-# Weeks A-E of docs/wiki/schedule-map-2026-11-04.md and their fantasy week numbers (the v6 mock).
+# Weeks A-E of docs/wiki/schedule-map-2026-11-04.md and their fantasy week numbers (the v6 mock, not in the post).
 FIXTURE = Path(__file__).parents[1] / "core" / "fixtures" / "skyline_weeks.json"
 WEEKS = {
     "A": (date(2026, 11, 2), 3),
@@ -49,7 +49,6 @@ CFG = {
         "scarce_teams": 5,
         "anchor_max_games": 4,
         "heavy_max_teams": 3,
-        "week_1": date(2026, 10, 19),
         "unscheduled": [[date(2026, 12, 4), date(2026, 12, 11)]],
     },
 }
@@ -81,19 +80,14 @@ def test_the_default_week_is_the_next_monday_or_today_on_a_monday(today, monday)
     assert next_week_start(today) == monday
 
 
-def test_the_week_number_counts_weeks_from_week_1():
-    assert {k: week_number(start, CFG) for k, (start, _) in WEEKS.items()} == {k: no for k, (_, no) in WEEKS.items()}
-
-
-@pytest.mark.parametrize("start", [date(2026, 11, 4), date(2026, 10, 12)])
-def test_a_week_that_is_not_a_monday_or_is_before_week_1_is_an_error(start):
-    with pytest.raises(ValueError):
-        week_number(start, CFG)
+def test_a_week_that_is_not_a_monday_is_an_error(sched):
+    check_monday(date(2026, 11, 2))
+    with pytest.raises(ValueError, match="not a Monday"):
+        build(sched, date(2026, 11, 4), CFG)
 
 
 def test_the_config_has_the_settings_of_the_post():
     sk = common.load_config()["skyline"]
-    assert sk["week_1"].weekday() == 0
     assert all(first <= last for first, last in sk["unscheduled"])
 
 
@@ -105,9 +99,9 @@ def test_the_post_text_has_the_tag_and_the_dates_and_fits_the_limit(posts):
         text = p["text"]
         assert TAG in text, key
         assert dates(p["week"]) in text, key
-        assert f"Week {WEEKS[key][1]}" in text, key
+        assert "week" not in text.lower().replace("weekly", ""), key  # the post names no week number
         assert len(text) <= LIMIT, (key, len(text))
-    assert "Nov 2–8, 2026" in posts["A"]["text"]
+    assert posts["A"]["text"].startswith("Schedule Skyline · Nov 2–8, 2026" + chr(10))
 
 
 @pytest.mark.parametrize(
@@ -121,7 +115,7 @@ def test_the_post_text_has_the_tag_and_the_dates_and_fits_the_limit(posts):
 def test_the_dates_of_a_week_across_months_and_years(start, text):
     week = SimpleNamespace(days=tuple(pd.date_range(start, periods=7).date))
     assert dates(week) == text
-    assert len(post_text(week, 52, CFG)) <= LIMIT
+    assert len(post_text(week, CFG)) <= LIMIT
 
 
 # ---- The alt texts
@@ -130,7 +124,7 @@ def test_the_dates_of_a_week_across_months_and_years(start, text):
 def test_the_skyline_alt_text_gives_the_games_of_each_night(posts):
     for key, p in posts.items():
         week, alt = p["week"], p["alts"][0]
-        assert alt == skyline_alt(week, p["week_no"])
+        assert alt == skyline_alt(week)
         for d, g in zip(week.days, week.games):
             assert (f"{d:%a} {g}," if g else f"{d:%a} no games") in alt.replace(".", ","), (key, d)
         light = [f"{d:%a}" for d, lt in zip(week.days, week.light) if lt]
@@ -145,7 +139,7 @@ def test_the_skyline_alt_text_gives_the_games_of_each_night(posts):
 def test_the_ladder_alt_text_gives_each_rung_and_each_leg(posts):
     for key, p in posts.items():
         week, alt = p["week"], p["alts"][1]
-        assert alt == ladder_alt(week, p["week_no"])
+        assert alt == ladder_alt(week)
         assert len(alt) <= ALT_LIMIT, key
         pos = 0
         for rung in week.rungs:
@@ -171,7 +165,7 @@ def test_a_week_with_unscheduled_days_gives_a_clear_message_and_no_post(sched):
     # Wed Nov 4 of week A loses its games, and the config lists it as unscheduled.
     cut = sched[sched.date != "2026-11-04"]
     cfg = {**CFG, "skyline": {**CFG["skyline"], "unscheduled": [[date(2026, 11, 4), date(2026, 11, 4)]]}}
-    with pytest.raises(MissingDays, match=r"No post for week 3 \(Nov 2–8, 2026\).*Wed Nov 4\."):
+    with pytest.raises(MissingDays, match=r"No post for the week of Nov 2–8, 2026\..*Wed Nov 4\."):
         build(cut, date(2026, 11, 2), cfg)
 
 
@@ -194,7 +188,7 @@ def test_the_command_stops_with_the_message_and_writes_no_files(sched, monkeypat
     cfg = {**CFG, "skyline": {**CFG["skyline"], "unscheduled": [[date(2026, 11, 4), date(2026, 11, 4)]]}}
     monkeypatch.setattr(post, "read_schedule", lambda: cut)
     monkeypatch.setattr(common, "load_config", lambda: cfg)
-    with pytest.raises(SystemExit, match="No post for week 3"):
+    with pytest.raises(SystemExit, match="No post for the week of Nov 2–8, 2026"):
         post.main(["--week", "2026-11-02"])
     assert not (tmp_path / "bluesky").exists()
 
@@ -271,7 +265,7 @@ def test_the_text_check_stops_an_image_with_small_text(chromium_ok, tmp_path):
 def test_post_json_lists_the_text_and_the_2_images_in_the_post_order(exported, posts):
     files, _ = exported["A"]
     data = json.loads(files[2].read_text(encoding="utf-8"))
-    assert data["week_no"] == 3 and data["first_day"] == "2026-11-02" and data["last_day"] == "2026-11-08"
+    assert "week_no" not in data and data["first_day"] == "2026-11-02" and data["last_day"] == "2026-11-08"
     assert data["text"] == posts["A"]["text"]
     assert [i["file"] for i in data["images"]] == ["skyline.png", "ladder.png"]
     assert [i["alt"] for i in data["images"]] == list(posts["A"]["alts"])
@@ -283,4 +277,11 @@ def test_the_command_writes_the_files_of_the_week_in_output_bluesky(chromium_ok,
     post.main(["--week", "2026-11-09"])
     folder = tmp_path / "bluesky" / "2026-11-09"
     assert sorted(p.name for p in folder.iterdir()) == ["ladder.png", "post.json", "skyline.png"]
-    assert "Week 4: Nov 9–15, 2026" in capsys.readouterr().out
+    assert "The week of Nov 9–15, 2026" in capsys.readouterr().out
+
+
+def test_the_title_of_each_post_image_gives_the_dates_and_no_week_number(posts):
+    for key, p in posts.items():
+        for svg in p["svgs"]:
+            assert f">{dates(p['week'])}</text>" in svg, key
+            assert ">Week " not in svg and "week " not in svg.split("<title>")[1].split("</title>")[0], key

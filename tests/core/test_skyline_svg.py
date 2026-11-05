@@ -263,7 +263,7 @@ def test_the_gain_tags_the_zero_gain_rung_and_the_replan_tag(svgs, layout):
 
 def test_the_post_images_and_the_phone_panels(weeks, svgs):
     week, no = weeks["A"]
-    assert post_images(week, no) == (svgs["A", "skyline"], svgs["A", "ladder"])
+    assert post_images(week) == (render(week, None, "skyline"), render(week, None, "ladder"))
     assert phone_panels(week, no) == (svgs["A", "phone-skyline"], svgs["A", "phone-ladder"])
     for layout in ("phone-skyline", "skyline"):
         assert 'class="leg"' not in svgs["A", layout] and 'class="blk' in svgs["A", layout]
@@ -568,3 +568,23 @@ def test_the_no_game_hatch_is_on_top_of_the_legs_in_chromium(chromium, weeks, tm
                         points.append((x0 + (x1 - x0) * k / 20, lo + (hi - lo) * j / 4))
         tops = chromium.evaluate(HATCH_CHECK, [[x * scale, y * scale] for x, y in points])
         assert [t for t in tops if t != "hatch"] == [], key
+
+
+@pytest.mark.parametrize(
+    "start, text",
+    [
+        (date(2026, 11, 9), "Nov 9–15, 2026"),
+        (date(2026, 11, 30), "Nov 30 – Dec 6, 2026"),
+        (date(2026, 12, 28), "Dec 28, 2026 – Jan 3, 2027"),
+    ],
+)
+def test_the_post_images_give_the_dates_in_the_title_line_inside_the_frame(start, text):
+    """The post title line gives the dates, not a week number (owner, 2026-11-05). The longest dates fit the frame."""
+    sched = pd.DataFrame(json.loads(FIXTURE.read_text()), columns=["date", "team", "opponent"])
+    week = week_facts(sched, start, CFG)
+    for svg in post_images(week):
+        boxes = {t: (size, box) for t, size, box in text_boxes(svg)}
+        _, (x, _, w, _) = boxes[text]
+        assert x + w <= 1080 - skyline_svg.profile("skyline").margin, (text, x + w)
+        assert not any(t.startswith("Week ") for t in boxes)
+        assert text_overlaps(svg) == []

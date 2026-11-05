@@ -252,10 +252,7 @@ max_adds = 4               # the ladder shows 1 to this number of adds
 scarce_teams = 5           # a leg with this number of teams or fewer is scarce: the poster names its teams
 anchor_max_games = 4       # an anchor night has this number of NBA games or fewer
 heavy_max_teams = 3        # a heavy-team week: this number of teams or fewer play the most games
-# The weekly Bluesky post (bluesky/post.py, #237). week_1: the Monday of fantasy week 1. The post counts weeks of
-# 7 days from this Monday (the v6 mock: Nov 2 is week 3).
-week_1 = 2026-10-19
-# The days that data/schedule.csv did not have on 2026-11-04: the NBA Cup knockout days (first, last). A week with
+# The weekly Bluesky post (bluesky/post.py, #237): the days that data/schedule.csv did not have on 2026-11-04: the NBA Cup knockout days (first, last). A week with
 # a day in a range and 0 games on that day gives no post. When the schedule has games on these days, the post runs.
 unscheduled = [[2026-12-04, 2026-12-11]]
 
