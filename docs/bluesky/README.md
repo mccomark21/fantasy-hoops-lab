@@ -75,7 +75,7 @@ When the schedule has games on these days, the post runs again. A no-game day ou
 
 ## The Monday job
 
-The workflow `.github/workflows/bluesky.yml` makes the post each Monday at 13:00 UTC (8:00 US Eastern in winter, 9:00 in summer). It uses GitHub Actions only. It needs no Yahoo login.
+The workflow `.github/workflows/bluesky.yml` makes the post each Monday at 09:00 UTC (4:00 US Eastern in winter, 5:00 in summer). It uses GitHub Actions only. It needs no Yahoo login.
 
 1. The job runs `python -m fantasyhoops.fetch.espn`. This script reads the public ESPN site API with no login and no key. If the fetch fails, the job fails and posts nothing.
 2. The job runs `python -m fantasyhoops.bluesky.send`. This command makes the post files of `python -m fantasyhoops.bluesky`. Then it posts them, or it does a dry run.
