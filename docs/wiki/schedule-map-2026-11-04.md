@@ -272,6 +272,8 @@ PR #241 (closes #235) opened at head `edbf6d4`. The reviewer found 1 blocker. On
 8. Head `c5c76d5` fixed the hatch (draw-order test and a Chromium hit-test) and the 2 nits. The owner approved the compare page ("looks great now"). PR #241 merged as `f438cad` on 2026-11-05 and closed #235. Gap noted by the merger: the last reviewer pass was at `a790af6`; the commits after it had owner approval but no second review.
 9. On 2026-11-05, #236 and #237 started at the same time in separate worktrees.
 
+10. PR #242 (for #237) opened at head `67cc7f9`. On 2026-11-05, the owner decided: the post title shows dates (for example "Nov 9–15"), not a week number; the adds page shows the owner's Yahoo week number. The chief of staff confirmed that on a Monday the default week is the week that starts that day. Open point: with 7-day weeks from 2026-10-19, Mar 8 is week 21, but `config.toml` names it wk19, so the Yahoo calendar has longer weeks that the repo does not know yet.
+
 Lesson (2026-11-05): the exception list was written from the v6 description, not from the v6 drawing. The same gap came up twice (the game dots, then these 5 marks). A test that ties the list to the code stops a third time.
 
 ## Related pages
