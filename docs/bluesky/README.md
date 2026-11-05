@@ -29,7 +29,7 @@ The terminal shows the dates of the week, the path and the size of each file, th
 
 ### The images
 
-`core/skyline_svg.py` draws the 2 images (`post_images()`). The days go from top to bottom, Monday at the top. The title line gives the dates of the week, for example "Nov 9–15, 2026", not a week number. Bluesky readers play in leagues with other week numbers (owner decision of 2026-11-05). Playwright Chromium opens each SVG with the Archivo font of `core/fonts/` and saves a 1080x1350 screenshot.
+`core/skyline_svg.py` draws the 2 images (`post_images()`). The days go from top to bottom, Monday at the top. The title line gives the dates of the week, for example "Nov 9–15, 2026", not a week number. Bluesky readers play in leagues with other week numbers (owner decision of 2026-11-05). The bottom-right corner of each image has the sign-off "Mahhhk Draft" in the text ink (owner request of 2026-11-05). Playwright Chromium opens each SVG with the Archivo font of `core/fonts/` and saves a 1080x1350 screenshot.
 
 The command stops with an error in these cases:
 
@@ -39,14 +39,14 @@ The command stops with an error in these cases:
 
 ### The post text
 
-The post text has 3 parts: the title line with the dates of the week, one line about the Skyline, and `#FantasyBasketball`. It has 300 characters or fewer (the Bluesky limit). An example:
+The post text has 3 parts: the title line with the dates of the week, one line about the Skyline, and the tags `#FantasyBasketball #MahhhkDraft`. It has 300 characters or fewer (the Bluesky limit). An example:
 
 ```text
 Schedule Skyline · Nov 2–8, 2026
 
 The NBA games of each night, and the most games that one open roster spot gets with 1 to 4 adds.
 
-#FantasyBasketball
+#FantasyBasketball #MahhhkDraft
 ```
 
 ### The alt texts

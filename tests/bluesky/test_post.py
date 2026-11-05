@@ -19,7 +19,7 @@ from fantasyhoops.bluesky.post import (
     LIMIT,
     MAX_BYTES,
     MIN_TEXT,
-    TAG,
+    TAGS,
     MissingDays,
     build,
     check_monday,
@@ -97,7 +97,7 @@ def test_the_config_has_the_settings_of_the_post():
 def test_the_post_text_has_the_tag_and_the_dates_and_fits_the_limit(posts):
     for key, p in posts.items():
         text = p["text"]
-        assert TAG in text, key
+        assert text.endswith("adds.\n\n#FantasyBasketball #MahhhkDraft"), key
         assert dates(p["week"]) in text, key
         assert "week" not in text.lower().replace("weekly", ""), key  # the post names no week number
         assert len(text) <= LIMIT, (key, len(text))
@@ -285,3 +285,12 @@ def test_the_title_of_each_post_image_gives_the_dates_and_no_week_number(posts):
         for svg in p["svgs"]:
             assert f">{dates(p['week'])}</text>" in svg, key
             assert ">Week " not in svg and "week " not in svg.split("<title>")[1].split("</title>")[0], key
+
+
+def test_the_post_text_of_the_longest_dates_and_the_most_adds_fits_the_limit():
+    """The post text with both tags stays within the Bluesky limit of 300 characters in the longest case."""
+    week = SimpleNamespace(days=tuple(pd.date_range(date(2026, 12, 28), periods=7).date))
+    cfg = {**CFG, "skyline": {**CFG["skyline"], "max_adds": 99}}
+    text = post_text(week, cfg)
+    assert TAGS == ("#FantasyBasketball", "#MahhhkDraft") and all(t in text for t in TAGS)
+    assert len(text) <= LIMIT, len(text)

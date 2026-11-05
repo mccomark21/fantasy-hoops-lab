@@ -24,7 +24,7 @@ from fantasyhoops.core.skyline import week_facts
 from fantasyhoops.core.skyline_svg import FRAMES, post_images
 from fantasyhoops.core.skyline_svg import week_dates as dates
 
-TAG = "#FantasyBasketball"
+TAGS = ("#FantasyBasketball", "#MahhhkDraft")  # the last line of the post text
 LIMIT = 300  # the Bluesky limit of the post text, in characters
 ALT_LIMIT = 2000  # the Bluesky limit of an alt text, in characters
 WIDTH, HEIGHT = FRAMES["skyline"][1:]  # 1080x1350, the frame of each post image
@@ -68,7 +68,7 @@ def _day(d):
 
 
 def post_text(week, cfg):
-    """The text of the post: the title line with the dates, one line about the Skyline and the tag.
+    """The text of the post: the title line with the dates, one line about the Skyline and the tags.
 
     The post names no week number: the readers play in leagues with other week numbers (owner, 2026-11-05).
     """
@@ -76,7 +76,7 @@ def post_text(week, cfg):
     return (
         f"Schedule Skyline · {dates(week)}\n\n"
         f"The NBA games of each night, and the most games that one open roster spot gets with 1 to {adds} adds.\n\n"
-        f"{TAG}"
+        + " ".join(TAGS)
     )
 
 

@@ -27,6 +27,11 @@ FRAMES = {
     "ladder": (1350, 1080, 1350),
 }
 TITLE, BRAND = "SCHEDULE ", "SKYLINE"  # "Schedule" in lab-ink, "Skyline" in mark
+POST = ("skyline", "ladder")  # the layouts of the 2 post images
+# The sign-off of the post images only (owner, 2026-11-05): lab-ink text in the bottom-right corner, in a band under
+# the day axis. The size is the body size of a tall layout, 11.6 px at a display width of 390 px.
+SIGN = "Mahhhk Draft"
+SIGN_BAND = 52  # the height of the sign-off band, in SVG units
 
 # The roles of the marks that the renderer draws in `mark` (data-mark). The test ties each role to an item of the
 # DESIGN.md "Named Exception Rule", or to the site use of `mark` for headings ("title").
@@ -785,7 +790,8 @@ def axis(layout, week=None, rungs=None):
     rungs = tuple(rungs if rungs is not None else week.rungs)
     start = _tall_top(layout, week, rungs)[3]
     weights = tuple(NO_GAME_WEIGHT if none else 1 for none in week.no_games)
-    return DayAxis(start, FRAMES[layout][0] - p.margin - start, weights)
+    band = SIGN_BAND if layout in POST else 0
+    return DayAxis(start, FRAMES[layout][0] - p.margin - band - start, weights)
 
 
 def _tall(s, k, p, ax, layout, week_no, href):
@@ -805,6 +811,15 @@ def _tall(s, k, p, ax, layout, week_no, href):
         _rows(s, ax, p.margin, UNITS - p.margin)
         _skyline_tall(s, k, p, ax)
     _heads_tall(s, k, p, ax)
+    if layout in POST:
+        _sign(s, p, layout)
+
+
+def _sign(s, p, layout):
+    """The sign-off of a post image: SIGN in lab-ink, right-aligned in the bottom-right corner of the frame."""
+    s.add('<g class="sign">')
+    s.text(UNITS - p.margin, FRAMES[layout][0] - p.margin - p.body * 0.25, SIGN, p.body, "ink", "label", "end")
+    s.add("</g>")
 
 
 def render(week, week_no, layout="page", rungs=None, leg_href=None, theme="light"):
