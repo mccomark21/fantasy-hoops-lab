@@ -1,3 +1,8 @@
+"""Tests of core/skyline_svg.py: the 5 layouts of the Schedule Skyline for weeks A-E (issue 235, PR 241).
+
+The browser tests at the end use the Playwright Chromium. They skip when Chromium is not installed.
+"""
+
 import json
 import re
 import struct
@@ -9,8 +14,21 @@ import pandas as pd
 import pytest
 
 from fantasyhoops.core import skyline_svg, tokens
+from fantasyhoops.core.common import ROOT
 from fantasyhoops.core.skyline import week_facts
-from fantasyhoops.core.skyline_svg import LAYOUTS, axis, post_images, render, text_boxes, text_overlaps
+from fantasyhoops.core.skyline_svg import (
+    FRAMES,
+    LAYOUTS,
+    MARK_ROLES,
+    TALL,
+    axis,
+    display_scale,
+    phone_panels,
+    post_images,
+    render,
+    text_boxes,
+    text_overlaps,
+)
 
 # Weeks A-E of docs/wiki/schedule-map-2026-11-04.md, with the week numbers of the v6 mock.
 FIXTURE = Path(__file__).parent / "fixtures" / "skyline_weeks.json"
@@ -26,6 +44,20 @@ CFG = {
     "skyline": {"max_adds": 4, "scarce_teams": 5, "anchor_max_games": 4, "heavy_max_teams": 3},
 }
 DAY_NAMES = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+SKYLINES = ("page", "phone-skyline", "skyline")  # the layouts with a skyline
+LADDERS = ("page", "phone-ladder", "ladder")  # the layouts with a ladder
+# The phrase of DESIGN.md "The Named Exception Rule" for each mark role of the renderer. "title" is a heading.
+EXCEPTIONS = {
+    "anchor": "the anchor stripe or the anchor night column",
+    "gain-tag": 'the "+1" gain tags',
+    "night-line": "and the light-night line",
+    "game-dot": "The game dots of a leg",
+    "light-block": "the skyline blocks of a light night",
+    "light-count": "the game count of a light night",
+    "light-head": "the day head of a light night",
+    "gain-text": "the rung gain text",
+    "line-key": "the label of the light-night line",
+}
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +68,7 @@ def weeks():
 
 @pytest.fixture(scope="module")
 def svgs(weeks):
-    """{(week key, layout): SVG text} for weeks A-E and the 3 layouts."""
+    """{(week key, layout): SVG text} for weeks A-E and the 5 layouts."""
     return {(k, lay): render(w, no, lay) for k, (w, no) in weeks.items() for lay in LAYOUTS}
 
 
@@ -44,15 +76,17 @@ def texts(svg):
     return [t for t, _, _ in text_boxes(svg)]
 
 
-def columns(svg, cls, layout):
-    """The day columns of the rects of class cls in svg."""
-    ax = axis(layout)
-    xs = re.findall(rf'<rect class="{cls}" x="([\d.]+)"', svg)
-    return {int((float(x) - ax.start + 1) // ax.step) for x in xs}
+def days_of(svg, cls, layout, week):
+    """The days of the rects of class cls in svg: by x in the page layout, by y in a tall layout."""
+    ax = axis(layout, week)
+    coord = "x" if layout == "page" else "y"
+    found = re.findall(rf'<rect class="{cls}" x="([\d.]+)" y="([\d.]+)"', svg)
+    values = [float(x if coord == "x" else y) for x, y in found]
+    return {max(i for i in range(7) if ax.lo(i) <= v + 1) for v in values}
 
 
 def legs(svg):
-    """{(rung, first, last): (the text of the leg, the chip teams)} of svg."""
+    """{(rung, first, last): (the text of the leg, the chip teams, the leg SVG)} of svg."""
     out = {}
     for part in svg.split('<g class="rung')[1:]:
         rung = int(re.search(r'data-adds="(\d+)"', part).group(1))
@@ -60,8 +94,40 @@ def legs(svg):
             first, last = map(int, re.match(r'data-first="(\d)" data-last="(\d)"', leg).groups())
             leg = leg.split("</g></g>")[0]
             words = " ".join(re.sub(r"<[^>]+>", "", t) for t in re.findall(r"<text\b[^>]*>(.*?)</text>", leg))
-            out[rung, first, last] = (words, re.findall(r'data-team="(\w+)"', leg))
+            out[rung, first, last] = (words, re.findall(r'data-team="(\w+)"', leg), leg)
     return out
+
+
+def outside(leg):
+    """The texts and chips of one leg (from legs()) that do not fit inside its white block."""
+    x, y, w, h = map(
+        float, re.search(r'class="leg-box" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"', leg).groups()
+    )
+    boxes = [(t, b) for t, _, b in text_boxes(leg)]
+    boxes += [
+        (f"chip at {cx}", tuple(map(float, (cx, cy, cw, ch))))
+        for cx, cy, cw, ch in re.findall(
+            r'class="chip-box" x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"', leg
+        )
+    ]
+    return [t for t, (bx, by, bw, bh) in boxes if bx < x or by < y or bx + bw > x + w + 0.5 or by + bh > y + h + 0.5]
+
+
+def unlisted_marks(svg):
+    """The elements of svg that use the mark color with no data-mark role of MARK_ROLES, as a list of tags."""
+    mark = tokens.LIGHT["mark"]
+    css = re.search(r"<style>(.*?)</style>", svg, re.S).group(1)
+    classes = set()
+    for selectors, body in re.findall(r"([^{}]+)\{([^}]*)\}", css):
+        if mark in body:
+            classes |= {sel.split()[-1].lstrip(".") for sel in selectors.split(",") if "." in sel}
+    bad = []
+    for tag in re.findall(r"<(?:rect|line|circle|text|tspan|path)\b[^>]*>", svg):
+        cls = set((re.search(r'class="([^"]*)"', tag) or re.search("()", "")).group(1).split())
+        role = re.search(r'data-mark="([^"]*)"', tag)
+        if (cls & classes or mark in tag) and (not role or role.group(1) not in MARK_ROLES):
+            bad.append(tag)
+    return bad
 
 
 def test_the_renderer_writes_no_color_value_outside_tokens():
@@ -77,47 +143,56 @@ def test_each_light_color_of_the_skyline_has_a_dark_value():
 
 @pytest.mark.parametrize("key", WEEKS)
 @pytest.mark.parametrize("layout", LAYOUTS)
-def test_the_title_line_and_7_day_columns(weeks, svgs, key, layout):
+def test_the_title_line_the_7_days_and_the_frame(weeks, svgs, key, layout):
     week, no = weeks[key]
     svg = svgs[key, layout]
-    assert '>SCHEDULE <tspan class="mark">SKYLINE</tspan></text>' in svg
+    assert '>SCHEDULE <tspan class="mark" data-mark="title">SKYLINE</tspan></text>' in svg
     assert f"Week {no} · {week.start.year}" in texts(svg)
     assert [t for t in texts(svg) if t in DAY_NAMES] == list(DAY_NAMES)
-    assert f'width="{skyline_svg.SIZE[0]}" height="{skyline_svg.SIZE[1]}"' in svg
+    height, width, display_height = FRAMES[layout]
+    assert f'viewBox="0 0 1080 {height}" width="{width}" height="{display_height}"' in svg
+
+
+def test_the_frames_of_the_phone_panels_and_the_post_images():
+    assert FRAMES["phone-skyline"][1:] == FRAMES["phone-ladder"][1:] == (390, 780)
+    assert FRAMES["skyline"] == FRAMES["ladder"] == (1350, 1080, 1350)
 
 
 @pytest.mark.parametrize("key", WEEKS)
-def test_one_light_night_line_in_the_skyline_and_none_in_the_ladder(svgs, key):
-    assert svgs[key, "page"].count('<g class="sk-line">') == 1
-    assert svgs[key, "skyline"].count('<g class="sk-line">') == 1
-    assert '<g class="sk-line">' not in svgs[key, "ladder"]
-    assert "6 or fewer games = light night" in texts(svgs[key, "skyline"])
+def test_one_light_night_line_in_each_skyline_and_none_in_a_ladder(svgs, key):
+    for layout in SKYLINES:
+        assert svgs[key, layout].count('<g class="sk-line">') == 1, layout
+    for layout in ("phone-ladder", "ladder"):
+        assert '<g class="sk-line">' not in svgs[key, layout]
+    for layout in ("phone-skyline", "skyline"):
+        assert "6 or fewer games = light night" in texts(svgs[key, layout])
 
 
 @pytest.mark.parametrize("key", WEEKS)
-@pytest.mark.parametrize("layout", ("page", "ladder"))
-def test_the_anchor_stripe_is_on_the_anchor_column_only(weeks, svgs, key, layout):
+@pytest.mark.parametrize("layout", LADDERS)
+def test_the_anchor_stripe_is_on_the_anchor_day_only(weeks, svgs, key, layout):
     week, _ = weeks[key]
     anchors = {week.days.index(d) for d in week.anchors}
-    assert columns(svgs[key, layout], "stripe", layout) == anchors
-    assert columns(svgs[key, layout], "anchor", layout) == anchors  # the inverted day head (and skyline bar)
+    assert days_of(svgs[key, layout], "stripe", layout, week) == anchors
+    assert days_of(svgs[key, layout], "anchor", layout, week) == anchors  # the inverted day head (and the bar)
 
 
 @pytest.mark.parametrize("key", WEEKS)
-@pytest.mark.parametrize("layout", ("page", "skyline"))
+@pytest.mark.parametrize("layout", SKYLINES)
 def test_a_no_game_day_has_the_hatch_and_the_text_no_nba_games(weeks, svgs, key, layout):
     week, _ = weeks[key]
     svg = svgs[key, layout]
     empty = {i for i, none in enumerate(week.no_games) if none}
-    assert columns(svg, "hatch", layout) == empty
+    assert days_of(svg, "hatch", layout, week) == empty
     words = " ".join(texts(svg))  # a narrow column wraps the text: "NO NBA" over "GAMES"
     assert ("NO NBA" in words and "GAMES" in words) == bool(empty)
 
 
-def test_the_hatch_is_on_the_no_game_days_of_weeks_a_and_b(svgs):
-    assert columns(svgs["A", "skyline"], "hatch", "skyline") == {1}
-    assert columns(svgs["B", "skyline"], "hatch", "skyline") == {4, 5, 6}
-    assert "Fri–Sun" in texts(svgs["B", "skyline"])
+@pytest.mark.parametrize("layout", SKYLINES)
+def test_the_hatch_is_on_the_no_game_days_of_weeks_a_and_b(weeks, svgs, layout):
+    assert days_of(svgs["A", layout], "hatch", layout, weeks["A"][0]) == {1}
+    assert days_of(svgs["B", layout], "hatch", layout, weeks["B"][0]) == {4, 5, 6}
+    assert "Fri–Sun" in texts(svgs["B", layout])
 
 
 def test_each_team_chip_text_has_aa_contrast_for_all_30_teams():
@@ -127,7 +202,7 @@ def test_each_team_chip_text_has_aa_contrast_for_all_30_teams():
 
 
 @pytest.mark.parametrize("key", WEEKS)
-@pytest.mark.parametrize("layout", ("page", "ladder"))
+@pytest.mark.parametrize("layout", LADDERS)
 def test_each_chip_of_the_svg_uses_the_team_color_and_its_aa_ink(svgs, key, layout):
     chips = re.findall(
         r'data-team="(\w+)"><rect class="chip-box" [^>]*style="fill:(#\w+)"/><text [^>]*style="[^"]*fill:(#\w+)"',
@@ -138,55 +213,79 @@ def test_each_chip_of_the_svg_uses_the_team_color_and_its_aa_ink(svgs, key, layo
         assert ground == tokens.TEAM_COLORS[team] and tokens.contrast(ground, ink) >= 4.5
 
 
-@pytest.mark.parametrize("layout", ("page", "ladder"))
-def test_a_scarce_leg_names_its_teams_and_other_legs_give_the_team_count(weeks, svgs, layout):
+@pytest.mark.parametrize("layout", LADDERS)
+def test_a_scarce_leg_names_all_its_teams_and_other_legs_give_the_team_count(weeks, svgs, layout):
     for key, (week, _) in weeks.items():
         drawn = legs(svgs[key, layout])
         for rung in week.rungs:
             for leg in rung.legs:
-                words, chips = drawn[rung.adds, leg.first, leg.last]
+                words, chips, _ = drawn[rung.adds, leg.first, leg.last]
                 if leg.scarce:
                     assert chips == list(leg.teams) and "to choose from" not in words
                 elif leg.games:
                     assert not chips and f"{leg.team_count} teams to choose from" in words
-    words, chips = legs(svgs["A", layout])[1, 0, 7]
-    assert chips == ["PHX", "MIA"]
+    assert legs(svgs["A", layout])[1, 0, 7][1] == ["PHX", "MIA"]
+    assert legs(svgs["A", layout])[4, 3, 4][1] == ["GS", "MIA", "ORL", "PHX"]  # post A, rung 4, Thu: all 4 chips
     assert "16 teams to choose from" in legs(svgs["A", layout])[2, 4, 7][0]
 
 
+@pytest.mark.parametrize("key", WEEKS)
+@pytest.mark.parametrize("layout", LADDERS)
+def test_each_text_and_chip_of_a_leg_fits_inside_the_leg(svgs, key, layout):
+    bad = {where: out for where, (_, _, leg) in legs(svgs[key, layout]).items() if (out := outside(leg))}
+    assert bad == {}
+
+
 def test_a_decisive_back_to_back_has_a_callout_and_each_back_to_back_has_a_line(svgs):
-    words, _ = legs(svgs["A", "page"])[2, 0, 4]
-    assert "BACK-TO-BACK" in words
+    assert "BACK-TO-BACK" in legs(svgs["A", "page"])[2, 0, 4][0]
     assert "BACK-TO-BACK" not in legs(svgs["A", "page"])[1, 0, 7][0]
-    assert svgs["A", "page"].count('class="b2b"') >= 4
+    for layout in ("phone-ladder", "ladder"):
+        assert "B2B" in legs(svgs["A", layout])[2, 0, 4][0]
+        assert "B2B" not in legs(svgs["A", layout])[1, 0, 7][0]
+    for layout in LADDERS:
+        assert svgs["A", layout].count('class="b2b"') >= 4
 
 
-def test_the_gain_tags_the_zero_gain_rung_and_the_replan_tag(svgs):
-    a, d = texts(svgs["A", "page"]), texts(svgs["D", "page"])
+@pytest.mark.parametrize("layout", LADDERS)
+def test_the_gain_tags_the_zero_gain_rung_and_the_replan_tag(svgs, layout):
+    a, d = texts(svgs["A", layout]), texts(svgs["D", layout])
     assert a.count("+1") == 2  # rung 2 buys Fri, rung 3 buys Sat
-    assert "+0 · a 4th add" in a or "+0 · a 4th add gains nothing" in " ".join(a)
-    assert svgs["A", "page"].count('class="rung quiet"') == 1
+    assert "+0 · a 4th add gains nothing" in " ".join(a)
+    assert svgs["A", layout].count('class="rung quiet"') == 1
     assert "RE-PLAN" in d and "RE-PLAN" not in a
-    assert "+0 · a 4th add gains nothing" in texts(svgs["A", "ladder"])
 
 
-def test_the_post_has_a_skyline_image_and_a_ladder_image_and_the_page_has_both_parts(weeks, svgs):
+def test_the_post_images_and_the_phone_panels(weeks, svgs):
     week, no = weeks["A"]
-    sky, lad = post_images(week, no)
-    assert (sky, lad) == (svgs["A", "skyline"], svgs["A", "ladder"])
-    for svg in (sky, lad, svgs["A", "page"]):
-        assert 'viewBox="0 0 1080 1350" width="1080" height="1350"' in svg
-    assert 'class="leg"' not in sky and 'class="blk' in sky
-    assert 'class="leg"' in lad and 'class="blk' not in lad
+    assert post_images(week, no) == (svgs["A", "skyline"], svgs["A", "ladder"])
+    assert phone_panels(week, no) == (svgs["A", "phone-skyline"], svgs["A", "phone-ladder"])
+    for layout in ("phone-skyline", "skyline"):
+        assert 'class="leg"' not in svgs["A", layout] and 'class="blk' in svgs["A", layout]
+    for layout in ("phone-ladder", "ladder"):
+        assert 'class="leg"' in svgs["A", layout] and 'class="blk' not in svgs["A", layout]
     assert 'class="leg"' in svgs["A", "page"] and 'class="blk' in svgs["A", "page"]
 
 
 @pytest.mark.parametrize("key", WEEKS)
-@pytest.mark.parametrize("layout", ("skyline", "ladder"))
-def test_all_text_of_a_post_image_is_30_px_or_more(svgs, key, layout):
-    # DESIGN.md "The Phone Legibility Rule": 11 px at a display width of 390 px is about 30 px on 1080 px.
+@pytest.mark.parametrize("layout", TALL)
+def test_all_text_of_a_tall_layout_is_11_px_or_more_at_390_px(svgs, key, layout):
+    # DESIGN.md "The Phone Legibility Rule": 11 px or more at a display width of 390 px.
+    # A post image is 1080 px wide, but a phone shows it 390 px wide. A phone panel is 390 px wide.
     sizes = [size for _, size, _ in text_boxes(svgs[key, layout])]
-    assert sizes and min(sizes) >= 30
+    assert sizes and min(sizes) * min(display_scale(layout), 390 / 1080) >= 11
+
+
+@pytest.mark.parametrize("key", WEEKS)
+@pytest.mark.parametrize("layout", TALL)
+def test_the_days_of_a_tall_layout_fill_the_frame(weeks, key, layout):
+    week, _ = weeks[key]
+    ax = axis(layout, week)
+    assert ax.end == FRAMES[layout][0] - skyline_svg.profile(layout).margin
+    sizes = [ax.span(i, i + 1)[1] for i in range(7)]
+    full = max(sizes)
+    assert all(
+        s == pytest.approx(skyline_svg.NO_GAME_WEIGHT * full if none else full) for s, none in zip(sizes, week.no_games)
+    )
 
 
 @pytest.mark.parametrize("key", WEEKS)
@@ -212,12 +311,39 @@ def test_the_overlap_check_finds_an_overlap():
     assert text_overlaps(svg + svg[5:] + "</svg>") == [("overlap", "overlap")]
 
 
-def test_the_renderer_takes_a_ladder_and_gives_each_leg_a_link(weeks):
+@pytest.mark.parametrize("key", WEEKS)
+@pytest.mark.parametrize("layout", LAYOUTS)
+def test_each_mark_mark_is_in_the_exception_list_of_design_md(svgs, key, layout):
+    assert unlisted_marks(svgs[key, layout]) == []
+
+
+def test_each_mark_role_is_an_item_of_the_named_exception_rule():
+    design = (ROOT / "DESIGN.md").read_text(encoding="utf-8")
+    rule = design.split("**The Named Exception Rule.**")[1].split("**The Phone Legibility Rule.**")[0]
+    assert set(EXCEPTIONS) == set(MARK_ROLES) - {"title"}
+    for role, phrase in EXCEPTIONS.items():
+        assert phrase in rule, role
+
+
+def test_the_mark_check_finds_a_mark_mark_with_no_listed_role():
+    svg = render(*_week_a(), "page")
+    assert unlisted_marks(svg.replace(' data-mark="gain-text"', "", 1))
+    assert unlisted_marks(svg.replace(' data-mark="game-dot"', ' data-mark="other"', 1))
+    assert unlisted_marks(svg.replace("</svg>", f'<rect class="paper" style="fill:{tokens.LIGHT["mark"]}"/></svg>'))
+
+
+def _week_a():
+    sched = pd.DataFrame(json.loads(FIXTURE.read_text()), columns=["date", "team", "opponent"])
+    return week_facts(sched, WEEKS["A"][0], CFG), WEEKS["A"][1]
+
+
+@pytest.mark.parametrize("layout", ("page", "phone-ladder"))
+def test_the_renderer_takes_a_ladder_and_gives_each_leg_a_link(weeks, layout):
     week, no = weeks["A"]
-    svg = render(week, no, "page", rungs=week.rungs[:2], leg_href=lambda r, leg: f"#fa-{r.adds}-{leg.first}")
+    svg = render(week, no, layout, rungs=week.rungs[:2], leg_href=lambda r, leg: f"#fa-{r.adds}-{leg.first}")
     assert svg.count("data-adds=") == 2
     assert re.findall(r'<a href="([^"]+)">', svg) == ["#fa-1-0", "#fa-2-0", "#fa-2-4"]
-    assert "<a " not in render(week, no, "page")
+    assert "<a " not in render(week, no, layout)
 
 
 def test_the_dark_theme_uses_the_dark_token_values(weeks):
@@ -232,21 +358,20 @@ def test_an_unknown_layout_is_an_error(weeks):
         render(weeks["A"][0], 3, "poster")
 
 
-def test_the_day_axis_has_7_equal_columns_inside_the_frame():
-    for layout in LAYOUTS:
-        ax = axis(layout)
-        assert ax.lo(0) >= skyline_svg.profile(layout).margin and ax.end <= skyline_svg.SIZE[0] - 48
-        assert ax.span(2, 4) == (ax.lo(2), 2 * ax.step)
+def test_the_page_day_axis_has_7_equal_columns_inside_the_frame():
+    ax = axis("page")
+    assert ax.lo(0) >= skyline_svg.PAGE.margin and ax.end <= 1080 - skyline_svg.PAGE.margin
+    assert ax.span(2, 4) == pytest.approx((ax.lo(2), 2 * (ax.lo(1) - ax.lo(0))))
 
 
 # ---- Browser checks: the line of check_line.py (the v6 mock folder) and the real text boxes, in Chromium.
 
-PAGE_SCALE = 0.45  # the adds page shows the poster at about 0.45x (docs/wiki/schedule-map-2026-11-04.md)
+PAGE_SCALE = 0.45  # the adds page shows the desktop poster at about 0.45x (docs/wiki/schedule-map-2026-11-04.md)
 
 
 @pytest.fixture(scope="module")
 def chromium():
-    """A Chromium page from Playwright. The tests skip if Chromium is not installed (as in CI)."""
+    """A Chromium page from Playwright. The tests skip if Chromium is not installed."""
     from playwright.sync_api import Error, sync_playwright
 
     with sync_playwright() as pw:
@@ -260,24 +385,22 @@ def chromium():
             browser.close()
 
 
-def show(page, svg, tmp_path, scale=1.0):
-    """Open svg in page at scale, with the Archivo font of core/tokens.py."""
+def show(page, svg, tmp_path, width):
+    """Open svg in page at the display width width, with the Archivo font of core/tokens.py."""
     tokens.copy_font(tmp_path)
-    w, h = (v * scale for v in skyline_svg.SIZE)
     doc = tmp_path / "skyline.html"
     doc.write_text(
         f"<!DOCTYPE html><html><head><style>{tokens.TOKENS}\nbody{{margin:0}}"
-        f"svg{{display:block;width:{w}px;height:{h}px}}</style></head><body>{svg}</body></html>",
+        f"svg{{display:block;width:{width}px;height:auto}}</style></head><body>{svg}</body></html>",
         encoding="utf-8",
     )
     page.goto(doc.as_uri())
     page.evaluate("document.fonts.ready")
 
 
-LINE_CHECK = """([cols, y]) => cols.map(([x0, x1]) => {
+LINE_CHECK = """(points) => points.map(row => {
   const line = document.querySelector('.sk-line'); let ok = 0;
-  for (let k = 1; k <= 9; k++) { const top = document.elementFromPoint(x0 + (x1 - x0) * k / 10, y);
-    if (top && line.contains(top)) ok++; }
+  for (const [x, y] of row) { const top = document.elementFromPoint(x, y); if (top && line.contains(top)) ok++; }
   return ok; })"""
 
 
@@ -313,28 +436,47 @@ def png_rows(data):
     return rows
 
 
-@pytest.mark.parametrize("scale", (1.0, PAGE_SCALE))
-@pytest.mark.parametrize("layout", ("page", "skyline"))
-def test_the_light_night_line_is_on_top_and_shows_in_each_column(chromium, weeks, tmp_path, layout, scale):
-    """From check_line.py: in each of the 7 columns of weeks A-E, the line is the topmost element at 9 points.
+def blue(px):
+    """A pixel of the line: mark-blue hue (blue well above red) and darker than paper."""
+    return px[2] - px[0] > 45 and sum(px) < 600
 
-    A screenshot also shows mark-blue dashes in each column, also when the page scales the poster to 0.45x.
+
+@pytest.mark.parametrize(
+    "layout, width",
+    [("page", 1080), ("page", 1080 * PAGE_SCALE), ("phone-skyline", 390), ("skyline", 1080), ("skyline", 390)],
+)
+def test_the_light_night_line_is_on_top_and_shows_in_each_day(chromium, weeks, tmp_path, layout, width):
+    """From check_line.py: on each of the 7 days of weeks A-E, the line is the topmost element at 9 points.
+
+    A screenshot also shows mark-blue dashes on each day, also when the page scales the image down.
     """
-    ax = axis(layout)
+    scale = width / 1080
     for key, (week, no) in weeks.items():
-        show(chromium, render(week, no, layout), tmp_path, scale)
-        box = chromium.evaluate(
+        ax = axis(layout, week)
+        show(chromium, render(week, no, layout), tmp_path, width)
+        x0, x1, y0, y1 = chromium.evaluate(
             "(() => { const r = document.querySelector('.sk-line .night-line').getBoundingClientRect();"
-            " return [r.left, r.right, r.top + r.height / 2]; })()"
+            " return [r.left, r.right, r.top, r.bottom]; })()"
         )
-        y = box[2]
-        cols = [((ax.lo(i) + 4) * scale, (ax.lo(i + 1) - 4) * scale) for i in range(7)]
-        assert box[0] <= cols[0][0] and box[1] >= cols[-1][1], key
-        assert chromium.evaluate(LINE_CHECK, [cols, y]) == [9] * 7, key
-        rows = png_rows(chromium.screenshot(clip={"x": 0, "y": int(y) - 3, "width": 1080 * scale, "height": 7}))
-        for x0, x1 in cols:
-            blue = max(sum(1 for px in row[int(x0) : int(x1)] if px[2] - px[0] > 45 and sum(px) < 600) for row in rows)
-            assert blue >= max(3, (x1 - x0) // 15), (key, x0)
+        spans = [((ax.lo(i) + 4) * scale, (ax.lo(i + 1) - 4) * scale) for i in range(7)]
+        if layout == "page":
+            y = (y0 + y1) / 2
+            assert x0 <= spans[0][0] and x1 >= spans[-1][1], key
+            points = [[(a + (b - a) * k / 10, y) for k in range(1, 10)] for a, b in spans]
+            clip = {"x": 0, "y": int(y) - 3, "width": width, "height": 7}
+        else:
+            x = (x0 + x1) / 2
+            assert y0 <= spans[0][0] and y1 >= spans[-1][1], key
+            points = [[(x, a + (b - a) * k / 10) for k in range(1, 10)] for a, b in spans]
+            clip = {"x": int(x) - 3, "y": 0, "width": 7, "height": FRAMES[layout][0] * scale}
+        assert chromium.evaluate(LINE_CHECK, points) == [9] * 7, key
+        rows = png_rows(chromium.screenshot(clip=clip))
+        for a, b in spans:
+            if layout == "page":
+                hits = max(sum(1 for px in row[int(a) : int(b)] if blue(px)) for row in rows)
+            else:
+                hits = max(sum(1 for row in rows[int(a) : int(b)] if blue(row[c])) for c in range(len(rows[0])))
+            assert hits >= max(3, (b - a) // 15), (key, a)
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)
@@ -342,10 +484,11 @@ def test_no_text_overlaps_another_in_chromium(chromium, weeks, tmp_path, layout)
     """The real text boxes of weeks A-E do not overlap, and each estimated width holds the real width."""
     for key, (week, no) in weeks.items():
         svg = render(week, no, layout)
-        show(chromium, svg, tmp_path)
+        show(chromium, svg, tmp_path, FRAMES[layout][1])
         real = chromium.evaluate(
             "[...document.querySelectorAll('svg text')].map(t => { const b = t.getBBox();"
-            " const s = parseFloat(t.style.fontSize); return [t.textContent, b.x, b.y + s * 0.15, b.width, b.height - s * 0.3]; })"
+            " const s = parseFloat(t.style.fontSize);"
+            " return [t.textContent, b.x, b.y + s * 0.15, b.width, b.height - s * 0.3]; })"
         )
         for (text, _, (_, _, est, _)), (_, _, _, width, _) in zip(text_boxes(svg), real):
             assert width <= est + 0.5, (key, text, width, est)
