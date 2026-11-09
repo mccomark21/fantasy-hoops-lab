@@ -187,3 +187,20 @@ def test_a_week_with_no_games_gives_a_result():
     assert [r.games for r in week.rungs] == [0, 0, 0, 0]
     assert week.rungs[0].legs[0].teams == () and week.heavy_teams == ()
     assert week.week_type == "dead-day"
+
+
+def test_a_light_night_weight_in_the_ladder_takes_fewer_light_night_games():
+    # HH plays the 4 heavy nights (Mon, Wed, Fri, Sun: 9 games). LL plays the 3 light nights (Tue, Thu, Sat: 2 games).
+    games = []
+    for i in range(7):
+        if i % 2:
+            games += [(day(i), "LL", "L2")] + filler(i, 1, first=20 * i)
+        else:
+            games += [(day(i), "HH", "H2")] + filler(i, 8, first=20 * i)
+    sched = schedule(games)
+    rung = week_facts(sched, MON, CFG).rungs[0]
+    assert (rung.games, rung.light, set(rung.legs[0].teams)) == (4, 0, {"HH", "H2"})
+    # 3 light games x 2 = 6 beats 4 heavy games. Rung.games is the count with no weight.
+    heavy = {**CFG, "quality_games": {"max_games_per_day": 6, "light_night_weight": 2.0}}
+    rung = week_facts(sched, MON, heavy).rungs[0]
+    assert (rung.games, rung.light, set(rung.legs[0].teams)) == (3, 3, {"LL", "L2"})

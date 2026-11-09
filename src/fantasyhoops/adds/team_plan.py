@@ -2,10 +2,10 @@
 
 The design is in docs/adds/README.md, "The team plan". The module writes no files.
 
-team_plan() finds the adds that give your stream spots the most started games. If two plans have the same started
-games, the plan with fewer adds wins. If the adds are also the same, the plan whose last teams have more games next
-week wins. The free agents are not an input. An add is a player of one NBA team who can fill each open slot. After the
-search, each add gets its slots and its teams:
+team_plan() finds the adds that give your stream spots the most started games, with more weight on light nights (see
+"Light nights" below). If two plans have the same score, the plan with fewer adds wins. If the adds are also the
+same, the plan whose last teams have more games next week wins. The free agents are not an input. An add is a
+player of one NBA team who can fill each open slot. After the search, each add gets its slots and its teams:
 - slots: the open slots that the new player can fill on each day that he starts (slots_of()). "Util" means any
   position.
 - teams: each NBA team that plays on the add day and gives the plan the same score (teams_of()). These teams fit the
@@ -26,6 +26,10 @@ and its unique states in timing.WORK (#85).
 
 Next week (#60): the last player of each spot can stay next week. Each game of his team next week counts next_weight
 in the last tiebreak. In the search, each game next week is one more open day of the key after the last open day.
+
+Light nights: a started game on a light night counts light_weight in the plan score, and a started game on a
+heavy night counts 1. A light night has [quality_games] max_games_per_day NBA games or fewer (light_nights()). The
+weight is [quality_games] light_night_weight. TeamPlan.started_games is the count with no weight.
 """
 
 from dataclasses import dataclass
@@ -80,7 +84,8 @@ class TeamAdd:
 @dataclass(frozen=True)
 class TeamPlan:
     """The team plan: its adds in order of day, then spot. started_games: the counted started games of the stream
-    spots. next_games: next_weight x the games next week of the last player of each spot."""
+    spots, with no light-night weight. next_games: next_weight x the games next week of the last player of each
+    spot."""
 
     adds: tuple
     started_games: float
@@ -103,23 +108,39 @@ def _holder(option):
     return _Member(p.team, tuple(sorted(p.positions)), option.rest_games, p.out, option)
 
 
-def team_plan(days, games, spots, adds_left, slots, next_week=None, next_weight=0.0):
+def light_nights(games, max_games):
+    """The days of games ({day: set of NBA teams}) with 1 to max_games NBA games: the light nights."""
+    return frozenset(d for d, teams in games.items() if 0 < len(teams) // 2 <= max_games)
+
+
+def team_plan(days, games, spots, adds_left, slots, next_week=None, next_weight=0.0, light=(), light_weight=1.0):
     """The best TeamPlan for the stream spots. It uses adds_left adds or fewer.
 
     slots: the position slots, cfg["league"]["slots"]. next_week: {NBA team: its games next week}
     (slots.next_week_games()). next_weight: [adds] next_week_weight. With no next_week or a weight of 0, the next-week
-    tiebreak is off.
+    tiebreak is off. light: the light nights (light_nights()). light_weight: [quality_games] light_night_weight, the
+    score of a started game on a light night. With a weight of 1, light nights count as heavy nights.
     """
-    search = _Search(days, games, [s.holder for s in spots], slots, next_week if next_weight else None, next_weight)
+    search = _Search(
+        days,
+        games,
+        [s.holder for s in spots],
+        slots,
+        next_week if next_weight else None,
+        next_weight,
+        light,
+        light_weight,
+    )
     return search.plan(adds_left)
 
 
 class _Search:
     """The search for one set of inputs. k is the index of an open day in self.open. i is the index of a day."""
 
-    def __init__(self, days, games, holders, slots, next_week=None, next_weight=0.0):
+    def __init__(self, days, games, holders, slots, next_week=None, next_weight=0.0, light=(), light_weight=1.0):
         self.days, self.games, self.slots = days, games, slots
         self.next_week, self.next_weight = next_week or {}, next_weight
+        self.light, self.light_weight = frozenset(light), light_weight
         self.open = [i for i, d in enumerate(days) if d.open]
         self.holders = [_holder(h) if h else None for h in holders]
         self.every = tuple(sorted(slots))  # the positions of a new player
@@ -153,6 +174,10 @@ class _Search:
         days += tuple(range(len(self.open), len(self.open) + self.next_week.get(team, 0)))
         return Key(days, positions, rests) if days else EMPTY
 
+    def weight(self, day):
+        """The score of a started game on day: light_weight on a light night, else 1."""
+        return self.light_weight if day in self.light else 1.0
+
     def _base(self, i):
         """The positions of the kept players who play on day i: the starters, then the bench."""
         day = self.days[i]
@@ -160,14 +185,16 @@ class _Search:
 
     @cache
     def count(self, k, keys):
-        """(counted started games, starters) of the stream spots on open day k, for a sorted tuple of keys.
+        """(score, starters) of the stream spots on open day k, for a sorted tuple of keys. score: the counted started
+        games x the weight of the day (weight()).
 
         The players with the highest count get the slots first."""
         base = self._base(self.open[k])
         playing = sorted((key for key in keys if key.days[:1] == (k,)), key=lambda key: -counted_games(key.rests, [k]))
         lineup = best_lineup(base + [set(key.positions) for key in playing], self.slots)
         started = [playing[j - len(base)] for j in lineup if j >= len(base)]
-        return sum(counted_games(key.rests, [k]) for key in started), len(started)
+        weight = self.weight(self.days[self.open[k]].date)
+        return sum(counted_games(key.rests, [k]) for key in started) * weight, len(started)
 
     def moves(self, k, occ, adds):
         """The choices on open day k: (new keys, removed keys, added keys). Each added player starts on day k."""
@@ -268,10 +295,15 @@ class _Search:
                 out.setdefault((s, here[s]), []).append(self.days[i].date)
         return out
 
-    def totals(self, spots):
-        """(counted started games, next games) of the timelines of the spots."""
+    def totals(self, spots, weighted=True):
+        """(counted started games, next games) of the timelines of the spots. weighted: each game x the weight of
+        its day (weight()), as in the plan score. False: the count with no weight."""
         started = self.started(spots)
-        games = sum(counted_games(spots[s][n][0].rests, days) for (s, n), days in started.items())
+        games = sum(
+            counted_games(spots[s][n][0].rests, [d]) * (self.weight(d) if weighted else 1.0)
+            for (s, n), days in started.items()
+            for d in days
+        )
         last = [t[-1][0] for t in spots if t and not t[-1][0].out]
         return games, sum(self.next_weight * self.next_week.get(m.team, 0) for m in last)
 
@@ -290,7 +322,7 @@ class _Search:
             fixed[s][n] = (_Member(fixed[s][n][0].team, self._positions(slots)), first)
             last = spots[s][n + 1][1] - 1 if n + 1 < len(spots[s]) else len(self.days) - 1
             adds.append(TeamAdd(s, self.days[first].date, self.days[last].date, slots, teams, starts, mixed))
-        return TeamPlan(adds=tuple(adds), started_games=total, next_games=ahead)
+        return TeamPlan(adds=tuple(adds), started_games=self.totals(spots, weighted=False)[0], next_games=ahead)
 
     def teams_of(self, spots, s, n, total, ahead):
         """(teams, starts, mixed) of member n of spot s (see TeamAdd). A team fits if it plays on the add day, starts

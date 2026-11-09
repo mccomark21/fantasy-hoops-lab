@@ -220,17 +220,19 @@ def test_each_chip_of_the_svg_uses_the_team_color_and_its_aa_ink(svgs, key, layo
 
 
 @pytest.mark.parametrize("layout", LADDERS)
-def test_a_scarce_leg_names_all_its_teams_and_other_legs_give_the_team_count(weeks, svgs, layout):
+def test_a_scarce_leg_names_the_teams_of_its_dots_and_other_legs_give_the_team_count(weeks, svgs, layout):
     for key, (week, _) in weeks.items():
         drawn = legs(svgs[key, layout])
         for rung in week.rungs:
             for leg in rung.legs:
                 words, chips, _ = drawn[rung.adds, leg.first, leg.last]
                 if leg.scarce:
-                    assert chips == list(leg.teams) and "to choose from" not in words
+                    assert chips == list(leg.named) and "to choose from" not in words
+                    assert set(leg.named) | set(leg.others) == set(leg.teams)
                 elif leg.games:
                     assert not chips and f"{leg.team_count} teams to choose from" in words
-    assert legs(svgs["A", layout])[1, 0, 7][1] == ["PHX", "MIA"]
+    # Post A, rung 1: PHX plays Mon Wed Thu Sat (the dots). MIA has 4 games too, but on Sun, not Sat: no chip.
+    assert legs(svgs["A", layout])[1, 0, 7][1] == ["PHX"]
     assert legs(svgs["A", layout])[4, 3, 4][1] == ["GS", "MIA", "ORL", "PHX"]  # post A, rung 4, Thu: all 4 chips
     assert "16 teams to choose from" in legs(svgs["A", layout])[2, 4, 7][0]
 

@@ -55,7 +55,9 @@ def rung_count(adds_left, cfg):
     return max(0, min(adds_left, cfg.get("skyline", {}).get("max_adds", MAX_ADDS)))
 
 
-def ladder_plans(days, games, spots, adds_left, slots, cfg, next_week=None, next_weight=0.0, full=None):
+def ladder_plans(
+    days, games, spots, adds_left, slots, cfg, next_week=None, next_weight=0.0, full=None, light=(), light_weight=1.0
+):
     """The TeamPlans of the rungs: item n - 1 is the team_plan() plan with n adds or fewer.
 
     The arguments are the arguments of team_plan(). full: the plan with adds_left adds, if the run has it already.
@@ -68,7 +70,19 @@ def ladder_plans(days, games, spots, adds_left, slots, cfg, next_week=None, next
         if full is not None and n == adds_left:
             plans.append(full)
         else:
-            plans.append(team_plan(days, games, spots, n, slots, next_week=next_week, next_weight=next_weight))
+            plans.append(
+                team_plan(
+                    days,
+                    games,
+                    spots,
+                    n,
+                    slots,
+                    next_week=next_week,
+                    next_weight=next_weight,
+                    light=light,
+                    light_weight=light_weight,
+                )
+            )
     return tuple(plans)
 
 

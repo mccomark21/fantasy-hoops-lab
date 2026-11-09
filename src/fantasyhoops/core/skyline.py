@@ -2,7 +2,10 @@
 
 week_facts() gives the games per night, the light nights, the add ladder for one stream spot, the anchor nights and
 the week type. The adds page and the Bluesky image draw these facts. This module draws nothing and writes no files.
-The settings are [quality_games] max_games_per_day and [skyline] in config.toml.
+The settings are [quality_games] max_games_per_day, [quality_games] light_night_weight and [skyline] in config.toml.
+
+The ladder score: each game counts 1, and each game on a light night counts light_night_weight. The adds team plan
+uses the same weight (adds/team_plan.py). With a weight of 1, the light-night games only break ties.
 
 All counts come from one count: the NBA games of each night (the rows of data/schedule.csv ÷ 2).
 """
@@ -25,10 +28,12 @@ DEAD_DAY, ANCHOR, HEAVY_TEAM, STREAM = "dead-day", "anchor", "heavy-team", "stre
 class Leg:
     """The days from first to last (last exclusive, 0 = Monday) that one team holds the stream spot.
 
-    teams: the teams with the most games, then the most light-night games, in the leg. The teams with the
-    largest group of the same game days come first. pattern: the game days of that group (the dots of the poster).
+    teams: the teams with the best score (see the module text), then the most light-night games, in the leg. The
+    teams with the largest group of the same game days come first. pattern: the game days of that group (the dots of
+    the poster).
     b2b: the back-to-back pairs of each team in teams. decisive_b2b: the back-to-back pairs of pattern that the
-    poster names, or () when the leg does not depend on a back-to-back.
+    poster names, or () when the leg does not depend on a back-to-back. dot_teams: the teams whose game days are
+    pattern, or None when each team of teams has these days.
     """
 
     first: int
@@ -40,6 +45,7 @@ class Leg:
     scarce: bool
     b2b: dict
     decisive_b2b: tuple
+    dot_teams: tuple = None
 
     @property
     def team_count(self):
@@ -47,8 +53,18 @@ class Leg:
 
     @property
     def named(self):
-        """The teams that the poster names: the teams of a scarce leg, else ()."""
-        return self.teams if self.scarce else ()
+        """The teams that the poster names: the teams of a scarce leg whose game days are the dots, else ().
+
+        Decision (2026-11-08, owner): a chip names only a team whose game days match the dots. The other teams with
+        the same score play on other days, so the poster leaves them out."""
+        if not self.scarce:
+            return ()
+        return self.teams if self.dot_teams is None else self.dot_teams
+
+    @property
+    def others(self):
+        """The teams of a scarce leg with the same score on other days than the dots: teams that named leaves out."""
+        return tuple(t for t in self.teams if t not in self.named) if self.scarce else ()
 
 
 @dataclass(frozen=True)
@@ -119,6 +135,7 @@ class _Ladder:
 
     def __init__(self, days, plays, light, cfg):
         self.days, self.plays, self.light = days, plays, light
+        self.extra = cfg["quality_games"].get("light_night_weight", 1.0) - 1  # the extra score of a light-night game
         self.scarce = cfg["skyline"]["scarce_teams"]
         self._legs = {}
 
@@ -130,9 +147,11 @@ class _Ladder:
     def _leg(self, a, b):
         window = self.days[a:b]
         pat = {t: tuple(d for d in window if d in ds) for t, ds in self.plays.items()}
-        score = {t: (len(p), sum(self.light[d] for d in p)) for t, p in pat.items()}
-        games, light = max(score.values(), default=(0, 0))
-        tied = sorted(t for t, s in score.items() if s == (games, light)) if games else []
+        counts = {t: (len(p), sum(self.light[d] for d in p)) for t, p in pat.items()}
+        score = {t: (g + self.extra * lt, lt) for t, (g, lt) in counts.items()}
+        top_score = max(score.values(), default=(0, 0))
+        tied = sorted(t for t, s in score.items() if s == top_score) if top_score[0] else []
+        games, light = counts[tied[0]] if tied else (0, 0)
         groups = {}
         for t in tied:
             groups.setdefault(pat[t], []).append(t)
@@ -145,16 +164,20 @@ class _Ladder:
         # have one in the leg. In a leg of 2 days, 2 games are always a back-to-back, so the poster does not name it.
         have = sum(bool(_pairs(p)) for p in pat.values())
         decisive = scarce and b - a >= 3 and all(b2b[t] for t in teams) and have <= self.scarce
-        return Leg(a, b, games, light, teams, top, scarce, b2b, _pairs(top) if decisive else ())
+        return Leg(
+            a, b, games, light, teams, top, scarce, b2b, _pairs(top) if decisive else (), tuple(groups.get(top, []))
+        )
 
     def legs(self, split):
         return [self.leg(a, b) for a, b in zip(split, split[1:])]
 
     def score(self, split):
-        """((games, light-night games), tiebreak). The tiebreak: fewer legs with no games, then wider legs."""
+        """((score, light-night games), tiebreak). score: the games, with the extra score of the light-night games.
+        The tiebreak: fewer legs with no games, then wider legs."""
         legs = self.legs(split)
         widths = [x.team_count for x in legs if x.games] or [0]
-        total = (sum(x.games for x in legs), sum(x.light for x in legs))
+        light = sum(x.light for x in legs)
+        total = (sum(x.games for x in legs) + self.extra * light, light)
         return total, (-sum(not x.games for x in legs), min(widths), sum(widths))
 
     def best(self, n, prev=None):
@@ -191,7 +214,7 @@ def _rungs(ladder, light, max_adds):
     out = []
     for n, (split, replan) in enumerate(ladder.splits(max_adds), start=1):
         legs = tuple(ladder.legs(split))
-        (games, lt), _ = ladder.score(split)
+        games, lt = sum(x.games for x in legs), sum(x.light for x in legs)
         gain, plus_one = 0, ()
         if out:
             gain = games - out[-1].games
@@ -199,7 +222,7 @@ def _rungs(ladder, light, max_adds):
                 # One bought day for each gained game: light nights first, then the earliest days.
                 new = sorted(_covered(legs) - _covered(out[-1].legs), key=lambda d: (not light[d], d))
                 plus_one = tuple(sorted(new[:gain]))
-        best = ladder.score(ladder.best(n))[0][0]
+        best = sum(x.games for x in ladder.legs(ladder.best(n)))
         out.append(Rung(n, split[1:-1], legs, games, lt, gain, bool(out) and gain <= 0, replan, plus_one, best))
     return tuple(out)
 

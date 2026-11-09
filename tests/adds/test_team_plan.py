@@ -5,7 +5,7 @@ from fantasyhoops.adds import timing
 from fantasyhoops.adds.planner import Option, StreamSpot
 from fantasyhoops.adds.readers import Player
 from fantasyhoops.adds.slots import open_slots_by_day
-from fantasyhoops.adds.team_plan import UTIL, team_plan
+from fantasyhoops.adds.team_plan import UTIL, light_nights, team_plan
 
 SLOTS = ["PG", "SG", "SF", "PF", "C"]
 MON = date(2027, 1, 4)
@@ -174,3 +174,30 @@ def test_a_full_week_with_3_adds_and_3_spots_takes_less_than_half_a_second(monke
     for a in p.adds:
         assert a.day in a.starts and all(a.day <= d <= a.last_day for d in a.starts)
         assert all(t in FULL_GAMES[d] for t in a.teams for d in a.starts)
+
+
+def test_light_nights_are_the_days_with_few_nba_games():
+    # Two rows of teams for each game: 3 teams is 1 game. A day with no games is not a light night.
+    games = {WEEK[0]: {f"T{i}" for i in range(14)}, WEEK[1]: {"A", "B", "C", "D"}, WEEK[2]: set()}
+    assert light_nights(games, 6) == {WEEK[1]}
+    assert light_nights(games, 7) == {WEEK[0], WEEK[1]}
+
+
+def test_a_light_night_weight_takes_fewer_starts_on_light_nights_over_more_starts_on_heavy_nights():
+    # HHH plays Mon, Tue and Wed. LLL plays Thu and Sat, the light nights. One spot, one add.
+    games = {WEEK[0]: {"HHH"}, WEEK[1]: {"HHH"}, WEEK[2]: {"HHH"}, THU: {"LLL"}, SAT: {"LLL"}}
+    light = {THU, SAT}
+    p = plan([], games, adds=1, light=light)
+    assert (p.started_games, p.adds[0].teams) == (3, ("HHH",))
+    # 2 light starts x 2 = 4 beats 3 heavy starts. started_games is the count with no weight.
+    p = plan([], games, adds=1, light=light, light_weight=2.0)
+    assert (p.started_games, p.adds[0].teams, p.adds[0].starts) == (2, ("LLL",), (THU, SAT))
+
+
+def test_a_light_night_weight_breaks_a_tie_of_starts():
+    # HHH and LLL each play 2 games. With weight 1 the teams fit equally. With 1.25 only LLL fits.
+    games = {WEEK[0]: {"HHH"}, WEEK[1]: {"HHH"}, THU: {"LLL"}, SAT: {"LLL"}}
+    light = {THU, SAT}
+    assert plan([], games, adds=1, light=light).started_games == 2
+    p = plan([], games, adds=1, light=light, light_weight=1.25)
+    assert (p.started_games, p.adds[0].teams) == (2, ("LLL",))
