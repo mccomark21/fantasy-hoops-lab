@@ -90,7 +90,7 @@ from fantasyhoops.adds.slots import (
     team_games,
 )
 from fantasyhoops.adds.skyline_plan import ladder_plans, skyline_weeks
-from fantasyhoops.adds.team_plan import team_plan
+from fantasyhoops.adds.team_plan import light_nights, team_plan
 from fantasyhoops.adds.trends import read_week_trends, trend_days
 from fantasyhoops.adds.value import projection_scale, replacement_value, season_replacement
 from fantasyhoops.core import publish as site
@@ -374,11 +374,26 @@ def main(today=None, publish=True, timed=True, cache=True):
             )
             options = mark_role_ups(options, absences)
         games_next, weight = next_week_games(sched, data.week), cfg["adds"].get("next_week_weight", 0.0)
+        # Light nights: a start on a day with few NBA games counts [quality_games] light_night_weight in the score.
+        quality = cfg["quality_games"]
+        light = light_nights(games, quality["max_games_per_day"])
+        light_kw = {"light": light, "light_weight": quality.get("light_night_weight", 1.0)}
         with step("team plan", search=True):
-            plan = team_plan(days, games, spots, data.adds.left, slots, next_week=games_next, next_weight=weight)
+            plan = team_plan(
+                days, games, spots, data.adds.left, slots, next_week=games_next, next_weight=weight, **light_kw
+            )
             # The Skyline ladder (#236): the same search with 1 to 4 adds. Its work counts in this step.
             ladder = ladder_plans(
-                days, games, spots, data.adds.left, slots, cfg, next_week=games_next, next_weight=weight, full=plan
+                days,
+                games,
+                spots,
+                data.adds.left,
+                slots,
+                cfg,
+                next_week=games_next,
+                next_weight=weight,
+                full=plan,
+                **light_kw,
             )
         season = season_values(lines, [o for o in options if not o.player.on_waivers], cfg)
         warnings = value_warnings(options, plan.adds, data.roster, spots, cfg, season_ranks(season))

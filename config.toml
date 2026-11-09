@@ -242,6 +242,10 @@ few_starts = 2
 # you can stream on high-volume days, when more free agents play.
 [quality_games]
 max_games_per_day = 6      # a day with this number of NBA games or fewer is a low-volume day
+# The score of a game on a light night in the adds team plan and in the Skyline ladder of the adds page and the
+# Bluesky post. A game on a heavy night scores 1. At 1.25, 4 light-night games score as 5 heavy-night games, so a
+# plan seldom gives up a real game. 1 = off: then light nights only break ties in the Skyline ladder.
+light_night_weight = 1.25
 # Value added to a playoff week for each quality game in that week.
 # For comparison, a 4-game week adds 0.40 over a 3-game week.
 bonus = 0.10

@@ -24,7 +24,7 @@ The planner shows how to use your adds in the current fantasy week. For the term
 
 ## Goal
 
-The team plan gets the most started games from your stream spots. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan whose last teams have more games next week wins (see [Next-week games](#next-week-games)).
+The team plan gets the best score from your stream spots. A started game on a light night (6 or fewer NBA games) scores `[quality_games] light_night_weight` (1.25), and a game on a heavy night scores 1. At 1.25, 4 light-night starts score as 5 heavy-night starts, so the plan seldom gives up a real start. If two plans have the same score, the plan with fewer adds wins. If the adds are also the same, the plan whose last teams have more games next week wins (see [Next-week games](#next-week-games)).
 
 Decision (2026-10-28, #140): the planner recommends NBA teams and positions, not players. The player search was slow, and the owner picks the player from the free-agent table. The planner no longer makes the schedule plan, the best plans for one roster spot, the contingency plans or the aggressive plan, and the search benchmark is gone.
 
@@ -94,7 +94,7 @@ Decision (2026-10-28, #140): the team plan gives the adds of the stream spots as
 1. Find the open starting slots on each day of the planning window.
 2. Rank the NBA teams by the open days that they cover. A team that plays on several open days covers them with one add.
 3. On each open day, in order, each stream spot keeps its player or takes a new player of a team that plays that day. A new player can fill each open slot. An add sits on the first day that he starts, so that day is also the latest add day that keeps all his started games.
-4. Choose the plan with the most started games. If two plans have the same started games, the plan with fewer adds wins. If the adds are also the same, the plan with more [next-week games](#next-week-games) wins.
+4. Choose the plan with the best score: the started games, with each light-night start x `[quality_games] light_night_weight`. If two plans have the same score, the plan with fewer adds wins. If the adds are also the same, the plan with more [next-week games](#next-week-games) wins.
 
 A holder (the player in a stream spot now) plays every game of his team until the first add to his spot. That add drops him. An Out holder has no games. The kept players fill the slots first. A new player starts only in a slot that they leave open.
 
@@ -261,7 +261,7 @@ An old link to the free-agent table of the plan page (`adds/#fa` or `adds/#waive
 Decision (2026-11-05, #236): the Schedule Skyline replaces the week grid of the team plan (#140). `adds/skyline_plan.py` makes the section. `core/skyline.py` gives the facts of the week, and `core/skyline_svg.py` draws them (#235). DESIGN.md "Poster mode" gives the rules of the drawing.
 
 1. The skyline: the NBA games of each night of the fantasy week, Monday to Sunday. A long week (14 days) shows 2 Skylines, one for each 7-day half (see item 8). A light night has 6 or fewer games (`[quality_games] max_games_per_day`). It is the same skyline as the Monday Bluesky post.
-2. The ladder: one rung for each number of adds n, from 1 to the adds left, and 4 at most (`[skyline] max_adds`). Rung n is the team plan (`team_plan()`) of your stream spots with n adds or fewer. The number at the left of a rung is the started games of your stream spots.
+2. The ladder: one rung for each number of adds n, from 1 to the adds left, and 4 at most (`[skyline] max_adds`). Rung n is the team plan (`team_plan()`) of your stream spots with n adds or fewer. The number at the left of a rung is the started games of your stream spots, with no light-night weight.
 3. Decision (2026-11-05, owner): a rung is one row of legs with no overlap, as the ladder of the post. The owner rejected one row for each stream spot.
 4. A leg: a white block from an add day to the day before the next add day of the rung, or Sunday. It holds the adds of its first day, and names their teams. A dot marks a day that a new player of the rung starts. The label counts these starts, one for each player. A leg with 5 or fewer teams (`[skyline] scarce_teams`) names them as team chips. Else it gives the count, for example "14 teams to choose from".
 5. "+1" marks a start day that the rung has more often than the rung above. RE-PLAN marks a rung that does not keep each add of the rung above.

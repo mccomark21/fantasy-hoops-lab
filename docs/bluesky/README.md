@@ -44,7 +44,7 @@ The post text has 3 parts: the title line with the dates of the week, one line a
 ```text
 Schedule Skyline · Nov 2–8, 2026
 
-The NBA games of each night, and the most games that one open roster spot gets with 1 to 4 adds.
+The NBA games of each night, and the most games that one open roster spot gets with 1 to 4 adds. The ladder score gives each game on a light night `[quality_games] light_night_weight` (1.25), as the adds team plan does. The rungs show the real games.
 
 #FantasyBasketball #MahhhkDraft
 ```
