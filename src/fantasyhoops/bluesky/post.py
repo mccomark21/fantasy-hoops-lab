@@ -114,7 +114,9 @@ def _leg_text(week, leg):
     games = f"{leg.games} game{'s' if leg.games > 1 else ''}"
     teams = ", ".join(leg.named) if leg.scarce else f"{leg.team_count} teams to choose from"
     b2b = ", needs a back-to-back" if leg.decisive_b2b else ""
-    return f"{where}, {games}: {teams}{b2b}."
+    # The image names only the teams whose days are the dots. The alt text names the others too.
+    others = f" Also {', '.join(leg.others)}, with the same games on other days." if leg.others else ""
+    return f"{where}, {games}: {teams}{b2b}.{others}"
 
 
 def _rung_text(rung):

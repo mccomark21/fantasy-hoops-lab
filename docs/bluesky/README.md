@@ -31,6 +31,11 @@ The terminal shows the dates of the week, the path and the size of each file, th
 
 `core/skyline_svg.py` draws the 2 images (`post_images()`). The days go from top to bottom, Monday at the top. The title line gives the dates of the week, for example "Nov 9–15, 2026", not a week number. Bluesky readers play in leagues with other week numbers (owner decision of 2026-11-05). The bottom-right corner of each image has the sign-off "Mahhhk Draft" in the text ink (owner request of 2026-11-05). Playwright Chromium opens each SVG with the Archivo font of `core/fonts/` and saves a 1080x1350 screenshot.
 
+The ladder of image 2 (`core/skyline.py`):
+
+- The ladder score gives each game on a light night `[quality_games] light_night_weight` (1.25), as the adds team plan does. The rungs show the real games.
+- The dots of a leg show the game days of the largest group of teams with the same days. The chips name only these teams (owner decision of 2026-11-08). The other teams with the same score play on other days, so the image leaves them out.
+
 The command stops with an error in these cases:
 
 1. Chromium does not load the Archivo font.
@@ -44,7 +49,7 @@ The post text has 3 parts: the title line with the dates of the week, one line a
 ```text
 Schedule Skyline · Nov 2–8, 2026
 
-The NBA games of each night, and the most games that one open roster spot gets with 1 to 4 adds. The ladder score gives each game on a light night `[quality_games] light_night_weight` (1.25), as the adds team plan does. The rungs show the real games.
+The NBA games of each night, and the most games that one open roster spot gets with 1 to 4 adds.
 
 #FantasyBasketball #MahhhkDraft
 ```
@@ -52,7 +57,7 @@ The NBA games of each night, and the most games that one open roster spot gets w
 ### The alt texts
 
 1. The alt text of image 1 gives the games of each night, the light nights and the anchor nights.
-2. The alt text of image 2 gives each rung of the ladder: its games, its gain and its legs. A leg gives its days, its games, and its teams or the count of its teams.
+2. The alt text of image 2 gives each rung of the ladder: its games, its gain and its legs. A leg gives its days, its games, and its teams or the count of its teams. After the teams of the chips, the alt text names the other teams with the same games on other days, for example "Also MIA, with the same games on other days."
 
 ## Settings
 

@@ -149,12 +149,16 @@ def test_the_ladder_alt_text_gives_each_rung_and_each_leg(posts):
                 assert (", +0, this add gains nothing" if rung.zero_gain else f", +{rung.gain}, buys") in alt[pos:]
             for leg in rung.legs:
                 if leg.games and leg.scarce:
-                    assert ", ".join(leg.teams) in alt[pos:], (key, rung.adds)
+                    assert ", ".join(leg.named) in alt[pos:], (key, rung.adds)
+                    if leg.others:
+                        assert f"Also {', '.join(leg.others)}, with the same games on other days." in alt[pos:]
                 elif leg.games:
                     assert f"{leg.team_count} teams to choose from" in alt[pos:], (key, rung.adds)
     # Week A: the 1-add rung is 4 games of PHX or MIA, and the 4th add gains nothing.
     a = posts["A"]["alts"][1]
-    assert "1 add: 4 games (1 on a light night). Mon–Sun, 4 games: PHX, MIA." in a
+    assert (
+        "1 add: 4 games (1 on a light night). Mon–Sun, 4 games: PHX. Also MIA, with the same games on other days." in a
+    )
     assert "4 adds: 6 games (1 on a light night), +0, this add gains nothing." in a
 
 

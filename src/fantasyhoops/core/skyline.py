@@ -32,7 +32,8 @@ class Leg:
     teams with the largest group of the same game days come first. pattern: the game days of that group (the dots of
     the poster).
     b2b: the back-to-back pairs of each team in teams. decisive_b2b: the back-to-back pairs of pattern that the
-    poster names, or () when the leg does not depend on a back-to-back.
+    poster names, or () when the leg does not depend on a back-to-back. dot_teams: the teams whose game days are
+    pattern, or None when each team of teams has these days.
     """
 
     first: int
@@ -44,6 +45,7 @@ class Leg:
     scarce: bool
     b2b: dict
     decisive_b2b: tuple
+    dot_teams: tuple = None
 
     @property
     def team_count(self):
@@ -51,8 +53,18 @@ class Leg:
 
     @property
     def named(self):
-        """The teams that the poster names: the teams of a scarce leg, else ()."""
-        return self.teams if self.scarce else ()
+        """The teams that the poster names: the teams of a scarce leg whose game days are the dots, else ().
+
+        Decision (2026-11-08, owner): a chip names only a team whose game days match the dots. The other teams with
+        the same score play on other days, so the poster leaves them out."""
+        if not self.scarce:
+            return ()
+        return self.teams if self.dot_teams is None else self.dot_teams
+
+    @property
+    def others(self):
+        """The teams of a scarce leg with the same score on other days than the dots: teams that named leaves out."""
+        return tuple(t for t in self.teams if t not in self.named) if self.scarce else ()
 
 
 @dataclass(frozen=True)
@@ -152,7 +164,9 @@ class _Ladder:
         # have one in the leg. In a leg of 2 days, 2 games are always a back-to-back, so the poster does not name it.
         have = sum(bool(_pairs(p)) for p in pat.values())
         decisive = scarce and b - a >= 3 and all(b2b[t] for t in teams) and have <= self.scarce
-        return Leg(a, b, games, light, teams, top, scarce, b2b, _pairs(top) if decisive else ())
+        return Leg(
+            a, b, games, light, teams, top, scarce, b2b, _pairs(top) if decisive else (), tuple(groups.get(top, []))
+        )
 
     def legs(self, split):
         return [self.leg(a, b) for a, b in zip(split, split[1:])]
