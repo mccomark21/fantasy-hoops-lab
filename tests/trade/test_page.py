@@ -118,7 +118,7 @@ def test_the_header_shows_the_deadline_the_starts_now_and_the_time_of_the_run():
 
 def test_with_no_suggestion_the_page_says_so_and_has_no_table():
     html = render(Suggestions(BASE, [], [], 10, 0, 0))
-    assert '<div class="empty"><p>No trade raises your playoff starts.</p></div>' in html
+    assert '<div class="empty"><p>No trade in the value band of an offered player.</p></div>' in html
     assert 'id="sg-desk"' not in html and 'id="give-chips"' not in html
 
 
@@ -154,7 +154,7 @@ def test_the_page_escapes_the_names():
 # The offer list (#170).
 
 OFFER_CFG = {**CFG, "trade": {**CFG["trade"], "offer": ["Hurt Point Guard", "Nickeil Alexander-Walkerson", "Big Man"]}}
-KEPT_LINE = "he is not in your 8 kept players, so a trade does not change your playoff starts."
+KEPT_LINE = "no player of another team has a value in his value band."
 
 
 def test_the_page_names_the_offered_players_and_the_reason_of_each_player_with_no_suggestion_above_the_table():
@@ -176,7 +176,7 @@ def test_with_no_suggestion_the_page_still_shows_the_offered_players_and_the_rea
     result = Suggestions(BASE, [], [], 10, 0, 0, ("Big Man",), (("Big Man", KEPT_LINE),))
     html = page.render(result, WEEKS, OFFER_CFG, MADE, TODAY, DEADLINE, READ)
     assert f"<li>No suggestion for Big Man: {KEPT_LINE}</li>" in html
-    assert '<div class="empty"><p>No trade raises your playoff starts.</p></div>' in html
+    assert '<div class="empty"><p>No trade in the value band of an offered player.</p></div>' in html
 
 
 def test_with_an_empty_offer_list_the_page_says_that_each_player_but_the_untouchable_is_offered():
@@ -661,3 +661,18 @@ def test_a_player_name_opens_the_player_modal_and_a_name_in_the_builder_does_not
     pg.locator("#lab-pmodal").wait_for(state="visible")
     assert box.is_checked() == checked  # the click opens the modal and does not pick the player
     assert "lab-pmodal" not in page.render_deadline(CFG, MADE, DEADLINE)
+
+
+def test_the_fit_note_says_fits_or_conflict_with_the_spot_the_starts_and_the_lost_starts():
+    """2026-11-13: the note under the player you get."""
+    give = TradePlayer("Derrick White", "BOS", ("PG", "SG"), value=1.97)
+    get = TradePlayer("Kris Dunn", "LAC", ("PG", "SG"), value=2.02)
+    fits = Suggestion(give, get, (28, 26, 25), (28, 26, 26), 1, 1, 0.05, -0.05, out=give, starts=10, games=10)
+    assert page.fit_note(fits) == '<small class="fit ok">Fits: in for Derrick White · starts 10 of 10</small>'
+    bad = replace(fits, starts=11, games=11, lost=(("Ajay Mitchell", 2),))
+    assert page.fit_note(bad) == (
+        '<small class="fit cf">Conflict: in for Derrick White · starts 11 of 11 · Ajay Mitchell −2</small>'
+    )
+    assert "Conflict: no free spot" in page.fit_note(replace(fits, out=None))
+    assert page.fit_note(replace(fits, starts=8, games=11)).startswith('<small class="fit cf">Conflict:')
+    assert page.fit_note(fits) in page.render(Suggestions((28, 26, 25), [], [fits], 1, 1, 1), WEEKS, CFG, MADE, TODAY)

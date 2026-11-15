@@ -4,6 +4,8 @@
 //   2. The players that a team gives (and drops) leave its kept set. The players that it gets take the freed spots,
 //      the highest value first. The kept set is not ranked again (Decision comment of 2026-10-28 on #150).
 //   3. When you get more players than you give, you pick your drops. When you give more, the spot stays empty.
+//      When you give a player who is not in your kept set, a player you get with no freed spot takes the spot of
+//      your kept player with the lowest value who is not untouchable and not on IL (2026-11-13).
 //   4. When the partner gets more players than he gives, he drops his lowest value players that are not on IL.
 //   5. The starts come from scoreCore() of core/starts.js (#213). The engine gets value = -rank, so its value sort
 //      gives the lineup order of the Roster page (core/roster.py rank_order()). rank is the rank by Val (#223), so
@@ -32,11 +34,19 @@ const TradeBuilder = (() => {
     return players.filter(p => chosen.has(p));
   }
 
-  function keptAfter(kept, out, incoming) {
+  // fill: the count of players you give who are not in the kept set (builder.py kept_after()).
+  function keptAfter(kept, out, incoming, fill = 0) {
     const gone = new Set(out), queue = byValue(incoming), after = [];
     for (const p of kept) {
       if (!gone.has(p)) after.push(p);
       else if (queue.length) after.push(queue.shift());
+    }
+    for (let i = 0; i < fill; i++) {
+      const free = after.filter(p => kept.includes(p) && !p.untouchable && !p.il);
+      if (!queue.length || !free.length) break;
+      let low = free[0];
+      for (const p of free) if ((p.val != null) - (low.val != null) < 0 || ((p.val != null) === (low.val != null) && num(p) < num(low))) low = p;
+      after[after.indexOf(low)] = queue.shift();
     }
     return after;
   }
@@ -70,7 +80,7 @@ const TradeBuilder = (() => {
     const kept = keptSet(mine, data.kept);
     const me = {
       before: weekStarts(kept, data),
-      after: weekStarts(keptAfter(kept, give.concat(drops), get), data),
+      after: weekStarts(keptAfter(kept, give.concat(drops), get, give.filter(p => !kept.includes(p)).length), data),
       dv: sum(get) - sum(give) - sum(drops),
       drops,
       open: Math.max(0, give.length - get.length),

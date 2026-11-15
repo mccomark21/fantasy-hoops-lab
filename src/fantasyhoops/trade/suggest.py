@@ -3,13 +3,16 @@
 The value of a player is his Val, the Season value of core/season_value.py (#223). It is the Val of the Players page.
 The playoff starts of a team count its kept set: the top [trade] kept players by value. The untouchable players
 ([trade] untouchable) and the IL players are always in it. In a trade, the player you get takes the spot of the
-player you give in the kept set. The run does not rank the kept set again after the trade (Decision comment on #150).
+player you give in the kept set. If the player you give is not in the kept set, the player you get takes the spot of
+the kept player with the lowest value who is not untouchable and not on the IL (2026-11-13). The run does not rank
+the kept set again after the trade (Decision comment on #150).
 The starts use the Roster page rules: core/roster.py lineup_fit() on the playoff days of roster_page.playoff_days().
 The lineup order is the rank by Val (TradePlayer.rank), as on the Roster page.
-A pair is a suggestion if the value of the player you get is in the value band of the player you give, and the trade
-raises your total playoff starts by 1 or more. The suggestions give only the players of the [trade] offer list (#170). An
-empty list offers each player who is not untouchable. The rank: the gain in total starts, then the gain of your weakest
-week, then your value change.
+A pair is a suggestion if the value of the player you get is in the value band of the player you give. A trade that
+does not raise your playoff starts is also a suggestion (2026-11-13). Its fit note shows the conflict: the starts
+that your kept players lose to him. The suggestions give only the players of the [trade] offer list (#170). An empty
+list offers each player who is not untouchable. The rank: the gain in total starts, then the gain of your weakest
+week, then your value change. So the conflicts come last.
 """
 
 from collections import Counter
@@ -69,7 +72,7 @@ class TradeSettings:
     """
 
     untouchable: frozenset
-    band: tuple
+    band: tuple  # (low, high) of [trade] value_band, and [trade] band_floor as a third item if the config has it
     kept: int
     per_player: int
     rows: int
@@ -80,7 +83,7 @@ class TradeSettings:
         t = cfg["trade"]
         return cls(
             untouchable=frozenset(name_key(n) for n in t["untouchable"]),
-            band=tuple(t["value_band"]),
+            band=tuple(t["value_band"]) + ((float(t["band_floor"]),) if "band_floor" in t else ()),
             kept=int(t["kept"]),
             per_player=int(t["per_player"]),
             rows=int(t["rows"]),
@@ -113,6 +116,9 @@ class Suggestion:
     min_gain: min(after) - min(before). dv: your value change (get - give). partner_dv: the value change of the
     partner (give - get). partner_before, partner_after: the team starts of the partner in each week, an estimate,
     because the rostered list does not show the IL slots of the partner.
+    The fit note (2026-11-13): out is the kept player whose spot the player you get takes (give, or your lowest kept
+    value if give is not kept), or None if no spot is free. starts, games: the playoff starts and the games of the
+    player you get in your kept set. lost: (name, starts) of each kept player who loses starts to him, most first.
     """
 
     give: TradePlayer
@@ -125,6 +131,10 @@ class Suggestion:
     partner_dv: float
     partner_before: tuple = ()
     partner_after: tuple = ()
+    out: TradePlayer | None = None
+    starts: int = 0
+    games: int = 0
+    lost: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -166,6 +176,21 @@ def swap(kept, give, get):
     return [get if p == give else p for p in kept]
 
 
+def spot_for(kept, give, settings):
+    """The kept player whose spot the player you get takes: give if he is kept. Else the kept player with the lowest
+    value who is not untouchable and not on the IL. None if each kept player is untouchable or on the IL."""
+    if give in kept:
+        return give
+    free = [p for p in kept if not settings.is_untouchable(p) and not p.on_il]
+    return min(free, key=lambda p: (p.value is not None, p.value or 0.0)) if free else None
+
+
+def player_starts(players, days, slots):
+    """{name: (starts, games)} of each player in all playoff weeks, with the Roster page rules."""
+    fit = roster_page.lineup_fit([p.roster_player() for p in players], days, slots)
+    return {p.name: fit.player_week(i)[:2] for i, p in enumerate(fit.players)}
+
+
 def week_starts(players, days, slots, weeks):
     """The team starts of players in each week of weeks, with the Roster page rules (roster_page.lineup_fit())."""
     fit = roster_page.lineup_fit([p.roster_player() for p in players], days, slots)
@@ -174,9 +199,12 @@ def week_starts(players, days, slots, weeks):
 
 def in_band(give, get, band):
     """True if the value get is in the value band of the value give: give - (1 - band[0]) x |give| to
-    give + (band[1] - 1) x |give|. The band works for values below 0 too."""
-    low = give - (1 - band[0]) * abs(give)
-    high = give + (band[1] - 1) * abs(give)
+    give + (band[1] - 1) x |give|. The band works for values below 0 too.
+    band[2], if there is one, is [trade] band_floor: each side of the band is at least that wide (2026-11-13), so a
+    value near 0 still has a band."""
+    floor = band[2] if len(band) > 2 else 0.0
+    low = give - max((1 - band[0]) * abs(give), floor)
+    high = give + max((band[1] - 1) * abs(give), floor)
     return low - EDGE <= get <= high + EDGE
 
 
@@ -208,6 +236,7 @@ def suggest(mine, others, days, slots, weeks, settings):
     """
     kept = kept_set(mine, settings)
     base = week_starts(kept, days, slots, weeks)
+    base_starts = player_starts(kept, days, slots)
     pairs = scored = 0
     found = []
     band_hits, gain_hits = Counter(), Counter()
@@ -220,16 +249,32 @@ def suggest(mine, others, days, slots, weeks, settings):
                 continue
             scored += 1
             band_hits[give.name] += 1
-            if give not in kept:
-                continue  # get takes the spot of give, which is not in the kept set: no change of the starts
-            after = week_starts(swap(kept, give, get), days, slots, weeks)
+            out = spot_for(kept, give, settings)
+            core = swap(kept, out, get) if out is not None else list(kept)
+            after = week_starts(core, days, slots, weeks)
             gain = sum(after) - sum(base)
-            if gain < 1:
-                continue
-            gain_hits[give.name] += 1
+            if gain >= 1:
+                gain_hits[give.name] += 1
+            now = player_starts(core, days, slots)
+            starts, games = now.get(get.name, (0, 0)) if out is not None else (0, 0)
+            lost = sorted(
+                ((n, base_starts[n][0] - now[n][0]) for n in now if n in base_starts and now[n][0] < base_starts[n][0]),
+                key=lambda x: -x[1],
+            )
             found.append(
                 Suggestion(
-                    give, get, base, after, gain, min(after) - min(base), get.value - give.value, give.value - get.value
+                    give,
+                    get,
+                    base,
+                    after,
+                    gain,
+                    min(after) - min(base),
+                    get.value - give.value,
+                    give.value - get.value,
+                    out=out,
+                    starts=starts,
+                    games=games,
+                    lost=tuple(lost),
                 )
             )
     found.sort(key=rank_key)
@@ -243,7 +288,7 @@ def suggest(mine, others, days, slots, weeks, settings):
         for p in mine
         if settings.listed(p) and p.name not in shown
     )
-    return Suggestions(base, kept, rows, pairs, scored, len(found), offered, missed)
+    return Suggestions(base, kept, rows, pairs, scored, sum(gain_hits.values()), offered, missed)
 
 
 def no_row_reason(player, kept, band, gains, settings):
@@ -255,12 +300,8 @@ def no_row_reason(player, kept, band, gains, settings):
         return "he is on the [trade] untouchable list, and untouchable wins over offer."
     if player.value is None:
         return "he has no value."
-    if player not in kept:
-        return f"he is not in your {settings.kept} kept players, so a trade does not change your playoff starts."
     if not band:
         return "no player of another team has a value in his value band."
-    if not gains:
-        return "no trade in his value band raises your playoff starts."
     return f"his trades rank below the {settings.rows} trade{'' if settings.rows == 1 else 's'} that the page shows."
 
 

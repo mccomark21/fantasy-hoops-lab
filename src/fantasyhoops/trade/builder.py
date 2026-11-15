@@ -6,6 +6,8 @@ Python, and tests/trade/test_parity.py shows that both give the same results.
 1. The players that a team gives (and the players that it drops) leave its kept set. The players that it gets take
    their spots, the highest value first. The kept set is not ranked again (Decision comment of 2026-10-28 on #150).
 2. When you get more players than you give, you pick your drops. When you give more, the spot stays empty.
+   When you give a player who is not in your kept set, a player you get with no freed spot takes the spot of your
+   kept player with the lowest value who is not untouchable and not on IL, as in suggest.spot_for() (2026-11-13).
 3. When the partner gets more players than he gives, he drops his lowest value players that are not on IL. The
    players that he gets in the trade are not dropped. A player with no value is the lowest.
 4. Your value change is sum(get) - sum(give) - sum(your drops). An open spot adds 0. A player with no value adds 0.
@@ -53,11 +55,13 @@ def by_value(players):
     return sorted(players, key=lambda p: (p.value is None, -(p.value or 0.0)))
 
 
-def kept_after(kept, out, incoming):
+def kept_after(kept, out, incoming, fill=0, settings=None):
     """The kept set after a trade: each player of out leaves it, and the incoming players take the freed spots.
 
     The highest value incoming player takes the first freed spot. A freed spot with no incoming player stays empty.
-    The incoming players with no freed spot are not in the kept set.
+    fill: the count of players you give who are not in the kept set. For each, an incoming player with no freed spot
+    takes the spot of the kept player with the lowest value who is not untouchable (settings) and not on IL.
+    The other incoming players with no freed spot are not in the kept set.
     """
     queue = by_value(incoming)
     after = []
@@ -66,6 +70,12 @@ def kept_after(kept, out, incoming):
             after.append(p)
         elif queue:
             after.append(queue.pop(0))
+    for _ in range(fill):
+        free = [p for p in after if p in kept and not settings.is_untouchable(p) and not p.on_il]
+        if not queue or not free:
+            break
+        low = min(free, key=lambda p: (p.value is not None, p.value or 0.0))
+        after[after.index(low)] = queue.pop(0)
     return after
 
 
@@ -109,7 +119,8 @@ def custom_trade(mine, team, give, get, drops, days, slots, weeks, settings):
     check(mine, give, get, drops, settings)
     kept = kept_set(mine, settings)
     before = week_starts(kept, days, slots, weeks)
-    after = week_starts(kept_after(kept, give + drops, get), days, slots, weeks)
+    bench = sum(p not in kept for p in give)
+    after = week_starts(kept_after(kept, give + drops, get, bench, settings), days, slots, weeks)
     dv = sum(map(_value, get)) - sum(map(_value, give)) - sum(map(_value, drops))
     me = Side(before, after, dv, drops, max(0, len(give) - len(get)))
 

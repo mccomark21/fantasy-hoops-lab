@@ -2,7 +2,7 @@
 
 ## Goal
 
-The trade tool suggests 1-for-1 trades with the other fantasy teams of the league. A suggestion raises your playoff starts in weeks 19 to 21 and keeps your season value. The design is in [docs/wiki/trade-tool-design-2026-10-28.md](../wiki/trade-tool-design-2026-10-28.md).
+The trade tool suggests 1-for-1 trades with the other fantasy teams of the league. A suggestion keeps your season value. Its fit note tells you how the player you get fits your playoff starts in weeks 19 to 21. A suggestion does not have to raise your starts (2026-11-13). The design is in [docs/wiki/trade-tool-design-2026-10-28.md](../wiki/trade-tool-design-2026-10-28.md).
 
 ## Usage
 
@@ -18,7 +18,7 @@ The run opens Edge with the saved Yahoo sign-in of the adds planner. It is its o
 The terminal shows:
 
 1. The page path.
-2. The count of suggestions and the best suggestion, or "No trade raises your playoff starts."
+2. The count of suggestions and the best suggestion, or "No trade in the value band of an offered player."
 3. The offered players and one line for each offered player with no suggestion. See [Offer list](#offer-list).
 4. The publish line: the URL of the page, or "Publish: skipped (--no-publish)."
 5. The warnings: no trade deadline, rows of the rostered list with no team link, your players with no value, names of the offer list that are not on your roster, and the players with no match in a data file. See [Edge states](#edge-states).
@@ -39,7 +39,7 @@ The playoff starts of a team count only its kept set:
 1. Before a trade, the kept set is the top 8 players of the team by value (`[trade] kept`).
 2. The untouchable players (`[trade] untouchable`, Cooper Flagg) and the IL players are always in your kept set.
 3. In a trade, the player you get takes the spot of the player you give. The run does not rank the kept set again after the trade (Decision comment of 2026-10-28 on #150).
-4. If the player you give is not in your kept set, the trade does not change your starts.
+4. If the player you give is not in your kept set, the player you get takes the spot of your kept player with the lowest value who is not untouchable and not on IL (2026-11-13). That player leaves the kept set.
 5. The partner side uses the same rule. The rostered list does not show the IL slots of a partner, so the starts of a partner are an estimate.
 
 The kept set belongs to the trade tool. It does not change the `stream_spots` of the adds planner.
@@ -49,9 +49,19 @@ The kept set belongs to the trade tool. It does not change the `stream_spots` of
 `trade/suggest.py` scores each 1-for-1 pair of your offered players and the players of the other teams. See [Offer list](#offer-list).
 
 1. Both players must have a value. A pair with no value on one side is not a suggestion.
-2. The value of the player you get must be in the value band: from give − 5% × |give| to give + 10% × |give| (`[trade] value_band`). The band works for values below 0.
-3. The trade must raise your total playoff starts by 1 or more.
-4. The rank: the gain in total starts, then min(weeks after) − min(weeks before), then the larger value change for you.
+2. The value of the player you get must be in the value band: from give − 5% × |give| to give + 10% × |give| (`[trade] value_band`). Each side of the band is at least 0.30 wide (`[trade] band_floor`, 2026-11-13), so a Val near 0 still has trades. The band works for values below 0. The builder and the Playoffs page use the same band.
+3. A trade that does not raise your playoff starts is also a suggestion (2026-11-13).
+4. The rank: the gain in total starts, then min(weeks after) − min(weeks before), then the larger value change for you. So the trades that lower your starts come last.
+
+### Fit note
+
+Under the player you get, a fit note tells you how he fits your kept set in the playoff weeks (2026-11-13). For example "Conflict: in for Derrick White · starts 11 of 11 · Paolo Banchero −2".
+
+1. "Fits" or "Conflict". A trade is a conflict if your total starts go down, if a kept player loses starts to him, or if he sits in some of his own games. Else it fits.
+2. "in for": the kept player whose spot he takes. See [Kept set](#kept-set).
+3. "starts N of M": his playoff starts and his playoff games in your kept set.
+4. Each kept player who loses starts to him, with the count.
+5. If each kept player is untouchable or on IL, he has no spot: "Conflict: no free spot in your kept set (untouchable or IL players)".
 5. At most 3 rows for each player you give (`[trade] per_player`), and 20 rows in all (`[trade] rows`).
 
 The playoff starts use the Roster page rules exactly: `core/roster.py` `lineup_fit()` on the days of `roster.playoff_days()`. The slots are `[league] slots` and one Util slot. The lineup order is the rank by Val (`SeasonValues.ranks()`), as on the Roster page, and a player with no season line goes last (#223). A rest night on a back-to-back (`rests_b2b` of the `[risk] file`) is not a game. IL and injured players count, with their Yahoo status on the page.
@@ -65,7 +75,7 @@ The `[trade] offer` list in `config.toml` names the players that you are willing
 3. `untouchable` wins over `offer`. A player on both lists is never given.
 4. A name on the list that is not on your roster gives a warning in the terminal and on the page.
 5. The trade builder still allows any player who is not untouchable. The list limits only the suggestions.
-6. The kept set rule does not change. An offered player outside your kept set gets no suggestion, because a trade of him does not change your playoff starts.
+6. An offered player outside your kept set gets suggestions too. The player you get takes the spot of your lowest-value kept player (2026-11-13).
 
 The page shows a line above the table, for example "Offered: Rudy Gobert, Matas Buzelis, Coby White (config [trade] offer)." The names come from your roster, in the roster order. With an empty list, the line says "Offered: each player who is not untouchable (config [trade] offer is empty)."
 
@@ -75,9 +85,7 @@ Under that line, each player on the list with no suggestion gets one line with t
 |---|---|
 | He is untouchable. | "he is on the [trade] untouchable list, and untouchable wins over offer." |
 | He has no value. | "he has no value." |
-| He is not in your kept set. | "he is not in your 8 kept players, so a trade does not change your playoff starts." |
 | No player of another team is in his value band. | "no player of another team has a value in his value band." |
-| No trade in his value band raises your starts. | "no trade in his value band raises your playoff starts." |
 | His trades fall outside the row limit. | "his trades rank below the 20 trades that the page shows." |
 
 The terminal prints the same lines after the best suggestion. With an empty list, no player gets a reason line.
@@ -141,8 +149,9 @@ The targets: 15 seconds or less with a full cache, 60 seconds or less with no ca
 4. The table has the players you give and get, the partner team, the playoff starts of each week and the total, and the value change of both teams.
 5. Each week cell shows the new count, the change and a small bar. A blue row above the trades shows your starts now.
 6. Below 940px of content, a row list replaces the table. The row list has one column for each playoff week in `[playoffs] weeks` and one for the total, as the table does.
-7. The line under the table starts with "Starts count your 8 kept players."
-8. The trade builder sits under the table. See [Builder](#builder).
+7. The line under the table starts with "Starts count your 8 kept players." It also tells you the meaning of "Fits" and "Conflict".
+8. Under the player you get, each row has its fit note. See [Fit note](#fit-note).
+9. The trade builder sits under the table. See [Builder](#builder).
 
 ## Builder
 
@@ -152,6 +161,7 @@ The trade builder sits under the suggestions table (#152). It computes a custom 
 2. Pick the players you give and the players you get. The untouchable players cannot be given. The players that are not on the offer list can be given.
 3. When you get more players than you give, pick your drops. The builder first picks your lowest value players. It never offers an untouchable player.
 4. When you give more players than you get, your open spot stays empty: "1 open roster spot: a free agent can fill it."
+   When you give a player who is not in your kept set, a player you get with no freed spot takes the spot of your lowest-value kept player who is not untouchable and not on IL. So a suggestion row loaded into the builder gives the same starts (2026-11-13).
 5. When the partner gets more players than he gives, he drops his lowest value players that are not on IL. A player with no value goes first. He never drops a player that he gets in the trade. The page names each drop.
 6. When you get more players than you give, the partner has an open spot, and the page says so.
 7. A click on a suggestion row (or on its rank button) loads that trade into the builder. The row shows as selected until you change the trade.

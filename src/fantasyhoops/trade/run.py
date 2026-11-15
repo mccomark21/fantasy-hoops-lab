@@ -227,13 +227,13 @@ def _pages(n):
 
 
 def best_line(result):
-    """The terminal line of the best suggestion, or "No trade raises your playoff starts."."""
+    """The terminal line of the best suggestion, or page.EMPTY."""
     if not result.rows:
         return page.EMPTY
     s = result.rows[0]
     return (
         f"Best: give {s.give.name}, get {s.get.name} ({s.get.team_name}): "
-        f"{sum(s.before)} -> {sum(s.after)} playoff starts (+{s.gain}), value {s.dv:+.2f}."
+        f"{sum(s.before)} -> {sum(s.after)} playoff starts ({s.gain:+d}), value {s.dv:+.2f}."
     )
 
 

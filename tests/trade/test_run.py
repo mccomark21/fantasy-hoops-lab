@@ -217,7 +217,7 @@ def test_the_best_line_and_the_warnings():
     assert run.best_line(Suggestions((8, 8, 8), [], [best], 1, 1, 1)) == (
         "Best: give Give Guy, get Get Guy (Rivals): 24 -> 25 playoff starts (+1), value +0.05."
     )
-    assert run.best_line(Suggestions((8, 8, 8), [], [], 1, 0, 0)) == "No trade raises your playoff starts."
+    assert run.best_line(Suggestions((8, 8, 8), [], [], 1, 0, 0)) == "No trade in the value band of an offered player."
     read = RosteredRead([], [], {}, ["Lost Row"], False)
     lines = run.warnings([TradePlayer("No Value", "ATL", ("C",))], TradeInputs(read, None, "No date."))
     assert lines == [
@@ -237,10 +237,11 @@ def test_a_name_of_the_offer_list_that_is_not_on_your_roster_gets_a_warning():
 
 def test_the_trade_section_of_the_config_has_no_deadline():
     trade = common.load_config()["trade"]
+    assert isinstance(trade.pop("offer"), list)  # the owner edits the offer list through the season
     assert trade == {
         "untouchable": ["Cooper Flagg"],
-        "offer": ["Rudy Gobert", "Matas Buzelis", "Coby White"],
         "value_band": [0.95, 1.10],
+        "band_floor": 0.30,
         "kept": 8,
         "per_player": 3,
         "rows": 20,
