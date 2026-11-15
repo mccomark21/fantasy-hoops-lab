@@ -1,7 +1,7 @@
 import pytest
 
 from fantasyhoops.trade.builder import ABOVE, BELOW, IN, custom_trade, kept_after, partner_drops
-from fantasyhoops.trade.suggest import TradeSettings, kept_set, swap
+from fantasyhoops.trade.suggest import TradeSettings, kept_set, suggest, swap
 from tests.trade.test_suggest import SETTINGS, SLOTS, WEEKS, days, me, them
 
 FIVE = TradeSettings(SETTINGS.untouchable, SETTINGS.band, 5, 3, 20)
@@ -105,3 +105,13 @@ def test_the_band_verdict_shows_only_for_equal_counts():
 def test_a_trade_that_breaks_a_rule_raises(give, get, drops):
     with pytest.raises(ValueError):
         trade(give, get, drops)
+
+
+def test_a_bench_player_you_give_frees_the_lowest_kept_spot_as_in_the_suggestions():
+    """2026-11-13: the builder and suggest() give one result for a 1-for-1 trade of a bench player."""
+    from tests.trade.test_suggest import MINE
+
+    busy = them("Busy Big", 0.8, pos="C")
+    (row,) = suggest(MINE, [busy], days(), SLOTS, WEEKS, FIVE).rows
+    result = custom_trade(MINE, [busy], [MINE[-1]], [busy], [], days(), SLOTS, WEEKS, FIVE)
+    assert row.give is MINE[-1] and result.mine.after == row.after and result.mine.before == row.before

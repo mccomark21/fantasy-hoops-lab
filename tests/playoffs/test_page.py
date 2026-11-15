@@ -97,7 +97,7 @@ def test_the_page_data_has_the_days_the_settings_of_the_config_and_the_bands():
     }
     assert d["bands"]["DAL"] == site.band_style("DAL") and d["bands"][""] == site.band_style(None)
     # Decision 18: [trade] value_band and untouchable of config.toml, the same settings as the Trades page.
-    assert d["band"] == [0.95, 1.10] and d["untouchable"] == ["al-dal"]
+    assert d["band"] == [0.95, 1.10, CFG["trade"]["band_floor"]] and d["untouchable"] == ["al-dal"]
 
 
 def test_the_page_has_the_menu_item_the_controls_and_the_scripts():
@@ -447,8 +447,10 @@ def test_the_trades_and_playoffs_pages_give_one_value_and_one_value_band_for_one
     settings = TradeSettings.from_config(CFG)
     trades = trade_page.builder_data(Suggestions((), [], [], 0, 0, 0), [], others, DAYS, ["PG"], ["wk19"], settings)
     assert others[0].value == playoffs["players"][0]["value"] == val == season.val("fa bos")
-    assert playoffs["band"] == trades["engine"]["band"] == list(settings.band) == CFG["trade"]["value_band"]
-    low, high = val * playoffs["band"][0], val * playoffs["band"][1]  # the band of a Val above 0
+    band = CFG["trade"]["value_band"] + [CFG["trade"]["band_floor"]]
+    assert playoffs["band"] == trades["engine"]["band"] == list(settings.band) == band
+    # The band of a Val above 0, with each side at least band_floor wide.
+    low, high = val - max(val * (1 - band[0]), band[2]), val + max(val * (band[1] - 1), band[2])
     assert in_band(val, low, settings.band) and in_band(val, high, settings.band)
     assert not in_band(val, low - 0.01, settings.band) and not in_band(val, high + 0.01, settings.band)
 

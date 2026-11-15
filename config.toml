@@ -301,8 +301,9 @@ untouchable = ["Cooper Flagg"]  # the tool never offers these players. They are 
 # The players that you are willing to trade. Edit the list through the season. The suggestions give only these
 # players. An empty list offers each player who is not untouchable. untouchable wins over offer. The trade builder
 # still allows any player.
-offer = ["Rudy Gobert", "Matas Buzelis", "Coby White"]
+offer = ["Ajay Mitchell", "Coby White", "Matas Buzelis", "Derrick White"]
 value_band = [0.95, 1.10]       # the value of the player you get: give - 5% to give + 10% of |give|
+band_floor = 0.30               # each side of the value band is at least this wide, so a Val near 0 has trades
 kept = 8                        # the playoff starts count this number of players of a team (the kept set)
 per_player = 3                  # suggestions for each player you give, at most
 rows = 20                       # suggestions in all, at most

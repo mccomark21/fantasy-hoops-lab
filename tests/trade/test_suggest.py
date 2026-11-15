@@ -4,6 +4,7 @@ from datetime import date, timedelta
 import pytest
 
 from fantasyhoops.core import roster as roster_page
+from fantasyhoops.trade.page import conflict as page_conflict
 from fantasyhoops.trade.suggest import (
     Suggestion,
     TradePlayer,
@@ -146,16 +147,47 @@ def test_a_trade_that_fills_an_empty_slot_is_a_suggestion_with_its_gain():
     assert row.dv == pytest.approx(0.0) and row.partner_dv == pytest.approx(0.0)
 
 
-def test_no_row_without_a_gain():
-    # Busy Point is in the band of Point, but Point already starts each day: no gain, no row.
+def test_a_trade_with_no_gain_is_still_a_suggestion():
+    # 2026-11-13: Busy Point is in the band of Point. Point already starts each day: no gain, but a row that fits.
     result = suggest(MINE, [them("Busy Point", 2.0, pos="PG")], days(), SLOTS, WEEKS, FIVE)
-    assert result.in_band >= 1 and result.gains == 0 and result.rows == []
+    assert result.in_band >= 1 and result.gains == 0
+    (row,) = result.rows
+    assert row.gain == 0 and row.out.name == "Point" and (row.starts, row.games) == (6, 6) and row.lost == ()
 
 
-def test_the_player_you_get_below_the_kept_line_adds_no_starts():
-    # Bench Big is not kept. Giving him for a busy center changes no counted player, so no gain.
+def test_the_player_you_get_for_a_bench_player_takes_the_spot_of_the_lowest_kept_value():
+    # 2026-11-13: Bench Big is not kept. Busy Big takes the spot of Idle Center, the lowest kept value that is not
+    # untouchable (Star Keeper has 0.1), and fills the empty C slot each day.
     result = suggest(MINE, [them("Busy Big", 0.8, pos="C")], days(), SLOTS, WEEKS, FIVE)
-    assert result.rows == []
+    (row,) = result.rows
+    assert row.give.name == "Bench Big" and row.out.name == "Idle Center"
+    assert row.gain == 6 and (row.starts, row.games) == (6, 6)
+
+
+def test_a_conflict_names_the_kept_players_who_lose_starts_and_ranks_last():
+    # One PG slot and one Util. Two PGs and a wing start each day. A better ranked PG for the wing takes the Util
+    # start of Point Two, and the SF slot stays empty: a conflict. A wing for the wing fits.
+    mine = [
+        me("Point", 2.0, pos="PG", rank=2),
+        me("Point Two", 1.5, pos="PG", rank=3),
+        me("Wing", 1.0, pos="SF", rank=5),
+    ]
+    others = [them("New Point", 1.0, pos="PG", rank=1), them("Wing Twin", 1.0, pos="SF", rank=4)]
+    result = suggest(mine, others, days(), SLOTS, WEEKS, replace(FIVE, untouchable=frozenset()))
+    wing = [s for s in result.rows if s.give.name == "Wing"]
+    assert [s.get.name for s in wing] == ["Wing Twin", "New Point"]
+    fits, bad = wing
+    assert fits.gain == 0 and fits.lost == () and not page_conflict(fits)
+    assert bad.gain == -6 and bad.lost == (("Point Two", 6),) and (bad.starts, bad.games) == (6, 6)
+    assert page_conflict(bad)
+
+
+def test_the_band_floor_gives_a_value_near_0_a_band():
+    settings = TradeSettings.from_config({"trade": {**CFG["trade"], "band_floor": 0.30}})
+    assert settings.band == (0.95, 1.10, 0.30)
+    assert in_band(-0.66, -0.96, settings.band) and in_band(-0.66, -0.36, settings.band)
+    assert not in_band(-0.66, -0.9601, settings.band) and not in_band(-0.66, -0.3599, settings.band)
+    assert in_band(10.0, 9.5, settings.band) and not in_band(10.0, 9.0, settings.band)  # the percent side is wider
 
 
 def test_giving_an_il_player_does_not_move_the_next_player_up():
@@ -163,7 +195,8 @@ def test_giving_an_il_player_does_not_move_the_next_player_up():
     # does not come in. A new rank of the kept set after the trade would bring Busy Bench in and show a gain.
     mine = [*MINE[:4], me("Hurt Center", -1.0, pos="C", team="NONE", slot="IL"), me("Busy Bench", 0.9, pos="C")]
     result = suggest(mine, [them("Idle Swap", -1.0, pos="C", team="NONE")], days(), SLOTS, WEEKS, FIVE)
-    assert result.rows == []
+    (row,) = result.rows
+    assert row.give.name == "Hurt Center" and row.after == row.before and row.gain == 0
 
 
 def test_the_untouchable_player_is_never_given():
@@ -227,7 +260,8 @@ def test_the_offer_list_comes_from_the_trade_section_and_an_empty_list_offers_ea
 def test_the_suggestions_give_only_the_players_of_the_offer_list():
     others = [them("Busy Center", 1.0, pos="C"), them("Busy Point", 2.0, pos="PG")]
     result = suggest(MINE, others, days(), SLOTS, WEEKS, offer("point", "Shooter"))
-    assert result.rows == [] and result.pairs == 2 * 2  # Idle Center is not on the list: no row for him
+    assert result.pairs == 2 * 2  # Idle Center is not on the list: no row for him
+    assert [(s.give.name, s.get.name) for s in result.rows] == [("Point", "Busy Point")]
     assert result.offered == ("Point", "Shooter")
     assert suggest(MINE, others, days(), SLOTS, WEEKS, offer("Idle Center")).rows[0].give.name == "Idle Center"
 
@@ -245,11 +279,10 @@ def test_each_offered_player_with_no_row_gets_the_reason():
     others = [them("Busy Center", 1.0, pos="C"), them("Busy Point", 2.0, pos="PG")]
     settings = offer("Point", "Shooter", "Idle Center", "Bench Big", "No Value")
     result = suggest(mine, others, days(), SLOTS, WEEKS, settings)
-    assert [s.give.name for s in result.rows] == ["Idle Center"]
+    assert [s.give.name for s in result.rows] == ["Idle Center", "Point"]
     assert dict(result.missed) == {
-        "Point": "no trade in his value band raises your playoff starts.",
         "Shooter": "no player of another team has a value in his value band.",
-        "Bench Big": "he is not in your 5 kept players, so a trade does not change your playoff starts.",
+        "Bench Big": "no player of another team has a value in his value band.",
         "No Value": "he has no value.",
     }
 

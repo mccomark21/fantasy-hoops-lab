@@ -286,7 +286,9 @@ const Starts = (() => {
   // The value band of [trade] value_band in config.toml: give - (1 - band[0]) x |give| to give + (band[1] - 1) x |give|.
   // in_band() of trade/suggest.py. A value on an edge is in the band, also with a rounding error of the float math.
   function inBand(give, get, band) {
-    const low = give - (1 - band[0]) * Math.abs(give), high = give + (band[1] - 1) * Math.abs(give);
+    const floor = band.length > 2 ? band[2] : 0; // [trade] band_floor: each side is at least this wide
+    const low = give - Math.max((1 - band[0]) * Math.abs(give), floor);
+    const high = give + Math.max((band[1] - 1) * Math.abs(give), floor);
     return low - 1e-9 <= get && get <= high + 1e-9;
   }
 

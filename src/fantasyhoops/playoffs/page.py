@@ -118,7 +118,8 @@ def page_data(records, days, cfg, made, history=()):
             for d in days
         ],
         "players": players,
-        "band": list(cfg["trade"]["value_band"]),
+        "band": list(cfg["trade"]["value_band"])
+        + ([cfg["trade"]["band_floor"]] if "band_floor" in cfg["trade"] else []),
         "untouchable": [r["slug"] for r in records if common.name_key(r["name"]) in untouchable],
         "bands": {t: site.band_style(t or None) for t in teams},
         "roster_spots": cfg["league"]["roster_spots"],

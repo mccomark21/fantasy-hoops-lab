@@ -29,7 +29,7 @@ ENGINE = ENGINE_JS  # the shared lineup-and-starts engine, core/starts.js (#213)
 TRADE_ENGINE = Path(__file__).parent / "trade_builder.js"
 MINUS = "−"
 CURRENT = "trade"  # the page in the site menu and its folder on the site: the Trades tab of publish.TOOLS (#151)
-EMPTY = "No trade raises your playoff starts."
+EMPTY = "No trade in the value band of an offered player."
 # The note under the builder tables, and the Val line of the foot when the run gives no basis line (#223).
 VAL_NOTE = "Val: the Season value per game, the Val of the Players page."
 # The partner rule. The line under the suggestions and the builder result show this same text (#162).
@@ -150,11 +150,31 @@ def _band(team, tag="td"):
     return f'<{tag} class="band{wide}" style="{site.band_style(team)}">{_e(team)}</{tag}>'
 
 
-def _player_cell(p):
+def conflict(s):
+    """True if the trade lowers your playoff starts, takes starts from one of your kept players, or the player you
+    get sits in some of his games."""
+    return s.gain < 0 or bool(s.lost) or s.starts < s.games
+
+
+def fit_note(s):
+    """The fit note of a suggestion (2026-11-13): how the player you get fits your kept set in the playoff weeks.
+
+    "Fits" or "Conflict", the kept player whose spot he takes, his starts of his games, and the starts that each kept
+    player loses to him. For example "Conflict: in for Derrick White · starts 11 of 11 · Ajay Mitchell −2".
+    """
+    if s.out is None:
+        return '<small class="fit cf">Conflict: no free spot in your kept set (untouchable or IL players)</small>'
+    kind, word = ("cf", "Conflict") if conflict(s) else ("ok", "Fits")
+    parts = [f"in for {_e(s.out.name)}", f"starts {s.starts} of {s.games}"]
+    parts += [f"{_e(n)} {MINUS}{k}" for n, k in s.lost]
+    return f'<small class="fit {kind}">{word}: {" · ".join(parts)}</small>'
+
+
+def _player_cell(p, note=""):
     return (
         f'<th class="pl" scope="row"><b>{profile.name_link(p.name)}</b>{_flag(p)}'
         f"<small>{_e(p.team)} · {_e('/'.join(p.positions))}"
-        f"</small><small>{_values(p)}</small></th>"
+        f"</small><small>{_values(p)}</small>{note}</th>"
     )
 
 
@@ -191,7 +211,7 @@ def desk_table(result, weeks):
         cls, inner = week_cell(total, sum(s.after), total=True)
         rows.append(
             f'<tr data-give="{_e(s.give.name)}" data-k="{k - 1}"><td class="rk">{_load(k)}</td>{_band(s.give.team)}'
-            f'{_player_cell(s.give)}{_band(s.get.team)}{_player_cell(s.get)}<td class="pt">{_e(s.get.team_name)}'
+            f'{_player_cell(s.give)}{_band(s.get.team)}{_player_cell(s.get, fit_note(s))}<td class="pt">{_e(s.get.team_name)}'
             f'{partner_starts(s)}</td>{"".join(cells)}<td class="{cls}">{inner}</td>{_value_cells(s)}</tr>'
         )
     return (
@@ -224,7 +244,7 @@ def mob_list(result, weeks):
             f'<span class="nm"><b>{profile.name_link(g.name)}</b>{_flag(g)}<small>You give · {_e("/".join(g.positions))} · '
             f"{_values(g)}</small></span>{_band(r.team, 'span')}"
             f'<span class="nm"><b>{profile.name_link(r.name)}</b>{_flag(r)}<small>You get from {_e(r.team_name)} · '
-            f'{_e("/".join(r.positions))} · {_values(r)}</small></span><span class="nums">{"".join(nums)}</span>'
+            f'{_e("/".join(r.positions))} · {_values(r)}</small>{fit_note(s)}</span><span class="nums">{"".join(nums)}</span>'
             f"{partner_line(s)}</li>"
         )
     # --cols: one column for each playoff week and one for the total (#160). The CSS of .nums and .mnow reads it.
@@ -410,7 +430,9 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
     span = f"{week_label(weeks[0])}–{weeks[-1][2:]}" if len(weeks) > 1 else week_label(weeks[0])
     kept, per = cfg["trade"]["kept"], cfg["trade"]["per_player"]
     foot = (
-        f"<b>Starts count your {kept} kept players.</b> The player you get takes the spot of the player you give. "
+        f"<b>Starts count your {kept} kept players.</b> The player you get takes the spot of the player you give, "
+        "or of your lowest-value kept player if you give a bench player. Fits: no kept player loses a start. "
+        "Conflict: your starts go down, a kept player loses starts to him, or he sits in some of his games. "
         f"{_e(basis or VAL_NOTE)} At most {per} trades for each player you give. "
         f"{result.pairs:,} pairs, {result.in_band:,} in the value band, {result.gains:,} with a gain. {EST_NOTE}"
     )
@@ -510,6 +532,9 @@ button.chip[aria-pressed="true"] small { color: var(--lab-stock); }
 td.v { font-size: 14px; white-space: nowrap; }
 td.v small { display: block; font-size: 11px; color: var(--lab-mute); }
 .minus { color: var(--lab-red); }
+.trade small.fit { display: block; font-size: 11px; margin-top: 2px; font-weight: 700; }
+.trade small.fit.ok { color: var(--lab-ink); }
+.trade small.fit.cf { color: var(--lab-red); }
 .status { display: inline-block; padding: 0 4px; background: var(--lab-red); color: var(--lab-on-red);
   font-size: 11px; font-weight: 800; line-height: 1.4; vertical-align: 3px; margin-left: 4px; font-stretch: 100%; }
 .desk { display: none; } .mob { display: block; }
