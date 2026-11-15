@@ -6,6 +6,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Projects
 
+- [Trade fit notes of 2026-11-13](trade-fit-notes-2026-11-13.md): the owner request of 2026-11-13 for trade suggestions outside the playoff core with a fit note for each, the four recommendations the owner accepted, PR #247 (open on 2026-11-15), the live run of 2026-11-15 and the open follow-ups.
 - [Run of 2026-10-30](run-2026-10-30.md): the session of 2026-10-30 (player pop-up, font fix PR #195, the ticket pipeline wave plan for #181 to #194).
 - [Trade tool build](trade-tool-build.md): the builds of #148 and #150 to #153 (PRs #154 to #158), the edge states of #153 and its live run of 2026-10-29.
 - [Run of 2026-10-28](run-2026-10-28.md): the session of 2026-10-28 that merged PR #121 (closes #116) as `e740820`, with its follow-ups.

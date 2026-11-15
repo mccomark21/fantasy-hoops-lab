@@ -24,6 +24,8 @@ On 2026-10-28, the owner asked for a trade tool as a new tab of the site menu. I
 12. At most 3 suggestions for each player you give, and 20 rows in all, with a filter row of your players.
 13. The value is the blended value of the adds planner for all players on both sides, from both Yahoo views of the rostered list. The page shows the preseason `pg_value` beside it. (The chief of staff took this recommendation when the owner handed the rest to an agent.)
 
+> Superseded in part (2026-11-13): decision 5 said that a trade with no gain in playoff starts is not suggested. On 2026-11-13, the owner decided to show such trades as "Conflict", ranked last. See [Trade fit notes of 2026-11-13](trade-fit-notes-2026-11-13.md).
+
 ## Next
 
 An agent decides the remaining questions and proposes the issue split. The owner confirms before any issue or build.
@@ -42,6 +44,8 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - The sample showed a flaw: with "the top 8 after the trade", a trade of the IL player Coby White showed a gain of 5 starts from the 9th player moving up. On 2026-10-28, the owner decided that the player you get takes the spot of the player you give (Decision comment on #150). This supersedes the top-8-after-the-trade rule.
 - The owner said the sample "looks alright but it looks nothing like the rest of the site". The plain look was on purpose. The prototype round (#149) uses the site style.
 - The blended values rested on 4 to 5 games, so few trades were in the band this early.
+
+> Superseded in part (2026-11-13): an offered player outside the kept set now gets suggestions. His trade frees the spot of the kept player with the lowest Val. See [Trade fit notes of 2026-11-13](trade-fit-notes-2026-11-13.md).
 
 ## Prototype round (2026-10-28)
 
@@ -91,3 +95,5 @@ An agent decides the remaining questions and proposes the issue split. The owner
 - On 2026-10-29, PR #177 (closes #163) had a clean review (813 passed on the merge with main) and merged as `mccomark21/fantasy-hoops-lab@1562e95`.
 - On 2026-10-29, PR #178 (closes #164) had a clean review (813 passed on the merge with main) and merged as `mccomark21/fantasy-hoops-lab@9156bb9`. Left: #162.
 - On 2026-10-29, the #179 review (#162) was clean, but the page did not explain "no blend". The chief of staff sent it back for a note under the suggestions and the builder tables (head `73c2192`, 815 passed), then merged it as `mccomark21/fantasy-hoops-lab@bd9284c`. All of #159 to #164 are closed. The trade page was published.
+
+> Superseded in part (2026-11-13): on 2026-11-13, an offered player outside the kept set gets suggestions, and the page shows a fit note for each. The no-suggestion line for such a player no longer applies. See [Trade fit notes of 2026-11-13](trade-fit-notes-2026-11-13.md).

@@ -26,3 +26,7 @@ This page records the build of the trade tool, issues #148 and #150 to #153. The
 - The run found 5 suggestions. The deadline was in the future, so the deadline page did not show. A test covers it.
 - The warning lines named 2 players with no rank and no projections match (Alex Sarr, Nic Claxton) and 11 players not in the `[risk] file`.
 - The builder checked 5 of the 11 names: `name_key()` removes the suffix and the diacritics ("Kristaps Porziņģis" gives "kristaps porzingis"). The 210 rows of `data/projection_risk.csv` do not have these players. So the `[risk] file` line is long while that file is short. This is a follow-up note, not an issue (the no-new-issues rule of 2026-10-27).
+
+## Later work
+
+- On 2026-11-13 to 2026-11-15, PR #247 added the bench rule, the fit notes, the "Conflict" mark and the band floor. This supersedes in part the rule that a suggestion must raise the playoff starts. See [Trade fit notes of 2026-11-13](trade-fit-notes-2026-11-13.md).
