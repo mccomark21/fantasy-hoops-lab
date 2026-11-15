@@ -40,7 +40,7 @@ The playoff starts of a team count only its kept set:
 2. The untouchable players (`[trade] untouchable`, Cooper Flagg) and the IL players are always in your kept set.
 3. In a trade, the player you get takes the spot of the player you give. The run does not rank the kept set again after the trade (Decision comment of 2026-10-28 on #150).
 4. If the player you give is not in your kept set, the player you get takes the spot of your kept player with the lowest value who is not untouchable and not on IL (2026-11-13). That player leaves the kept set.
-5. The partner side uses the same rule. The rostered list does not show the IL slots of a partner, so the starts of a partner are an estimate.
+5. The partner side uses only the plain swap of item 3. If the partner gives a bench player, the starts of the partner show no change. The rostered list does not show the IL slots of a partner, so the starts of a partner are an estimate.
 
 The kept set belongs to the trade tool. It does not change the `stream_spots` of the adds planner.
 

@@ -431,7 +431,8 @@ def render(result, weeks, cfg, made, today, deadline=None, rostered_line="", bui
     kept, per = cfg["trade"]["kept"], cfg["trade"]["per_player"]
     foot = (
         f"<b>Starts count your {kept} kept players.</b> The player you get takes the spot of the player you give, "
-        "or of your lowest-value kept player if you give a bench player. Fits: no kept player loses a start. "
+        "or of your lowest-value kept player if you give a bench player. "
+        "Fits: your starts do not go down, no kept player loses a start, and he starts in all of his games. "
         "Conflict: your starts go down, a kept player loses starts to him, or he sits in some of his games. "
         f"{_e(basis or VAL_NOTE)} At most {per} trades for each player you give. "
         f"{result.pairs:,} pairs, {result.in_band:,} in the value band, {result.gains:,} with a gain. {EST_NOTE}"
