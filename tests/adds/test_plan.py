@@ -492,6 +492,7 @@ def run_command(
         monkeypatch.setattr(command, "read_lists", lists_reader(pages, free_agents or {}, market))
     monkeypatch.setattr(command, "read_week_trends", reader("trends", dict))
     monkeypatch.setattr(command, "read_roles", lambda players, cfg, today: {})
+    monkeypatch.setattr(command.players_page.role, "read_roles", lambda cfg, overrides: {})
     options = options or [option("Phi One", "PHI", 0.3)]
     if free_agents is None:
         monkeypatch.setattr(
