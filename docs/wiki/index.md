@@ -20,6 +20,8 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 - [Planning run timings](planning-run-timings.md): the step times of the first two live planning runs with timers on 2026-10-26, the crash of the first run on a non-UTF-8 stdout, and the equal counts of the schedule and aggressive searches.
 - [Yahoo reads study](yahoo-reads-study.md): the study of 2026-10-26 of the Yahoo reads step by three agents (page depth, the two views, page loads), with a correction of a claim about page depth.
 
+- [Basketball Monster terms of 2026-11-18](bbm-terms-2026-11-18.md): the BBM terms forbid scraping and republishing; this conflicts with the plan of #248; the page map and the `.auth/bbm` sign-in.
+
 ## Ideas
 
 - [Player pop-up of 2026-10-30](player-profile-design-2026-10-30-popup.md): the owner decision of 2026-10-30 to open the player profile as a modal from Roster, Free agents and Trade, with the `/players/` page kept.
