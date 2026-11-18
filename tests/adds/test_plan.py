@@ -15,7 +15,7 @@ from fantasyhoops.adds.planner import Option, StreamSpot
 from fantasyhoops.adds.readers import Adds, FreeAgent, Player, Week
 from fantasyhoops.adds import week_file
 from fantasyhoops.adds.role_up import Absence
-from fantasyhoops.core import common, tokens
+from fantasyhoops.core import common, season_value, tokens
 from fantasyhoops.core.common import name_key
 from fantasyhoops.core.roster import Day
 from fantasyhoops.core.season_value import SeasonLine
@@ -30,7 +30,7 @@ def test_the_command_shows_the_waiver_players_on_the_page(monkeypatch, tmp_path,
     claim = Option(Player("Phi Claim", "PHI", ("SF",), clear_day=WEEK[0]), 0.3)
     runs = report_runs(monkeypatch)
     # #222: Val is the Season value. The season lines give the same per-game values, with all games played.
-    lines = {name_key(n): SeasonLine(n, 10, 1.0, v, 1.0) for n, v in (("Phi Claim", 0.3), ("Den Guy", 0.1))}
+    lines = {name_key(n): SeasonLine(n, 10, v, 1.0) for n, v in (("Phi Claim", 0.3), ("Den Guy", 0.1))}
     run_command(monkeypatch, tmp_path, [], publish=False, options=[claim, option("Den Guy", "DEN", 0.1)], values=lines)
     assert "PHI Phi Claim W PHI · SF Mon 1/4 Tue 1/5 +0.20" in text(page.free_agents_path().read_text(encoding="utf-8"))
     # #140: the team plan uses no free agent. It recommends PHI, the team of the waiver player.
@@ -57,6 +57,7 @@ def test_the_command_writes_the_page_and_publishes_it(monkeypatch, tmp_path, cap
         f"Wrote the Free agents page: {free_agents}",
         "Team plan: Add 1, Mon 1/4: +Util PHI. Starts Mon & Tue.",
         f"Published the plan page to {command.URL}. GitHub can take a few minutes to show the new page.",
+        "Val = the per-game value of the Basketball Monster projection.",  # the basis line (#248)
     ]
     assert (path.parent / "fonts" / "archivo-latin.woff2").read_bytes() == tokens.FONT.read_bytes()
     assert (path.parent / "fonts" / "OFL.txt").read_bytes() == tokens.LICENSE.read_bytes()
@@ -474,7 +475,7 @@ def run_command(
         "quality_games": {"bonus": 0.1, "max_games_per_day": 6},  # the League page text (#227)
         "trade": {"untouchable": [], "value_band": [0.95, 1.10]},  # the Best swaps list (#215)
         "games": {"full_season": 82, "power": 1.25},  # the Season value (#222)
-        "season_value": {"blend_games": 10},
+        "season_value": {"stale_days": 7},
         # The Schedule Skyline (#236): the values of config.toml.
         "skyline": {"max_adds": 4, "scarce_teams": 5, "anchor_max_games": 4, "heavy_max_teams": 3},
     }
@@ -824,9 +825,9 @@ def test_the_terminal_shows_only_the_page_path_the_team_plan_and_the_warnings(mo
         league=league,
         settings={"core": ["Flag Guy"]},
         values={
-            name_key("Flag Guy"): SeasonLine("Flag Guy", 5, 0.5, -7.0, 1.0),
-            name_key("Phi Weak"): SeasonLine("Phi Weak", 5, 0.5, -6.0, 1.0),
-            name_key("Bos Good"): SeasonLine("Bos Good", 5, 0.5, -1.0, 1.0),
+            name_key("Flag Guy"): SeasonLine("Flag Guy", 5, -7.0, 1.0),
+            name_key("Phi Weak"): SeasonLine("Phi Weak", 5, -6.0, 1.0),
+            name_key("Bos Good"): SeasonLine("Bos Good", 5, -1.0, 1.0),
         },
         pages={("market", lists.PROJECTED): 2, ("market", lists.RECENT): 2},
     )
@@ -840,6 +841,7 @@ def test_the_terminal_shows_only_the_page_path_the_team_plan_and_the_warnings(mo
         "Wrote the Free agents page: <free agents>",
         "Team plan: Add 1, Mon 1/4: +Util PHI. Starts Mon & Tue.",
         "The run did not publish the page (--no-publish).",
+        "Val = the per-game value of the Basketball Monster projection.",  # the basis line (#248)
         *run.warnings,
     ]
     # The page still shows the sections that the terminal report showed before #130.
@@ -1011,7 +1013,7 @@ def test_the_owner_read_takes_the_recent_view_only_when_the_run_reads_the_free_a
     assert views == [recent]
 
 
-def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
+def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path, capsys):
     """#222: the Players, Free agents and Roster pages and the Adds plan read Val from one SeasonValues.
 
     The replacement free agent is Den Guy (rank 2 of 2 free agents with a season line, per-game value 0.5).
@@ -1020,6 +1022,7 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
     from fantasyhoops.adds import roster as adds_roster
     from fantasyhoops.trade.rostered import RosteredPlayer, RosteredRead
 
+    monkeypatch.setattr(season_value, "latest_projections", lambda cfg: Path("data/Projections_2026-11-01.csv"))
     monkeypatch.setattr(adds_roster, "read_risk", lambda roster, cfg: {})
     monkeypatch.setattr(adds_roster, "season_stats", lambda season: {})
     monkeypatch.setattr(command.players_page.data, "read_projected", lambda cfg: ({}, None))
@@ -1030,10 +1033,10 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
     ace = Player("Ace Bailey", "PHI", ("SF",))
     owners = RosteredRead([RosteredPlayer(ace, 0, {}, 1, "Lamb Chops")], [], {}, [], True)
     lines = {
-        "ace bailey": SeasonLine("Ace Bailey", 10, 1.0, 0.2, 1.0),
-        "phi one": SeasonLine("Phi One", 4, 0.4, 1.0, 0.8),
-        "den guy": SeasonLine("Den Guy", 10, 1.0, 0.5, 1.0),
-        "box guy": SeasonLine("Box Guy", 5, 0.5, 0.0, 1.0),
+        "ace bailey": SeasonLine("Ace Bailey", 10, 0.2, 1.0),
+        "phi one": SeasonLine("Phi One", 4, 1.0, 0.8),
+        "den guy": SeasonLine("Den Guy", 10, 0.5, 1.0),
+        "box guy": SeasonLine("Box Guy", 5, 0.0, 1.0),
     }
     league = command.LeagueData(roster=[ace], adds=Adds(4, 5), week=Week(12, tuple(WEEK[:2])))
     run_command(
@@ -1054,7 +1057,9 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
         "Warning: Phi One (PHI) has a Val of +0.38. Your lowest core player, Ace Bailey, has a Val of -0.30. "
         "You can make Phi One core." in plan_text
     )
-    basis = "Val = season value to date, blended with the projection until 10 games."
+    # #248: each page names the date of the projections file and warns, because the file is old.
+    basis = season_value.basis_text({"season_value": {"stale_days": 7}})
+    assert "Basketball Monster projection of 2026-11-01. Warning: the projections file is" in basis
     assert f"{basis} Stream spots: your lowest players by Val." in plan_text
     # The Free agents page: Val, and the blended value above its own replacement (0.1) in Next 7.
     html = page.free_agents_path().read_text(encoding="utf-8")
@@ -1074,3 +1079,6 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path):
     # The Roster page: Ace Bailey is 3rd by Val of the 4 season lines (Box Guy is 4th).
     roster = (common.OUT / "roster" / "index.html").read_text(encoding="utf-8")
     assert '<td class="rk">3</td>' in roster and f"Rank: rank by Val. {basis}" in text(roster)
+    # The terminal names the date of the projections file and warns too (#248).
+    out = capsys.readouterr().out
+    assert "Basketball Monster projection of 2026-11-01. Warning: the projections file is" in out

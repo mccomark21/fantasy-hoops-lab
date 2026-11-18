@@ -151,8 +151,8 @@ class Read:
 # Two lines with a replacement value of 0.5 and [games] power 1.25. Own Guard: (2.5 - 0.5) x 0.8 ^ 1.25 = 1.51.
 # Their Wing: 0.3 - 0.5 = -0.20, with no games factor.
 LINES = {
-    "own guard": SeasonLine("Own Guard", 8, 0.8, 2.5, 0.8),
-    "their wing": SeasonLine("Their Wing", 2, 0.2, 0.3, 1.0),
+    "own guard": SeasonLine("Own Guard", 8, 2.5, 0.8),
+    "their wing": SeasonLine("Their Wing", 2, 0.3, 1.0),
 }
 SEASON = SeasonValues(LINES, 0.5, 1.25)
 
@@ -208,6 +208,17 @@ def test_the_run_takes_the_replacement_of_the_player_file_of_today(tmp_path, mon
     season, planned = run.read_season(cfg, date(2026, 11, 2))  # the file is of another day
     assert not planned and season.replacement == -9.0
     assert "an estimate" in run.basis_line(cfg, planned)
+
+
+def test_the_basis_line_names_the_projections_date_and_warns_when_the_file_is_old(monkeypatch):
+    """#248: the trade page and the terminal name the date of the projections file."""
+    from fantasyhoops.core import season_value
+
+    monkeypatch.setattr(season_value, "latest_projections", lambda cfg: Path("data/Projections_2026-11-18.csv"))
+    cfg = {"season_value": {"stale_days": 7}}
+    fresh = run.basis_line(cfg, True, date(2026, 11, 20))
+    assert fresh.startswith("Val = the per-game value of the Basketball Monster projection of 2026-11-18. Replacement:")
+    assert "Warning: the projections file is 10 days old." in run.basis_line(cfg, True, date(2026, 11, 28))
 
 
 def test_the_best_line_and_the_warnings():
@@ -308,7 +319,7 @@ def test_with_no_deadline_the_run_continues_and_the_page_and_the_terminal_show_t
 def test_a_player_with_no_match_gets_a_warning_line_and_goes_last_in_the_lineup_order():
     known = TradePlayer("Known Guy", "ATL", ("PG",), rank=40)
     lost = TradePlayer("Lost Guy", "BOS", ("PG",))
-    lines, risk = {"known guy": SeasonLine("Known Guy", 5, 0.5, 1.0, 1.0)}, {"known guy": 1}
+    lines, risk = {"known guy": SeasonLine("Known Guy", 5, 1.0, 1.0)}, {"known guy": 1}
     lines = run.missing_data([lost, known, lost], lines, risk)
     assert lines == [
         "Warning: these players have no season line, so no Val, and go last in the lineup order: Lost Guy.",

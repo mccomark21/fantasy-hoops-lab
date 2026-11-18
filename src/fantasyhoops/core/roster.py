@@ -425,7 +425,7 @@ def render(players, days, cfg, week=None, adds=None, today=None, team_name=None,
     today: the date of the run. team_name: the name in the page header (default "Roster").
     record: the season record (W-L-T) of the team, for example "4-2-1", or None. The header shows it after the
     name, then the This week and Playoffs items (#142). With None, the header has no record.
-    basis: the text after "Rank:" in the foot, for example "rank by Val. Val = season value to date, ...".
+    basis: the text after "Rank:" in the foot, for example "rank by Val. Val = the per-game value of ...".
     [league] teams of cfg gives the team count in the site menu.
     """
     slots = cfg["league"]["slots"]

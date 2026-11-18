@@ -150,6 +150,8 @@ def render(data, cfg):
     )
     slots = len(cfg["league"]["slots"]) + UTIL
     foot = FOOT.replace("__MADE__", _made_text(data["made"])).replace("__SLOTS__", str(slots))
+    basis = data.get("val_basis")
+    foot = foot.replace("__BASIS__", f"{html.escape(basis)} " if basis else "")
     foot = foot.replace("__BONUS__", f"{round(data['quality_bonus'] * 100)}%")
     style = (
         (ROSTER_STYLE + "\n" + STYLE + "\n" + FLOOR_STYLE)
@@ -172,17 +174,19 @@ def write_site(player_file, days, cfg):
 
     player_file: the path of players.json (players/page.py write_site()). days: roster.playoff_days().
     The run adds its row to the history file (history.record()). The page shows the rows of the earlier runs.
+    The foot shows the basis line of Val of the player file (core/season_value.py basis_text(), #248).
     The return value is the more_tools entry of publish.publish().
     """
     content = json.loads(Path(player_file).read_text(encoding="utf-8"))
     made = content["meta"]["made"]
     data = page_data(content["players"], days, cfg, made)
+    data["val_basis"] = content["meta"].get("val_basis")  # the date of the projections file (#248)
     data["history"] = history.earlier(history.record(data), made)
     return site.write_page(folder() / "index.html", render(data, cfg))
 
 
 FOOT = (
-    "Data: the planning run of __MADE__ and the NBA schedule. Val: the per-game Val of the Free agents page. "
+    "Data: the planning run of __MADE__ and the NBA schedule. Val: the per-game Val of the Free agents page. __BASIS__"
     "A player with no Val gets a Val from his projection, with the proj tag. Each day, the core players start in "
     "Val order, highest first, in __SLOTS__ slots. Value started: the sum of the Val of each started game, with "
     "__BONUS__ more on a light night (6 or fewer NBA games). Starts lost: core games that sit because the lineup is "

@@ -31,7 +31,7 @@ Each planning run adds one row to `output/adds/playoff_history.json`, next to th
 
 `valueStarted()` of `core/starts.js` gives each number. The page script (`playoffs/playoffs.js`) has no lineup math.
 
-- **Val:** the Season value above the replacement free agent (`core/season_value.py`, #222), from `val` of the player file. It is the Val of the Players, Free agents and Trades pages (#223). A player with no Val gets `proj_val` with the "proj" tag. Since #222, `proj_val` is the same Season value for a player in no Yahoo list of the run. A player with neither shows "–" and counts as 0.
+- **Val:** the Season value above the replacement free agent (`core/season_value.py`, #222), from `val` of the player file. It is the Val of the Players, Free agents and Trades pages (#223). A player with no Val gets `proj_val` with the "proj" tag. Since #222, `proj_val` is the same Season value for a player in no Yahoo list of the run. A player with neither shows "–" and counts as 0. The foot shows the basis line of Val of the player file (`meta.val_basis`): the Basketball Monster projection, the date of the projections file and the stale-file warning (#248).
 - **Lineup:** each day, the core players start in Val order, highest first, in the position slots and Util.
 - **Value started:** the sum of the Val of each started game in weeks 19 to 21. A game on a light night (6 or fewer NBA games) counts `[quality_games] bonus` more (10%).
 - **Starts lost:** the core games that sit because the lineup is full. A rest night is not a start lost.

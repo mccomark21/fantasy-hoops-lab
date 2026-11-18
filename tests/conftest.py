@@ -9,7 +9,7 @@ from datetime import date
 
 import pytest
 
-from fantasyhoops.core import common
+from fantasyhoops.core import common, season_value
 from fantasyhoops.core.publish import BRANCH
 
 REAL_OUT = common.OUT  # the real output/ folder, before a fixture changes common.OUT
@@ -36,6 +36,17 @@ def real_output_unchanged():
 def output_in_tmp(monkeypatch, tmp_path):
     """Each test writes its output files in tmp_path: common.OUT points there (#127)."""
     monkeypatch.setattr(common, "OUT", tmp_path)
+
+
+@pytest.fixture(autouse=True)
+def no_projections_file_for_the_basis(monkeypatch):
+    """The basis line of Val (core/season_value.py) finds no projections file, so the pages do not change with the
+    files in data/ (#248). A test that needs a file sets season_value.latest_projections itself."""
+
+    def missing(cfg):
+        raise FileNotFoundError("no projections file in the tests")
+
+    monkeypatch.setattr(season_value, "latest_projections", missing)
 
 
 def git(cwd, *args):

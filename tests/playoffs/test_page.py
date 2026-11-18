@@ -124,6 +124,16 @@ def test_write_site_reads_the_player_file_and_writes_the_page(tmp_path):
     assert '"id":"al-dal"' in path.read_text(encoding="utf-8")
 
 
+def test_the_foot_shows_the_basis_line_of_val_of_the_player_file(tmp_path):
+    """#248: the page names the date of the projections file and the stale-file warning of the player file."""
+    basis = "Val = the per-game value of the Basketball Monster projection of 2026-11-18."
+    file = tmp_path / "players.json"
+    meta = {"made": "2026-10-31", "val_basis": basis}
+    file.write_text(json.dumps({"meta": meta, "players": RECORDS}), encoding="utf-8")
+    html = page.write_site(file, DAYS, CFG).read_text(encoding="utf-8")
+    assert f"Val: the per-game Val of the Free agents page. {basis} A player" in html
+
+
 # The page script in Node: argv the page script. stdin: {data, steps}. Each step changes the state, then the
 # driver keeps the view. A step is ["open", saved], ["n", n], ["rest", id], ["pick", id], ["core", ids], ["reset"],
 # ["filter", owner filter], ["rank", ranking] or ["swap", [id in, id out]]. floor: floor(). swaps: the rows of the Best swaps list of each filter.
@@ -437,7 +447,7 @@ def test_the_trades_and_playoffs_pages_give_one_value_and_one_value_band_for_one
     from fantasyhoops.trade.run import trade_players
     from fantasyhoops.trade.suggest import Suggestions, TradeSettings, in_band
 
-    season = SeasonValues({"fa bos": SeasonLine("Fa Bos", 4, 0.4, 2.0, 0.8)}, 0.5, CFG["games"]["power"])
+    season = SeasonValues({"fa bos": SeasonLine("Fa Bos", 4, 2.0, 0.8)}, 0.5, CFG["games"]["power"])
     fa = Player("Fa Bos", "BOS", ("PG", "SG"))
     read = RosteredRead([RosteredPlayer(fa, 0, {}, 4, "Lamb Chops")], [], {}, [], True)
     # The Playoffs page reads the Val of the player file, the Val of season_vals() (players/page.py write_site()).

@@ -102,8 +102,8 @@ def header(data, days, spots, today):
 
 
 def basis_line(cfg, spots=False, next7=False):
-    """The one-line basis of Val (#222), for example "Val = season value to date, blended with the projection until
-    10 games.". spots: also say that the stream spots go by Val. next7: also name the Next 7 column.
+    """The one-line basis of Val (#222, #248), for example "Val = the per-game value of the Basketball Monster
+    projection of 2026-11-18.". spots: also say that the stream spots go by Val. next7: also name the Next 7 column.
     Nothing with no [season_value] section in cfg."""
     if "season_value" not in cfg:
         return ""
@@ -426,12 +426,12 @@ def free_agents_section(run):
         '<details class="notes" id="fa-notes"><summary>Columns and marks</summary>\n'
         '<p class="legend"><span class="dot fit"></span> game in an open slot that he can fill '
         f'<span class="dot game"></span> game, no open slot for him. {B2B} second game of a back-to-back. '
-        "Val: Season value, his custom value on the season-to-date box scores, blended with his projection, above "
+        "Val: Season value, his custom value on his Basketball Monster projection, above "
         f"a replacement free agent (0 = the free agent at rank {REPLACEMENT_RANK} by Season value). A Val above 0 "
-        "counts his share of games, as on the draft board. Next 7: blended value per game (Yahoo's projection for "
-        "the next 7 days, moved toward the last 14 days) above a replacement free agent. Match: the Next 7 value "
-        "with the matchup weights. A filter does not change Val, Next 7 or Match. Gms: his games on the selected "
-        "days. "
+        "counts his share of games: his projected games over the remaining games of his NBA team. "
+        "Next 7: blended value per game (Yahoo's projection for the next 7 days, moved toward the last 14 days) "
+        "above a replacement free agent. Match: the Next 7 value with the matchup weights. "
+        "A filter does not change Val, Next 7 or Match. Gms: his games on the selected days. "
         '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
         '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
         f"{role_legend(roles, minutes_rise, adds.get('flags'))}{next_week_legend(next_days)}</details>\n"
@@ -574,8 +574,8 @@ def method_note():
         "The league gives 5 adds each week, so the team can change the players in the stream spots.</p>\n"
         "<p>The planner finds the days with open starting slots. For each stream spot, it finds the NBA teams whose "
         "games fill the most open slots with the fewest adds. You pick the player in the free-agent table.</p>\n"
-        "<p>The value of a player (Val) is his season value to date per game in the 6 categories that this league "
-        "counts, blended with his projection in his first games, above a replacement free agent: 0 is the value of "
+        "<p>The value of a player (Val) is the per-game value of his Basketball Monster projection in the 6 "
+        "categories that this league counts, above a replacement free agent: 0 is the value of "
         f"the free agent at rank {REPLACEMENT_RANK}. The stream spots hold your lowest players by Val.</p></details>"
     )
 

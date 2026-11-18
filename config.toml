@@ -184,10 +184,11 @@ full_season = 82
 power = 1.25
 
 # Season value (#222, core/season_value.py): the Val of the Players, Free agents and Roster pages and the Adds plan.
-# Val = the custom value of the season-to-date box scores (data/box_scores.csv), blended with the projection.
-# The weight of the season-to-date line: min(games played, blend_games) / blend_games. 0 games: the projection only.
+# Val = the custom value of the newest Basketball Monster projection (#248). The box scores do not feed Val.
+# Games share = projected rest-of-season games / the remaining games of his NBA team (data/schedule.csv).
+# The draft tools above still divide by full_season.
 [season_value]
-blend_games = 10
+stale_days = 7             # the pages and the planning runs warn when the projections file is older than this
 
 [playoffs]
 # The playoff schedule does not change the rankings. These settings make the schedule

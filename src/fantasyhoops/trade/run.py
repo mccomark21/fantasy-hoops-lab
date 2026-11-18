@@ -111,21 +111,21 @@ def read_season(cfg, today):
     return SeasonValues(lines, replacement, cfg["games"]["power"]), planned
 
 
-def basis_line(cfg, planned):
+def basis_line(cfg, planned, today=None):
     """The basis line of Val on the page: basis_text() and the source of the replacement value."""
     source = (
         "Replacement: the free agent of the planning run of today, as on the Players page."
         if planned
         else "Replacement: an estimate, because no planning run of today wrote the player file."
     )
-    return f"{basis_text(cfg)} {source}"
+    return f"{basis_text(cfg, today)} {source}"
 
 
 def read_local_files(cfg, today):
     """The LocalFiles of the run: data/schedule.csv, the season lines and the player file of the planning run."""
     sched = schedule()
     season, planned = read_season(cfg, today)
-    return LocalFiles(days=roster_page.playoff_days(sched, cfg), season=season, basis=basis_line(cfg, planned))
+    return LocalFiles(days=roster_page.playoff_days(sched, cfg), season=season, basis=basis_line(cfg, planned, today))
 
 
 def trade_players(roster, read, own_team, season, risk):
@@ -327,6 +327,7 @@ def main(argv=None):
     for text in page.offer_lines(result, settings.offer):
         print(text)
     publish_page(path, cfg, publish=not args.no_publish)
+    print(local.basis)
     for w in lines:
         print(w)
     print(f"Timings: {timings_path()}")
