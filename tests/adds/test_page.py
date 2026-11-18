@@ -1144,7 +1144,7 @@ def test_the_free_agents_sections_are_on_the_free_agents_page_and_not_on_the_pla
 def test_the_skyline_is_the_hero_under_the_title_and_the_other_blocks_follow_in_their_old_order():
     """#236: the Schedule Skyline replaces the team-plan grid and goes directly under the title and the week line.
     The other blocks keep their order (the grid was between the matchup and the ranking)."""
-    run = replace(GRID_RUN, cfg={**GRID_RUN.cfg, "season_value": {"blend_games": 10}}, warnings=["Check X."])
+    run = replace(GRID_RUN, cfg={**GRID_RUN.cfg, "season_value": {"stale_days": 7}}, warnings=["Check X."])
     run = replace(run, ranking=RANKING, read=["PHI"], timings=(timing.StepTime("team plan", 1.0),))
     html = page.render(run)
     marks = [

@@ -52,7 +52,8 @@ One planning run:
     cache of the trade run. The Val of the Players page is the Val of the Free agents page. --no-publish skips that read and the Players page.
     The page shows how many pages came from the cache (PageCache.line()).
     The terminal prints a short summary (#130): the page path, one line for each add of the team plan, the URL or
-    the --no-publish line (publish_page()), then the warnings (print_summary()). The page shows all other results.
+    the --no-publish line (publish_page()), then the basis line of Val and the warnings (print_summary()). The page
+    shows all other results.
 12. Time each step (adds/timing.py, #85). The terminal shows no step line.
     The page shows the Run time table. Each step appends its row to output/adds/timings.csv when it ends.
     The Yahoo reads step also times its sub-steps and counts their Yahoo pages (#89): browser start, league and
@@ -98,7 +99,7 @@ from fantasyhoops.core import roster as roster_page
 from fantasyhoops.core.common import ROOT, load_config
 from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
-from fantasyhoops.core.season_value import SeasonValues, read_season_lines
+from fantasyhoops.core.season_value import SeasonValues, basis_text, read_season_lines
 from fantasyhoops.league import page as league_page
 from fantasyhoops.players import page as players_page
 from fantasyhoops.playoffs import page as playoffs_page
@@ -227,8 +228,10 @@ def with_trends(options, trends):
 
 
 def print_summary(run):
-    """Print the warnings of a PlanningRun (drops.value_warnings()), one line each. publish_page() prints the page
-    path, the adds of the team plan and the URL. The page shows all other results of the run (#130)."""
+    """Print the basis line of Val (the date of the projections file and the stale-file warning, #248), then the
+    warnings of a PlanningRun (drops.value_warnings()), one line each. publish_page() prints the page path, the adds
+    of the team plan and the URL. The page shows all other results of the run (#130)."""
+    print(basis_text(run.cfg, run.today))
     for line in run.warnings:
         print(line)
 

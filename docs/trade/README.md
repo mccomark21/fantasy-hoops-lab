@@ -97,7 +97,7 @@ The value of each player on both sides is his Val: the Season value of `core/sea
 1. The run reads the season lines (`read_season_lines()`) and matches each player by `common.name_key()` of his Yahoo name, as the Players page does.
 2. The replacement value comes from the player file of the planning run of the same day: `season_replacement` in the meta of `output/players/players.json` (`players/page.py` `read_season_replacement()`). So the Trades page Val equals the Players page Val. The `refresh` command runs the planning run before the trade run.
 3. With no player file of the same day, the run uses the estimate of `adds/value.py` `season_replacement()` with no free agents: the player at rank 15 after the rostered pool.
-4. The foot under the suggestions shows the basis line of Val and the source of the replacement value. The note under the builder tables says "Val: the Season value per game, the Val of the Players page."
+4. The foot under the suggestions and the terminal show the basis line of Val and the source of the replacement value. The basis line names the date of the projections file and warns when the file is older than `[season_value] stale_days` (7) days (#248). The note under the builder tables says "Val: the Season value per game, the Val of the Players page."
 5. A player with no season line has no Val and is not in a trade. The page has no Pre column and no "no blend" mark.
 
 ## Data
@@ -108,7 +108,7 @@ The value of each player on both sides is his Val: the Season value of `core/sea
 | The rostered list, projected view (next 7 days) | `players?status=T&...&stat1=S_PS7` | `trade/rostered.py` |
 | The trade deadline ("Trade End Date") | The league settings page, `settings` | `trade/deadline.py` |
 | The playoff days | `data/schedule.csv` (`python -m fantasyhoops.fetch.espn`) | `core/roster.py` `playoff_days()` |
-| The season lines | The newest projections file, `data/box_scores.csv`, `data/rosters.csv` and `data/name_overrides.csv` | `core/season_value.py` `read_season_lines()` |
+| The season lines | The newest projections file (a Basketball Monster export that the owner downloads by hand), `data/schedule.csv`, `data/rosters.csv` and `data/name_overrides.csv` | `core/season_value.py` `read_season_lines()` |
 | The replacement value | `output/players/players.json` of the planning run of the same day | `players/page.py` `read_season_replacement()` |
 | The rest list | `[risk] file` | `trade/run.py` `read_risk()`, with the rules of `draft/rankings.py` `load_risk()` |
 

@@ -72,7 +72,8 @@ Decision (2026-10-28, #130): the terminal prints a short summary. The page shows
 1. The page path: "Wrote the plan page: <path>".
 2. One line for each add of the team plan of today and later (#140), for example "Team plan: Add 1, Thu 10/29: +SG/PF 6 teams. Starts Thu & Sat." With 5 teams or fewer, the line lists them. A plan with no add prints no line.
 3. The URL after a publish, or "The run did not publish the page (--no-publish)."
-4. The warnings of `value_warnings()`, one line each. The page shows the same warnings.
+4. The basis line of Val (#248): the date of the projections file, and the stale-file warning when the file is older than `[season_value] stale_days` (7) days.
+5. The warnings of `value_warnings()`, one line each. The page shows the same warnings.
 
 During the run, the terminal can also print these lines:
 
@@ -164,7 +165,7 @@ The free-agent table marks each second night with a small "2", for all players.
 
 ## Value
 
-Decision (2026-11-01, #222): Val on the pages is the Season value of the [glossary](../glossary.md) (`core/season_value.py`): the custom value of the season-to-date box scores, blended with the projection until `[season_value] blend_games` (10) games, above the replacement free agent. The free-agent table and the waiver table sort by it, the stream spots and the warnings use it, and the Roster page ranks by it. Each page states this basis in one short line. The blended value below stays as the Next 7 column of the free-agent table, for streaming, and as the value of the Match column.
+Decision (2026-11-01, #222): Val on the pages is the Season value of the [glossary](../glossary.md) (`core/season_value.py`), above the replacement free agent. Since 2026-11-18 (#248), the Season value is the per-game value of the newest Basketball Monster projection only. The owner downloads the rest-of-season export by hand into `data/Projections_<date>.csv`. The share of games is projected games ÷ the remaining games of his NBA team. The free-agent table and the waiver table sort by it, the stream spots and the warnings use it, and the Roster page ranks by it. Each page states this basis in one short line, with the date of the projections file. The line and the terminal warn when the file is older than `[season_value] stale_days` (7) days. The blended value below stays as the Next 7 column of the free-agent table, for streaming, and as the value of the Match column.
 
 The blended value (Next 7) orders the free agents of the market read. It uses your 6 categories and your weights, the same formula as `core/valuation.py`, on a blended stat line:
 
@@ -464,7 +465,7 @@ Page tests check that the Home page and the Roster page have no sideways scroll 
 - The plan score counts this week's started games, and the next-week games as a tiebreak (see [Next-week games](#next-week-games)). The started games of a player in a stream spot count. The Val of a player in a stream spot is not in the score. You decide.
 - A dropped player who is still a free agent next week can come back in a later plan.
 
-Decision (2026-11-01, #222): the stream spots and the warnings use Val, the Season value, for the rostered players and the free agents. Before #222 they used Pre, the per-game value of the projections file. The stream spots are chosen before the free-agent reads, so their Val uses an estimate of the replacement value: the player at rank 15 after the rostered pool (teams × roster spots) by Season value. One replacement value moves all Vals by the same number, so it changes the order only through the games factor. The warnings and all pages use the replacement free agent of the run. A player with no season line (in no projections file and in no box score) has the lowest value. The plan page states the basis in one short line above the warnings.
+Decision (2026-11-01, #222): the stream spots and the warnings use Val, the Season value, for the rostered players and the free agents. Before #222 they used Pre, the per-game value of the projections file. The stream spots are chosen before the free-agent reads, so their Val uses an estimate of the replacement value: the player at rank 15 after the rostered pool (teams × roster spots) by Season value. One replacement value moves all Vals by the same number, so it changes the order only through the games factor. The warnings and all pages use the replacement free agent of the run. A player with no season line (not in the projections file) has the lowest value. The plan page states the basis in one short line above the warnings.
 
 The page also warns you when a streamer has a higher Val than your lowest core player. Since #140, a streamer is a free agent who plays for a team of an add of the team plan and has one of its slots ("Util": any position). If no core player is on your roster, the warning uses your lowest kept player. You can then make the streamer core.
 
@@ -603,7 +604,7 @@ The settings will be in an `[adds]` section of `config.toml`:
 | `team_count_at` | From this number of teams, the terminal line of an add and the filter line of the Free agents page give the count of its teams, not the list: 6. |
 | `next_week_open_days` | The first days of next week that the page checks for open slots: 2. 0 turns off the next-week mark. See [Next-week mark](#next-week-mark). |
 | `team_name` | The team name at the top of the Roster page: TradeMark™. Without it, the page shows "Roster". |
-| `[season_value] blend_games` | The games from which Val uses the season-to-date line only: 10. With fewer games, Val blends the season-to-date line with the projection. See [Value](#value). |
+| `[season_value] stale_days` | The pages and the terminal warn when the projections file is older than this number of days: 7. See [Value](#value). |
 | `recent_skip_weight` | The run skips the recent view while the largest possible weight of the recent line is below this value: 0.3. 0 never skips. See [Skip of the recent view](#skip-of-the-recent-view). |
 | `role_up.starter_games` | A starter started more than half of his last games of this number: 5. |
 | `role_up.days` | The first missed game of a new absence is in the last days of this number: 7. |

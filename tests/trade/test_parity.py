@@ -195,9 +195,9 @@ def test_the_lineup_order_is_the_val_order_in_python_and_in_the_browser():
     from fantasyhoops.trade.run import trade_players
 
     lines = {
-        "low val": SeasonLine("Low Val", 10, 1.0, 0.6, 1.0),
-        "high val": SeasonLine("High Val", 10, 1.0, 3.0, 1.0),
-        "mid val": SeasonLine("Mid Val", 10, 1.0, 1.5, 1.0),
+        "low val": SeasonLine("Low Val", 10, 0.6, 1.0),
+        "high val": SeasonLine("High Val", 10, 3.0, 1.0),
+        "mid val": SeasonLine("Mid Val", 10, 1.5, 1.0),
     }
     season = SeasonValues(lines, 0.5, 1.25)
     roster = [Player(n, "AAA", ("PG",), slot="PG") for n in ("Low Val", "Mid Val", "High Val")]

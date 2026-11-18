@@ -95,7 +95,7 @@ The draft tools (rankings, the draft board, an auction simulator and a keeper re
 
 ## How it works
 
-1. **Data.** The tools read my league from the league site with Playwright and a saved sign-in in Microsoft Edge. The NBA rosters, the schedule and the season stats come from public NBA stats. A rotation log of each check-in and check-out comes from the public play-by-play of each game. A season projections file gives the projected stats.
+1. **Data.** The tools read my league from the league site with Playwright and a saved sign-in in Microsoft Edge. The NBA rosters, the schedule and the season stats come from public NBA stats. A rotation log of each check-in and check-out comes from the public play-by-play of each game. A season projections file gives the projected stats. It is a Basketball Monster export that I download by hand.
 2. **Analysis.** The Python package `fantasyhoops` computes player values, lineups, plans and trades. It has one subpackage for each tool and a `core` package for the shared code.
 3. **Publish.** The adds planner and the trade tool write static HTML pages and push them to the `gh-pages` branch. GitHub Pages serves the site. Each publish also writes the Home page at `/`.
 
@@ -125,7 +125,7 @@ The draft tools (rankings, the draft board, an auction simulator and a keeper re
    python -m playwright install chromium
    ```
 
-3. Put the season projections in `data/Projections_YYYY-MM-DD.csv`. Use the download date. The tools use the newest file.
+3. Put the season projections in `data/Projections_YYYY-MM-DD.csv`. Use the download date. The tools use the newest file. The file is the projections export of Basketball Monster. Download a new export by hand at least each `[season_value] stale_days` (7) days, because Val uses it.
 
 All settings are in [`config.toml`](config.toml). The `[league]` section applies to all tools.
 

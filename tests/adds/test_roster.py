@@ -42,7 +42,7 @@ def test_the_roster_page_gets_the_record_of_the_team_page(monkeypatch, tmp_path)
     monkeypatch.setattr(adds_roster.roster_page, "render", lambda *args, **kw: seen.update(kw) or "page")
     monkeypatch.setattr(adds_roster.roster_page, "write", lambda text: tmp_path / "index.html")
     data = SimpleNamespace(roster=[], week=SimpleNamespace(number=2), adds=SimpleNamespace(used=1, limit=5))
-    cfg = {"league": {"espn_season": 2027}, "adds": {"team_name": "TradeMark™"}, "season_value": {"blend_games": 10}}
+    cfg = {"league": {"espn_season": 2027}, "adds": {"team_name": "TradeMark™"}, "season_value": {"stale_days": 7}}
     season = SimpleNamespace(ranks=dict)
     assert adds_roster.build_roster(
         SimpleNamespace(**vars(data), record="4-2-1"), cfg, None, date(2026, 10, 28), season
