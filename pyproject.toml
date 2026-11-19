@@ -7,6 +7,7 @@ dependencies = [
   "numpy>=2.4",
   "pandas>=3.0",
   "beautifulsoup4>=4.12",  # adds/readers.py
+  "nba_api>=1.12",  # fetch/nba_stats.py (#251)
   "playwright>=1.63",  # fetch/yahoo.py: also run python -m playwright install chromium. adds/session.py uses Edge.
 ]
 
