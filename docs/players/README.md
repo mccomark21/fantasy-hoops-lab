@@ -17,11 +17,12 @@ The card has a header and 4 quadrants. It is not a scrolling page: at 1440 x 900
 The Categories quadrant (#188) shows the percentile of each weighted category (PTS, REB, AST, 3PM, BLK, STL) as a dot-on-track bar (`players/categories.py`, `core/card_cats.py`).
 
 - **proj** (the hollow dot): the per-game projection of the player, ranked among the projections of the pool.
-- **now** (the filled dot): his season line, shrunk toward his projection, ranked among the shrunk lines of the pool.
-- **Pool:** the valuation pool of `core/valuation.py`, the top 140 players by projected value (14 teams x 10 spots). A pool player with no game has his projection as his shrunk line.
-- **Shrinkage:** now = (n x season + k x projection) / (n + k). n is the number of games that he played in `data/box_scores.csv`. k is in `[players.categories] shrink` of `config.toml`: PTS, REB, AST 4. 3PM, BLK 10. STL 15. The owner approved these values on 2026-10-30.
+- **now** (the filled dot): his season line, shrunk toward a target, ranked among the shrunk lines of the pool.
+- **Pool:** the valuation pool of `core/valuation.py`, the top 140 players by projected value (14 teams x 10 spots). A pool player with no game has his target as his shrunk line.
+- **Shrinkage:** now = (n x season + k x target) / (n + k). n is the number of games that he played in `data/box_scores.csv`. k is in `[players.categories] shrink` of `config.toml`: PTS, REB, AST 4. 3PM, BLK 10. STL 15. The owner approved these values on 2026-10-30.
+- **Target** (#253): for AST, REB and 3PM, the expected makes per game of the luck model ("Luck" below) when the category is ready there. Else the target is the projection per game. PTS, STL and BLK always use the projection (owner decision of 2026-11-20). `[players.categories] expected` in `config.toml` lists the categories that use the expected value. A stats file that the module cannot read prints a warning, and each target is then the projection. A player with no NBA.com row uses the projection. With no `data/nba_stats.csv`, each target is the projection.
 - **Percentile:** 100 x (pool players below + half of the pool players equal) / 140.
-- **Row:** the category, its punt weight from `[weights]` (for example ×0.70), the season per game and "proj" with the projection per game. A mouse, a tap or the focus on a row shows its tooltip card.
+- **Row:** the category, its punt weight from `[weights]` (for example ×0.70), the season per game and "proj" with the projection per game. A mouse, a tap or the focus on a row shows its tooltip card. Its third row names the target and the season weight, for example "expected 7.5, season 56%".
 - **Projection gap:** a header signal when a category has 5 or more games and a gap of 25 or more percentile points between now and proj (`gap_games` and `gap_points`). The largest gap gives the chip, for example "REB above projection: percentile 63 vs 25".
 - A player with no projection shows the box "No projection: no category ranks."
 - The methods note (the "i" icon) gives the pool and the k values.

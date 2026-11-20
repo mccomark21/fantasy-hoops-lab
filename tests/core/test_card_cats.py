@@ -184,6 +184,21 @@ def test_a_row_shows_the_tooltip_card_on_hover_and_on_focus(modal_site):
     tip.wait_for(state="hidden")
 
 
+def test_the_tooltip_card_names_the_target_of_the_shrunk_line(modal_site):
+    rows = [dict(r) for r in ACE["rows"]]
+    rows[1].update(target=7.46, toward="expected")  # REB: ready in the luck model (#253)
+    rows[5].update(target=0.84, toward="proj")  # STL: not ready
+    pg = open_card(modal_site, [record("Ace Bailey", {**ACE, "rows": rows})])
+    tip = pg.locator("#lab-tt-page")
+    for nth, text in ((1, "expected 7.5, season 56%"), (5, "projection 0.8, season 25%")):
+        pg.locator("#pc-q-cats .lab-c-hit").nth(nth).hover()
+        tip.wait_for(state="visible")
+        lines = [r.strip() for r in tip.locator(".lab-tt-rows").inner_text().split("\n") if r.strip()]
+        assert lines[-2:] == ["Shrunk toward", text]
+        pg.mouse.move(5, 5)
+        tip.wait_for(state="hidden")
+
+
 def test_in_the_modal_the_first_escape_hides_the_card_and_the_next_closes_the_modal(modal_site):
     pg = open_card(modal_site, [record("Ace Bailey", ACE)], hash="#player=ace-bailey")
     pg.locator("#lab-pm-q-cats svg").wait_for()
