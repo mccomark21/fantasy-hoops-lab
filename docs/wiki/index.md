@@ -6,6 +6,7 @@ Each page records dated facts. A claim about code cites a commit as `mccomark21/
 
 ## Projects
 
+- [Run of 2026-11-20](run-2026-11-20.md): the ticket pipeline run that merged #252, #254, #255 and #253 (PRs #257 to #260), the owner decisions on the luck sample and the AST/REB/3PM target, and the open follow-ups.
 - [NBA hustle and tracking stats of 2026-11-18](nba-stats-2026-11-18.md): the sample of NBA.com hustle and tracking stats, the owner decisions, and issues #251 to #255. On 2026-11-18, the luck plan replaced the signal issues (#252 to #255 rewritten), and the collector scope became 5 tables (Advanced and Defense dropped, basic stats added).
 - [NBA metrics inventory of 2026-11-18](nba-metrics-inventory-2026-11-18.md): each column of `data/nba_stats.csv` with its unit, tag and correlation with the categories, the role-change columns and the due-for-more tables.
 - [Trade fit notes of 2026-11-13](trade-fit-notes-2026-11-13.md): the owner request of 2026-11-13 for trade suggestions outside the playoff core with a fit note for each, the four recommendations the owner accepted, PR #247 (open on 2026-11-15), the live run of 2026-11-15 and the open follow-ups.
