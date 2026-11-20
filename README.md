@@ -134,17 +134,18 @@ All settings are in [`config.toml`](config.toml). The `[league]` section applies
 To get fresh data and pages, run one command in the venv:
 
 ```sh
-refresh                # Run the 4 tools below in order and publish the pages
+refresh                # Run the 5 steps below in order and publish the pages
 refresh --no-publish   # Write the pages, but do not publish them
 ```
 
-`python -m fantasyhoops.refresh` is the same command. The install step 1 adds `refresh` to the venv. An install from before the command needs step 1 again. The command prints one line for each step and the total time. If a step fails, the command stops and gives the command to run that step again by itself.
+`python -m fantasyhoops.refresh` is the same command. The install step 1 adds `refresh` to the venv. An install from before the command needs step 1 again. The command prints one line for each step and the total time. If a step fails, the command stops and gives the command to run that step again by itself. The NBA.com stats step is optional. If it fails, the command keeps the last good file and continues.
 
 To run one tool, run it from the repo root with `python -m`:
 
 ```sh
 python -m fantasyhoops.fetch.espn       # Download the NBA rosters and the schedule (public NBA stats)
 python -m fantasyhoops.fetch.rotation   # Add the finished games to the rotation log and the box scores
+python -m fantasyhoops.fetch.nba_stats  # Download the NBA.com hustle and tracking stats, with a dated copy
 python -m fantasyhoops.adds.plan        # Plan the adds, write the pages and publish the site
 python -m fantasyhoops.trade            # Suggest trades and publish the Trades page
 python -m fantasyhoops.draft.board      # Write the local draft board
@@ -165,7 +166,7 @@ ruff check src tests
 
 | Document | Contents |
 | --- | --- |
-| [Adds planner](docs/adds/README.md), [trade tool](docs/trade/README.md), [draft tools](docs/draft/README.md) | One guide for each tool: its goal, usage, data and decisions. |
+| [Adds planner](docs/adds/README.md), [trade tool](docs/trade/README.md), [draft tools](docs/draft/README.md), [NBA.com stats collector](docs/fetch/README.md) | One guide for each tool: its goal, usage, data and decisions. |
 | [Glossary](docs/glossary.md) | The terms that more than one tool uses, for example core, stream spot and kept set. |
 | [Architecture decisions](docs/adr/) | The architecture decision records. |
 | [Wiki](docs/wiki/index.md) | The dated history and the decisions of the project. |
