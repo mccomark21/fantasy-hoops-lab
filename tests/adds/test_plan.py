@@ -911,6 +911,10 @@ def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_
     monkeypatch.setattr(
         command.league_page, "read_records", lambda league: real_read(StandingsLeague(league, STANDINGS_PAGE))
     )
+    luck_files = []  # #254: the Luck page gets the player file of the run
+    monkeypatch.setattr(
+        command.luck_page, "write_site", lambda file, cfg: luck_files.append(file) or common.OUT / "luck" / "index.html"
+    )
     yahoo = run_command(monkeypatch, tmp_path, published, publish=True, owners=owners)
     players = (common.OUT / "players" / "index.html", (common.OUT / "players" / "players.json",))
     playoffs = common.OUT / "playoffs" / "index.html"
@@ -920,7 +924,9 @@ def test_the_command_publishes_the_players_page_with_the_owners_of_the_rostered_
         "players": players,
         "playoffs": playoffs,
         "league": league,
+        "luck": common.OUT / "luck" / "index.html",
     }
+    assert luck_files == [players[1][0]]
     file = json.loads(players[1][0].read_text(encoding="utf-8"))
     assert file["players"][0]["owner"] == "Lamb Chops" and file["players"][0]["mine"] is True
     html = playoffs.read_text(encoding="utf-8")

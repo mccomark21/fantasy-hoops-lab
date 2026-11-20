@@ -48,6 +48,7 @@ One planning run:
     page (playoffs/page.py, #214) takes its pool from the player file and goes to /playoffs/ in the same publish.
     The League page (league/page.py, #218) takes the same pool and the records of the Yahoo standings, and goes to
     /league/ in the same publish. The standings are one more page (the league home page) in the Yahoo reads step.
+    The Luck page (luck/page.py, #254) takes the owners from the player file and goes to /luck/ in the same publish.
     The Yahoo reads step reads the rostered list of all teams for them, in the views of the free-agent lists, through the same-day
     cache of the trade run. The Val of the Players page is the Val of the Free agents page. --no-publish skips that read and the Players page.
     The page shows how many pages came from the cache (PageCache.line()).
@@ -101,6 +102,7 @@ from fantasyhoops.core.console import use_utf8_output
 from fantasyhoops.core.schedule import read_schedule
 from fantasyhoops.core.season_value import SeasonValues, basis_text, read_season_lines
 from fantasyhoops.league import page as league_page
+from fantasyhoops.luck import page as luck_page
 from fantasyhoops.players import page as players_page
 from fantasyhoops.playoffs import page as playoffs_page
 
@@ -256,7 +258,16 @@ def save_week(week, today, plan, spots):
 
 
 def publish_page(
-    path, lines, cfg, publish=True, roster=None, free_agents=None, players=None, playoffs=None, league=None
+    path,
+    lines,
+    cfg,
+    publish=True,
+    roster=None,
+    free_agents=None,
+    players=None,
+    playoffs=None,
+    league=None,
+    luck=None,
 ):
     """Print the path and the lines of the team plan (plan_lines()), then publish the site with the page at /adds/.
 
@@ -269,6 +280,8 @@ def publish_page(
     With None, the publish keeps the /playoffs/ folder of gh-pages.
     league: the League page (league_page.write_site(), #218), or None. The same publish puts it at /league/. With
     None, the publish keeps the /league/ folder of gh-pages.
+    luck: the Luck page (luck_page.write_site(), #254), or None. The same publish puts it at /luck/. With None, the
+    publish keeps the /luck/ folder of gh-pages.
     The publish also writes the Home page at / (core/home.py).
     """
     print()
@@ -286,6 +299,7 @@ def publish_page(
         ("players", players),
         ("playoffs", playoffs),
         ("league", league),
+        ("luck", luck),
     )
     more = {name: p for name, p in pages if p}
     site.publish(ROOT, "adds", path, cfg=cfg, more_tools=more)
@@ -445,7 +459,7 @@ def main(today=None, publish=True, timed=True, cache=True):
         # The Run time table shows the steps that ended before the page write.
         text = page.render(replace(run, timings=tuple(timings.steps)))
         free_agents = page.write_free_agents(page.render_free_agents(run))
-        players = playoffs = league = None
+        players = playoffs = league = luck = None
         if owners is not None:
             # The Val of the Players page is the Val of the Free agents page: the same Season value (#222).
             team = cfg["adds"]["team"]
@@ -455,7 +469,11 @@ def main(today=None, publish=True, timed=True, cache=True):
             playoffs = playoffs_page.write_site(players[1][0], playoff_days, cfg)
             # The League page takes the same pool and the records of the standings (#218).
             league = league_page.write_site(players[1][0], playoff_days, cfg, standings)
-        publish_page(page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players, playoffs, league)
+            # The Luck page takes the owners from the same player file (#254).
+            luck = luck_page.write_site(players[1][0], cfg)
+        publish_page(
+            page.write(text), plan_lines(run), cfg, publish, roster, free_agents, players, playoffs, league, luck
+        )
     print_summary(run)
 
 

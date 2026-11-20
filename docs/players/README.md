@@ -92,7 +92,7 @@ The Role quadrant (top left) shows the minutes of the player game by game (#187)
 
 ## Luck
 
-`players/luck.py` (#254) gives the luck of each player in 5 categories: his makes this season against the makes that his chances expect. No page uses it yet. The Luck tab (`/luck/`) comes next.
+`players/luck.py` (#254) gives the luck of each player in 5 categories: his makes this season against the makes that his chances expect. The Luck page (`/luck/`, [docs/luck/README.md](../luck/README.md)) shows it.
 
 | Category | Chances | Makes |
 | --- | --- | --- |

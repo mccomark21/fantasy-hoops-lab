@@ -1,6 +1,6 @@
 # NBA.com stats collector
 
-`fantasyhoops.fetch.nba_stats` downloads the hustle and tracking stats of a season from stats.nba.com (#251, #252). No page uses the data yet. The luck module (#254) uses the makes and chances columns.
+`fantasyhoops.fetch.nba_stats` downloads the hustle and tracking stats of a season from stats.nba.com (#251, #252). The luck module (#254) uses the makes and chances columns. The Luck page (`/luck/`) shows the result.
 
 ## Usage
 
