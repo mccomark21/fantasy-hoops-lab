@@ -7,7 +7,13 @@ import pytest
 
 from fantasyhoops.refresh import run
 
-MODULES = ["fantasyhoops.fetch.espn", "fantasyhoops.fetch.rotation", "fantasyhoops.adds.plan", "fantasyhoops.trade"]
+MODULES = [
+    "fantasyhoops.fetch.espn",
+    "fantasyhoops.fetch.rotation",
+    "fantasyhoops.fetch.nba_stats",
+    "fantasyhoops.adds.plan",
+    "fantasyhoops.trade",
+]
 
 
 class FakeSteps:
@@ -27,38 +33,49 @@ def clock():
     return lambda: next(ticks)
 
 
-def test_the_run_calls_the_4_steps_in_order():
+def test_the_run_calls_the_5_steps_in_order():
     steps = FakeSteps()
     assert run.main([], run=steps, clock=clock()) == 0
     assert steps.calls == [[m] for m in MODULES]
 
 
-def test_no_publish_reaches_steps_3_and_4():
+def test_no_publish_reaches_steps_4_and_5():
     steps = FakeSteps()
     assert run.main(["--no-publish"], run=steps, clock=clock()) == 0
-    assert steps.calls == [[MODULES[0]], [MODULES[1]], [MODULES[2], "--no-publish"], [MODULES[3], "--no-publish"]]
+    assert steps.calls == [*([m] for m in MODULES[:3]), [MODULES[3], "--no-publish"], [MODULES[4], "--no-publish"]]
 
 
 def test_each_step_prints_one_ok_line_and_the_run_prints_the_total_time(capsys):
     run.main([], run=FakeSteps(), clock=clock())
     lines = capsys.readouterr().out.splitlines()
     assert [line for line in lines if " ... " in line] == [
-        "[1/4] NBA rosters and schedule ... ok (10 s)",
-        "[2/4] Rotation log ... ok (10 s)",
-        "[3/4] Adds plan ... ok (10 s)",
-        "[4/4] Trades ... ok (10 s)",
+        "[1/5] NBA rosters and schedule ... ok (10 s)",
+        "[2/5] Rotation log ... ok (10 s)",
+        "[3/5] NBA.com stats ... ok (10 s)",
+        "[4/5] Adds plan ... ok (10 s)",
+        "[5/5] Trades ... ok (10 s)",
     ]
-    assert lines[-1] == "Refresh done. Total time: 1 min 30 s"
+    assert lines[-1] == "Refresh done. Total time: 1 min 50 s"
 
 
 def test_a_failed_step_stops_the_run_names_the_step_and_gives_its_command(capsys):
     steps = FakeSteps(fail_at="fantasyhoops.adds.plan", code=2)
     assert run.main(["--no-publish"], run=steps, clock=clock()) == 1
-    assert [args[0] for args in steps.calls] == MODULES[:3]  # step 4 does not run
+    assert [args[0] for args in steps.calls] == MODULES[:4]  # step 5 does not run
     out = capsys.readouterr().out
-    assert "[3/4] Adds plan ... failed (exit code 2)" in out
+    assert "[4/5] Adds plan ... failed (exit code 2)" in out
     assert "To run this step again by itself: python -m fantasyhoops.adds.plan --no-publish" in out
     assert "Refresh done" not in out
+
+
+def test_the_run_continues_when_the_nba_com_fetch_fails(capsys):
+    steps = FakeSteps(fail_at="fantasyhoops.fetch.nba_stats")
+    assert run.main(["--no-publish"], run=steps, clock=clock()) == 0
+    assert [args[0] for args in steps.calls] == MODULES  # steps 4 and 5 run
+    out = capsys.readouterr().out
+    assert "[3/5] NBA.com stats ... failed (exit code 1). The run continues with the last good file." in out
+    assert "To run this step again by itself: python -m fantasyhoops.fetch.nba_stats" in out
+    assert "Refresh done" in out
 
 
 def test_the_refresh_command_exits_non_zero_when_a_step_fails(monkeypatch):

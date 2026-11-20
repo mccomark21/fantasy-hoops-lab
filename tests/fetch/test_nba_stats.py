@@ -1,7 +1,10 @@
+from datetime import date
+
 import pandas as pd
 import pytest
 
-from fantasyhoops.fetch.nba_stats import get_table, merge_tables, nba_season
+from fantasyhoops.fetch import nba_stats
+from fantasyhoops.fetch.nba_stats import add_chances, get_table, merge_tables, nba_season, output_paths
 
 
 def adv():
@@ -77,3 +80,86 @@ def test_a_request_that_fails_once_tries_again():
         return Answer()
 
     assert len(get_table("hustle", flaky, wait=0)) == 2
+
+
+def five_tables():
+    """The 5 tables of one season for 2 players, with only the columns that add_chances() needs."""
+    ids = {
+        "PLAYER_ID": [1, 2],
+        "PLAYER_NAME": ["Dyson Daniels", "Victor Wembanyama"],
+        "TEAM_ABBREVIATION": ["ATL", "SAS"],
+    }
+    return {
+        "base": pd.DataFrame(
+            {
+                **ids,
+                "GP": [16, 15],
+                "STL": [40, 18],
+                "BLK": [8, 62],
+                "AST": [90, 53],
+                "REB": [100, 191],
+                "FG3M": [10, 30],
+                "FG3A": [40, 100],
+            }
+        ),
+        "hustle": pd.DataFrame(
+            {**ids, "G": [16, 15], "DEFLECTIONS": [95.0, 45.0], "CONTESTED_SHOTS_2PT": [60.0, 139.0]}
+        ),
+        "pass": pd.DataFrame({**ids, "GP": [16, 15], "POTENTIAL_AST": [160, 79]}),
+        "reb": pd.DataFrame({**ids, "GP": [16, 15], "REB_CHANCES": [180.0, 352.0]}),
+        "touch": pd.DataFrame({**ids, "GP": [16, 15], "TOUCHES": [900, 800]}),
+    }
+
+
+def test_the_makes_and_chances_columns_follow_gp():
+    out = add_chances(merge_tables(five_tables()), "2026-27")
+    assert list(out.columns[:16]) == [
+        "nba_id", "name", "name_key", "team", "gp", "season",
+        "stl_makes", "stl_chances", "blk_makes", "blk_chances", "ast_makes", "ast_chances",
+        "reb_makes", "reb_chances", "threes_makes", "threes_chances",
+    ]  # fmt: skip
+    wemby = out.set_index("nba_id").loc[2]
+    assert (wemby["blk_makes"], wemby["blk_chances"]) == (62, 139.0)
+    assert (wemby["threes_makes"], wemby["threes_chances"]) == (30, 100)
+    assert wemby["season"] == "2026-27"
+
+
+def test_a_missing_chances_column_raises():
+    frames = five_tables()
+    frames["pass"] = frames["pass"].drop(columns="POTENTIAL_AST")
+    with pytest.raises(ValueError, match="pass_potential_ast"):
+        add_chances(merge_tables(frames), "2026-27")
+
+
+def test_only_the_current_season_gets_a_dated_copy(tmp_path):
+    day = date(2026, 11, 20)
+    assert output_paths("2026-27", "2026-27", tmp_path / "a.csv", day) == (
+        tmp_path / "a.csv",
+        tmp_path / "nba_stats" / "2026-11-20.csv",
+    )
+    assert output_paths("2025-26", "2026-27", today=day) == (nba_stats.DATA / "nba_stats_2025-26.csv", None)
+    assert output_paths("2026-27", "2026-27", today=day)[0] == nba_stats.OUT_FILE
+
+
+def test_a_run_writes_the_file_and_the_dated_copy(tmp_path):
+    frames = five_tables()
+    season = nba_season(nba_stats.load_config()["league"]["espn_season"])
+    out = tmp_path / "nba_stats.csv"
+    code = nba_stats.main(["--out", str(out)], get=lambda label, request: frames[label], today=date(2026, 11, 20))
+    assert code == 0
+    written = pd.read_csv(out)
+    assert len(written) == 2 and written["season"].eq(season).all()
+    assert (tmp_path / "nba_stats" / "2026-11-20.csv").read_text() == out.read_text()
+
+
+def test_a_failed_request_keeps_the_last_good_file(tmp_path, capsys):
+    out = tmp_path / "nba_stats.csv"
+    out.write_text("old")
+
+    def failing(label, request):
+        raise RuntimeError(f"The NBA.com table '{label}' failed 3 times: timed out")
+
+    assert nba_stats.main(["--out", str(out)], get=failing) == 1
+    assert out.read_text() == "old"
+    assert not (tmp_path / "nba_stats").exists()
+    assert "No file written. The NBA.com table 'base' failed 3 times" in capsys.readouterr().out
