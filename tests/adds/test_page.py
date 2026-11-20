@@ -1173,6 +1173,7 @@ def test_the_free_agents_page_shows_the_site_menu_with_free_agents_current():
         "Players",
         "Playoffs",
         "League",
+        "Luck",
     ]
     assert '<a href="../free-agents/" aria-current="page">Free agents</a>' in html
     assert html.count('aria-current="page"') == 1

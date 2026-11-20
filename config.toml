@@ -330,3 +330,13 @@ band_sd = 2                # the half width of the band, in spreads of a window 
 consistency_min_games = 10
 rate_flag = 0.4            # the Consistency signal: the share of duds or of spikes in his games
 spike_rank = 30            # a spike: a game at the Val of the player at this rank by Val, or more (the top-30 level)
+
+# Luck (#254, players/luck.py): his makes this season against the makes that his chances expect, as a z for each
+# category and an overall luck. The baseline rate is his rate of the past season, shrunk toward the league rate with
+# k chances, then multiplied by the league rate now / the league rate then. The docstring of players/luck.py has
+# the math. k: a fit to the 2025-26 rates of the players with 100 chances or more (2026-11-20), rounded. A larger k
+# trusts the past season less. A category gets a z only with min_games games and min_chances chances this season.
+[players.luck]
+k = { stl = 80, blk = 25, ast = 100, reb = 60, threes = 300 }  # chances
+min_games = 5
+min_chances = { stl = 20, blk = 25, ast = 40, reb = 40, threes = 20 }  # chances this season

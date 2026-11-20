@@ -1,6 +1,6 @@
 # NBA.com stats collector
 
-`fantasyhoops.fetch.nba_stats` downloads the hustle and tracking stats of a season from stats.nba.com (#251, #252). No page uses the data yet. The luck module (#254) uses the makes and chances columns.
+`fantasyhoops.fetch.nba_stats` downloads the hustle and tracking stats of a season from stats.nba.com (#251, #252). The luck module (#254) uses the makes and chances columns. The Luck page (`/luck/`) shows the result.
 
 ## Usage
 
@@ -63,7 +63,7 @@ A player who is missing from a table gets empty cells in the columns of that tab
 
 ## The rebound chances of the two seasons
 
-On 2026-11-20, the league rate of rebounds for each rebound chance was 0.695 in 2025-26 and 0.543 in 2026-27. The other categories changed less. The cause is not known. A change of the NBA.com definition is possible. The luck module (#254) must check this before it uses the 2025-26 rebound rate as a baseline.
+On 2026-11-20, the league rate of rebounds for each rebound chance was 0.695 in 2025-26 and 0.543 in 2026-27. The other categories changed less. The check of #254 found that the rebounds for each minute did not change (0.190 in both seasons). The rebound chances for each minute went up from 0.273 to 0.352, in both the offensive and the defensive chances. NBA.com probably counts more rebound chances in 2026-27. The luck module (#254) multiplies each baseline rate by the league rate now / the league rate of 2025-26.
 
 | Category | League rate 2025-26 | League rate 2026-27 (2026-11-20) |
 | --- | --- | --- |

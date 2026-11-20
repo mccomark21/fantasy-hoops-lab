@@ -89,6 +89,10 @@ This page lists the free agents with their value, their recent stats and their g
 
 The trade tool suggests 1-for-1 trades with the other teams. Each suggestion raises my started games in playoff weeks 19 to 21 and keeps my season value. A trade builder under the table checks a custom trade, for example 2-for-1, in the browser.
 
+### Luck
+
+The Luck page shows which players are lucky or unlucky in STL, BLK, AST, REB and 3PM. It compares the makes of each player with the makes that his chances expect, from NBA.com tracking stats. A filter shows my team, the other teams or the free agents.
+
 ### Local only
 
 The draft tools (rankings, the draft board, an auction simulator and a keeper report) are local pages. They are not on the site.
