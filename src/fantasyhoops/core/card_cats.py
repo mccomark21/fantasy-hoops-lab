@@ -30,7 +30,7 @@ METHODS = r"""(p, d) => {
   return `<li><b>Categories.</b> The percentile of each category in the pool: the top ${c.pool} players by projected `
     + "value. proj ranks the projection per game. now ranks the season line, shrunk toward a target: "
     + `(n × season + k × target) / (n + k), with n games and k in games: ${ks}. The target is the expected makes `
-    + "per game of the Luck page when the category is ready there (STL, BLK, AST, REB, 3PM). Else it is the "
+    + "per game of the Luck page when the category is ready there (AST, REB, 3PM). Else it is the "
     + "projection.</li>";
 }"""
 

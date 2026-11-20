@@ -166,27 +166,60 @@ def luck_rows(name, gp, **cats):
     return pd.DataFrame([row])
 
 
+def test_the_config_lists_ast_reb_and_3pm_for_the_expected_value():
+    assert categories.settings(CFG)["expected"] == ["ast", "reb", "threes"]  # owner decision of 2026-11-20
+
+
 def test_a_ready_category_shrinks_toward_the_expected_value_and_a_not_ready_one_toward_the_projection():
     proj, pool = categories.projected_lines(projections(), NO_OVERRIDES, CFG)
     line, player = proj.loc[key(70)], f"Player {nm(70)}"
-    season = categories.season_lines(pd.DataFrame(box(player, 6, pts=30, reb=9, stl=2)), NO_OVERRIDES, CATS)
-    table = luck_rows(player, 6, reb=(7.5, True), stl=(1.4, False))
+    season = categories.season_lines(pd.DataFrame(box(player, 6, pts=30, reb=9, ast=3)), NO_OVERRIDES, CATS)
+    table = luck_rows(player, 6, reb=(7.5, True), ast=(2.5, False))
     expected = categories.expected_lines(table, NO_OVERRIDES, CATS)
     assert list(expected.columns) == ["reb", "ast", "threes", "blk", "stl"]  # PTS has no chance stat
-    assert expected.loc[key(70), "reb"] == 7.5 and pd.isna(expected.loc[key(70), "stl"])
+    assert expected.loc[key(70), "reb"] == 7.5 and pd.isna(expected.loc[key(70), "ast"])
     rows = {r["cat"]: r for r in categories.category_records(proj, pool, season, CFG, expected)[key(70)]["rows"]}
     # Ready: (n x season + k x expected) / (n + k), with n = 6 and k = 4 for REB.
     assert rows["REB"]["toward"] == "expected" and rows["REB"]["target"] == 7.5
     assert rows["REB"]["shrunk"] == round((6 * 9 + 4 * 7.5) / 10, 2)
-    # Not ready: the projection, with k = 15 for STL.
-    assert rows["STL"]["toward"] == "proj" and rows["STL"]["target"] == round(line.stl, 2)
-    assert rows["STL"]["shrunk"] == round((6 * 2 + 15 * line.stl) / 21, 2)
+    # Not ready: the projection, with k = 4 for AST.
+    assert rows["AST"]["toward"] == "proj" and rows["AST"]["target"] == round(line.ast, 2)
+    assert rows["AST"]["shrunk"] == round((6 * 3 + 4 * line.ast) / 10, 2)
     # PTS always shrinks toward the projection.
     assert rows["PTS"]["toward"] == "proj" and rows["PTS"]["shrunk"] == round((6 * 30 + 4 * line.pts) / 10, 2)
     # With no luck table, REB shrinks toward the projection. The "proj" percentile does not change.
     plain = {r["cat"]: r for r in categories.category_records(proj, pool, season, CFG)[key(70)]["rows"]}
     assert plain["REB"]["toward"] == "proj" and plain["REB"]["proj"] == rows["REB"]["proj"]
     assert plain["REB"]["shrunk"] == round((6 * 9 + 4 * line.reb) / 10, 2)
+
+
+def test_stl_and_blk_keep_the_projection_when_they_are_ready():
+    proj, pool = categories.projected_lines(projections(), NO_OVERRIDES, CFG)
+    player = f"Player {nm(70)}"
+    season = categories.season_lines(pd.DataFrame(box(player, 6, stl=2, blk=2)), NO_OVERRIDES, CATS)
+    table = luck_rows(player, 6, stl=(1.4, True), blk=(1.1, True), threes=(2.0, True))
+    expected = categories.expected_lines(table, NO_OVERRIDES, categories.settings(CFG)["expected"])
+    assert list(expected.columns) == ["ast", "reb", "threes"]
+    rows = {r["cat"]: r for r in categories.category_records(proj, pool, season, CFG, expected)[key(70)]["rows"]}
+    assert rows["STL"]["toward"] == rows["BLK"]["toward"] == "proj" and rows["3PM"]["toward"] == "expected"
+    assert rows["STL"]["target"] == round(proj.at[key(70), "stl"], 2)
+
+
+def test_an_unreadable_stats_file_prints_a_warning_and_keeps_the_projection(monkeypatch, tmp_path, capsys):
+    (tmp_path / "data").mkdir()
+    projections().to_csv(tmp_path / "data" / "Projections_2026-11-18.csv", index=False)
+    monkeypatch.setattr(common, "ROOT", tmp_path)
+    monkeypatch.setattr(common, "DATA", tmp_path / "data")
+
+    def broken(cfg):
+        raise ValueError("bad nba_stats.csv")
+
+    monkeypatch.setattr(categories.luck, "read_luck", broken)
+    out = categories.read_categories(CFG)
+    assert out and all(r["toward"] == "proj" for c in out.values() for r in c["rows"])
+    assert "Warning: the categories use the projection as the target (ValueError: bad nba_stats.csv)." in (
+        capsys.readouterr().out
+    )
 
 
 def test_a_player_with_no_game_has_his_expected_value_as_his_shrunk_line():
@@ -218,4 +251,4 @@ def test_the_real_data_shrinks_some_ready_categories_toward_the_expected_value()
     out = categories.read_categories(CFG)
     towards = [r["toward"] for c in out.values() for r in c["rows"]]
     assert "expected" in towards and "proj" in towards
-    assert all(r["toward"] == "proj" for c in out.values() for r in c["rows"] if r["cat"] == "PTS")
+    assert all(r["toward"] == "proj" for c in out.values() for r in c["rows"] if r["cat"] in ("PTS", "STL", "BLK"))

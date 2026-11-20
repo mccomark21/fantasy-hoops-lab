@@ -7,8 +7,8 @@ docs/wiki/player-profile-design-2026-10-29.md):
 The pool is the valuation pool of core/valuation.py: the top teams x roster_spots players by projected value.
 The shrunk line is (n x season + k x target) / (n + k). n is the number of games that he played in
 data/box_scores.csv. k is the shrinkage strength in games, from [players.categories] shrink in config.toml.
-The target (#253): for STL, BLK, AST, REB and 3PM, the expected makes per game of players/luck.py when the category
-is ready there. Else, and always for PTS, the target is the projection per game.
+The target (#253): for the categories of [players.categories] expected (AST, REB and 3PM), the expected makes per
+game of players/luck.py when the category is ready there. Else the target is the projection per game.
 A pool player with no game has his target as his shrunk line.
 A percentile is the mid-rank percentile: 100 x (players below + half of the players equal) / pool size.
 
@@ -34,7 +34,7 @@ EXPECTED, PROJECTION = "expected", "proj"  # the "toward" value of a row: the so
 
 
 def settings(cfg):
-    """[players.categories] of config.toml: shrink ({category: games}), gap_points and gap_games."""
+    """[players.categories] of config.toml: shrink ({category: games}), gap_points, gap_games and expected."""
     return cfg["players"]["categories"]
 
 
@@ -81,8 +81,9 @@ def season_lines(box, overrides, cats):
 def expected_lines(table, overrides, cats):
     """The expected makes per game of each player, by Yahoo name key, in the ready categories only.
 
-    table: luck.luck_table() or luck.read_luck(), or None. The result has one column for each category of cats that
-    luck.CATEGORIES has. A category that is not ready is NaN. Two rows with one key: the row with more games stays.
+    table: luck.luck_table() or luck.read_luck(), or None. cats: the categories that use the expected value, for
+    example settings(cfg)["expected"]. The result has one column for each category of cats that luck.CATEGORIES has.
+    A category that is not ready is NaN. Two rows with one key: the row with more games stays.
     """
     cols = [c for c in cats if c in luck.CATEGORIES]
     if table is None or table.empty:
@@ -209,7 +210,7 @@ def read_categories(cfg):
     """category_records() from the newest projections file and data/box_scores.csv. {} with no projections file.
 
     With no box-score file, each player has 0 games, so "now" is his target. With no data/nba_stats.csv, each
-    target is the projection.
+    target is the projection. A stats file that the module cannot read prints a warning and gives the same result.
     """
     try:
         path = latest_projections(cfg)
@@ -224,5 +225,9 @@ def read_categories(cfg):
     box = _csv("box_scores.csv", dtype={"game_id": str, "player_id": str})
     cats = list(cfg["weights"])
     season = pd.DataFrame(columns=[*cats, "games"]) if box is None else season_lines(box, overrides, cats)
-    expected = expected_lines(luck.read_luck(cfg), overrides, cats)
+    try:
+        expected = expected_lines(luck.read_luck(cfg), overrides, settings(cfg)["expected"])
+    except Exception as error:  # noqa: BLE001 - the luck target is optional: a bad stats file keeps the projection
+        print(f"Warning: the categories use the projection as the target ({type(error).__name__}: {error}).")
+        expected = None
     return category_records(proj, pool, season, cfg, expected)

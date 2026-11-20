@@ -316,6 +316,10 @@ rows = 20                       # suggestions in all, at most
 shrink = { pts = 4, reb = 4, ast = 4, threes = 10, blk = 10, stl = 15 }  # shrinkage strength in games
 gap_points = 25                 # a projection-gap signal needs this gap between "now" and "proj", in percentile points
 gap_games = 5                   # and this number of games or more
+# The categories whose "now" line shrinks toward the expected makes per game of players/luck.py (#253), when the
+# category is ready there. The other categories shrink toward the projection. Only stl, blk, ast, reb and threes can
+# be here. The owner picked ast, reb and threes on 2026-11-20. STL and BLK can come later.
+expected = ["ast", "reb", "threes"]
 
 # The Value quadrant of the player card (#189, players/value.py): the value of each game. Agent defaults of
 # 2026-10-29. The owner did not approve them yet. The band (normal range) = the season mean ± band_sd x spread / the
