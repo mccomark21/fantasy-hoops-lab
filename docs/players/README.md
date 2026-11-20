@@ -90,6 +90,26 @@ The Role quadrant (top left) shows the minutes of the player game by game (#187)
 - `config.toml` `[players.role]` holds the window (3), the games for a band (3), the games for a flag (5), the weight of the league spread (4 games) and the band width (2). The owner approved these defaults on 2026-10-30.
 - A tooltip card (`LabCard.bindTip()`) shows each game, with a crosshair: the date, the opponent, a start or the bench, a close game, the minutes, the competitive minutes, the 3-game average and the usage rate.
 
+## Luck
+
+`players/luck.py` (#254) gives the luck of each player in 5 categories: his makes this season against the makes that his chances expect. No page uses it yet. The Luck tab (`/luck/`) comes next.
+
+| Category | Chances | Makes |
+| --- | --- | --- |
+| STL | Deflections | Steals |
+| BLK | Contested 2-point shots | Blocks |
+| AST | Potential assists | Assists |
+| REB | Rebound chances | Rebounds |
+| 3PM | 3-point attempts | 3-pointers made |
+
+1. The baseline rate p0 is his rate of 2025-26, shrunk toward the league rate with k chances. The module then multiplies it by the league rate now / the league rate of 2025-26. With no 2025-26 row, p0 is the league rate now.
+2. Expected = chances x p0.
+3. Luck z = (makes - expected) / the beta-binomial spread. A negative z is unlucky.
+4. A category gets a z only when it is ready: 5 games or more and enough chances.
+5. Overall luck = the sum of the ready z / the square root of their count.
+
+`config.toml` `[players.luck]` holds k, the minimum games and the minimum chances. The module docstring has the full math. The [wiki](../wiki/nba-stats-2026-11-18.md) records the choices.
+
 ## The player modal
 
 A player name on the Roster, Free agents and Trades pages is a link. The Adds plan page has no name links.
@@ -111,5 +131,6 @@ A player name on the Roster, Free agents and Trades pages is a link. The Adds pl
 - `profile.FILLS` lists the quadrant fills. Each fill module has `STYLE`, `script()` (it sets `LabCard.fill.<quadrant>`) and `METHODS` (its line of the methods note). A quadrant adds one entry.
 - `LabCard.bindTip(target, root, spec, markAt)` in `core/profile.py` is the one tooltip function of the fills. It shows the tooltip card of DESIGN.md "Tooltips" on a mouse, a tap or the focus.
 - `LabCard.bindCrosshair(target, cross, x)` in `core/profile.py` is the one crosshair function of the trend charts. It shows the `lab-c-cross` line of a game column with the show and hide rules of `bindTip()`.
+- `players/luck.py`: the luck z of each category and the overall luck. It reads `data/nba_stats.csv` and `data/nba_stats_2025-26.csv`.
 - `players/value.py` and `players/comps.py`: the data and the chart of the Value and Comps quadrants. `core/card_value.py`: their browser script, styles and tooltips.
 - The card uses the shared chart style of `core/chart.py` (DESIGN.md "Charts").
