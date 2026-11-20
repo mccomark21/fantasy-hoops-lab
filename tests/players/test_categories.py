@@ -155,3 +155,67 @@ def test_the_real_data_gives_6_rows_for_each_projected_player():
     out = categories.read_categories(CFG)
     assert out and all(len(c["rows"]) == 6 and c["pool"] == 140 for c in out.values())
     assert all(0 <= r[k] <= 100 for c in out.values() for r in c["rows"] for k in ("now", "proj"))
+
+
+def luck_rows(name, gp, **cats):
+    """A luck table with one player. cats: {category: (expected per game, ready)}. Other categories are not ready."""
+    row = {"nba_id": 1, "name": name, "name_key": categories.name_key(name), "team": "UTA", "gp": gp}
+    for cat in ("stl", "blk", "ast", "reb", "threes"):
+        exp, ready = cats.get(cat, (0.5, False))
+        row[f"{cat}_expected_pg"], row[f"{cat}_ready"] = exp, ready
+    return pd.DataFrame([row])
+
+
+def test_a_ready_category_shrinks_toward_the_expected_value_and_a_not_ready_one_toward_the_projection():
+    proj, pool = categories.projected_lines(projections(), NO_OVERRIDES, CFG)
+    line, player = proj.loc[key(70)], f"Player {nm(70)}"
+    season = categories.season_lines(pd.DataFrame(box(player, 6, pts=30, reb=9, stl=2)), NO_OVERRIDES, CATS)
+    table = luck_rows(player, 6, reb=(7.5, True), stl=(1.4, False))
+    expected = categories.expected_lines(table, NO_OVERRIDES, CATS)
+    assert list(expected.columns) == ["reb", "ast", "threes", "blk", "stl"]  # PTS has no chance stat
+    assert expected.loc[key(70), "reb"] == 7.5 and pd.isna(expected.loc[key(70), "stl"])
+    rows = {r["cat"]: r for r in categories.category_records(proj, pool, season, CFG, expected)[key(70)]["rows"]}
+    # Ready: (n x season + k x expected) / (n + k), with n = 6 and k = 4 for REB.
+    assert rows["REB"]["toward"] == "expected" and rows["REB"]["target"] == 7.5
+    assert rows["REB"]["shrunk"] == round((6 * 9 + 4 * 7.5) / 10, 2)
+    # Not ready: the projection, with k = 15 for STL.
+    assert rows["STL"]["toward"] == "proj" and rows["STL"]["target"] == round(line.stl, 2)
+    assert rows["STL"]["shrunk"] == round((6 * 2 + 15 * line.stl) / 21, 2)
+    # PTS always shrinks toward the projection.
+    assert rows["PTS"]["toward"] == "proj" and rows["PTS"]["shrunk"] == round((6 * 30 + 4 * line.pts) / 10, 2)
+    # With no luck table, REB shrinks toward the projection. The "proj" percentile does not change.
+    plain = {r["cat"]: r for r in categories.category_records(proj, pool, season, CFG)[key(70)]["rows"]}
+    assert plain["REB"]["toward"] == "proj" and plain["REB"]["proj"] == rows["REB"]["proj"]
+    assert plain["REB"]["shrunk"] == round((6 * 9 + 4 * line.reb) / 10, 2)
+
+
+def test_a_player_with_no_game_has_his_expected_value_as_his_shrunk_line():
+    proj, pool = categories.projected_lines(projections(), NO_OVERRIDES, CFG)
+    expected = categories.expected_lines(luck_rows(f"Player {nm(3)}", 5, ast=(4.25, True)), NO_OVERRIDES, CATS)
+    no_games = pd.DataFrame(columns=[*CATS, "games"])
+    rows = {r["cat"]: r for r in categories.category_records(proj, pool, no_games, CFG, expected)[key(3)]["rows"]}
+    assert rows["AST"]["shrunk"] == 4.25 and rows["AST"]["nw"] == 0
+
+
+def test_an_nba_name_goes_to_the_yahoo_name_of_the_overrides():
+    overrides = pd.DataFrame(
+        [{"player_id": "5988", "name": "Lu Dort", "espn_name": "Luguentz Dort", "yahoo_name": "Lu Dort"}]
+    )
+    expected = categories.expected_lines(luck_rows("Luguentz Dort", 9, reb=(4.0, True)), overrides, CATS)
+    assert list(expected.index) == ["lu dort"] and expected.loc["lu dort", "reb"] == 4.0
+
+
+def test_no_luck_table_gives_no_expected_values():
+    assert categories.expected_lines(None, NO_OVERRIDES, CATS).empty
+    proj, _ = categories.projected_lines(projections(), NO_OVERRIDES, CFG)
+    target, is_expected = categories.targets(proj, categories.expected_lines(None, NO_OVERRIDES, CATS), CATS)
+    assert not is_expected.to_numpy().any() and target.equals(proj[CATS].astype(float))
+
+
+def test_the_real_data_shrinks_some_ready_categories_toward_the_expected_value():
+    if not (common.DATA / "nba_stats.csv").exists() or not any(common.ROOT.glob(CFG["league"]["projections"])):
+        pytest.skip("No projections file or no data/nba_stats.csv")
+    out = categories.read_categories(CFG)
+    towards = [r["toward"] for c in out.values() for r in c["rows"]]
+    assert "expected" in towards and "proj" in towards
+    assert all(r["toward"] == "proj" for c in out.values() for r in c["rows"] if r["cat"] == "PTS")

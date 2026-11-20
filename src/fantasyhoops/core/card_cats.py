@@ -28,8 +28,10 @@ METHODS = r"""(p, d) => {
   if (!c || !c.rows || !c.rows.length) return "";
   const ks = c.rows.map(r => `${LabCard.esc(r.cat)} ${r.k}`).join(", ");
   return `<li><b>Categories.</b> The percentile of each category in the pool: the top ${c.pool} players by projected `
-    + "value. proj ranks the projection per game. now ranks the season line, shrunk toward the projection: "
-    + `(n × season + k × projection) / (n + k), with n games and k in games: ${ks}.</li>`;
+    + "value. proj ranks the projection per game. now ranks the season line, shrunk toward a target: "
+    + `(n × season + k × target) / (n + k), with n games and k in games: ${ks}. The target is the expected makes `
+    + "per game of the Luck page when the category is ready there (STL, BLK, AST, REB, 3PM). Else it is the "
+    + "projection.</li>";
 }"""
 
 _SCRIPT = r"""(() => {
@@ -80,6 +82,11 @@ _SCRIPT = r"""(() => {
         rows: [["Projection", ord(r.proj)], ["Per game now", c.n ? `${f1(r.raw)} (shrunk ${f1(r.shrunk)})` : "–"],
           ["Season weight", `${Math.round(r.nw * 100)}% after ${c.n} ${c.n === 1 ? "game" : "games"}`]],
       };
+      // The card shows 3 rows (LabCard.bindTip()), so the target (#253) shares the third row with the season weight.
+      if (r.toward) {
+        const to = `${r.toward === "expected" ? "expected" : "projection"} ${f1(r.target)}`;
+        spec.rows[2] = ["Shrunk toward", c.n ? `${to}, season ${Math.round(r.nw * 100)}%` : to];
+      }
       specs.push({ spec, a: Math.min(xs, xp), b: Math.max(xs, xp), cy });
       const aria = `${spec.ctx}. ${spec.label} ${spec.value}. ` + spec.rows.map(([a, b]) => `${a} ${b}`).join(". ");
       s += `<rect class="lab-c-hit" x="0" y="${n2(cy - ROW / 2)}" width="${W}" height="${ROW}" tabindex="0"`

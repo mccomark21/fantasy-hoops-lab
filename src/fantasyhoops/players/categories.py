@@ -3,16 +3,18 @@
 Each category of [weights] in config.toml gets two percentiles (decision 4 of
 docs/wiki/player-profile-design-2026-10-29.md):
 1. "proj": the per-game projection of the player, ranked among the projections of the pool.
-2. "now": the season line of the player, shrunk toward his projection, ranked among the shrunk lines of the pool.
+2. "now": the season line of the player, shrunk toward a target, ranked among the shrunk lines of the pool.
 The pool is the valuation pool of core/valuation.py: the top teams x roster_spots players by projected value.
-The shrunk line is (n x season + k x projection) / (n + k). n is the number of games that he played in
+The shrunk line is (n x season + k x target) / (n + k). n is the number of games that he played in
 data/box_scores.csv. k is the shrinkage strength in games, from [players.categories] shrink in config.toml.
-A pool player with no game has his projection as his shrunk line.
+The target (#253): for STL, BLK, AST, REB and 3PM, the expected makes per game of players/luck.py when the category
+is ready there. Else, and always for PTS, the target is the projection per game.
+A pool player with no game has his target as his shrunk line.
 A percentile is the mid-rank percentile: 100 x (players below + half of the players equal) / pool size.
 
 projection_gap() is the signal rule of the quadrant (players/data.py SIGNAL_RULES).
-read_categories() reads the projections file, data/box_scores.csv and data/name_overrides.csv. The module writes
-no files.
+read_categories() reads the projections file, data/box_scores.csv, data/name_overrides.csv and the NBA.com stats
+files of players/luck.py. The module writes no files.
 """
 
 import pandas as pd
@@ -22,11 +24,13 @@ from fantasyhoops.core.common import latest_projections, name_key
 from fantasyhoops.core.identity import yahoo_keys
 from fantasyhoops.core.valuation import value_players
 from fantasyhoops.draft.rankings import STATS
+from fantasyhoops.players import luck
 
 # The name of each category of [weights] on the card, and its column in data/box_scores.csv.
 LABELS = {"pts": "PTS", "reb": "REB", "ast": "AST", "threes": "3PM", "blk": "BLK", "stl": "STL"}
 BOX_COLUMNS = {"pts": "pts", "reb": "reb", "ast": "ast", "threes": "fg3m", "blk": "blk", "stl": "stl"}
 GAP_KIND = "Projection gap"  # the kind of the signal chip
+EXPECTED, PROJECTION = "expected", "proj"  # the "toward" value of a row: the source of its target
 
 
 def settings(cfg):
@@ -74,6 +78,41 @@ def season_lines(box, overrides, cats):
     return sums.div(games, axis=0).assign(games=games)
 
 
+def expected_lines(table, overrides, cats):
+    """The expected makes per game of each player, by Yahoo name key, in the ready categories only.
+
+    table: luck.luck_table() or luck.read_luck(), or None. The result has one column for each category of cats that
+    luck.CATEGORIES has. A category that is not ready is NaN. Two rows with one key: the row with more games stays.
+    """
+    cols = [c for c in cats if c in luck.CATEGORIES]
+    if table is None or table.empty:
+        return pd.DataFrame(columns=cols)
+    to_yahoo = yahoo_keys(overrides)
+    keys = table.name_key.map(lambda k: to_yahoo.get(k, k))
+    rows = table.assign(key=keys).sort_values("gp", ascending=False).drop_duplicates("key").set_index("key")
+    out = pd.DataFrame(index=rows.index)
+    for cat in cols:
+        ready = rows[f"{cat}_ready"].fillna(False).astype(bool)
+        out[cat] = rows[f"{cat}_expected_pg"].where(ready)
+    return out
+
+
+def targets(proj, expected, cats):
+    """(the target of each player and category, True where the target is the expected value).
+
+    proj: the per-game projections. expected: expected_lines(). The target is the expected value where it is
+    there. Else it is the projection.
+    """
+    target, is_expected = proj[cats].astype(float).copy(), pd.DataFrame(False, index=proj.index, columns=cats)
+    for cat in cats:
+        if expected is None or cat not in expected:
+            continue
+        exp = pd.to_numeric(expected[cat], errors="coerce").reindex(proj.index)
+        is_expected[cat] = exp.notna()
+        target[cat] = exp.where(exp.notna(), target[cat])
+    return target, is_expected
+
+
 def percentile(value, population):
     """The mid-rank percentile of value in population: 100 x (values below + half of the values equal) / size."""
     below = sum(v < value for v in population)
@@ -81,23 +120,25 @@ def percentile(value, population):
     return float(100 * (below + equal / 2) / len(population))
 
 
-def _shrunk(proj, season, cats, shrink):
-    """The shrunk lines of the players of proj: (n x season + k x projection) / (n + k), and n."""
-    games = season.games.reindex(proj.index).fillna(0)
-    out = pd.DataFrame(index=proj.index)
+def _shrunk(target, season, cats, shrink):
+    """The shrunk lines of the players of target: (n x season + k x target) / (n + k), and n."""
+    games = season.games.reindex(target.index).fillna(0)
+    out = pd.DataFrame(index=target.index)
     for cat in cats:
-        raw = season[cat].reindex(proj.index).fillna(0)
+        raw = season[cat].reindex(target.index).fillna(0)
         k = shrink[cat]
-        out[cat] = (games * raw + k * proj[cat]) / (games + k)
+        out[cat] = (games * raw + k * target[cat]) / (games + k)
     return out, games
 
 
-def category_records(proj, pool, season, cfg):
+def category_records(proj, pool, season, cfg, expected=None):
     """{name key: the cats of the player file} for each player of proj, the per-game projections.
 
-    pool: the name keys of the pool. season: season_lines(). The cats have n (the games), pool (the pool size), rows
-    and gap. Each row has cat, w (the punt weight), k, proj and now (the percentiles), line (the projection per game),
-    raw (the season per game, or None with no game), shrunk and nw (the weight of the season line).
+    pool: the name keys of the pool. season: season_lines(). expected: expected_lines(), or None (each target is
+    the projection). The cats have n (the games), pool (the pool size), rows and gap. Each row has cat, w (the punt
+    weight), k, proj and now (the percentiles), line (the projection per game), raw (the season per game, or None
+    with no game), target, toward ("expected" or "proj": the source of the target), shrunk and nw (the weight of the
+    season line).
     gap is the row with the largest gap of gap_points or more percentile points, with gap_games or more games, as
     {cat, now, proj}. Else None.
     """
@@ -105,7 +146,8 @@ def category_records(proj, pool, season, cfg):
     pool = [k for k in pool if k in proj.index]
     if proj.empty or not pool:
         return {}
-    shrunk, games = _shrunk(proj, season, cats, conf["shrink"])
+    target, is_expected = targets(proj, expected, cats)
+    shrunk, games = _shrunk(target, season, cats, conf["shrink"])
     pop_proj = {c: proj.loc[pool, c].tolist() for c in cats}
     pop_now = {c: shrunk.loc[pool, c].tolist() for c in cats}
     out = {}
@@ -123,6 +165,8 @@ def category_records(proj, pool, season, cfg):
                     "now": round(percentile(shrunk.at[key, cat], pop_now[cat]), 1),
                     "line": round(float(proj.at[key, cat]), 2),
                     "raw": round(float(season.at[key, cat]), 2) if n else None,
+                    "target": round(float(target.at[key, cat]), 2),
+                    "toward": EXPECTED if is_expected.at[key, cat] else PROJECTION,
                     "shrunk": round(float(shrunk.at[key, cat]), 2),
                     "nw": round(n / (n + k), 2),
                 }
@@ -164,7 +208,8 @@ def _csv(name, **kwargs):
 def read_categories(cfg):
     """category_records() from the newest projections file and data/box_scores.csv. {} with no projections file.
 
-    With no box-score file, each player has 0 games, so "now" is his projection.
+    With no box-score file, each player has 0 games, so "now" is his target. With no data/nba_stats.csv, each
+    target is the projection.
     """
     try:
         path = latest_projections(cfg)
@@ -179,4 +224,5 @@ def read_categories(cfg):
     box = _csv("box_scores.csv", dtype={"game_id": str, "player_id": str})
     cats = list(cfg["weights"])
     season = pd.DataFrame(columns=[*cats, "games"]) if box is None else season_lines(box, overrides, cats)
-    return category_records(proj, pool, season, cfg)
+    expected = expected_lines(luck.read_luck(cfg), overrides, cats)
+    return category_records(proj, pool, season, cfg, expected)
