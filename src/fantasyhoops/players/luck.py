@@ -17,6 +17,8 @@ For each category, with n = chances this season and y = makes this season:
 5. Overall luck = the sum of the ready z / the square root of their count (Stouffer). No ready category gives none.
 
 The settings are in [players.luck] in config.toml: k, min_games and min_chances.
+by_name_key() gives the luck row of a player by name_key(). The Luck page and the Free agents page (#255) use it,
+so that both pages show the same value for one player. z_text() gives the text of a z on both pages.
 read_luck() reads data/nba_stats.csv and data/nba_stats_<past season>.csv. The module writes no files.
 """
 
@@ -29,6 +31,7 @@ from fantasyhoops.core import common
 CATEGORIES = ("stl", "blk", "ast", "reb", "threes")  # the keys of [weights] in config.toml
 LABELS = {"stl": "STL", "blk": "BLK", "ast": "AST", "reb": "REB", "threes": "3PM"}
 RATE_LIMITS = (0.001, 0.999)  # p0 stays in this range, so that the spread is above 0
+MINUS = "−"
 
 
 def settings(cfg):
@@ -132,6 +135,28 @@ def luck_table(current, previous, cfg):
         rec["luck_count"] = sum(z is not None for z in zs)
         out.append(rec)
     return pd.DataFrame(out)
+
+
+def by_name_key(table):
+    """{name_key: the row of table as a dict}. table: luck_table() or read_luck(). None gives {}.
+
+    A fantasy name finds its luck row by common.name_key(). With two rows of one key, the first row stays.
+    A value that is NaN in table is None in the dict.
+    """
+    if table is None:
+        return {}
+    out = {}
+    for rec in table.to_dict("records"):
+        out.setdefault(rec["name_key"], {k: None if _missing(v) else v for k, v in rec.items()})
+    return out
+
+
+def z_text(z):
+    """The z with its sign and 2 decimals, for example "+1.23" or "−0.40". None (or NaN) gives an en dash."""
+    if _missing(z):
+        return "–"
+    sign = "+" if z > 0 else MINUS if z < 0 else ""
+    return f"{sign}{abs(z):.2f}"
 
 
 def read_luck(cfg, data_dir=None):

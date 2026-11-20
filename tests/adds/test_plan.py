@@ -20,6 +20,7 @@ from fantasyhoops.core.common import name_key
 from fantasyhoops.core.roster import Day
 from fantasyhoops.core.season_value import SeasonLine
 from tests.adds.test_page import SKIP_LINE, WEEK, option, run_time, text
+from tests.luck import test_page as tests_luck
 
 MON = date(2027, 1, 4)
 
@@ -1088,3 +1089,18 @@ def test_the_pages_show_one_val_for_one_player(monkeypatch, tmp_path, capsys):
     # The terminal names the date of the projections file and warns too (#248).
     out = capsys.readouterr().out
     assert "Basketball Monster projection of 2026-11-01. Warning: the projections file is" in out
+
+
+def test_read_luck_rows_gives_the_rows_by_name_key_and_nothing_for_a_bad_file(monkeypatch, capsys):
+    table = command.luck.luck_table(tests_luck.CURRENT, None, tests_luck.CFG)
+    monkeypatch.setattr(command.luck, "read_luck", lambda cfg: table)
+    assert command.read_luck_rows({})["al mine"]["luck"] == pytest.approx(table.loc[0, "luck"])
+    monkeypatch.setattr(command.luck, "read_luck", lambda cfg: None)  # no data/nba_stats.csv
+    assert command.read_luck_rows({}) == {}
+
+    def bad(cfg):
+        raise KeyError("reb_makes")
+
+    monkeypatch.setattr(command.luck, "read_luck", bad)
+    assert command.read_luck_rows({}) == {}
+    assert "could not read the luck (KeyError" in capsys.readouterr().out

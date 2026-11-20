@@ -38,6 +38,8 @@ One planning run:
    The run does not update the log. Without data/rotation_log.csv, the page has no role lines.
 9. next_week_window(): find the open slots of your kept roster on the first days of next week
    ([adds] next_week_open_days). The free-agent table of the page marks each free agent who fits one (#76).
+   read_luck_rows(): the luck of each player (players/luck.py, #254), for the Luck column of the Free agents page
+   (#255). Without data/nba_stats.csv, the column has no values.
 10. One PlanningRun holds the results of the steps above (#128).
 11. page.render() makes the plan page and page.render_free_agents() makes the Free agents page (#165) from the same
     PlanningRun. The run writes both pages in output/adds/ (adds_plan.html and free_agents.html) and publishes them
@@ -103,6 +105,7 @@ from fantasyhoops.core.schedule import read_schedule
 from fantasyhoops.core.season_value import SeasonValues, basis_text, read_season_lines
 from fantasyhoops.league import page as league_page
 from fantasyhoops.luck import page as luck_page
+from fantasyhoops.players import luck
 from fantasyhoops.players import page as players_page
 from fantasyhoops.playoffs import page as playoffs_page
 
@@ -144,6 +147,7 @@ class PlanningRun:
     season: the core/season_value.SeasonValues of the run: the Val of the pages (#222), or None.
     skyline: the core/skyline.Week of each 7-day half of the fantasy week (2 for a long week), or (). ladder: the
     TeamPlans of the Skyline ladder (skyline_plan.ladder_plans(), #236): item n - 1 is the plan with n adds.
+    luck: {name_key: luck row} from luck.by_name_key() (#255), or None. The Luck column of the Free agents page.
     """
 
     data: object
@@ -173,6 +177,7 @@ class PlanningRun:
     season: object = None
     skyline: tuple = ()
     ladder: tuple = ()
+    luck: dict = None
 
 
 def read_league(yahoo, cfg, today):
@@ -222,6 +227,18 @@ def value_options(free_agents, cfg, recent=(), matchup_cfg=None, scale=None):
     """
     scale = projection_scale(cfg) if scale is None else scale
     return blended_options(free_agents, recent, scale, cfg, matchup_cfg)
+
+
+def read_luck_rows(cfg):
+    """luck.by_name_key() of luck.read_luck(cfg): {name_key: luck row}. {} with no data/nba_stats.csv.
+
+    A stats file that the module cannot read prints a warning and gives {}, so the planning run continues.
+    """
+    try:
+        return luck.by_name_key(luck.read_luck(cfg))
+    except Exception as error:  # noqa: BLE001 - an optional column: a bad stats file leaves it empty
+        print(f"Warning: the run could not read the luck ({type(error).__name__}: {error}). The column is empty.")
+        return {}
 
 
 def with_trends(options, trends):
@@ -449,6 +466,7 @@ def main(today=None, publish=True, timed=True, cache=True):
         season=season,
         skyline=skyline_weeks(sched, data.week, cfg),
         ladder=ladder,
+        luck=read_luck_rows(cfg),
     )
     roster = None
     if publish:
