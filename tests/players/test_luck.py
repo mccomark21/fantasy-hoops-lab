@@ -142,3 +142,23 @@ def test_read_luck_of_the_real_files():
     table = luck.read_luck(load_config())
     assert len(table) > 0
     assert table["luck"].notna().any()
+
+
+def test_by_name_key_gives_the_row_of_each_key_with_none_for_nan():
+    table = luck.luck_table(frame([(1, 10, {"blk": (20, 100)}), (2, 2, {"blk": (20, 100)})]), None, CFG)
+    rows = luck.by_name_key(table)
+    assert set(rows) == {"p1", "p2"}
+    assert rows["p1"]["luck"] == pytest.approx(table.loc[0, "luck"])
+    assert rows["p2"]["luck"] is None and rows["p2"]["blk_z"] is None  # 2 games: not ready
+    assert rows["p1"]["stl_z"] is None  # no chances
+
+
+def test_by_name_key_keeps_the_first_row_of_a_key_and_none_gives_nothing():
+    table = luck.luck_table(frame([(1, 10, {"blk": (20, 100)}), (2, 10, {"blk": (5, 100)})]), None, CFG)
+    table["name_key"] = "same"
+    assert luck.by_name_key(table)["same"]["nba_id"] == 1
+    assert luck.by_name_key(None) == {}
+
+
+def test_z_text_shows_the_sign_and_a_dash_for_none():
+    assert [luck.z_text(z) for z in (1.234, -0.4, 0.0, None, math.nan)] == ["+1.23", "−0.40", "0.00", "–", "–"]

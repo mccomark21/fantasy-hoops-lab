@@ -36,5 +36,5 @@ The run makes no Luck page in these cases. The site then keeps the old page.
 ## Code
 
 - `luck/page.py`: `page_rows()`, `render()` and `write_site()`. The filter and the sort are a short inline script.
-- `players/luck.py`: the luck math.
+- `players/luck.py`: the luck math. `by_name_key()` gives the luck row of a player by `name_key()`, and `z_text()` gives the text of a z. The Luck page and the Luck column of the Free agents page (#255) use both, so the two pages show the same value for one player.
 - `tests/luck/test_page.py`: the rows, the owners, the page HTML and, in Chromium, the filter and the sort.

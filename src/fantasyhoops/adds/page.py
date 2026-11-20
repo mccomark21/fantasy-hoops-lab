@@ -19,6 +19,9 @@ The Free agents page (output/adds/free_agents.html, published at /free-agents/) 
   Each player has a role line from the rotation log: minutes, starts and closes (adds/roles.py), with the
   starter flag and the closer flag (core/role_flags.py).
   A mark such as "Mon open" names each of the first days of next week on which he plays and fills an open slot (#76).
+  Luck is the overall luck z of the Luck page (players/luck.py by_name_key(), #255). The cell title gives the z of
+  each category. A click on the Luck header sorts the most unlucky first. A second click turns the order.
+  Like Next 7 and Recent, Luck shows only at 600px wide or more, so the player cell keeps its width on a phone.
 - Waiver players: the waiver players (W) with their clear days.
 - Role up: the absent starters and the free agents at their positions (adds/role_up.py).
 Each player name of the Free agents and Waiver players tables opens the player modal of core/profile.py (#186).
@@ -48,6 +51,7 @@ from fantasyhoops.core import publish as site
 from fantasyhoops.core import common, profile
 from fantasyhoops.core.common import name_key
 from fantasyhoops.core.season_value import basis_text
+from fantasyhoops.players import luck
 
 TITLE = "Weekly adds plan"
 FA_TITLE = "Free agents"  # the title of the Free agents page (#165)
@@ -231,6 +235,7 @@ def free_agent_data(
     next_days=(),
     next_games=None,
     season=None,
+    luck_rows=None,
 ):
     """The data of the free-agent table: the days and one row for each option who plays, best Val first.
 
@@ -246,10 +251,13 @@ def free_agent_data(
     band: the style of his team band (publish.band_style()).
     next_days: the Days of the first days of next week, from the core roster (slots.next_week_window()).
     next_games: {day: set of teams} of those days. next_open: the mark of each of these days that he fits.
+    luck_rows: {name_key: luck row} from luck.by_name_key() (#255). luck: his overall luck z, or None with no ready
+    category. luck_text: the text of the Luck page (luck.z_text()), or "". luck_cats: the z of each category.
     """
     nights = nights or {}
     roles = roles or {}
     next_games = next_games or {}
+    luck_rows = luck_rows or {}
 
     def market(v, base=replacement):
         return None if v is None or base is None else round(v - base, 2)
@@ -264,6 +272,7 @@ def free_agent_data(
         plays = [p.team in games.get(d.date, ()) for d in days]
         fits = [_fits(p, d, games) for d in days]
         role = roles.get((p.name, p.team))
+        lk = luck_cell(luck_rows.get(name_key(p.name)))
         players.append(
             {
                 "name": p.name,
@@ -284,6 +293,7 @@ def free_agent_data(
                 "role_up": list(o.role_up),
                 "band": site.band_style(p.team),
                 "next_open": [_open_label(d.date) for d in next_days if _fits(p, d, next_games)],
+                **lk,
             }
         )
     return {
@@ -302,6 +312,18 @@ def free_agent_data(
         "flag": FLAG,
         "rows": FREE_AGENT_ROWS,
     }
+
+
+def luck_cell(row):
+    """The Luck fields of one free agent: luck, luck_text and luck_cats. row: his luck row of luck.by_name_key().
+
+    No row, or no ready category: luck None, luck_text "" (an empty cell, not 0) and luck_cats "No ready category".
+    luck_cats: for example "STL +1.23 · BLK – · AST −0.40 · REB +0.10 · 3PM –". A dash: not ready.
+    """
+    if not row or row.get("luck") is None:
+        return {"luck": None, "luck_text": "", "luck_cats": "No ready category"}
+    cats = " · ".join(f"{luck.LABELS[c]} {luck.z_text(row.get(f'{c}_z'))}" for c in luck.CATEGORIES)
+    return {"luck": round(row["luck"], 4), "luck_text": luck.z_text(row["luck"]), "luck_cats": cats}
 
 
 def flag_legend(flags):
@@ -407,6 +429,7 @@ def free_agents_section(run):
         next_days,
         run.next_games,
         run.season,
+        run.luck,
     )
     data = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
     skip = f'<p class="skip" id="skip-note">{SKIP_NOTE}</p>\n' if run.recent_skip else ""
@@ -434,6 +457,11 @@ def free_agents_section(run):
         "A filter does not change Val, Next 7 or Match. Gms: his games on the selected days. "
         '<span class="flag">FA?</span> a value this high is unusual for a free agent. '
         '<span class="flag up">UP</span> role up: a starter at his position is absent.</p>\n'
+        '<p class="legend">Luck: his overall luck z from the <a href="../luck/">Luck page</a>: his makes against the '
+        "makes that his chances expect, in STL, BLK, AST, REB and 3PM. A negative Luck is unlucky. Point at a cell "
+        "for the z of each category. An empty cell: no ready category. A click on the Luck header shows the most "
+        "unlucky first. A second click turns the order. Luck shows on a screen 600px wide or more. "
+        "Luck does not change Val.</p>\n"
         f"{role_legend(roles, minutes_rise, adds.get('flags'))}{next_week_legend(next_days)}</details>\n"
         f'<script type="application/json" id="fa-data">{data}</script>\n<script>{SCRIPT}</script></section>'
     )
@@ -849,14 +877,21 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const fmt = v => v == null ? "—" : (v >= 0 ? "+" : "") + v.toFixed(2);
 const B2B = '<sup class="b2b" title="second game of a back-to-back">2</sup>';
-const state = {days: new Set(), pos: new Set(), teams: new Set(), fit: true, sort: "value"};
+const state = {days: new Set(), pos: new Set(), teams: new Set(), fit: true, sort: "value", asc: false};
 // The team filter (issue 140): a chip for each team of the free agents that the run read.
 const TEAMS = [...new Set(DATA.players.map(p => p.team))].sort();
 const hits = p => state.fit ? p.fits : p.plays;
 const games = p => hits(p).filter((h, i) => h && (!state.days.size || state.days.has(i))).length;
 const SORTS = {value: p => p.value ?? -99, games: p => games(p) * 100 + (p.value ?? -99),
   next7: p => p.next7 ?? -99, recent: p => p.recent ?? -99, match: p => p.match ?? -99};
-const SORT_NAMES = {value: "Val", next7: "Next 7", match: "Match", recent: "Recent", games: "Gms"};
+const SORT_NAMES = {value: "Val", next7: "Next 7", match: "Match", recent: "Recent", luck: "Luck", games: "Gms"};
+// Luck (issue 255) sorts in both directions: the first click shows the most unlucky first, the next click turns the
+// order. A player with no Luck comes last in both directions. The other columns sort the highest first.
+const order = (a, b) => {
+  if (state.sort !== "luck") return SORTS[state.sort](b) - SORTS[state.sort](a);
+  if (a.luck == null || b.luck == null) return (a.luck == null) - (b.luck == null);
+  return state.asc ? a.luck - b.luck : b.luck - a.luck;
+};
 // A day chip has an aria-label such as "Tue 10/27, 5 open slots, 4 NBA games". The visible text stays short.
 const chip = (label, sub, said, dim) => `<button type="button" class="chip${dim ? " none" : ""}" aria-pressed="false"`
   + `${said ? ` aria-label="${esc(`${label}, ${said}`)}"` : ""}>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}`
@@ -893,7 +928,7 @@ function render() {
   const rows = DATA.players.filter(p => [...state.days].every(i => hits(p)[i])
     && (!state.pos.size || p.pos.some(x => state.pos.has(x)))
     && (!state.teams.size || state.teams.has(p.team)))
-    .sort((a, b) => SORTS[state.sort](b) - SORTS[state.sort](a));
+    .sort(order);
   $("fa-count").textContent = rows.length
     ? `Top ${Math.min(DATA.rows, rows.length)} of ${rows.length} free agents that match the filters`
     : "0 free agents match the filters";
@@ -905,16 +940,18 @@ function render() {
     ? "No free agent plays on all selected days." : "No free agent matches the filters.";
   $("fa-clear-days").hidden = !state.days.size;
   // Each sort header holds a button. The th of the sorted column has aria-sort and shows an arrow.
-  const th = (key, cls) => `<th class="sort ${cls || ""}"${state.sort === key ? ' aria-sort="descending"' : ""}>`
+  const th = (key, cls) => `<th class="sort ${cls || ""}"`
+    + `${state.sort === key ? ` aria-sort="${state.asc ? "ascending" : "descending"}"` : ""}>`
     + `<button type="button" data-sort="${key}">${SORT_NAMES[key]}`
-    + `${state.sort === key ? '<span aria-hidden="true"> ▼</span>' : ""}</button></th>`;
+    + `${state.sort === key ? `<span aria-hidden="true"> ${state.asc ? "▲" : "▼"}</span>` : ""}</button></th>`;
   const sel = i => state.days.has(i) ? " sel" : "";
   const head = DATA.days.map((d, i) => `<th scope="col" class="day${i ? "" : " s1"}${sel(i)}">${d.label.slice(0, 2)}<br><small>${d.open}</small></th>`).join("");
   const active = document.activeElement;
   const focus = active && active.dataset ? active.dataset.sort : undefined;
-  $("fa-table").innerHTML = `<caption class="vh">Free agents, sorted by ${SORT_NAMES[state.sort]}, highest first`
+  $("fa-table").innerHTML = `<caption class="vh">Free agents, sorted by ${SORT_NAMES[state.sort]}, `
+    + `${state.asc ? "lowest" : "highest"} first`
     + `</caption><thead><tr><th scope="col" class="l">Team</th><th scope="col" class="l">Player</th>`
-    + `${th("value", "s1")}${th("next7", "wide")}${th("match")}${th("recent", "wide")}${th("games")}${head}</tr></thead><tbody>`
+    + `${th("value", "s1")}${th("next7", "wide")}${th("match")}${th("recent", "wide")}${th("luck", "wide")}${th("games")}${head}</tr></thead><tbody>`
     + rows.slice(0, DATA.rows).map(p =>
       `<tr><td class="band" style="${esc(p.band)}">${esc(p.team)}</td>`
       + `<th class="pl" scope="row"><b>${p.slug ? `<a class="lab-pname" href="#player=${p.slug}" data-player="${p.slug}">`
@@ -930,12 +967,17 @@ function render() {
       + `<td class="n s1${p.value < 0 ? " neg" : ""}">${fmt(p.value)}</td>`
       + `<td class="n wide${p.next7 < 0 ? " neg" : ""}">${fmt(p.next7)}</td>`
       + `<td class="n${p.match < 0 ? " neg" : ""}">${fmt(p.match)}</td><td class="n wide">${fmt(p.recent)}</td>`
+      + `<td class="n wide lk" title="${esc(p.luck_cats)}">${esc(p.luck_text)}</td>`
       + `<td class="n">${games(p)}</td>`
       + DATA.days.map((d, i) => `<td class="day${i ? "" : " s1"}${sel(i)}">${p.fits[i] ? DOT_FIT
         : p.plays[i] ? DOT_GAME : ""}${p.b2b[i] ? B2B : ""}</td>`).join("") + `</tr>`).join("")
       + `</tbody>`;
   $("fa-table").querySelectorAll("th.sort button").forEach(b => {
-    b.onclick = () => { state.sort = b.dataset.sort; render(); };
+    b.onclick = () => {
+      const key = b.dataset.sort;
+      state.asc = key === "luck" && (state.sort === "luck" ? !state.asc : true);
+      state.sort = key; render();
+    };
     // render() makes a new table. The sort button that had the focus gets it again.
     if (focus && b.dataset.sort === focus) b.focus();
   });
@@ -951,7 +993,7 @@ $("fa-clear-days").onclick = () => {
 // Reset filters restores the defaults: no days, no positions, no teams, only games that fill an open slot, sort by Val.
 // It also removes the filters of a plan link from the URL, so that a reload shows the defaults.
 $("fa-reset").onclick = () => {
-  state.days.clear(); state.pos.clear(); state.teams.clear(); state.fit = true; state.sort = "value";
+  state.days.clear(); state.pos.clear(); state.teams.clear(); state.fit = true; state.sort = "value"; state.asc = false;
   $("fit-only").checked = true; $("fa-from").hidden = true;
   try { if (location.search) history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
   render();

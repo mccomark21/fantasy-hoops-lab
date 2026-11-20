@@ -25,6 +25,9 @@ from fantasyhoops.core import publish as site
 from fantasyhoops.core import tokens
 from fantasyhoops.core.common import load_config
 from fantasyhoops.core.skyline import week_facts
+from fantasyhoops.luck import page as luck_page
+from fantasyhoops.players import luck
+from tests.luck import test_page as luck_test
 
 MON = date(2027, 1, 4)
 WEEK = [MON + timedelta(days=i) for i in range(7)]
@@ -116,6 +119,71 @@ def test_the_free_agent_data_has_market_values_and_the_days_of_each_player():
     assert chi["fits"] == [False, False, False, False, False, True, False]
     assert [d["open"] for d in data["days"]] == [2, 2, 0, 2, 0, 2, 0]
     assert data["rows"] == 10 and data["flag"] == page.FLAG
+
+
+def luck_row(value, **zs):
+    """A luck row of luck.by_name_key() with the overall luck value and the z of zs (the other z: None)."""
+    return {"luck": value, **{f"{c}_z": zs.get(c) for c in luck.CATEGORIES}}
+
+
+# #255: Chi One is unlucky in REB and STL. Star has no ready category. Phi & One is not in the stats file.
+LUCK = {"chi one": luck_row(-1.6971, reb=-2.0, stl=-0.4), "star": luck_row(None)}
+
+
+def test_the_free_agent_data_has_the_luck_and_the_z_of_each_category():
+    data = page.free_agent_data(OPTIONS, DAYS, GAMES, replacement=0.5, luck_rows=LUCK)
+    found = {p["name"]: (p["luck"], p["luck_text"], p["luck_cats"]) for p in data["players"]}
+    assert found["Chi One"] == (-1.6971, "−1.70", "STL −0.40 · BLK – · AST – · REB −2.00 · 3PM –")
+    # No ready category or no row: an empty cell, not 0.
+    assert found["Star"] == found["Phi & One"] == (None, "", "No ready category")
+
+
+def test_the_luck_of_the_free_agent_data_is_the_luck_of_the_luck_page():
+    table = luck.luck_table(luck_test.CURRENT, None, luck_test.CFG)
+    names = [("Al Mine", "DAL"), ("Bo Other", "BOS"), ("Cy Free", "NO"), ("Di Few", "ORL")]
+    options = [option(name, team, 1.0) for name, team in names]
+    data = page.free_agent_data(options, DAYS, GAMES, replacement=0.5, luck_rows=luck.by_name_key(table))
+    shown = {p["name"]: p["luck_text"] for p in data["players"]}
+    on_luck_page = {r["name"]: luck_page.z_text(r["luck"]) for r in luck_page.page_rows(table, luck_test.RECORDS)}
+    assert {n: t for n, t in shown.items() if t} == on_luck_page
+    assert shown["Di Few"] == ""  # not on the Luck page: 3 games, no ready category
+
+
+def test_the_page_explains_the_luck_column_and_links_the_luck_page():
+    html = fa(luck=LUCK)
+    assert 'href="../luck/">Luck page</a>' in html and "An empty cell: no ready category." in html
+
+
+def test_the_luck_header_sorts_the_most_unlucky_first_then_the_most_lucky_first():
+    lucky = option("Lucky", "PHI", 0.2)
+    luck_rows = {**LUCK, "phi one": luck_row(0.5), "lucky": luck_row(2.1, ast=2.1)}
+    with browser_page() as pg:
+        pg.set_content(fa(options=OPTIONS + [lucky], luck=luck_rows))
+        assert pg.locator("#fa-table td.lk").first.get_attribute("title") == "No ready category"
+        names = "els => els.map(e => e.textContent)"
+        pg.get_by_role("button", name="Luck", exact=True).click()
+        th = pg.locator("th.sort[aria-sort]")
+        assert th.get_attribute("aria-sort") == "ascending" and "▲" in th.inner_text()
+        assert pg.locator("#fa-table td.lk").evaluate_all(names) == ["−1.70", "+0.50", "+2.10", ""]
+        assert pg.get_by_role("table", name="Free agents, sorted by Luck, lowest first").count() == 1
+        pg.get_by_role("button", name="Luck", exact=True).click()
+        assert th.get_attribute("aria-sort") == "descending" and "▼" in th.inner_text()
+        assert pg.locator("#fa-table td.lk").evaluate_all(names) == ["+2.10", "+0.50", "−1.70", ""]
+        # Another column sorts the highest first again, and Reset filters sorts by Val.
+        pg.get_by_role("button", name="Gms", exact=True).click()
+        assert pg.locator("th.sort[aria-sort]").get_attribute("aria-sort") == "descending"
+        pg.get_by_role("button", name="Luck", exact=True).click()
+        pg.locator("#fa-reset").click()
+        assert pg.get_by_role("table", name="Free agents, sorted by Val, highest first").count() == 1
+
+
+@pytest.mark.parametrize("width, shown", [(390, False), (720, True)])
+def test_the_luck_column_shows_from_600px_as_next_7_and_recent(width, shown):
+    with browser_page(width=width) as pg:
+        pg.set_content(fa(luck=LUCK))
+        for key in ("luck", "next7", "recent"):
+            assert pg.locator(f'th.sort button[data-sort="{key}"]').is_visible() is shown, key
+        assert pg.locator("#fa-table td.lk").first.is_visible() is shown
 
 
 def test_the_free_agent_data_has_the_matchup_value_next_to_the_value():
@@ -848,7 +916,10 @@ MATCHUP_FIT = r"""width => {
 # The tables of the Roster look (#143): the run of GRID_RUN, with a free agent and a waiver player with a long name.
 LONG = option("Nickeil Alexander-Walker", "PHI", 0.8, ("SG", "SF"))
 WAIVER = Option(Player("Jonas Valanciunas", "CHI", ("C",), clear_day=WEEK[3]), 0.9)
-TABLE_RUN = replace(GRID_RUN, options=GRID_RUN.options + [LONG, WAIVER])
+# #255: the long name has a Luck of -2.34, the widest text of the column.
+TABLE_RUN = replace(
+    GRID_RUN, options=GRID_RUN.options + [LONG, WAIVER], luck={"nickeil alexander walker": luck_row(-2.3412)}
+)
 
 # The free-agent table and the waiver table (#143): each table is inside the page, and each child box of a cell
 # is inside the cell, with no sideways scroll of a cell.

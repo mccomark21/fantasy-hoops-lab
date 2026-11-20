@@ -4,6 +4,7 @@ font in output/luck/fonts/.
 The numbers come from players/luck.py: the chances, the makes and the expected makes a game, and the luck z of each
 category, then the overall luck. The page shows each player with a ready category (players/luck.py is_ready()).
 The owner of a player comes from the shared player file of the run (players.json, players/page.py), by name_key().
+The rows come from luck.by_name_key(), the source of the Luck column of the Free agents page (#255).
 A player who is not on a fantasy roster is a free agent.
 The filter: All players, My team, Other teams, Free agents. The default sort is the overall luck, the most unlucky
 first. A click on the header of Luck or of a z sorts by that column. A second click turns the order.
@@ -26,7 +27,6 @@ from fantasyhoops.players import luck
 CURRENT = "luck"  # the page in the site menu and its folder on the site (publish.TOOLS)
 GROUPS = {"all": "All players", "mine": "My team", "other": "Other teams", "fa": "Free agents"}
 STRONG = 2.0  # a z this far from 0 or more is bold
-MINUS = "−"
 
 
 def folder():
@@ -55,7 +55,9 @@ def page_rows(table, records):
     """
     found = owners(records)
     rows = []
-    for r in table[table["luck_count"] > 0].to_dict("records"):
+    for r in luck.by_name_key(table).values():  # the same rows as the Luck column of the Free agents page (#255)
+        if not r["luck_count"]:
+            continue
         owner, group, slug = found.get(r["name_key"], (None, "fa", None))
         row = {"name": r["name"], "team": r["team"], "gp": int(r["gp"]), "owner": owner, "group": group, "slug": slug}
         row["luck"] = _value(r["luck"])
@@ -73,11 +75,8 @@ def stats_date(data_dir=None):
 
 
 def z_text(z):
-    """The z with its sign, for example "+1.23" or "−0.40". None gives an en dash."""
-    if z is None:
-        return "–"
-    sign = "+" if z > 0 else MINUS if z < 0 else ""
-    return f"{sign}{abs(z):.2f}"
+    """The z with its sign, for example "+1.23" or "−0.40". None gives an en dash. See luck.z_text()."""
+    return luck.z_text(z)
 
 
 def _z_cell(z, cls=""):
